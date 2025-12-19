@@ -9,11 +9,11 @@ const getSORCodesContext = () => {
   ).join('\n');
 };
 
-export const extractPDFWithAI = async (pdfBase64: string): Promise<Partial<Job> | null> => {
+export const extractPDFWithAI = async (pdfText: string): Promise<Partial<Job> | null> => {
   try {
     const { data, error } = await supabase.functions.invoke('extract-pdf', {
       body: { 
-        pdfBase64,
+        pdfText,
         sorCodesContext: getSORCodesContext()
       }
     });

@@ -11,7 +11,7 @@ import { ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import { isToday, isThisWeek, isThisMonth } from 'date-fns';
 import { useJobs } from '@/hooks/useJobs';
 import { extractPDFWithAI } from '@/lib/api';
-import { fileToBase64 } from '@/lib/pdfUtils';
+import { extractTextFromPDF } from '@/lib/pdfUtils';
 
 type FilterType = 'all' | 'today' | 'week' | 'month';
 
@@ -26,12 +26,12 @@ const Index = () => {
   const handleFileUpload = async (file: File) => {
     setIsProcessing(true);
     try {
-      // Convert PDF to base64 for DeepSeek AI vision
-      const base64 = await fileToBase64(file);
-      console.log('PDF converted to base64, sending to DeepSeek AI...');
+      // Extract text from PDF using pdf.js
+      const text = await extractTextFromPDF(file);
+      console.log('Extracted PDF text:', text.substring(0, 500));
       
       // Use DeepSeek AI to extract job data
-      const extractedData = await extractPDFWithAI(base64);
+      const extractedData = await extractPDFWithAI(text);
       
       if (!extractedData) {
         throw new Error('No data extracted');
