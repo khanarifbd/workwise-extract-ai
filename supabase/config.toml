@@ -1,1 +1,13 @@
 project_id = "rluhsstejgkghgheebgt"
+
+[functions.extract-pdf]
+verify_jwt = false
+
+[functions.extract-image]
+verify_jwt = false
+
+[functions.convert-description]
+verify_jwt = false
+
+[functions.send-whatsapp]
+verify_jwt = false

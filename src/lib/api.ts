@@ -34,6 +34,32 @@ export const extractPDFWithAI = async (pdfText: string): Promise<Partial<Job> | 
   }
 };
 
+export const extractImageWithAI = async (imageBase64: string, mimeType: string): Promise<Partial<Job> | null> => {
+  try {
+    const { data, error } = await supabase.functions.invoke('extract-image', {
+      body: { 
+        imageBase64,
+        mimeType,
+        sorCodesContext: getSORCodesContext()
+      }
+    });
+
+    if (error) {
+      console.error('Error calling extract-image function:', error);
+      throw error;
+    }
+
+    if (!data?.success) {
+      throw new Error(data?.error || 'Failed to extract image');
+    }
+
+    return data.data;
+  } catch (error) {
+    console.error('Error extracting image:', error);
+    throw error;
+  }
+};
+
 export const convertDescriptionToWorkItems = async (description: string): Promise<WorkItem[]> => {
   try {
     const { data, error } = await supabase.functions.invoke('convert-description', {
