@@ -6,52 +6,37 @@ import { Header } from '@/components/Header';
 import { StatsCards } from '@/components/StatsCards';
 import { ExportPanel } from '@/components/ExportPanel';
 import { useToast } from '@/hooks/use-toast';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { LayoutGrid, Table2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ChevronDown, ChevronUp } from 'lucide-react';
+import { isToday, isThisWeek, isThisMonth } from 'date-fns';
+import { findMatchingSORCode } from '@/data/sorCodes';
 
-// Sample SOR codes for matching
-const SOR_CODES = [
-  { code: 'SOR001', keywords: ['radiator', 'heating', 'install'] },
-  { code: 'SOR002', keywords: ['tap', 'leak', 'plumbing'] },
-  { code: 'SOR003', keywords: ['window', 'glass', 'glazing'] },
-  { code: 'SOR004', keywords: ['socket', 'electrical', 'power'] },
-  { code: 'SOR005', keywords: ['light', 'fitting', 'lamp'] },
-  { code: 'SOR006', keywords: ['door', 'lock', 'handle'] },
-  { code: 'SOR007', keywords: ['roof', 'tiles', 'roofing'] },
-  { code: 'SOR008', keywords: ['drain', 'blocked', 'clear'] },
-  { code: 'SOR009', keywords: ['plaster', 'wall', 'repair'] },
-  { code: 'SOR010', keywords: ['paint', 'decorate', 'walls'] },
-];
-
-const matchSORCode = (description: string): string => {
-  const lowerDesc = description.toLowerCase();
-  for (const sor of SOR_CODES) {
-    if (sor.keywords.some(keyword => lowerDesc.includes(keyword))) {
-      return sor.code;
-    }
-  }
-  return 'SOR000';
-};
-
+// PDF extraction with SOR matching
 const extractJobFromPDF = (file: File): Promise<Partial<Job>> => {
-  // Simulate PDF extraction - in production, this would use a PDF parsing library
   return new Promise((resolve) => {
     setTimeout(() => {
+      // Simulated extraction - would use real PDF parsing in production
       const mockDescriptions = [
-        'Repair leaking tap in kitchen',
+        'Repair leaking tap in kitchen sink',
         'Replace broken window pane in bedroom',
         'Fix faulty electrical socket in living room',
         'Install new light fitting in hallway',
-        'Clear blocked drain in bathroom'
+        'Clear blocked drain in bathroom',
+        'Repair damaged plaster on living room wall',
+        'Replace door handle on front door',
+        'Fix radiator leak in bedroom'
       ];
 
-      const workItems: WorkItem[] = mockDescriptions.map(desc => ({
-        id: crypto.randomUUID(),
-        description: desc,
-        sorCode: matchSORCode(desc),
-        qty: 1,
-        cost: Math.floor(Math.random() * 200) + 50
-      }));
+      const workItems: WorkItem[] = mockDescriptions.map(desc => {
+        const { code } = findMatchingSORCode(desc);
+        return {
+          id: crypto.randomUUID(),
+          description: desc,
+          sorCode: code,
+          qty: 1,
+          cost: Math.floor(Math.random() * 200) + 50
+        };
+      });
 
       resolve({
         id: crypto.randomUUID(),
@@ -59,8 +44,8 @@ const extractJobFromPDF = (file: File): Promise<Partial<Job>> => {
         name: 'John Smith',
         address: '123 Example Street, London, SW1A 1AA',
         phoneNumber: '+44 7700 900123',
-        summaryOfWorks: 'General repairs and maintenance required across multiple areas of the property',
-        description: mockDescriptions.join('. '),
+        summaryOfWorks: 'General repairs and maintenance required across multiple areas of the property including plumbing, electrical, and general building works.',
+        description: mockDescriptions.join('. ') + '. Additional works may be required upon inspection of the property. Please ensure access is available during working hours.',
         workItems,
         additionalWorks: [],
         team: null,
@@ -76,10 +61,14 @@ const extractJobFromPDF = (file: File): Promise<Partial<Job>> => {
   });
 };
 
+type FilterType = 'all' | 'today' | 'week' | 'month';
+
 const Index = () => {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showExport, setShowExport] = useState(false);
+  const [uploadExpanded, setUploadExpanded] = useState(false);
+  const [filter, setFilter] = useState<FilterType>('all');
   const { toast } = useToast();
 
   const handleFileUpload = async (file: File) => {
@@ -107,9 +96,10 @@ const Index = () => {
       };
       
       setJobs(prev => [...prev, newJob]);
+      setUploadExpanded(false);
       toast({
         title: "Job Extracted Successfully",
-        description: `Job #${newJob.jobNumber} has been added with ${newJob.workItems.length} work items.`,
+        description: `Job #${newJob.jobNumber} added with ${newJob.workItems.length} work items matched to SOR codes.`,
       });
     } catch (error) {
       toast({
@@ -141,36 +131,86 @@ const Index = () => {
     });
   };
 
+  // Filter jobs based on selected filter
+  const filteredJobs = jobs.filter(job => {
+    const date = job.dateIssued;
+    switch (filter) {
+      case 'today':
+        return isToday(date);
+      case 'week':
+        return isThisWeek(date);
+      case 'month':
+        return isThisMonth(date);
+      default:
+        return true;
+    }
+  });
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <Header onExport={() => setShowExport(true)} jobCount={jobs.length} />
       
-      <main className="container mx-auto px-6 py-8 space-y-8">
-        {/* Stats Overview */}
-        <StatsCards jobs={jobs} />
+      <main className="flex-1 container mx-auto px-4 py-4 flex flex-col gap-4">
+        {/* Compact Stats Row */}
+        <div className="flex items-center justify-between gap-4">
+          <StatsCards jobs={filteredJobs} />
+          
+          <div className="flex items-center gap-2">
+            <Select value={filter} onValueChange={(v) => setFilter(v as FilterType)}>
+              <SelectTrigger className="w-32 h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Jobs</SelectItem>
+                <SelectItem value="today">Today</SelectItem>
+                <SelectItem value="week">This Week</SelectItem>
+                <SelectItem value="month">This Month</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
 
-        {/* PDF Upload Section */}
-        <section className="bg-card border border-border rounded-2xl p-6">
-          <h2 className="text-lg font-semibold mb-4">Upload Job PDF</h2>
-          <PDFDropZone onFileUpload={handleFileUpload} isProcessing={isProcessing} />
+        {/* Collapsible Upload Section - 5% */}
+        <section 
+          className="bg-card border border-border rounded-lg overflow-hidden"
+          style={{ maxHeight: uploadExpanded ? '200px' : '48px' }}
+        >
+          <button
+            onClick={() => setUploadExpanded(!uploadExpanded)}
+            className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors"
+          >
+            <span className="text-sm font-medium">Upload Job PDF</span>
+            {uploadExpanded ? (
+              <ChevronUp className="w-4 h-4 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="w-4 h-4 text-muted-foreground" />
+            )}
+          </button>
+          {uploadExpanded && (
+            <div className="px-4 pb-4">
+              <PDFDropZone onFileUpload={handleFileUpload} isProcessing={isProcessing} />
+            </div>
+          )}
         </section>
 
-        {/* Jobs Database */}
-        <section className="bg-card border border-border rounded-2xl p-6">
-          <div className="flex items-center justify-between mb-6">
+        {/* Jobs Database - Takes remaining ~80% of screen */}
+        <section className="flex-1 bg-card border border-border rounded-lg p-4 min-h-0 overflow-hidden flex flex-col">
+          <div className="flex items-center justify-between mb-3">
             <div>
-              <h2 className="text-lg font-semibold">Jobs Database</h2>
-              <p className="text-sm text-muted-foreground">
-                Manage and track all your jobs
+              <h2 className="text-base font-semibold">Jobs Database</h2>
+              <p className="text-xs text-muted-foreground">
+                {filteredJobs.length} of {jobs.length} jobs
               </p>
             </div>
           </div>
           
-          <JobTable 
-            jobs={jobs} 
-            onUpdateJob={handleUpdateJob}
-            onDeleteJob={handleDeleteJob}
-          />
+          <div className="flex-1 overflow-auto">
+            <JobTable 
+              jobs={filteredJobs} 
+              onUpdateJob={handleUpdateJob}
+              onDeleteJob={handleDeleteJob}
+            />
+          </div>
         </section>
       </main>
 
