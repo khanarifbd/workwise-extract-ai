@@ -14,7 +14,72 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      jobs: {
+        Row: {
+          additional_works: Json | null
+          address: string | null
+          attachments: Json | null
+          completion_date: string | null
+          created_at: string
+          date_issued: string | null
+          description: string | null
+          id: string
+          is_completed: boolean | null
+          job_number: string
+          name: string
+          phone_number: string | null
+          progress: number | null
+          progress_notes: string | null
+          start_date: string | null
+          summary_of_works: string | null
+          team: string | null
+          updated_at: string
+          work_items: Json | null
+        }
+        Insert: {
+          additional_works?: Json | null
+          address?: string | null
+          attachments?: Json | null
+          completion_date?: string | null
+          created_at?: string
+          date_issued?: string | null
+          description?: string | null
+          id?: string
+          is_completed?: boolean | null
+          job_number: string
+          name: string
+          phone_number?: string | null
+          progress?: number | null
+          progress_notes?: string | null
+          start_date?: string | null
+          summary_of_works?: string | null
+          team?: string | null
+          updated_at?: string
+          work_items?: Json | null
+        }
+        Update: {
+          additional_works?: Json | null
+          address?: string | null
+          attachments?: Json | null
+          completion_date?: string | null
+          created_at?: string
+          date_issued?: string | null
+          description?: string | null
+          id?: string
+          is_completed?: boolean | null
+          job_number?: string
+          name?: string
+          phone_number?: string | null
+          progress?: number | null
+          progress_notes?: string | null
+          start_date?: string | null
+          summary_of_works?: string | null
+          team?: string | null
+          updated_at?: string
+          work_items?: Json | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
