@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
-import { Job, WorkItem } from '@/types/job';
-import { PDFDropZone } from '@/components/PDFDropZone';
+import { useState } from 'react';
+import { Job } from '@/types/job';
+import { FileDropZone } from '@/components/FileDropZone';
 import { JobTable } from '@/components/JobTable';
 import { Header } from '@/components/Header';
 import { StatsCards } from '@/components/StatsCards';
@@ -10,10 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import { isToday, isThisWeek, isThisMonth } from 'date-fns';
 import { useJobs } from '@/hooks/useJobs';
-import { extractPDFWithAI } from '@/lib/api';
+import { extractPDFWithAI, extractImageWithAI } from '@/lib/api';
 import { extractTextFromPDF } from '@/lib/pdfUtils';
 
 type FilterType = 'all' | 'today' | 'week' | 'month';
+type FileType = 'pdf' | 'image';
 
 const Index = () => {
   const { jobs, isLoading, addJob, editJob, removeJob } = useJobs();
@@ -23,15 +24,22 @@ const Index = () => {
   const [filter, setFilter] = useState<FilterType>('all');
   const { toast } = useToast();
 
-  const handleFileUpload = async (file: File) => {
+  const handleFileUpload = async (file: File, type: FileType) => {
     setIsProcessing(true);
     try {
-      // Extract text from PDF using pdf.js
-      const text = await extractTextFromPDF(file);
-      console.log('Extracted PDF text:', text.substring(0, 500));
-      
-      // Use DeepSeek AI to extract job data
-      const extractedData = await extractPDFWithAI(text);
+      let extractedData: Partial<Job> | null = null;
+
+      if (type === 'pdf') {
+        // Extract text from PDF using pdf.js
+        const text = await extractTextFromPDF(file);
+        console.log('Extracted PDF text:', text.substring(0, 500));
+        extractedData = await extractPDFWithAI(text);
+      } else if (type === 'image') {
+        // Convert image to base64 and use OCR
+        const base64 = await fileToBase64(file);
+        console.log('Processing image for OCR, size:', file.size);
+        extractedData = await extractImageWithAI(base64, file.type);
+      }
       
       if (!extractedData) {
         throw new Error('No data extracted');
@@ -69,12 +77,27 @@ const Index = () => {
       console.error('Extraction error:', error);
       toast({
         title: "Extraction Failed",
-        description: error instanceof Error ? error.message : "Could not extract job details from the PDF.",
+        description: error instanceof Error ? error.message : "Could not extract job details from the file.",
         variant: "destructive",
       });
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  // Helper to convert File to base64
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        // Remove the data URL prefix (e.g., "data:image/jpeg;base64,")
+        const base64 = result.split(',')[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
   };
 
   const handleUpdateJob = async (updatedJob: Job) => {
@@ -169,7 +192,7 @@ const Index = () => {
             onClick={() => setUploadExpanded(!uploadExpanded)}
             className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors"
           >
-            <span className="text-sm font-medium">Upload Job PDF</span>
+            <span className="text-sm font-medium">Upload Job (PDF or Image)</span>
             {uploadExpanded ? (
               <ChevronUp className="w-4 h-4 text-muted-foreground" />
             ) : (
@@ -178,7 +201,7 @@ const Index = () => {
           </button>
           {uploadExpanded && (
             <div className="px-4 pb-4">
-              <PDFDropZone onFileUpload={handleFileUpload} isProcessing={isProcessing} />
+              <FileDropZone onFileUpload={handleFileUpload} isProcessing={isProcessing} />
             </div>
           )}
         </section>
