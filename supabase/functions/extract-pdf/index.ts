@@ -11,23 +11,23 @@ serve(async (req) => {
   }
 
   try {
-    const { pdfText, sorCodesContext } = await req.json();
+    const { pdfBase64, sorCodesContext } = await req.json();
     
-    if (!pdfText) {
+    if (!pdfBase64) {
       return new Response(
-        JSON.stringify({ error: 'PDF text is required' }),
+        JSON.stringify({ error: 'PDF base64 data is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
+    const DEEPSEEK_API_KEY = Deno.env.get('DEEPSEEK_API_KEY');
+    if (!DEEPSEEK_API_KEY) {
+      throw new Error('DEEPSEEK_API_KEY is not configured');
     }
 
-    console.log('Processing PDF text for extraction...');
+    console.log('Processing PDF with DeepSeek AI...');
 
-    const systemPrompt = `You are a job extraction specialist. Extract the following information from the provided text:
+    const systemPrompt = `You are a job extraction specialist. Extract the following information from the provided PDF document:
 - NAME: The customer/client name
 - ADDRESS: The full property address
 - PHONE: Phone number
@@ -57,52 +57,69 @@ Return the data in this exact JSON format:
 
 Be precise and extract all relevant information. If a field is not found, use an empty string or empty array as appropriate.`;
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'deepseek-chat',
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Extract job information from this document:\n\n${pdfText}` }
+          { 
+            role: 'user', 
+            content: [
+              {
+                type: 'text',
+                text: 'Extract job information from this PDF document. Analyze the content and extract all relevant job details.'
+              },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: pdfBase64
+                }
+              }
+            ]
+          }
         ],
+        max_tokens: 4096,
       }),
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('DeepSeek API error:', response.status, errorText);
+      
       if (response.status === 429) {
         return new Response(
           JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
           { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      if (response.status === 402) {
+      if (response.status === 402 || response.status === 401) {
         return new Response(
-          JSON.stringify({ error: 'AI credits exhausted. Please add more credits.' }),
+          JSON.stringify({ error: 'API authentication failed. Please check your DeepSeek API key.' }),
           { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      const errorText = await response.text();
-      console.error('AI gateway error:', response.status, errorText);
-      throw new Error(`AI gateway error: ${response.status}`);
+      throw new Error(`DeepSeek API error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content;
 
     if (!content) {
-      throw new Error('No content in AI response');
+      throw new Error('No content in DeepSeek response');
     }
 
-    console.log('AI extraction completed');
+    console.log('DeepSeek extraction completed');
+    console.log('Raw response:', content.substring(0, 500));
 
     // Parse the JSON from the response
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      throw new Error('Could not parse JSON from AI response');
+      throw new Error('Could not parse JSON from DeepSeek response');
     }
 
     const extractedData = JSON.parse(jsonMatch[0]);
