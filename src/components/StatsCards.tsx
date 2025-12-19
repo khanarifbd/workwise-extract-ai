@@ -1,3 +1,4 @@
+import { forwardRef } from 'react';
 import { Job } from '@/types/job';
 import { 
   Briefcase, 
@@ -12,7 +13,7 @@ interface StatsCardsProps {
   jobs: Job[];
 }
 
-export const StatsCards = ({ jobs }: StatsCardsProps) => {
+export const StatsCards = forwardRef<HTMLDivElement, StatsCardsProps>(({ jobs }, ref) => {
   const totalJobs = jobs.length;
   const completedJobs = jobs.filter(j => j.isCompleted).length;
   const inProgressJobs = jobs.filter(j => !j.isCompleted).length;
@@ -22,61 +23,31 @@ export const StatsCards = ({ jobs }: StatsCardsProps) => {
     : 0;
 
   const stats = [
-    {
-      label: 'Total Jobs',
-      value: totalJobs,
-      icon: Briefcase,
-      color: 'text-primary',
-      bg: 'bg-primary/10'
-    },
-    {
-      label: 'Completed',
-      value: completedJobs,
-      icon: CheckCircle2,
-      color: 'text-success',
-      bg: 'bg-success/10'
-    },
-    {
-      label: 'In Progress',
-      value: inProgressJobs,
-      icon: Clock,
-      color: 'text-warning',
-      bg: 'bg-warning/10'
-    },
-    {
-      label: 'Teams Assigned',
-      value: assignedJobs,
-      icon: Users,
-      color: 'text-primary',
-      bg: 'bg-primary/10'
-    },
-    {
-      label: 'Avg Progress',
-      value: `${avgProgress}%`,
-      icon: TrendingUp,
-      color: 'text-success',
-      bg: 'bg-success/10'
-    },
+    { label: 'Total', value: totalJobs, icon: Briefcase, color: 'text-primary', bg: 'bg-primary/10' },
+    { label: 'Done', value: completedJobs, icon: CheckCircle2, color: 'text-success', bg: 'bg-success/10' },
+    { label: 'Active', value: inProgressJobs, icon: Clock, color: 'text-warning', bg: 'bg-warning/10' },
+    { label: 'Assigned', value: assignedJobs, icon: Users, color: 'text-primary', bg: 'bg-primary/10' },
+    { label: 'Avg %', value: `${avgProgress}%`, icon: TrendingUp, color: 'text-success', bg: 'bg-success/10' },
   ];
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+    <div ref={ref} className="flex flex-wrap gap-2">
       {stats.map((stat) => (
         <div 
           key={stat.label}
-          className="bg-card border border-border rounded-xl p-4 hover:shadow-md transition-shadow"
+          className="flex items-center gap-2 bg-card border border-border rounded-lg px-3 py-2"
         >
-          <div className="flex items-center gap-3">
-            <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center", stat.bg)}>
-              <stat.icon className={cn("w-5 h-5", stat.color)} />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-foreground">{stat.value}</p>
-              <p className="text-xs text-muted-foreground">{stat.label}</p>
-            </div>
+          <div className={cn("w-7 h-7 rounded-md flex items-center justify-center", stat.bg)}>
+            <stat.icon className={cn("w-4 h-4", stat.color)} />
+          </div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-lg font-bold text-foreground">{stat.value}</span>
+            <span className="text-xs text-muted-foreground">{stat.label}</span>
           </div>
         </div>
       ))}
     </div>
   );
-};
+});
+
+StatsCards.displayName = 'StatsCards';
