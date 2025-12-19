@@ -20,12 +20,12 @@ serve(async (req) => {
       );
     }
 
-    const DEEPSEEK_API_KEY = Deno.env.get('DEEPSEEK_API_KEY');
-    if (!DEEPSEEK_API_KEY) {
-      throw new Error('DEEPSEEK_API_KEY is not configured');
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    if (!LOVABLE_API_KEY) {
+      throw new Error('LOVABLE_API_KEY is not configured');
     }
 
-    console.log('Processing PDF text with DeepSeek AI...');
+    console.log('Processing PDF text with Lovable AI (Gemini 2.5 Flash)...');
     console.log('Text length:', pdfText.length);
 
     const systemPrompt = `You are a job extraction specialist. Extract the following information from the provided text:
@@ -58,25 +58,24 @@ Return the data in this exact JSON format:
 
 Be precise and extract all relevant information. If a field is not found, use an empty string or empty array as appropriate.`;
 
-    const response = await fetch('https://api.deepseek.com/chat/completions', {
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'deepseek-chat',
+        model: 'google/gemini-2.5-flash',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: `Extract job information from this document:\n\n${pdfText}` }
         ],
-        max_tokens: 4096,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('DeepSeek API error:', response.status, errorText);
+      console.error('Lovable AI error:', response.status, errorText);
 
       if (response.status === 429) {
         return new Response(
@@ -85,45 +84,30 @@ Be precise and extract all relevant information. If a field is not found, use an
         );
       }
 
-      if (response.status === 401) {
-        return new Response(
-          JSON.stringify({ error: 'DeepSeek authentication failed. Please update your DeepSeek API key.' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
       if (response.status === 402) {
-        // DeepSeek commonly uses 402 for "Insufficient Balance"
-        let details = '';
-        try {
-          const parsed = JSON.parse(errorText);
-          details = parsed?.error?.message ? ` (${parsed.error.message})` : '';
-        } catch {
-          // ignore
-        }
         return new Response(
-          JSON.stringify({ error: `DeepSeek payment required / insufficient balance${details}. Please top up your DeepSeek account, then try again.` }),
+          JSON.stringify({ error: 'AI credits exhausted. Please add more credits to your Lovable workspace.' }),
           { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      throw new Error(`DeepSeek API error: ${response.status} - ${errorText}`);
+      throw new Error(`Lovable AI error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content;
 
     if (!content) {
-      throw new Error('No content in DeepSeek response');
+      throw new Error('No content in AI response');
     }
 
-    console.log('DeepSeek extraction completed');
+    console.log('Lovable AI extraction completed');
     console.log('Raw response preview:', content.substring(0, 300));
 
     // Parse the JSON from the response
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      throw new Error('Could not parse JSON from DeepSeek response');
+      throw new Error('Could not parse JSON from AI response');
     }
 
     const extractedData = JSON.parse(jsonMatch[0]);
