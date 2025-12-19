@@ -11,6 +11,7 @@ import { ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import { isToday, isThisWeek, isThisMonth } from 'date-fns';
 import { useJobs } from '@/hooks/useJobs';
 import { extractPDFWithAI } from '@/lib/api';
+import { extractTextFromPDF } from '@/lib/pdfUtils';
 
 type FilterType = 'all' | 'today' | 'week' | 'month';
 
@@ -25,8 +26,9 @@ const Index = () => {
   const handleFileUpload = async (file: File) => {
     setIsProcessing(true);
     try {
-      // Read file as text (for PDF, we'd use a PDF parsing library)
-      const text = await file.text();
+      // Extract text from PDF using pdf.js
+      const text = await extractTextFromPDF(file);
+      console.log('Extracted PDF text:', text.substring(0, 500));
       
       // Use AI to extract job data
       const extractedData = await extractPDFWithAI(text);
