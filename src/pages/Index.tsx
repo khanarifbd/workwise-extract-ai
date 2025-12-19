@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Job, WorkItem } from '@/types/job';
 import { PDFDropZone } from '@/components/PDFDropZone';
 import { JobTable } from '@/components/JobTable';
@@ -7,64 +7,15 @@ import { StatsCards } from '@/components/StatsCards';
 import { ExportPanel } from '@/components/ExportPanel';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import { isToday, isThisWeek, isThisMonth } from 'date-fns';
-import { findMatchingSORCode } from '@/data/sorCodes';
-
-// PDF extraction with SOR matching
-const extractJobFromPDF = (file: File): Promise<Partial<Job>> => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      // Simulated extraction - would use real PDF parsing in production
-      const mockDescriptions = [
-        'Repair leaking tap in kitchen sink',
-        'Replace broken window pane in bedroom',
-        'Fix faulty electrical socket in living room',
-        'Install new light fitting in hallway',
-        'Clear blocked drain in bathroom',
-        'Repair damaged plaster on living room wall',
-        'Replace door handle on front door',
-        'Fix radiator leak in bedroom'
-      ];
-
-      const workItems: WorkItem[] = mockDescriptions.map(desc => {
-        const { code } = findMatchingSORCode(desc);
-        return {
-          id: crypto.randomUUID(),
-          description: desc,
-          sorCode: code,
-          qty: 1,
-          cost: Math.floor(Math.random() * 200) + 50
-        };
-      });
-
-      resolve({
-        id: crypto.randomUUID(),
-        jobNumber: `JOB-${Date.now().toString().slice(-6)}`,
-        name: 'John Smith',
-        address: '123 Example Street, London, SW1A 1AA',
-        phoneNumber: '+44 7700 900123',
-        summaryOfWorks: 'General repairs and maintenance required across multiple areas of the property including plumbing, electrical, and general building works.',
-        description: mockDescriptions.join('. ') + '. Additional works may be required upon inspection of the property. Please ensure access is available during working hours.',
-        workItems,
-        additionalWorks: [],
-        team: null,
-        progress: 0,
-        progressNotes: '',
-        isCompleted: false,
-        dateIssued: new Date(),
-        startDate: null,
-        completionDate: null,
-        attachments: []
-      });
-    }, 2000);
-  });
-};
+import { useJobs } from '@/hooks/useJobs';
+import { extractPDFWithAI } from '@/lib/api';
 
 type FilterType = 'all' | 'today' | 'week' | 'month';
 
 const Index = () => {
-  const [jobs, setJobs] = useState<Job[]>([]);
+  const { jobs, isLoading, addJob, editJob, removeJob } = useJobs();
   const [isProcessing, setIsProcessing] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [uploadExpanded, setUploadExpanded] = useState(false);
@@ -74,37 +25,49 @@ const Index = () => {
   const handleFileUpload = async (file: File) => {
     setIsProcessing(true);
     try {
-      const extractedData = await extractJobFromPDF(file);
-      const newJob: Job = {
-        id: extractedData.id || crypto.randomUUID(),
-        jobNumber: extractedData.jobNumber || '',
-        name: extractedData.name || '',
+      // Read file as text (for PDF, we'd use a PDF parsing library)
+      const text = await file.text();
+      
+      // Use AI to extract job data
+      const extractedData = await extractPDFWithAI(text);
+      
+      if (!extractedData) {
+        throw new Error('No data extracted');
+      }
+
+      const newJob: Omit<Job, 'id'> = {
+        jobNumber: extractedData.jobNumber || `JOB-${Date.now().toString().slice(-6)}`,
+        name: extractedData.name || 'Unknown',
         address: extractedData.address || '',
         phoneNumber: extractedData.phoneNumber || '',
         summaryOfWorks: extractedData.summaryOfWorks || '',
         description: extractedData.description || '',
-        workItems: extractedData.workItems || [],
-        additionalWorks: extractedData.additionalWorks || [],
-        team: extractedData.team || null,
-        progress: extractedData.progress || 0,
-        progressNotes: extractedData.progressNotes || '',
-        isCompleted: extractedData.isCompleted || false,
-        dateIssued: extractedData.dateIssued || new Date(),
-        startDate: extractedData.startDate || null,
-        completionDate: extractedData.completionDate || null,
-        attachments: extractedData.attachments || []
+        workItems: (extractedData.workItems || []).map((item: any) => ({
+          ...item,
+          id: crypto.randomUUID()
+        })),
+        additionalWorks: [],
+        team: null,
+        progress: 0,
+        progressNotes: '',
+        isCompleted: false,
+        dateIssued: new Date(),
+        startDate: null,
+        completionDate: null,
+        attachments: []
       };
       
-      setJobs(prev => [...prev, newJob]);
+      await addJob(newJob);
       setUploadExpanded(false);
       toast({
         title: "Job Extracted Successfully",
         description: `Job #${newJob.jobNumber} added with ${newJob.workItems.length} work items matched to SOR codes.`,
       });
     } catch (error) {
+      console.error('Extraction error:', error);
       toast({
         title: "Extraction Failed",
-        description: "Could not extract job details from the PDF.",
+        description: error instanceof Error ? error.message : "Could not extract job details from the PDF.",
         variant: "destructive",
       });
     } finally {
@@ -112,23 +75,37 @@ const Index = () => {
     }
   };
 
-  const handleUpdateJob = (updatedJob: Job) => {
-    setJobs(prev => prev.map(job => 
-      job.id === updatedJob.id ? updatedJob : job
-    ));
-    toast({
-      title: "Job Updated",
-      description: `Job #${updatedJob.jobNumber} has been updated.`,
-    });
+  const handleUpdateJob = async (updatedJob: Job) => {
+    try {
+      await editJob(updatedJob.id, updatedJob);
+      toast({
+        title: "Job Updated",
+        description: `Job #${updatedJob.jobNumber} has been updated.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Update Failed",
+        description: "Could not update the job.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleDeleteJob = (jobId: string) => {
+  const handleDeleteJob = async (jobId: string) => {
     const job = jobs.find(j => j.id === jobId);
-    setJobs(prev => prev.filter(j => j.id !== jobId));
-    toast({
-      title: "Job Deleted",
-      description: `Job #${job?.jobNumber} has been removed.`,
-    });
+    try {
+      await removeJob(jobId);
+      toast({
+        title: "Job Deleted",
+        description: `Job #${job?.jobNumber} has been removed.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Delete Failed",
+        description: "Could not delete the job.",
+        variant: "destructive",
+      });
+    }
   };
 
   // Filter jobs based on selected filter
@@ -145,6 +122,17 @@ const Index = () => {
         return true;
     }
   });
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Loading jobs...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">

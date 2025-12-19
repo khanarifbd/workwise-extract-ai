@@ -4,25 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Wand2, Loader2, X, Check } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-
-// Sample SOR codes from the SOR 7.2 v2 book (in production, this would come from the actual PDF)
-const SOR_CODES_DATABASE = [
-  { code: 'SOR001', description: 'Supply and install new radiator', category: 'Heating' },
-  { code: 'SOR002', description: 'Repair leaking tap', category: 'Plumbing' },
-  { code: 'SOR003', description: 'Replace broken window pane', category: 'Glazing' },
-  { code: 'SOR004', description: 'Repair faulty socket', category: 'Electrical' },
-  { code: 'SOR005', description: 'Install new light fitting', category: 'Electrical' },
-  { code: 'SOR006', description: 'Replace door lock', category: 'Carpentry' },
-  { code: 'SOR007', description: 'Repair roof tiles', category: 'Roofing' },
-  { code: 'SOR008', description: 'Clear blocked drain', category: 'Drainage' },
-  { code: 'SOR009', description: 'Patch plaster repair', category: 'Plastering' },
-  { code: 'SOR010', description: 'Paint internal walls', category: 'Decorating' },
-  { code: 'SOR011', description: 'Replace kitchen unit', category: 'Carpentry' },
-  { code: 'SOR012', description: 'Install extractor fan', category: 'Ventilation' },
-  { code: 'SOR013', description: 'Repair fence panel', category: 'External' },
-  { code: 'SOR014', description: 'Replace toilet seat', category: 'Plumbing' },
-  { code: 'SOR015', description: 'Repair floor boards', category: 'Carpentry' },
-];
+import { convertDescriptionToWorkItems } from '@/lib/api';
+import { useToast } from '@/hooks/use-toast';
 
 interface AIWorkConverterProps {
   onConvert: (workItems: WorkItem[]) => void;
@@ -33,48 +16,26 @@ export const AIWorkConverter = ({ onConvert, onClose }: AIWorkConverterProps) =>
   const [description, setDescription] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [convertedItems, setConvertedItems] = useState<WorkItem[]>([]);
-
-  const matchSORCode = (workDescription: string): string => {
-    const lowerDesc = workDescription.toLowerCase();
-    
-    // Find best matching SOR code based on keywords
-    const matches = SOR_CODES_DATABASE.filter(sor => {
-      const keywords = sor.description.toLowerCase().split(' ');
-      return keywords.some(keyword => 
-        keyword.length > 3 && lowerDesc.includes(keyword)
-      );
-    });
-
-    return matches.length > 0 ? matches[0].code : 'SOR000';
-  };
-
-  const parseDescriptionToWorks = (text: string): WorkItem[] => {
-    // Split by common delimiters and clean up
-    const lines = text
-      .split(/[,.\n;]/)
-      .map(line => line.trim())
-      .filter(line => line.length > 5);
-
-    return lines.map(line => ({
-      id: crypto.randomUUID(),
-      description: line.charAt(0).toUpperCase() + line.slice(1),
-      sorCode: matchSORCode(line),
-      qty: 1,
-      cost: 0
-    }));
-  };
+  const { toast } = useToast();
 
   const handleConvert = async () => {
     if (!description.trim()) return;
 
     setIsProcessing(true);
     
-    // Simulate AI processing delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    const items = parseDescriptionToWorks(description);
-    setConvertedItems(items);
-    setIsProcessing(false);
+    try {
+      const items = await convertDescriptionToWorkItems(description);
+      setConvertedItems(items);
+    } catch (error) {
+      console.error('Conversion error:', error);
+      toast({
+        title: "Conversion Failed",
+        description: error instanceof Error ? error.message : "Could not convert description to work items.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleConfirm = () => {

@@ -199,6 +199,7 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob }: JobTableProps) => {
                       )}
                       {showTeamSelector === job.id && (
                         <TeamSelector
+                          job={job}
                           onSelect={(teamId) => handleTeamSelect(job.id, teamId)}
                           onClose={() => setShowTeamSelector(null)}
                         />
