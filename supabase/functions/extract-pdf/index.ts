@@ -11,11 +11,11 @@ serve(async (req) => {
   }
 
   try {
-    const { pdfBase64, sorCodesContext } = await req.json();
+    const { pdfText, sorCodesContext } = await req.json();
     
-    if (!pdfBase64) {
+    if (!pdfText) {
       return new Response(
-        JSON.stringify({ error: 'PDF base64 data is required' }),
+        JSON.stringify({ error: 'PDF text is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -25,9 +25,10 @@ serve(async (req) => {
       throw new Error('DEEPSEEK_API_KEY is not configured');
     }
 
-    console.log('Processing PDF with DeepSeek AI...');
+    console.log('Processing PDF text with DeepSeek AI...');
+    console.log('Text length:', pdfText.length);
 
-    const systemPrompt = `You are a job extraction specialist. Extract the following information from the provided PDF document:
+    const systemPrompt = `You are a job extraction specialist. Extract the following information from the provided text:
 - NAME: The customer/client name
 - ADDRESS: The full property address
 - PHONE: Phone number
@@ -57,7 +58,7 @@ Return the data in this exact JSON format:
 
 Be precise and extract all relevant information. If a field is not found, use an empty string or empty array as appropriate.`;
 
-    const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+    const response = await fetch('https://api.deepseek.com/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
@@ -67,21 +68,7 @@ Be precise and extract all relevant information. If a field is not found, use an
         model: 'deepseek-chat',
         messages: [
           { role: 'system', content: systemPrompt },
-          { 
-            role: 'user', 
-            content: [
-              {
-                type: 'text',
-                text: 'Extract job information from this PDF document. Analyze the content and extract all relevant job details.'
-              },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: pdfBase64
-                }
-              }
-            ]
-          }
+          { role: 'user', content: `Extract job information from this document:\n\n${pdfText}` }
         ],
         max_tokens: 4096,
       }),
@@ -114,7 +101,7 @@ Be precise and extract all relevant information. If a field is not found, use an
     }
 
     console.log('DeepSeek extraction completed');
-    console.log('Raw response:', content.substring(0, 500));
+    console.log('Raw response preview:', content.substring(0, 300));
 
     // Parse the JSON from the response
     const jsonMatch = content.match(/\{[\s\S]*\}/);
