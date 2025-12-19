@@ -77,19 +77,36 @@ Be precise and extract all relevant information. If a field is not found, use an
     if (!response.ok) {
       const errorText = await response.text();
       console.error('DeepSeek API error:', response.status, errorText);
-      
+
       if (response.status === 429) {
         return new Response(
           JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
           { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      if (response.status === 402 || response.status === 401) {
+
+      if (response.status === 401) {
         return new Response(
-          JSON.stringify({ error: 'API authentication failed. Please check your DeepSeek API key.' }),
+          JSON.stringify({ error: 'DeepSeek authentication failed. Please update your DeepSeek API key.' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (response.status === 402) {
+        // DeepSeek commonly uses 402 for "Insufficient Balance"
+        let details = '';
+        try {
+          const parsed = JSON.parse(errorText);
+          details = parsed?.error?.message ? ` (${parsed.error.message})` : '';
+        } catch {
+          // ignore
+        }
+        return new Response(
+          JSON.stringify({ error: `DeepSeek payment required / insufficient balance${details}. Please top up your DeepSeek account, then try again.` }),
           { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
+
       throw new Error(`DeepSeek API error: ${response.status} - ${errorText}`);
     }
 
