@@ -41,10 +41,10 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete }: J
   const [showJobDetails, setShowJobDetails] = useState<Job | null>(null);
   const [expandedDescriptions, setExpandedDescriptions] = useState<Set<string>>(new Set());
 
-  const handleTeamSelect = (jobId: string, teamId: string) => {
+  const handleTeamSelect = (jobId: string, teamId: string | null) => {
     const job = jobs.find(j => j.id === jobId);
     if (job) {
-      const team = ALLSAINTS_TEAMS.find(t => t.id === teamId);
+      const team = teamId ? ALLSAINTS_TEAMS.find(t => t.id === teamId) : null;
       onUpdateJob({ ...job, team: team?.name || null });
     }
     setShowTeamSelector(null);

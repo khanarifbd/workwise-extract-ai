@@ -1,12 +1,13 @@
 import { ALLSAINTS_TEAMS, Job } from '@/types/job';
-import { MessageCircle, ExternalLink } from 'lucide-react';
+import { MessageCircle, ExternalLink, UserX } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { sendWhatsAppNotification } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
+import { useTeamSettings } from '@/hooks/useTeamSettings';
 
 interface TeamSelectorProps {
   job: Job;
-  onSelect: (teamId: string) => void;
+  onSelect: (teamId: string | null) => void;
   onClose: () => void;
 }
 
@@ -14,6 +15,7 @@ export const TeamSelector = ({ job, onSelect, onClose }: TeamSelectorProps) => {
   const ref = useRef<HTMLDivElement>(null);
   const [isSending, setIsSending] = useState(false);
   const { toast } = useToast();
+  const { settings } = useTeamSettings();
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -26,14 +28,30 @@ export const TeamSelector = ({ job, onSelect, onClose }: TeamSelectorProps) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [onClose]);
 
-  const handleTeamClick = async (teamId: string, teamName: string, whatsappGroup?: string) => {
+  const getTeamWhatsApp = (teamId: string) => {
+    const setting = settings.find((s) => s.teamId === teamId);
+    return setting?.whatsappGroup || undefined;
+  };
+
+  const handleUnassign = () => {
+    onSelect(null);
+    toast({
+      title: 'Team Unassigned',
+      description: `Job #${job.jobNumber} is now unassigned.`,
+    });
+  };
+
+  const handleTeamClick = async (teamId: string, teamName: string) => {
     setIsSending(true);
     try {
       // Always select the team first
       onSelect(teamId);
       
+      // Get WhatsApp number from DB settings
+      const whatsappNumber = getTeamWhatsApp(teamId);
+      
       // Then prepare WhatsApp notification
-      const result = await sendWhatsAppNotification(teamName, whatsappGroup, job);
+      const result = await sendWhatsAppNotification(teamName, whatsappNumber, job);
       
       if (result?.whatsappLink) {
         toast({
@@ -81,26 +99,41 @@ export const TeamSelector = ({ job, onSelect, onClose }: TeamSelectorProps) => {
         Allsaints Teams
       </div>
       <div className="space-y-1 max-h-48 overflow-y-auto">
-        {ALLSAINTS_TEAMS.map((team) => (
+        {/* Unassign option */}
+        {job.team && (
           <button
-            key={team.id}
-            onClick={() => handleTeamClick(team.id, team.name, team.whatsappGroup)}
+            onClick={handleUnassign}
             disabled={isSending}
-            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted transition-colors text-left disabled:opacity-50"
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-destructive/10 transition-colors text-left disabled:opacity-50 text-destructive"
           >
-            <div 
-              className="w-3 h-3 rounded-full"
-              style={{ backgroundColor: team.color }}
-            />
-            <span className="flex-1 font-medium text-sm">{team.name}</span>
-            {team.whatsappGroup && (
-              <div className="flex items-center gap-1">
-                <MessageCircle className="w-4 h-4 text-success" />
-                <ExternalLink className="w-3 h-3 text-muted-foreground" />
-              </div>
-            )}
+            <UserX className="w-4 h-4" />
+            <span className="flex-1 font-medium text-sm">Unassign Team</span>
           </button>
-        ))}
+        )}
+        
+        {ALLSAINTS_TEAMS.map((team) => {
+          const hasWhatsApp = !!getTeamWhatsApp(team.id);
+          return (
+            <button
+              key={team.id}
+              onClick={() => handleTeamClick(team.id, team.name)}
+              disabled={isSending}
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted transition-colors text-left disabled:opacity-50"
+            >
+              <div 
+                className="w-3 h-3 rounded-full"
+                style={{ backgroundColor: team.color }}
+              />
+              <span className="flex-1 font-medium text-sm">{team.name}</span>
+              {hasWhatsApp && (
+                <div className="flex items-center gap-1">
+                  <MessageCircle className="w-4 h-4 text-success" />
+                  <ExternalLink className="w-3 h-3 text-muted-foreground" />
+                </div>
+              )}
+            </button>
+          );
+        })}
       </div>
       {isSending && (
         <div className="px-2 py-1 text-xs text-muted-foreground text-center">

@@ -20,7 +20,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Sending job assignment to ${teamName} WhatsApp group: ${whatsappGroup}`);
+    console.log(`Sending job assignment to ${teamName}, phone: ${whatsappGroup || 'none'}`);
 
     // Format the message for WhatsApp
     const message = `🔧 *NEW JOB ASSIGNMENT*
@@ -41,15 +41,19 @@ ${jobDetails.workItems?.map((item: any, i: number) =>
 
 Please confirm receipt and estimated start date.`;
 
-    // For now, we'll create a WhatsApp web link that can be opened
-    // Real WhatsApp Business API integration would require WhatsApp Business API setup
     const encodedMessage = encodeURIComponent(message);
-    const whatsappLink = `https://wa.me/?text=${encodedMessage}`;
+    
+    // If whatsappGroup is a phone number, create direct link; otherwise generic
+    let whatsappLink: string;
+    if (whatsappGroup && /^\d+$/.test(whatsappGroup)) {
+      whatsappLink = `https://wa.me/${whatsappGroup}?text=${encodedMessage}`;
+    } else {
+      whatsappLink = `https://wa.me/?text=${encodedMessage}`;
+    }
 
-    // Log the notification for audit purposes
     console.log('WhatsApp notification prepared:', {
       team: teamName,
-      group: whatsappGroup,
+      phone: whatsappGroup,
       jobNumber: jobDetails.jobNumber,
       timestamp: new Date().toISOString()
     });
