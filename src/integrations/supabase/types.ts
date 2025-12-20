@@ -46,6 +46,7 @@ export type Database = {
           additional_works: Json | null
           address: string | null
           attachments: Json | null
+          booked_date: string | null
           category_id: string | null
           completion_date: string | null
           created_at: string
@@ -59,6 +60,7 @@ export type Database = {
           progress: number | null
           progress_notes: string | null
           start_date: string | null
+          status: string | null
           summary_of_works: string | null
           team: string | null
           updated_at: string
@@ -68,6 +70,7 @@ export type Database = {
           additional_works?: Json | null
           address?: string | null
           attachments?: Json | null
+          booked_date?: string | null
           category_id?: string | null
           completion_date?: string | null
           created_at?: string
@@ -81,6 +84,7 @@ export type Database = {
           progress?: number | null
           progress_notes?: string | null
           start_date?: string | null
+          status?: string | null
           summary_of_works?: string | null
           team?: string | null
           updated_at?: string
@@ -90,6 +94,7 @@ export type Database = {
           additional_works?: Json | null
           address?: string | null
           attachments?: Json | null
+          booked_date?: string | null
           category_id?: string | null
           completion_date?: string | null
           created_at?: string
@@ -103,6 +108,7 @@ export type Database = {
           progress?: number | null
           progress_notes?: string | null
           start_date?: string | null
+          status?: string | null
           summary_of_works?: string | null
           team?: string | null
           updated_at?: string
@@ -114,6 +120,50 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notification_history: {
+        Row: {
+          created_at: string
+          id: string
+          job_id: string | null
+          job_number: string
+          message: string
+          sent_via: string
+          status: string
+          team_name: string
+          whatsapp_number: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          job_id?: string | null
+          job_number: string
+          message: string
+          sent_via?: string
+          status?: string
+          team_name: string
+          whatsapp_number?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          job_id?: string | null
+          job_number?: string
+          message?: string
+          sent_via?: string
+          status?: string
+          team_name?: string
+          whatsapp_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_history_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
             referencedColumns: ["id"]
           },
         ]

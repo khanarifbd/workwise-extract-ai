@@ -100,9 +100,11 @@ const Index = () => {
         progressNotes: '',
         isCompleted: false,
         dateIssued: new Date(),
+        bookedDate: extractedData.bookedDate || null,
         startDate: null,
         completionDate: null,
-        attachments: []
+        attachments: [],
+        status: 'pending'
       };
       
       // Check for duplicates before adding

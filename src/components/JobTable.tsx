@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Job, ALLSAINTS_TEAMS } from '@/types/job';
+import { Job, ALLSAINTS_TEAMS, JobStatus } from '@/types/job';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils';
 import { TeamSelector } from './TeamSelector';
 import { ProgressEditor } from './ProgressEditor';
 import { JobDetailsModal } from './JobDetailsModal';
+import { StatusSelector } from './StatusSelector';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -110,6 +111,13 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
     return team?.color;
   };
 
+  const handleStatusChange = (jobId: string, status: JobStatus) => {
+    const job = jobs.find(j => j.id === jobId);
+    if (job) {
+      onUpdateJob({ ...job, status });
+    }
+  };
+
   if (jobs.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -183,12 +191,13 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                   onCheckedChange={toggleSelectAll}
                 />
               </th>
-              <th className="w-12">Status</th>
-              <th className="w-24">Date</th>
+              <th className="w-12">Done</th>
+              <th className="w-28">Booked</th>
               <th className="w-28">Job #</th>
               <th className="w-44">Name / Contact</th>
               <th className="min-w-[220px]">Description</th>
               <th className="w-36">SOR Codes</th>
+              <th className="w-28">Status</th>
               <th className="w-32">Team</th>
               <th className="w-32">Progress</th>
               <th className="w-36">Start/End</th>
@@ -240,7 +249,7 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                     </button>
                   </td>
                   <td className="font-mono text-muted-foreground">
-                    {format(job.dateIssued, 'dd/MM/yy')}
+                    {job.bookedDate ? format(job.bookedDate, 'dd/MM/yy') : '-'}
                   </td>
                   <td>
                     <span className="font-mono font-semibold text-primary">
@@ -295,6 +304,12 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                         </Badge>
                       )}
                     </div>
+                  </td>
+                  <td onClick={(e) => e.stopPropagation()}>
+                    <StatusSelector 
+                      currentStatus={job.status || 'pending'} 
+                      onSelect={(status) => handleStatusChange(job.id, status)}
+                    />
                   </td>
                   <td onClick={(e) => e.stopPropagation()}>
                     <div className="relative">

@@ -128,9 +128,11 @@ export const BulkImageUpload = ({ onJobsExtracted, onClose }: BulkImageUploadPro
             progressNotes: '',
             isCompleted: false,
             dateIssued: new Date(),
+            bookedDate: extractedData.bookedDate || null,
             startDate: null,
             completionDate: null,
-            attachments: []
+            attachments: [],
+            status: 'pending'
           };
 
           extractedJobs.push(newJob);

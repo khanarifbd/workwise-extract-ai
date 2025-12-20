@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Job, WorkItem } from '@/types/job';
+import { Job, WorkItem, JOB_STATUS_OPTIONS, JobStatus } from '@/types/job';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -165,7 +165,7 @@ export const JobDetailsModal = ({ job, onClose, onUpdate }: JobDetailsModalProps
     return format(date, 'yyyy-MM-dd');
   };
 
-  const handleDateChange = (field: 'startDate' | 'completionDate', value: string) => {
+  const handleDateChange = (field: 'startDate' | 'completionDate' | 'bookedDate', value: string) => {
     const newDate = value ? new Date(value) : null;
     let updates: Partial<Job> = { [field]: newDate };
     
@@ -261,7 +261,19 @@ export const JobDetailsModal = ({ job, onClose, onUpdate }: JobDetailsModalProps
               </div>
 
               {/* Date Fields */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="text-xs font-medium mb-1 flex items-center gap-1">
+                    <Calendar className="w-3 h-3" />
+                    Booked Date
+                  </label>
+                  <Input
+                    type="date"
+                    value={formatDateForInput(editedJob.bookedDate)}
+                    onChange={(e) => handleDateChange('bookedDate', e.target.value)}
+                    className="text-sm"
+                  />
+                </div>
                 <div>
                   <label className="text-xs font-medium mb-1 flex items-center gap-1">
                     <Calendar className="w-3 h-3" />

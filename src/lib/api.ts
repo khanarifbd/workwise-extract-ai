@@ -211,14 +211,16 @@ const mapDatabaseJobToJob = (dbJob: any): Job => ({
   description: dbJob.description || '',
   workItems: dbJob.work_items || [],
   additionalWorks: dbJob.additional_works || [],
-  team: dbJob.team || undefined,
+  team: dbJob.team || null,
   progress: dbJob.progress || 0,
   progressNotes: dbJob.progress_notes || '',
   isCompleted: dbJob.is_completed || false,
   dateIssued: dbJob.date_issued ? new Date(dbJob.date_issued) : new Date(),
-  startDate: dbJob.start_date ? new Date(dbJob.start_date) : undefined,
-  completionDate: dbJob.completion_date ? new Date(dbJob.completion_date) : undefined,
+  bookedDate: dbJob.booked_date ? new Date(dbJob.booked_date) : null,
+  startDate: dbJob.start_date ? new Date(dbJob.start_date) : null,
+  completionDate: dbJob.completion_date ? new Date(dbJob.completion_date) : null,
   attachments: dbJob.attachments || [],
+  status: dbJob.status || 'pending',
 });
 
 const mapJobToDatabase = (job: Partial<Job>): any => {
@@ -237,9 +239,53 @@ const mapJobToDatabase = (job: Partial<Job>): any => {
   if (job.progressNotes !== undefined) dbJob.progress_notes = job.progressNotes;
   if (job.isCompleted !== undefined) dbJob.is_completed = job.isCompleted;
   if (job.dateIssued !== undefined) dbJob.date_issued = job.dateIssued;
+  if (job.bookedDate !== undefined) dbJob.booked_date = job.bookedDate;
   if (job.startDate !== undefined) dbJob.start_date = job.startDate;
   if (job.completionDate !== undefined) dbJob.completion_date = job.completionDate;
   if (job.attachments !== undefined) dbJob.attachments = job.attachments;
+  if (job.status !== undefined) dbJob.status = job.status;
   
   return dbJob;
+};
+
+// Notification history functions
+export const fetchNotificationHistory = async (): Promise<any[]> => {
+  const { data, error } = await supabase
+    .from('notification_history')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching notification history:', error);
+    throw error;
+  }
+
+  return data || [];
+};
+
+export const saveNotificationToHistory = async (notification: {
+  jobId: string;
+  jobNumber: string;
+  teamName: string;
+  whatsappNumber: string | null;
+  message: string;
+  sentVia: string;
+  status: string;
+}): Promise<void> => {
+  const { error } = await supabase
+    .from('notification_history')
+    .insert({
+      job_id: notification.jobId,
+      job_number: notification.jobNumber,
+      team_name: notification.teamName,
+      whatsapp_number: notification.whatsappNumber,
+      message: notification.message,
+      sent_via: notification.sentVia,
+      status: notification.status,
+    });
+
+  if (error) {
+    console.error('Error saving notification history:', error);
+    throw error;
+  }
 };
