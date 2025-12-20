@@ -1,7 +1,7 @@
 import { ALLSAINTS_TEAMS, Job } from '@/types/job';
 import { MessageCircle, ExternalLink, UserX } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { sendWhatsAppNotification } from '@/lib/api';
+import { sendWhatsAppNotification, saveNotificationToHistory } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { useTeamSettings } from '@/hooks/useTeamSettings';
 
@@ -54,6 +54,21 @@ export const TeamSelector = ({ job, onSelect, onClose }: TeamSelectorProps) => {
       const result = await sendWhatsAppNotification(teamName, whatsappNumber, job);
       
       if (result?.sentViaTwilio) {
+        // Save to notification history
+        try {
+          await saveNotificationToHistory({
+            jobId: job.id,
+            jobNumber: job.jobNumber,
+            teamName: teamName,
+            whatsappNumber: whatsappNumber || null,
+            message: result.notificationMessage,
+            sentVia: 'twilio',
+            status: 'sent',
+          });
+        } catch (e) {
+          console.error('Failed to save notification history:', e);
+        }
+        
         // Message was sent automatically via Twilio
         toast({
           title: "Team Assigned & Notified",
@@ -61,6 +76,21 @@ export const TeamSelector = ({ job, onSelect, onClose }: TeamSelectorProps) => {
           duration: 5000,
         });
       } else if (result?.whatsappLink) {
+        // Save to notification history as link
+        try {
+          await saveNotificationToHistory({
+            jobId: job.id,
+            jobNumber: job.jobNumber,
+            teamName: teamName,
+            whatsappNumber: whatsappNumber || null,
+            message: result.notificationMessage,
+            sentVia: 'link',
+            status: 'pending',
+          });
+        } catch (e) {
+          console.error('Failed to save notification history:', e);
+        }
+        
         // Fallback to manual link if Twilio not configured
         toast({
           title: "Team Assigned - Send WhatsApp?",

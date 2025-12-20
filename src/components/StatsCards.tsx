@@ -15,11 +15,11 @@ interface StatsCardsProps {
 
 export const StatsCards = forwardRef<HTMLDivElement, StatsCardsProps>(({ jobs }, ref) => {
   const totalJobs = jobs.length;
-  const completedJobs = jobs.filter(j => j.isCompleted).length;
-  const inProgressJobs = jobs.filter(j => !j.isCompleted).length;
-  const assignedJobs = jobs.filter(j => j.team !== null).length;
+  const completedJobs = jobs.filter(j => j.isCompleted || j.progress === 100 || j.status === 'complete').length;
+  const inProgressJobs = jobs.filter(j => !j.isCompleted && j.progress < 100 && j.status !== 'complete').length;
+  const assignedJobs = jobs.filter(j => j.team !== null && j.team !== undefined && j.team !== '').length;
   const avgProgress = jobs.length > 0 
-    ? Math.round(jobs.reduce((sum, j) => sum + j.progress, 0) / jobs.length)
+    ? Math.round(jobs.reduce((sum, j) => sum + (j.progress || 0), 0) / jobs.length)
     : 0;
 
   const stats = [
