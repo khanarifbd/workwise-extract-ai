@@ -1,6 +1,7 @@
-import { FileDown, Plus, Moon, Sun } from 'lucide-react';
+import { FileDown, Moon, Sun, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect } from 'react';
+import { TeamSettingsModal } from './TeamSettingsModal';
 
 interface HeaderProps {
   onExport: () => void;
@@ -9,6 +10,7 @@ interface HeaderProps {
 
 export const Header = ({ onExport, jobCount }: HeaderProps) => {
   const [isDark, setIsDark] = useState(false);
+  const [showTeamSettings, setShowTeamSettings] = useState(false);
 
   useEffect(() => {
     const isDarkMode = document.documentElement.classList.contains('dark');
@@ -39,6 +41,10 @@ export const Header = ({ onExport, jobCount }: HeaderProps) => {
           </div>
 
           <div className="flex items-center gap-3">
+            <Button variant="outline" onClick={() => setShowTeamSettings(true)}>
+              <Settings className="w-4 h-4 mr-2" />
+              Team Settings
+            </Button>
             <Button variant="outline" onClick={onExport}>
               <FileDown className="w-4 h-4 mr-2" />
               Export
@@ -56,6 +62,10 @@ export const Header = ({ onExport, jobCount }: HeaderProps) => {
           </div>
         </div>
       </div>
+
+      {showTeamSettings && (
+        <TeamSettingsModal onClose={() => setShowTeamSettings(false)} />
+      )}
     </header>
   );
 };

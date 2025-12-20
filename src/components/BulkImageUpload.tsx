@@ -91,6 +91,7 @@ export const BulkImageUpload = ({ onJobsExtracted, onClose }: BulkImageUploadPro
     const extractedJobs: Omit<Job, 'id'>[] = [];
     const updatedFiles = [...files];
 
+    // Process files sequentially to avoid overwhelming the API
     for (let i = 0; i < files.length; i++) {
       updatedFiles[i] = { ...updatedFiles[i], status: 'processing' };
       setFiles([...updatedFiles]);
@@ -100,9 +101,11 @@ export const BulkImageUpload = ({ onJobsExtracted, onClose }: BulkImageUploadPro
         let extractedData: Partial<Job> | null = null;
         
         if (files[i].fileType === 'pdf') {
+          console.log(`Processing PDF ${i + 1}/${files.length}: ${files[i].file.name}`);
           const text = await extractTextFromPDF(files[i].file);
           extractedData = await extractPDFWithAI(text);
         } else {
+          console.log(`Processing image ${i + 1}/${files.length}: ${files[i].file.name}`);
           const base64 = await fileToBase64(files[i].file);
           extractedData = await extractImageWithAI(base64, files[i].file.type);
         }
@@ -132,6 +135,7 @@ export const BulkImageUpload = ({ onJobsExtracted, onClose }: BulkImageUploadPro
 
           extractedJobs.push(newJob);
           updatedFiles[i] = { ...updatedFiles[i], status: 'success', jobData: extractedData };
+          console.log(`Successfully extracted job from ${files[i].file.name}`);
         } else {
           throw new Error('No data extracted');
         }
@@ -145,6 +149,11 @@ export const BulkImageUpload = ({ onJobsExtracted, onClose }: BulkImageUploadPro
       }
 
       setFiles([...updatedFiles]);
+      
+      // Small delay between API calls to prevent rate limiting
+      if (i < files.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
     }
 
     setProgress(100);
@@ -159,7 +168,7 @@ export const BulkImageUpload = ({ onJobsExtracted, onClose }: BulkImageUploadPro
     } else {
       toast({
         title: "Extraction failed",
-        description: "Could not extract any jobs from the uploaded images.",
+        description: "Could not extract any jobs from the uploaded files.",
         variant: "destructive",
       });
     }
@@ -188,7 +197,7 @@ export const BulkImageUpload = ({ onJobsExtracted, onClose }: BulkImageUploadPro
 
         {/* Content */}
         <div className="p-5 space-y-4 max-h-[calc(80vh-120px)] overflow-y-auto">
-          {/* Drop Zone */}
+        {/* Drop Zone */}
           <div
             className={cn(
               "border-2 border-dashed rounded-xl p-6 transition-all duration-300 cursor-pointer text-center",
@@ -202,7 +211,7 @@ export const BulkImageUpload = ({ onJobsExtracted, onClose }: BulkImageUploadPro
             <input
               id="bulk-file-input"
               type="file"
-              accept=".jpg,.jpeg,.png,.webp,.gif,.pdf"
+              accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"
               onChange={handleFileSelect}
               multiple
               className="hidden"
@@ -211,7 +220,7 @@ export const BulkImageUpload = ({ onJobsExtracted, onClose }: BulkImageUploadPro
             <Upload className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
             <p className="text-sm font-medium">Drop images or PDFs here or click to browse</p>
             <p className="text-xs text-muted-foreground mt-1">
-              Supports JPG, PNG, WebP, GIF, and PDF
+              Supports JPG, PNG, WebP, GIF, and PDF (up to 20 files)
             </p>
           </div>
 

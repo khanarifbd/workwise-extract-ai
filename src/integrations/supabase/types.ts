@@ -118,6 +118,33 @@ export type Database = {
           },
         ]
       }
+      team_notification_settings: {
+        Row: {
+          created_at: string
+          id: string
+          team_id: string
+          team_name: string
+          updated_at: string
+          whatsapp_group: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          team_id: string
+          team_name: string
+          updated_at?: string
+          whatsapp_group?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          team_id?: string
+          team_name?: string
+          updated_at?: string
+          whatsapp_group?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
