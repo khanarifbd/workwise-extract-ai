@@ -42,10 +42,10 @@ export interface Team {
 }
 
 export const ALLSAINTS_TEAMS: Team[] = [
-  { id: '1', name: 'Team Alpha', color: '#F97316', whatsappGroup: '+447123456001' },
-  { id: '2', name: 'Team Bravo', color: '#3B82F6', whatsappGroup: '+447123456002' },
-  { id: '3', name: 'Team Charlie', color: '#10B981', whatsappGroup: '+447123456003' },
-  { id: '4', name: 'Team Delta', color: '#8B5CF6', whatsappGroup: '+447123456004' },
-  { id: '5', name: 'Team Echo', color: '#EC4899', whatsappGroup: '+447123456005' },
-  { id: '6', name: 'Team Foxtrot', color: '#F59E0B', whatsappGroup: '+447123456006' },
+  { id: '1', name: 'Indika', color: '#F97316' },
+  { id: '2', name: 'Bartek', color: '#3B82F6' },
+  { id: '3', name: 'Shakhti', color: '#10B981' },
+  { id: '4', name: 'Abraham', color: '#8B5CF6' },
+  { id: '5', name: 'Jess', color: '#EC4899' },
+  { id: '6', name: 'Alindo', color: '#F59E0B' },
 ];

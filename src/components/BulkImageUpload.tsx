@@ -1,0 +1,305 @@
+import { useCallback, useState } from 'react';
+import { Upload, Image, X, Loader2, Check, AlertCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { cn } from '@/lib/utils';
+import { Job } from '@/types/job';
+import { extractImageWithAI } from '@/lib/api';
+import { useToast } from '@/hooks/use-toast';
+
+interface BulkImageUploadProps {
+  onJobsExtracted: (jobs: Omit<Job, 'id'>[]) => void;
+  onClose: () => void;
+}
+
+interface FileStatus {
+  file: File;
+  status: 'pending' | 'processing' | 'success' | 'error';
+  error?: string;
+  jobData?: Partial<Job>;
+}
+
+const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+
+export const BulkImageUpload = ({ onJobsExtracted, onClose }: BulkImageUploadProps) => {
+  const [files, setFiles] = useState<FileStatus[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const { toast } = useToast();
+
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = e.target.files;
+    if (!selectedFiles) return;
+
+    const validFiles = Array.from(selectedFiles)
+      .filter(f => ACCEPTED_IMAGE_TYPES.includes(f.type))
+      .map(file => ({ file, status: 'pending' as const }));
+
+    if (validFiles.length < selectedFiles.length) {
+      toast({
+        title: "Some files skipped",
+        description: "Only image files (JPG, PNG, WebP, GIF) are supported.",
+        variant: "destructive",
+      });
+    }
+
+    setFiles(prev => [...prev, ...validFiles]);
+  }, [toast]);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    const droppedFiles = e.dataTransfer.files;
+    
+    const validFiles = Array.from(droppedFiles)
+      .filter(f => ACCEPTED_IMAGE_TYPES.includes(f.type))
+      .map(file => ({ file, status: 'pending' as const }));
+
+    setFiles(prev => [...prev, ...validFiles]);
+  }, []);
+
+  const removeFile = (index: number) => {
+    setFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        resolve(result.split(',')[1]);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const processFiles = async () => {
+    if (files.length === 0) return;
+
+    setIsProcessing(true);
+    const extractedJobs: Omit<Job, 'id'>[] = [];
+    const updatedFiles = [...files];
+
+    for (let i = 0; i < files.length; i++) {
+      updatedFiles[i] = { ...updatedFiles[i], status: 'processing' };
+      setFiles([...updatedFiles]);
+      setProgress(Math.round(((i) / files.length) * 100));
+
+      try {
+        const base64 = await fileToBase64(files[i].file);
+        const extractedData = await extractImageWithAI(base64, files[i].file.type);
+
+        if (extractedData) {
+          const newJob: Omit<Job, 'id'> = {
+            jobNumber: extractedData.jobNumber || `JOB-${Date.now().toString().slice(-6)}-${i}`,
+            name: extractedData.name || 'Unknown',
+            address: extractedData.address || '',
+            phoneNumber: extractedData.phoneNumber || '',
+            summaryOfWorks: extractedData.summaryOfWorks || '',
+            description: extractedData.description || '',
+            workItems: (extractedData.workItems || []).map((item: any) => ({
+              ...item,
+              id: crypto.randomUUID()
+            })),
+            additionalWorks: [],
+            team: null,
+            progress: 0,
+            progressNotes: '',
+            isCompleted: false,
+            dateIssued: new Date(),
+            startDate: null,
+            completionDate: null,
+            attachments: []
+          };
+
+          extractedJobs.push(newJob);
+          updatedFiles[i] = { ...updatedFiles[i], status: 'success', jobData: extractedData };
+        } else {
+          throw new Error('No data extracted');
+        }
+      } catch (error) {
+        console.error(`Error processing ${files[i].file.name}:`, error);
+        updatedFiles[i] = { 
+          ...updatedFiles[i], 
+          status: 'error',
+          error: error instanceof Error ? error.message : 'Extraction failed'
+        };
+      }
+
+      setFiles([...updatedFiles]);
+    }
+
+    setProgress(100);
+    setIsProcessing(false);
+
+    if (extractedJobs.length > 0) {
+      onJobsExtracted(extractedJobs);
+      toast({
+        title: "Bulk extraction complete",
+        description: `Successfully extracted ${extractedJobs.length} of ${files.length} jobs.`,
+      });
+    } else {
+      toast({
+        title: "Extraction failed",
+        description: "Could not extract any jobs from the uploaded images.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const successCount = files.filter(f => f.status === 'success').length;
+  const errorCount = files.filter(f => f.status === 'error').length;
+
+  return (
+    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden animate-scale-in">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-muted/30">
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">Bulk Image Upload</h2>
+            <p className="text-xs text-muted-foreground">Upload multiple job documents for batch processing</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 hover:bg-muted rounded-lg transition-colors"
+            disabled={isProcessing}
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="p-5 space-y-4 max-h-[calc(80vh-120px)] overflow-y-auto">
+          {/* Drop Zone */}
+          <div
+            className={cn(
+              "border-2 border-dashed rounded-xl p-6 transition-all duration-300 cursor-pointer text-center",
+              "border-border hover:border-primary/50 hover:bg-muted/30",
+              isProcessing && "pointer-events-none opacity-50"
+            )}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={handleDrop}
+            onClick={() => document.getElementById('bulk-file-input')?.click()}
+          >
+            <input
+              id="bulk-file-input"
+              type="file"
+              accept=".jpg,.jpeg,.png,.webp,.gif"
+              onChange={handleFileSelect}
+              multiple
+              className="hidden"
+              disabled={isProcessing}
+            />
+            <Upload className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+            <p className="text-sm font-medium">Drop images here or click to browse</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Supports JPG, PNG, WebP, GIF
+            </p>
+          </div>
+
+          {/* Progress */}
+          {isProcessing && (
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs">
+                <span>Processing images...</span>
+                <span>{progress}%</span>
+              </div>
+              <Progress value={progress} />
+            </div>
+          )}
+
+          {/* File List */}
+          {files.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">{files.length} files selected</span>
+                {!isProcessing && (
+                  <Button variant="ghost" size="sm" onClick={() => setFiles([])}>
+                    Clear all
+                  </Button>
+                )}
+              </div>
+              <div className="space-y-1 max-h-48 overflow-y-auto">
+                {files.map((fileStatus, index) => (
+                  <div
+                    key={index}
+                    className={cn(
+                      "flex items-center gap-3 p-2 rounded-lg",
+                      fileStatus.status === 'success' && "bg-success/10",
+                      fileStatus.status === 'error' && "bg-destructive/10",
+                      fileStatus.status === 'pending' && "bg-muted/30",
+                      fileStatus.status === 'processing' && "bg-primary/10"
+                    )}
+                  >
+                    <div className="w-8 h-8 rounded bg-muted flex items-center justify-center">
+                      {fileStatus.status === 'processing' ? (
+                        <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                      ) : fileStatus.status === 'success' ? (
+                        <Check className="w-4 h-4 text-success" />
+                      ) : fileStatus.status === 'error' ? (
+                        <AlertCircle className="w-4 h-4 text-destructive" />
+                      ) : (
+                        <Image className="w-4 h-4 text-muted-foreground" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm truncate">{fileStatus.file.name}</p>
+                      {fileStatus.error && (
+                        <p className="text-xs text-destructive">{fileStatus.error}</p>
+                      )}
+                      {fileStatus.status === 'success' && fileStatus.jobData && (
+                        <p className="text-xs text-success">
+                          Job #{fileStatus.jobData.jobNumber}
+                        </p>
+                      )}
+                    </div>
+                    {!isProcessing && fileStatus.status === 'pending' && (
+                      <button
+                        onClick={() => removeFile(index)}
+                        className="p-1 hover:bg-muted rounded"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Summary */}
+          {(successCount > 0 || errorCount > 0) && (
+            <div className="flex gap-4 text-sm">
+              {successCount > 0 && (
+                <span className="text-success">✓ {successCount} successful</span>
+              )}
+              {errorCount > 0 && (
+                <span className="text-destructive">✗ {errorCount} failed</span>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-border bg-muted/30">
+          <Button variant="outline" onClick={onClose} disabled={isProcessing}>
+            Cancel
+          </Button>
+          <Button
+            onClick={processFiles}
+            disabled={files.length === 0 || isProcessing || files.every(f => f.status !== 'pending')}
+          >
+            {isProcessing ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              <>Process {files.filter(f => f.status === 'pending').length} Images</>
+            )}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
