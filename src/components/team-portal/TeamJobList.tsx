@@ -3,12 +3,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { RefreshCw, LogOut, MapPin, Phone, ChevronRight, Briefcase, Loader2 } from 'lucide-react';
+import { RefreshCw, LogOut, MapPin, ChevronRight, Briefcase, Loader2, Bell, BellOff } from 'lucide-react';
 import { format } from 'date-fns';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
 
 interface TeamJobListProps {
   jobs: Job[];
   teamName: string;
+  teamId: string;
   isLoading: boolean;
   onSelectJob: (job: Job) => void;
   onRefresh: () => void;
@@ -18,11 +20,13 @@ interface TeamJobListProps {
 export const TeamJobList = ({
   jobs,
   teamName,
+  teamId,
   isLoading,
   onSelectJob,
   onRefresh,
   onLogout,
 }: TeamJobListProps) => {
+  const { isSupported, isSubscribed, isLoading: pushLoading, subscribe, unsubscribe } = usePushNotifications(teamId);
   const getStatusColor = (status: string) => {
     const option = JOB_STATUS_OPTIONS.find(o => o.value === status);
     return option?.color || '#6B7280';
@@ -49,6 +53,21 @@ export const TeamJobList = ({
               </p>
             </div>
             <div className="flex gap-2">
+              {isSupported && (
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  onClick={() => isSubscribed ? unsubscribe() : subscribe()}
+                  disabled={pushLoading}
+                  title={isSubscribed ? 'Disable notifications' : 'Enable notifications'}
+                >
+                  {isSubscribed ? (
+                    <Bell className="h-4 w-4" />
+                  ) : (
+                    <BellOff className="h-4 w-4" />
+                  )}
+                </Button>
+              )}
               <Button
                 variant="secondary"
                 size="icon"
