@@ -71,7 +71,7 @@ export const TeamSelector = ({ job, onSelect, onClose }: TeamSelectorProps) => {
       <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
         Allsaints Teams
       </div>
-      <div className="space-y-1">
+      <div className="space-y-1 max-h-48 overflow-y-auto">
         {ALLSAINTS_TEAMS.map((team) => (
           <button
             key={team.id}
