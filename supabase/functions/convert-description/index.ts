@@ -25,28 +25,34 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
-    console.log('Converting description to work items...');
+    console.log('Converting description to work items with multiple SOR options...');
 
     const systemPrompt = `You are a construction work analysis specialist. Convert the provided description into a precise list of individual work items.
 
-For each work item, match it with the most appropriate SOR (Schedule of Rates) code from this database:
+For each work item, provide THREE suitable SOR (Schedule of Rates) codes from this database:
 ${sorCodesContext}
 
 Return ONLY a JSON array in this exact format:
 [
   {
     "description": "Clear, precise description of the work item",
-    "sorCode": "The matching SOR code from the database",
-    "qty": 1,
-    "cost": 0
+    "options": [
+      { "code": "Primary SOR code - best match", "cost": estimated_cost_number },
+      { "code": "Secondary SOR code - alternative match", "cost": estimated_cost_number },
+      { "code": "Premium SOR code - higher specification/more comprehensive work", "cost": higher_cost_number, "isPremium": true }
+    ],
+    "qty": 1
   }
 ]
 
 Guidelines:
 - Break down complex descriptions into individual actionable work items
 - Use clear, professional construction terminology
-- Match each item to the most relevant SOR code
-- If no exact match exists, use the closest category code
+- Option 1: Best matching code for the described work
+- Option 2: Alternative suitable code (different approach or scope)
+- Option 3: Premium option with higher cost - more comprehensive work, higher spec materials, or additional related work included
+- The premium option should be 20-50% more expensive and represent a realistic upgrade
+- Costs should be realistic UK construction rates in GBP
 - Be thorough but avoid duplicates`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -59,7 +65,7 @@ Guidelines:
         model: 'google/gemini-2.5-flash',
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Convert this description into work items:\n\n${description}` }
+          { role: 'user', content: `Convert this description into work items with multiple SOR code options:\n\n${description}` }
         ],
       }),
     });
