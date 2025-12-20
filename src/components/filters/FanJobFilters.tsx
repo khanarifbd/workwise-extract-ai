@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { FAN_TEAMS, JOB_STATUS_OPTIONS } from '@/types/job';
-import { Search, Filter, X, CalendarDays, Bookmark, Save, FileDown, FileSpreadsheet, Calendar, Phone } from 'lucide-react';
+import { Search, Filter, X, CalendarDays, Bookmark, Save, FileDown, FileSpreadsheet, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
@@ -82,7 +82,7 @@ export const FanJobFilters = ({
         dateTo: filters.dateTo,
         hasFans: filters.hasFans,
         hasBookedDate: filters.hasBookedDate,
-        phoneNumber: filters.phoneNumber,
+        phoneNumber: '',
       },
     };
     savePresets([...presets, newPreset]);
@@ -111,7 +111,6 @@ export const FanJobFilters = ({
     filters.dateFrom,
     filters.dateTo,
     filters.hasBookedDate,
-    filters.phoneNumber,
   ].filter(Boolean).length;
 
   return (
@@ -303,16 +302,6 @@ export const FanJobFilters = ({
             </SelectContent>
           </Select>
 
-          {/* Phone Number Filter */}
-          <div className="relative">
-            <Phone className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-            <Input
-              placeholder="Phone..."
-              value={filters.phoneNumber || ''}
-              onChange={(e) => updateFilter('phoneNumber', e.target.value)}
-              className="pl-8 w-32 h-9 text-sm"
-            />
-          </div>
 
           {/* Date From - Booked Date */}
           <Popover>

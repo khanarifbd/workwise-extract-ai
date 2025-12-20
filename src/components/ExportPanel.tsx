@@ -59,20 +59,74 @@ export const ExportPanel = ({ jobs, onClose, isFanCategory = false }: ExportPane
     );
     doc.text(`Total Jobs: ${filteredJobs.length}`, 14, 40);
 
+    // Helper function to extract phone number from description
+    const extractPhoneFromDescription = (description: string | undefined): string => {
+      if (!description) return '';
+      // Match common UK phone patterns
+      const phonePatterns = [
+        /(?:tel|phone|mob|mobile|contact)?[:\s]*(\+44[\s.-]?\d{4}[\s.-]?\d{6})/gi,
+        /(?:tel|phone|mob|mobile|contact)?[:\s]*(07\d{3}[\s.-]?\d{6})/gi,
+        /(?:tel|phone|mob|mobile|contact)?[:\s]*(0\d{3,4}[\s.-]?\d{6,7})/gi,
+        /(\d{5}[\s.-]?\d{6})/g,
+      ];
+      for (const pattern of phonePatterns) {
+        const match = description.match(pattern);
+        if (match) return match[0].replace(/^(tel|phone|mob|mobile|contact)[:\s]*/i, '').trim();
+      }
+      return '';
+    };
+
+    // Helper function to extract name/contact from description
+    const extractNameFromDescription = (description: string | undefined, jobName: string): string => {
+      if (!description) return jobName;
+      // Try to find "name:" or "tenant:" patterns
+      const namePatterns = [
+        /(?:tenant|name|contact|resident)[:\s]+([A-Za-z\s]+?)(?:\n|,|tel|phone|mob|\d|$)/i,
+        /^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/m,
+      ];
+      for (const pattern of namePatterns) {
+        const match = description.match(pattern);
+        if (match && match[1]) return match[1].trim();
+      }
+      return jobName;
+    };
+
+    // Helper function to extract fan quantity
+    const extractFanQuantity = (job: Job): string => {
+      const fanInfo = job.fanInfo || [];
+      if (fanInfo.length > 0) {
+        return fanInfo.map((f: any) => `${f.quantity || 1}x ${f.fanType || 'Fan'}`).join(', ');
+      }
+      // Try to extract from description
+      const desc = job.description || job.summaryOfWorks || '';
+      const fanPatterns = [
+        /(\d+)\s*x?\s*(?:fan|extractor|extract)/gi,
+        /(?:install|fit|supply)\s+(\d+)\s*(?:fan|extractor)/gi,
+      ];
+      for (const pattern of fanPatterns) {
+        const match = desc.match(pattern);
+        if (match) return match[0];
+      }
+      return fanInfo.length > 0 ? `${fanInfo.length}x Fan` : '1x Fan';
+    };
+
     // Table data - different columns for Fan vs DM
     if (isFanCategory) {
       const tableData = filteredJobs.map(job => {
-        const fanInfo = job.fanInfo || [];
-        const fanSummary = fanInfo.map((f: any) => `${f.quantity || 1}x ${f.fanType || 'Fan'}`).join(', ');
+        const description = job.summaryOfWorks || job.description || '';
+        const extractedPhone = job.phoneNumber || extractPhoneFromDescription(description);
+        const extractedName = extractNameFromDescription(description, job.name);
+        const fanQty = extractFanQuantity(job);
         const sorCodes = job.workItems.map(w => w.sorCode).filter(Boolean).join(', ');
+        
         return [
           job.dateIssued ? format(job.dateIssued, 'dd/MM/yy') : '-',
           job.bookedDate ? format(job.bookedDate, 'dd/MM/yy') : '-',
           job.jobNumber,
-          job.name,
-          job.phoneNumber || '-',
-          job.summaryOfWorks || job.description || '-',
-          fanSummary || '-',
+          extractedName,
+          extractedPhone || '-',
+          description.substring(0, 80) || '-',
+          fanQty,
           sorCodes || '-',
           job.status || 'pending',
           job.team || 'Unassigned'
@@ -80,7 +134,7 @@ export const ExportPanel = ({ jobs, onClose, isFanCategory = false }: ExportPane
       });
 
       autoTable(doc, {
-        head: [['Issued', 'Booked', 'Job #', 'Name', 'Phone', 'Description', 'Fan', 'SOR Codes', 'Status', 'Team']],
+        head: [['Issued', 'Booked', 'Job #', 'Name/Contact', 'Phone', 'Description', 'Fan Qty', 'SOR Codes', 'Status', 'Team']],
         body: tableData,
         startY: 48,
         styles: { fontSize: 6, cellPadding: 1.5 },
@@ -88,7 +142,8 @@ export const ExportPanel = ({ jobs, onClose, isFanCategory = false }: ExportPane
         columnStyles: {
           3: { cellWidth: 22 },
           4: { cellWidth: 22 },
-          5: { cellWidth: 30 },
+          5: { cellWidth: 28 },
+          6: { cellWidth: 18 },
           7: { cellWidth: 18 },
         }
       });
@@ -118,22 +173,71 @@ export const ExportPanel = ({ jobs, onClose, isFanCategory = false }: ExportPane
     doc.save(`${filename}-${selectedMonth === 'all' ? 'all' : months[parseInt(selectedMonth)]}-${currentYear}.pdf`);
   };
 
+  // Helper functions for Excel (same as PDF)
+  const extractPhoneFromDescriptionExcel = (description: string | undefined): string => {
+    if (!description) return '';
+    const phonePatterns = [
+      /(?:tel|phone|mob|mobile|contact)?[:\s]*(\+44[\s.-]?\d{4}[\s.-]?\d{6})/gi,
+      /(?:tel|phone|mob|mobile|contact)?[:\s]*(07\d{3}[\s.-]?\d{6})/gi,
+      /(?:tel|phone|mob|mobile|contact)?[:\s]*(0\d{3,4}[\s.-]?\d{6,7})/gi,
+      /(\d{5}[\s.-]?\d{6})/g,
+    ];
+    for (const pattern of phonePatterns) {
+      const match = description.match(pattern);
+      if (match) return match[0].replace(/^(tel|phone|mob|mobile|contact)[:\s]*/i, '').trim();
+    }
+    return '';
+  };
+
+  const extractNameFromDescriptionExcel = (description: string | undefined, jobName: string): string => {
+    if (!description) return jobName;
+    const namePatterns = [
+      /(?:tenant|name|contact|resident)[:\s]+([A-Za-z\s]+?)(?:\n|,|tel|phone|mob|\d|$)/i,
+      /^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/m,
+    ];
+    for (const pattern of namePatterns) {
+      const match = description.match(pattern);
+      if (match && match[1]) return match[1].trim();
+    }
+    return jobName;
+  };
+
+  const extractFanQuantityExcel = (job: Job): string => {
+    const fanInfo = job.fanInfo || [];
+    if (fanInfo.length > 0) {
+      return fanInfo.map((f: any) => `${f.quantity || 1}x ${f.fanType || 'Fan'}`).join(', ');
+    }
+    const desc = job.description || job.summaryOfWorks || '';
+    const fanPatterns = [
+      /(\d+)\s*x?\s*(?:fan|extractor|extract)/gi,
+      /(?:install|fit|supply)\s+(\d+)\s*(?:fan|extractor)/gi,
+    ];
+    for (const pattern of fanPatterns) {
+      const match = desc.match(pattern);
+      if (match) return match[0];
+    }
+    return fanInfo.length > 0 ? `${fanInfo.length}x Fan` : '1x Fan';
+  };
+
   const handleExportExcel = () => {
     let excelData;
     
     if (isFanCategory) {
       excelData = filteredJobs.map(job => {
-        const fanInfo = job.fanInfo || [];
-        const fanSummary = fanInfo.map((f: any) => `${f.quantity || 1}x ${f.fanType || 'Fan'}`).join(', ');
+        const description = job.summaryOfWorks || job.description || '';
+        const extractedPhone = job.phoneNumber || extractPhoneFromDescriptionExcel(description);
+        const extractedName = extractNameFromDescriptionExcel(description, job.name);
+        const fanQty = extractFanQuantityExcel(job);
         const sorCodes = job.workItems.map(w => w.sorCode).filter(Boolean).join(', ');
+        
         return {
           'Issued': job.dateIssued ? format(job.dateIssued, 'dd/MM/yyyy') : '',
           'Booked': job.bookedDate ? format(job.bookedDate, 'dd/MM/yyyy') : '',
           'Job #': job.jobNumber,
-          'Name': job.name,
-          'Phone': job.phoneNumber || '',
-          'Description': job.summaryOfWorks || job.description || '',
-          'Fan': fanSummary,
+          'Name/Contact': extractedName,
+          'Phone': extractedPhone,
+          'Description': description,
+          'Fan Qty': fanQty,
           'SOR Codes': sorCodes,
           'Status': job.status || 'pending',
           'Team': job.team || 'Unassigned'
