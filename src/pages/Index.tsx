@@ -635,7 +635,7 @@ const Index = () => {
       </main>
 
       {showExport && (
-        <ExportPanel jobs={jobs} onClose={() => setShowExport(false)} />
+        <ExportPanel jobs={jobs} onClose={() => setShowExport(false)} isFanCategory={isFanCategory} />
       )}
 
       {showBulkUpload && (

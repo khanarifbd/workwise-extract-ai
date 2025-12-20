@@ -23,9 +23,10 @@ import * as XLSX from 'xlsx';
 interface ExportPanelProps {
   jobs: Job[];
   onClose: () => void;
+  isFanCategory?: boolean;
 }
 
-export const ExportPanel = ({ jobs, onClose }: ExportPanelProps) => {
+export const ExportPanel = ({ jobs, onClose, isFanCategory = false }: ExportPanelProps) => {
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
 
   const months = [
@@ -47,7 +48,7 @@ export const ExportPanel = ({ jobs, onClose }: ExportPanelProps) => {
     
     // Title
     doc.setFontSize(18);
-    doc.text('ALLSAINTS JOB REPORT', 14, 20);
+    doc.text(isFanCategory ? 'FAN JOBS REPORT' : 'ALLSAINTS JOB REPORT', 14, 20);
     doc.setFontSize(10);
     doc.text(`Generated: ${format(new Date(), 'dd/MM/yyyy')}`, 14, 28);
     doc.text(
@@ -58,50 +59,98 @@ export const ExportPanel = ({ jobs, onClose }: ExportPanelProps) => {
     );
     doc.text(`Total Jobs: ${filteredJobs.length}`, 14, 40);
 
-    // Table data
-    const tableData = filteredJobs.map(job => [
-      job.jobNumber,
-      job.name,
-      job.address || '-',
-      job.team || 'Unassigned',
-      `${job.progress}%`,
-      job.startDate ? format(job.startDate, 'dd/MM/yy') : '-',
-      job.completionDate ? format(job.completionDate, 'dd/MM/yy') : '-',
-      job.workItems.map(w => w.sorCode).join(', ') || '-'
-    ]);
+    // Table data - different columns for Fan vs DM
+    if (isFanCategory) {
+      const tableData = filteredJobs.map(job => {
+        const fanInfo = job.fanInfo || [];
+        const fanSummary = fanInfo.map((f: any) => `${f.quantity || 1}x ${f.fanType || 'Fan'}`).join(', ');
+        return [
+          job.dateIssued ? format(job.dateIssued, 'dd/MM/yy') : '-',
+          job.bookedDate ? format(job.bookedDate, 'dd/MM/yy') : '-',
+          job.jobNumber,
+          `${job.name}${job.phoneNumber ? `\n${job.phoneNumber}` : ''}`,
+          job.summaryOfWorks || job.description || '-',
+          fanSummary || '-',
+          job.team || 'Unassigned'
+        ];
+      });
 
-    autoTable(doc, {
-      head: [['Job #', 'Name', 'Address', 'Team', 'Progress', 'Start', 'End', 'SOR Codes']],
-      body: tableData,
-      startY: 48,
-      styles: { fontSize: 8 },
-      headStyles: { fillColor: [59, 130, 246] },
-    });
+      autoTable(doc, {
+        head: [['Issued', 'Booked', 'Job', 'Name/Contact', 'Description', 'Fan', 'Status']],
+        body: tableData,
+        startY: 48,
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: [59, 130, 246] },
+        columnStyles: {
+          3: { cellWidth: 35 },
+          4: { cellWidth: 45 },
+        }
+      });
+    } else {
+      const tableData = filteredJobs.map(job => [
+        job.jobNumber,
+        job.name,
+        job.address || '-',
+        job.team || 'Unassigned',
+        `${job.progress}%`,
+        job.startDate ? format(job.startDate, 'dd/MM/yy') : '-',
+        job.completionDate ? format(job.completionDate, 'dd/MM/yy') : '-',
+        job.workItems.map(w => w.sorCode).join(', ') || '-'
+      ]);
 
-    doc.save(`allsaints-jobs-${selectedMonth === 'all' ? 'all' : months[parseInt(selectedMonth)]}-${currentYear}.pdf`);
+      autoTable(doc, {
+        head: [['Job #', 'Name', 'Address', 'Team', 'Progress', 'Start', 'End', 'SOR Codes']],
+        body: tableData,
+        startY: 48,
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [59, 130, 246] },
+      });
+    }
+
+    const filename = isFanCategory ? 'fan-jobs' : 'allsaints-jobs';
+    doc.save(`${filename}-${selectedMonth === 'all' ? 'all' : months[parseInt(selectedMonth)]}-${currentYear}.pdf`);
   };
 
   const handleExportExcel = () => {
-    const excelData = filteredJobs.map(job => ({
-      'Job Number': job.jobNumber,
-      'Name': job.name,
-      'Address': job.address || '',
-      'Phone': job.phoneNumber || '',
-      'Team': job.team || 'Unassigned',
-      'Progress': `${job.progress}%`,
-      'Status': job.isCompleted ? 'Completed' : 'In Progress',
-      'Date Issued': format(job.dateIssued, 'dd/MM/yyyy'),
-      'Start Date': job.startDate ? format(job.startDate, 'dd/MM/yyyy') : '',
-      'Completion Date': job.completionDate ? format(job.completionDate, 'dd/MM/yyyy') : '',
-      'Summary': job.summaryOfWorks || '',
-      'SOR Codes': job.workItems.map(w => w.sorCode).join(', '),
-      'Work Items': job.workItems.map(w => `${w.description} (${w.sorCode})`).join('; '),
-      'Total Cost': `£${job.workItems.reduce((sum, w) => sum + w.cost, 0).toFixed(2)}`
-    }));
+    let excelData;
+    
+    if (isFanCategory) {
+      excelData = filteredJobs.map(job => {
+        const fanInfo = job.fanInfo || [];
+        const fanSummary = fanInfo.map((f: any) => `${f.quantity || 1}x ${f.fanType || 'Fan'}`).join(', ');
+        return {
+          'Issued': job.dateIssued ? format(job.dateIssued, 'dd/MM/yyyy') : '',
+          'Booked': job.bookedDate ? format(job.bookedDate, 'dd/MM/yyyy') : '',
+          'Job': job.jobNumber,
+          'Name': job.name,
+          'Contact': job.phoneNumber || '',
+          'Description': job.summaryOfWorks || job.description || '',
+          'Fan': fanSummary,
+          'Status': job.team || 'Unassigned'
+        };
+      });
+    } else {
+      excelData = filteredJobs.map(job => ({
+        'Job Number': job.jobNumber,
+        'Name': job.name,
+        'Address': job.address || '',
+        'Phone': job.phoneNumber || '',
+        'Team': job.team || 'Unassigned',
+        'Progress': `${job.progress}%`,
+        'Status': job.isCompleted ? 'Completed' : 'In Progress',
+        'Date Issued': format(job.dateIssued, 'dd/MM/yyyy'),
+        'Start Date': job.startDate ? format(job.startDate, 'dd/MM/yyyy') : '',
+        'Completion Date': job.completionDate ? format(job.completionDate, 'dd/MM/yyyy') : '',
+        'Summary': job.summaryOfWorks || '',
+        'SOR Codes': job.workItems.map(w => w.sorCode).join(', '),
+        'Work Items': job.workItems.map(w => `${w.description} (${w.sorCode})`).join('; '),
+        'Total Cost': `£${job.workItems.reduce((sum, w) => sum + w.cost, 0).toFixed(2)}`
+      }));
+    }
 
     const worksheet = XLSX.utils.json_to_sheet(excelData);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Jobs');
+    XLSX.utils.book_append_sheet(workbook, worksheet, isFanCategory ? 'Fan Jobs' : 'Jobs');
     
     // Auto-size columns
     const maxWidth = 50;
@@ -110,7 +159,8 @@ export const ExportPanel = ({ jobs, onClose }: ExportPanelProps) => {
     }));
     worksheet['!cols'] = colWidths;
 
-    XLSX.writeFile(workbook, `allsaints-jobs-${selectedMonth === 'all' ? 'all' : months[parseInt(selectedMonth)]}-${currentYear}.xlsx`);
+    const filename = isFanCategory ? 'fan-jobs' : 'allsaints-jobs';
+    XLSX.writeFile(workbook, `${filename}-${selectedMonth === 'all' ? 'all' : months[parseInt(selectedMonth)]}-${currentYear}.xlsx`);
   };
 
   const handlePrint = () => {
