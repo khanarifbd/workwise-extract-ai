@@ -32,9 +32,10 @@ interface JobTableProps {
   jobs: Job[];
   onUpdateJob: (job: Job) => void;
   onDeleteJob: (jobId: string) => void;
+  onToggleComplete: (job: Job) => void;
 }
 
-export const JobTable = ({ jobs, onUpdateJob, onDeleteJob }: JobTableProps) => {
+export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete }: JobTableProps) => {
   const [showTeamSelector, setShowTeamSelector] = useState<string | null>(null);
   const [showProgressEditor, setShowProgressEditor] = useState<string | null>(null);
   const [showJobDetails, setShowJobDetails] = useState<Job | null>(null);
@@ -124,16 +125,22 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob }: JobTableProps) => {
                   )}
                   onClick={() => setShowJobDetails(job)}
                 >
-                  {/* Status Column */}
-                  <td className="text-center">
-                    {isCompleted ? (
-                      <div className="flex flex-col items-center gap-0.5">
-                        <CheckCircle2 className="w-6 h-6 text-success" />
-                        <span className="text-[10px] font-bold text-success uppercase tracking-wide">Complete</span>
-                      </div>
-                    ) : (
-                      <div className="w-6 h-6 rounded-full border-2 border-muted-foreground/30 mx-auto" />
-                    )}
+                  {/* Status Column - Click to toggle */}
+                  <td className="text-center" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      onClick={() => onToggleComplete(job)}
+                      className="flex flex-col items-center gap-0.5 mx-auto hover:scale-110 transition-transform"
+                      title={isCompleted ? "Mark as incomplete" : "Mark as complete"}
+                    >
+                      {isCompleted ? (
+                        <>
+                          <CheckCircle2 className="w-6 h-6 text-success fill-success/20" />
+                          <span className="text-[10px] font-bold text-success uppercase tracking-wide">Complete</span>
+                        </>
+                      ) : (
+                        <div className="w-6 h-6 rounded-full border-2 border-muted-foreground/30 hover:border-success hover:bg-success/10 transition-colors" />
+                      )}
+                    </button>
                   </td>
                   <td className="font-mono text-muted-foreground">
                     {format(job.dateIssued, 'dd/MM/yy')}

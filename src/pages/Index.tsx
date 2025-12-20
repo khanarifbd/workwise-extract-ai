@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Job } from '@/types/job';
 import { FileDropZone } from '@/components/FileDropZone';
 import { BulkImageUpload } from '@/components/BulkImageUpload';
@@ -7,11 +7,17 @@ import { Header } from '@/components/Header';
 import { StatsCards } from '@/components/StatsCards';
 import { ExportPanel } from '@/components/ExportPanel';
 import { JobFilters, FilterState } from '@/components/JobFilters';
+import { CategoryTabs } from '@/components/CategoryTabs';
+import { KanbanBoard } from '@/components/KanbanBoard';
+import { ViewToggle } from '@/components/ViewToggle';
+import { JobDetailsModal } from '@/components/JobDetailsModal';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ChevronDown, ChevronUp, Loader2, Images } from 'lucide-react';
 import { isAfter, isBefore, startOfDay, endOfDay, format } from 'date-fns';
 import { useJobs } from '@/hooks/useJobs';
+import { useCategories } from '@/hooks/useCategories';
 import { extractPDFWithAI, extractImageWithAI } from '@/lib/api';
 import { extractTextFromPDF } from '@/lib/pdfUtils';
 import jsPDF from 'jspdf';
@@ -19,13 +25,21 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 
 type FileType = 'pdf' | 'image';
+type ViewType = 'table' | 'kanban';
+type KanbanGroupBy = 'team' | 'status';
 
 const Index = () => {
-  const { jobs, isLoading, addJob, editJob, removeJob } = useJobs();
+  const { categories, isLoading: categoriesLoading, addCategory, updateCategory, deleteCategory } = useCategories();
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const { jobs, isLoading: jobsLoading, addJob, editJob, removeJob, toggleComplete } = useJobs(activeCategory || undefined);
+  
   const [isProcessing, setIsProcessing] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [uploadExpanded, setUploadExpanded] = useState(false);
+  const [viewType, setViewType] = useState<ViewType>('table');
+  const [kanbanGroupBy, setKanbanGroupBy] = useState<KanbanGroupBy>('team');
+  const [selectedJobForModal, setSelectedJobForModal] = useState<Job | null>(null);
   const [filters, setFilters] = useState<FilterState>({
     search: '',
     team: '',
@@ -36,18 +50,23 @@ const Index = () => {
   });
   const { toast } = useToast();
 
+  // Set first category as active when loaded
+  useEffect(() => {
+    if (categories.length > 0 && !activeCategory) {
+      setActiveCategory(categories[0].id);
+    }
+  }, [categories, activeCategory]);
+
   const handleFileUpload = async (file: File, type: FileType) => {
     setIsProcessing(true);
     try {
       let extractedData: Partial<Job> | null = null;
 
       if (type === 'pdf') {
-        // Extract text from PDF using pdf.js
         const text = await extractTextFromPDF(file);
         console.log('Extracted PDF text:', text.substring(0, 500));
         extractedData = await extractPDFWithAI(text);
       } else if (type === 'image') {
-        // Convert image to base64 and use OCR
         const base64 = await fileToBase64(file);
         console.log('Processing image for OCR, size:', file.size);
         extractedData = await extractImageWithAI(base64, file.type);
@@ -97,13 +116,11 @@ const Index = () => {
     }
   };
 
-  // Helper to convert File to base64
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => {
         const result = reader.result as string;
-        // Remove the data URL prefix (e.g., "data:image/jpeg;base64,")
         const base64 = result.split(',')[1];
         resolve(base64);
       };
@@ -145,7 +162,23 @@ const Index = () => {
     }
   };
 
-  // Get all unique SOR codes from jobs
+  const handleToggleComplete = async (job: Job) => {
+    try {
+      await toggleComplete(job);
+      const newStatus = !(job.isCompleted || job.progress === 100);
+      toast({
+        title: newStatus ? "Job Completed" : "Job Reopened",
+        description: `Job #${job.jobNumber} marked as ${newStatus ? 'complete' : 'in progress'}.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Update Failed",
+        description: "Could not update job status.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const availableSorCodes = useMemo(() => {
     const codes = new Set<string>();
     jobs.forEach(job => {
@@ -155,12 +188,12 @@ const Index = () => {
     return Array.from(codes).sort();
   }, [jobs]);
 
-  // Export filtered jobs to PDF
   const handleExportPDF = () => {
     const doc = new jsPDF();
+    const activeCat = categories.find(c => c.id === activeCategory);
     
     doc.setFontSize(18);
-    doc.text('ALLSAINTS JOB REPORT', 14, 20);
+    doc.text(`${activeCat?.name || 'ALLSAINTS'} JOB REPORT`, 14, 20);
     doc.setFontSize(10);
     doc.text(`Generated: ${format(new Date(), 'dd/MM/yyyy')}`, 14, 28);
     doc.text(`Total Jobs: ${filteredJobs.length}`, 14, 34);
@@ -184,12 +217,13 @@ const Index = () => {
       headStyles: { fillColor: [59, 130, 246] },
     });
 
-    doc.save(`allsaints-jobs-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+    doc.save(`${activeCat?.slug || 'jobs'}-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
     toast({ title: 'PDF downloaded!' });
   };
 
-  // Export filtered jobs to Excel
   const handleExportExcel = () => {
+    const activeCat = categories.find(c => c.id === activeCategory);
+    
     const excelData = filteredJobs.map(job => ({
       'Job Number': job.jobNumber,
       'Name': job.name,
@@ -210,14 +244,12 @@ const Index = () => {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Jobs');
 
-    XLSX.writeFile(workbook, `allsaints-jobs-${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+    XLSX.writeFile(workbook, `${activeCat?.slug || 'jobs'}-${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
     toast({ title: 'Excel downloaded!' });
   };
 
-  // Filter jobs based on all filters
   const filteredJobs = useMemo(() => {
     return jobs.filter(job => {
-      // Search filter
       if (filters.search) {
         const searchLower = filters.search.toLowerCase();
         const matchesSearch = 
@@ -229,7 +261,6 @@ const Index = () => {
         if (!matchesSearch) return false;
       }
 
-      // Team filter
       if (filters.team && filters.team !== 'all') {
         if (filters.team === 'unassigned') {
           if (job.team) return false;
@@ -238,7 +269,6 @@ const Index = () => {
         }
       }
 
-      // Status filter
       if (filters.status && filters.status !== 'all') {
         switch (filters.status) {
           case 'not-started':
@@ -253,7 +283,6 @@ const Index = () => {
         }
       }
 
-      // SOR Code filter
       if (filters.sorCode && filters.sorCode !== 'all') {
         const hasSorCode = 
           job.workItems.some(item => item.sorCode === filters.sorCode) ||
@@ -261,7 +290,6 @@ const Index = () => {
         if (!hasSorCode) return false;
       }
 
-      // Date range filter
       if (filters.dateFrom) {
         if (isBefore(job.dateIssued, startOfDay(filters.dateFrom))) return false;
       }
@@ -273,12 +301,14 @@ const Index = () => {
     });
   }, [jobs, filters]);
 
-  if (isLoading) {
+  const isLoading = categoriesLoading || jobsLoading;
+
+  if (isLoading && categories.length === 0) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          <p className="text-muted-foreground">Loading jobs...</p>
+          <p className="text-muted-foreground">Loading...</p>
         </div>
       </div>
     );
@@ -289,6 +319,16 @@ const Index = () => {
       <Header onExport={() => setShowExport(true)} jobCount={jobs.length} />
       
       <main className="flex-1 container mx-auto px-4 py-4 flex flex-col gap-4">
+        {/* Category Tabs */}
+        <CategoryTabs
+          categories={categories}
+          activeCategory={activeCategory}
+          onCategoryChange={setActiveCategory}
+          onAddCategory={addCategory}
+          onUpdateCategory={updateCategory}
+          onDeleteCategory={deleteCategory}
+        />
+
         {/* Compact Stats Row */}
         <div className="flex items-center justify-between gap-4">
           <StatsCards jobs={filteredJobs} />
@@ -303,7 +343,7 @@ const Index = () => {
           onExportExcel={handleExportExcel}
         />
 
-        {/* Collapsible Upload Section - 5% */}
+        {/* Collapsible Upload Section */}
         <section 
           className="bg-card border border-border rounded-lg overflow-hidden"
           style={{ maxHeight: uploadExpanded ? '220px' : '48px' }}
@@ -337,7 +377,7 @@ const Index = () => {
           )}
         </section>
 
-        {/* Jobs Database - Takes remaining ~80% of screen */}
+        {/* Jobs Database */}
         <section className="flex-1 bg-card border border-border rounded-lg p-4 min-h-0 overflow-hidden flex flex-col">
           <div className="flex items-center justify-between mb-3">
             <div>
@@ -346,14 +386,38 @@ const Index = () => {
                 {filteredJobs.length} of {jobs.length} jobs
               </p>
             </div>
+            <div className="flex items-center gap-3">
+              {viewType === 'kanban' && (
+                <Select value={kanbanGroupBy} onValueChange={(v) => setKanbanGroupBy(v as KanbanGroupBy)}>
+                  <SelectTrigger className="w-32 h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="team">By Team</SelectItem>
+                    <SelectItem value="status">By Status</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+              <ViewToggle view={viewType} onViewChange={setViewType} />
+            </div>
           </div>
           
           <div className="flex-1 overflow-auto">
-            <JobTable 
-              jobs={filteredJobs} 
-              onUpdateJob={handleUpdateJob}
-              onDeleteJob={handleDeleteJob}
-            />
+            {viewType === 'table' ? (
+              <JobTable 
+                jobs={filteredJobs} 
+                onUpdateJob={handleUpdateJob}
+                onDeleteJob={handleDeleteJob}
+                onToggleComplete={handleToggleComplete}
+              />
+            ) : (
+              <KanbanBoard
+                jobs={filteredJobs}
+                groupBy={kanbanGroupBy}
+                onJobClick={setSelectedJobForModal}
+                onToggleComplete={handleToggleComplete}
+              />
+            )}
           </div>
         </section>
       </main>
@@ -371,6 +435,14 @@ const Index = () => {
             setShowBulkUpload(false);
           }}
           onClose={() => setShowBulkUpload(false)}
+        />
+      )}
+
+      {selectedJobForModal && (
+        <JobDetailsModal
+          job={selectedJobForModal}
+          onClose={() => setSelectedJobForModal(null)}
+          onUpdate={handleUpdateJob}
         />
       )}
     </div>

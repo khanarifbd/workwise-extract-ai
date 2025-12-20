@@ -1,18 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Job } from '@/types/job';
 import { fetchJobs, createJob, updateJob, deleteJob } from '@/lib/api';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-export const useJobs = () => {
+export const useJobs = (categoryId?: string) => {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
-  const loadJobs = async () => {
+  const loadJobs = useCallback(async () => {
     try {
       setIsLoading(true);
-      const data = await fetchJobs();
+      const data = await fetchJobs(categoryId);
       setJobs(data);
     } catch (error) {
       console.error('Error loading jobs:', error);
@@ -24,14 +24,14 @@ export const useJobs = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [categoryId, toast]);
 
   useEffect(() => {
     loadJobs();
 
     // Set up realtime subscription
     const channel = supabase
-      .channel('jobs-changes')
+      .channel(`jobs-changes-${categoryId || 'all'}`)
       .on(
         'postgres_changes',
         {
@@ -49,11 +49,11 @@ export const useJobs = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [categoryId, loadJobs]);
 
   const addJob = async (job: Omit<Job, 'id'>) => {
     try {
-      const newJob = await createJob(job);
+      const newJob = await createJob(job, categoryId);
       setJobs(prev => [newJob, ...prev]);
       return newJob;
     } catch (error) {
@@ -83,12 +83,22 @@ export const useJobs = () => {
     }
   };
 
+  const toggleComplete = async (job: Job) => {
+    const newCompleted = !(job.isCompleted || job.progress === 100);
+    await editJob(job.id, {
+      isCompleted: newCompleted,
+      progress: newCompleted ? 100 : job.progress === 100 ? 0 : job.progress,
+      completionDate: newCompleted ? new Date() : null
+    });
+  };
+
   return {
     jobs,
     isLoading,
     addJob,
     editJob,
     removeJob,
+    toggleComplete,
     refreshJobs: loadJobs
   };
 };
