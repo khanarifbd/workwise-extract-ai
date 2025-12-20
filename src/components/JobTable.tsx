@@ -207,8 +207,8 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
     }
   };
 
-  // Bulk fan scanning for selected jobs
-  const handleBulkFanScan = async () => {
+  // Bulk fan scanning for selected jobs (includes re-scanning jobs with NONE)
+  const handleBulkFanScan = async (forceRescan: boolean = false) => {
     if (selectedJobs.size === 0) return;
     
     setIsBulkScanning(true);
@@ -216,7 +216,12 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
     let fansFoundCount = 0;
     
     try {
-      const jobsToScan = jobs.filter(j => selectedJobs.has(j.id) && (!j.fanInfo || j.fanInfo.length === 0));
+      const jobsToScan = jobs.filter(j => {
+        if (!selectedJobs.has(j.id)) return false;
+        if (forceRescan) return true; // Re-scan all selected
+        // Only scan jobs without results or with NONE marker
+        return !j.fanInfo || j.fanInfo.length === 0 || wasScannedNoFans(j.fanInfo);
+      });
       
       for (const job of jobsToScan) {
         try {
@@ -235,7 +240,8 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
               }
             }
           } else {
-            onUpdateJob({ ...job, fanInfo: [] });
+            // Mark as scanned with no fans
+            onUpdateJob({ ...job, fanInfo: [{ type: '__SCANNED_NO_FANS__', quantity: 0, location: '' }] });
           }
           scannedCount++;
         } catch (error) {
@@ -257,6 +263,21 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
     } finally {
       setIsBulkScanning(false);
     }
+  };
+
+  // Clear fan scan results for selected jobs
+  const handleClearFanResults = () => {
+    const jobsToClear = jobs.filter(j => selectedJobs.has(j.id) && j.fanInfo && j.fanInfo.length > 0);
+    
+    for (const job of jobsToClear) {
+      onUpdateJob({ ...job, fanInfo: [] });
+    }
+    
+    toast({
+      title: "Fan Results Cleared",
+      description: `Cleared fan scan results from ${jobsToClear.length} jobs.`,
+    });
+    setSelectedJobs(new Set());
   };
 
   const handleDescriptionSave = (jobId: string, newDescription: string) => {
@@ -304,11 +325,21 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
             </Button>
           </div>
           <div className="flex items-center gap-2 relative">
+            {/* Clear Fan Results Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleClearFanResults}
+              disabled={isBulkScanning}
+            >
+              <X className="w-3.5 h-3.5 mr-1" />
+              Clear Fans
+            </Button>
             {/* Bulk Fan Scan Button */}
             <Button
               variant="outline"
               size="sm"
-              onClick={handleBulkFanScan}
+              onClick={() => handleBulkFanScan(false)}
               disabled={isBulkScanning}
             >
               {isBulkScanning ? (
@@ -317,6 +348,20 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                 <Fan className="w-3.5 h-3.5 mr-1" />
               )}
               Scan Fans
+            </Button>
+            {/* Re-scan All Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleBulkFanScan(true)}
+              disabled={isBulkScanning}
+            >
+              {isBulkScanning ? (
+                <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+              ) : (
+                <Wand2 className="w-3.5 h-3.5 mr-1" />
+              )}
+              Re-scan All
             </Button>
             <Button
               variant="default"
@@ -456,9 +501,27 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                           )}
                         </>
                       ) : wasScannedNoFans(job.fanInfo) ? (
-                        <Badge variant="outline" className="text-xs bg-muted text-muted-foreground">
-                          NONE
-                        </Badge>
+                        <div className="flex flex-col gap-1">
+                          <Badge variant="outline" className="text-xs bg-muted text-muted-foreground">
+                            NONE
+                          </Badge>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-5 px-1.5 text-xs text-muted-foreground hover:text-primary"
+                            onClick={() => handleScanForFans(job.id)}
+                            disabled={scanningFanJobId === job.id}
+                          >
+                            {scanningFanJobId === job.id ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <>
+                                <Wand2 className="w-3 h-3 mr-0.5" />
+                                Re-scan
+                              </>
+                            )}
+                          </Button>
+                        </div>
                       ) : (
                         <Button
                           variant="ghost"
