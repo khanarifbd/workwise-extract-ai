@@ -34,7 +34,9 @@ serve(async (req) => {
 
     const systemPrompt = `You are an expert at identifying fan installation requirements in property maintenance job descriptions.
 
-Analyze the provided text and identify any mentions of fans that need to be installed. This includes:
+IMPORTANT: Only extract information that is DIRECTLY related to fans. Do not include any other work items, repairs, or general job information.
+
+Analyze the provided text and identify ONLY mentions of fans that need to be installed. This includes:
 - Extractor fans
 - Bathroom fans
 - Kitchen fans
@@ -42,10 +44,16 @@ Analyze the provided text and identify any mentions of fans that need to be inst
 - Exhaust fans
 - Any fan-related work
 
-For each fan found, extract:
+For each fan found, extract ONLY fan-specific details:
 1. The type of fan (e.g., "Bathroom Extractor Fan", "Kitchen Ventilation Fan")
 2. The quantity (default to 1 if not specified)
-3. Any location details mentioned
+3. The location where the fan should be installed
+
+Do NOT include:
+- General job descriptions
+- Non-fan related work items
+- Customer contact details
+- Property details unrelated to fan location
 
 Return the data in this exact JSON format:
 {
