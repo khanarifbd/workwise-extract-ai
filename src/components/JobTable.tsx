@@ -3,6 +3,7 @@ import { Job, ALLSAINTS_TEAMS } from '@/types/job';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Checkbox } from '@/components/ui/checkbox';
 import { format } from 'date-fns';
 import { 
   Users, 
@@ -15,7 +16,8 @@ import {
   Paperclip,
   ChevronDown,
   ChevronUp,
-  CheckCircle2
+  CheckCircle2,
+  X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TeamSelector } from './TeamSelector';
@@ -33,13 +35,16 @@ interface JobTableProps {
   onUpdateJob: (job: Job) => void;
   onDeleteJob: (jobId: string) => void;
   onToggleComplete: (job: Job) => void;
+  onBatchUpdateTeam?: (jobIds: string[], teamName: string | null) => void;
 }
 
-export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete }: JobTableProps) => {
+export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onBatchUpdateTeam }: JobTableProps) => {
   const [showTeamSelector, setShowTeamSelector] = useState<string | null>(null);
   const [showProgressEditor, setShowProgressEditor] = useState<string | null>(null);
   const [showJobDetails, setShowJobDetails] = useState<Job | null>(null);
   const [expandedDescriptions, setExpandedDescriptions] = useState<Set<string>>(new Set());
+  const [selectedJobs, setSelectedJobs] = useState<Set<string>>(new Set());
+  const [showBatchTeamSelector, setShowBatchTeamSelector] = useState(false);
 
   const handleTeamSelect = (jobId: string, teamId: string | null) => {
     const job = jobs.find(j => j.id === jobId);
@@ -48,6 +53,15 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete }: J
       onUpdateJob({ ...job, team: team?.name || null });
     }
     setShowTeamSelector(null);
+  };
+
+  const handleBatchTeamSelect = (teamId: string | null) => {
+    if (onBatchUpdateTeam && selectedJobs.size > 0) {
+      const team = teamId ? ALLSAINTS_TEAMS.find(t => t.id === teamId) : null;
+      onBatchUpdateTeam(Array.from(selectedJobs), team?.name || null);
+      setSelectedJobs(new Set());
+    }
+    setShowBatchTeamSelector(false);
   };
 
   const handleProgressUpdate = (jobId: string, progress: number, notes: string) => {
@@ -70,6 +84,26 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete }: J
     });
   };
 
+  const toggleJobSelection = (jobId: string) => {
+    setSelectedJobs(prev => {
+      const next = new Set(prev);
+      if (next.has(jobId)) {
+        next.delete(jobId);
+      } else {
+        next.add(jobId);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedJobs.size === jobs.length) {
+      setSelectedJobs(new Set());
+    } else {
+      setSelectedJobs(new Set(jobs.map(j => j.id)));
+    }
+  };
+
   const getTeamColor = (teamName: string | null) => {
     if (!teamName) return undefined;
     const team = ALLSAINTS_TEAMS.find(t => t.name === teamName);
@@ -90,10 +124,65 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete }: J
 
   return (
     <>
+      {/* Batch Action Bar */}
+      {selectedJobs.size > 0 && (
+        <div className="mb-3 p-3 bg-primary/10 border border-primary/30 rounded-lg flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium">{selectedJobs.size} jobs selected</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSelectedJobs(new Set())}
+            >
+              <X className="w-3.5 h-3.5 mr-1" />
+              Clear
+            </Button>
+          </div>
+          <div className="flex items-center gap-2 relative">
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => setShowBatchTeamSelector(!showBatchTeamSelector)}
+            >
+              <Users className="w-3.5 h-3.5 mr-1" />
+              Assign Team
+            </Button>
+            {showBatchTeamSelector && (
+              <div className="absolute top-full right-0 mt-2 z-50 bg-card border border-border rounded-lg shadow-xl p-2 min-w-[180px]">
+                <div className="text-xs font-medium text-muted-foreground px-2 py-1 mb-1">Select Team</div>
+                <button
+                  className="w-full text-left px-2 py-1.5 rounded hover:bg-muted text-sm flex items-center gap-2"
+                  onClick={() => handleBatchTeamSelect(null)}
+                >
+                  <div className="w-3 h-3 rounded-full bg-muted-foreground/30" />
+                  Unassign
+                </button>
+                {ALLSAINTS_TEAMS.map(team => (
+                  <button
+                    key={team.id}
+                    className="w-full text-left px-2 py-1.5 rounded hover:bg-muted text-sm flex items-center gap-2"
+                    onClick={() => handleBatchTeamSelect(team.id)}
+                  >
+                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: team.color }} />
+                    {team.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="overflow-x-auto rounded-lg border border-border bg-card">
         <table className="data-table">
           <thead>
             <tr>
+              <th className="w-10" onClick={(e) => e.stopPropagation()}>
+                <Checkbox
+                  checked={selectedJobs.size === jobs.length && jobs.length > 0}
+                  onCheckedChange={toggleSelectAll}
+                />
+              </th>
               <th className="w-12">Status</th>
               <th className="w-24">Date</th>
               <th className="w-28">Job #</th>
@@ -121,10 +210,18 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete }: J
                     "transition-colors cursor-pointer",
                     isCompleted 
                       ? "bg-success/10 border-l-4 border-l-success hover:bg-success/15" 
-                      : "hover:bg-muted/30"
+                      : "hover:bg-muted/30",
+                    selectedJobs.has(job.id) && "bg-primary/5"
                   )}
                   onClick={() => setShowJobDetails(job)}
                 >
+                  {/* Checkbox Column */}
+                  <td className="text-center" onClick={(e) => e.stopPropagation()}>
+                    <Checkbox
+                      checked={selectedJobs.has(job.id)}
+                      onCheckedChange={() => toggleJobSelection(job.id)}
+                    />
+                  </td>
                   {/* Status Column - Click to toggle */}
                   <td className="text-center" onClick={(e) => e.stopPropagation()}>
                     <button
