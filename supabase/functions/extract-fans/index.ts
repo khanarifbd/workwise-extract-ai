@@ -87,6 +87,7 @@ If no fans are mentioned, return:
           { role: 'system', content: systemPrompt },
           { role: 'user', content: `Analyze this job description for fan installations:\n\n${combinedText}` }
         ],
+        response_format: { type: "json_object" },
       }),
     });
 
@@ -121,13 +122,33 @@ If no fans are mentioned, return:
     console.log('Fan extraction completed');
     console.log('Raw response:', content);
 
-    // Parse the JSON from the response
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error('Could not parse JSON from AI response');
+    // Clean the response - remove markdown code blocks if present
+    let cleanedContent = content.trim();
+    if (cleanedContent.startsWith('```json')) {
+      cleanedContent = cleanedContent.slice(7);
+    } else if (cleanedContent.startsWith('```')) {
+      cleanedContent = cleanedContent.slice(3);
     }
+    if (cleanedContent.endsWith('```')) {
+      cleanedContent = cleanedContent.slice(0, -3);
+    }
+    cleanedContent = cleanedContent.trim();
 
-    const extractedData = JSON.parse(jsonMatch[0]);
+    // Parse the JSON from the response
+    let extractedData;
+    try {
+      extractedData = JSON.parse(cleanedContent);
+    } catch (parseError) {
+      // Fallback: try to extract JSON object with regex
+      const jsonMatch = cleanedContent.match(/\{[\s\S]*?\}(?=\s*$)/);
+      if (!jsonMatch) {
+        console.error('Failed to parse JSON:', parseError);
+        // Return empty result instead of throwing
+        extractedData = { hasFans: false, fans: [], totalFanCount: 0 };
+      } else {
+        extractedData = JSON.parse(jsonMatch[0]);
+      }
+    }
 
     return new Response(
       JSON.stringify({ success: true, data: extractedData }),
