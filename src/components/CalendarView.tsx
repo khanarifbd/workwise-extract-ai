@@ -37,23 +37,30 @@ export const CalendarView = ({ jobs, onJobClick, onToggleComplete }: CalendarVie
 
   const getJobsForDay = (date: Date) => {
     return jobs.filter(job => {
+      // Primary: show jobs on their booked date
+      if (job.bookedDate && isSameDay(job.bookedDate, date)) {
+        return true;
+      }
+      // Fallback: show on start/completion dates if no booked date
       const startMatch = job.startDate && isSameDay(job.startDate, date);
       const completionMatch = job.completionDate && isSameDay(job.completionDate, date);
-      const issuedMatch = isSameDay(job.dateIssued, date);
-      return startMatch || completionMatch || issuedMatch;
+      return startMatch || completionMatch;
     });
   };
 
   const getJobBadgeInfo = (job: Job, date: Date) => {
+    const bookedMatch = job.bookedDate && isSameDay(job.bookedDate, date);
     const startMatch = job.startDate && isSameDay(job.startDate, date);
     const completionMatch = job.completionDate && isSameDay(job.completionDate, date);
     
-    if (completionMatch) {
+    if (bookedMatch) {
+      return { label: 'Booked', color: 'bg-primary text-primary-foreground' };
+    } else if (completionMatch) {
       return { label: 'Due', color: 'bg-success text-white' };
     } else if (startMatch) {
-      return { label: 'Start', color: 'bg-primary text-primary-foreground' };
+      return { label: 'Start', color: 'bg-warning text-warning-foreground' };
     }
-    return { label: 'Issued', color: 'bg-muted text-muted-foreground' };
+    return { label: 'Other', color: 'bg-muted text-muted-foreground' };
   };
 
   return (

@@ -191,7 +191,7 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                   onCheckedChange={toggleSelectAll}
                 />
               </th>
-              <th className="w-12">Done</th>
+              <th className="w-28">Issued</th>
               <th className="w-28">Booked</th>
               <th className="w-28">Job #</th>
               <th className="w-44">Name / Contact</th>
@@ -210,7 +210,7 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
               const isExpanded = expandedDescriptions.has(job.id);
               const description = job.description || job.summaryOfWorks;
               const shouldTruncate = description.length > 100;
-              const isCompleted = job.isCompleted || job.progress === 100;
+              const isCompleted = job.status === 'complete' || job.isCompleted || job.progress === 100;
               
               return (
                 <tr 
@@ -218,7 +218,7 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                   className={cn(
                     "transition-colors cursor-pointer",
                     isCompleted 
-                      ? "bg-success/10 border-l-4 border-l-success hover:bg-success/15" 
+                      ? "bg-emerald-100 dark:bg-emerald-900/40 border-l-4 border-l-emerald-500 hover:bg-emerald-200 dark:hover:bg-emerald-900/60" 
                       : "hover:bg-muted/30",
                     selectedJobs.has(job.id) && "bg-primary/5"
                   )}
@@ -231,22 +231,9 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                       onCheckedChange={() => toggleJobSelection(job.id)}
                     />
                   </td>
-                  {/* Status Column - Click to toggle */}
-                  <td className="text-center" onClick={(e) => e.stopPropagation()}>
-                    <button
-                      onClick={() => onToggleComplete(job)}
-                      className="flex flex-col items-center gap-0.5 mx-auto hover:scale-110 transition-transform"
-                      title={isCompleted ? "Mark as incomplete" : "Mark as complete"}
-                    >
-                      {isCompleted ? (
-                        <>
-                          <CheckCircle2 className="w-6 h-6 text-success fill-success/20" />
-                          <span className="text-[10px] font-bold text-success uppercase tracking-wide">Complete</span>
-                        </>
-                      ) : (
-                        <div className="w-6 h-6 rounded-full border-2 border-muted-foreground/30 hover:border-success hover:bg-success/10 transition-colors" />
-                      )}
-                    </button>
+                  {/* Issued Column - When job was uploaded */}
+                  <td className="font-mono text-muted-foreground">
+                    {format(job.dateIssued, 'dd/MM/yy')}
                   </td>
                   <td className="font-mono text-muted-foreground">
                     {job.bookedDate ? format(job.bookedDate, 'dd/MM/yy') : '-'}
