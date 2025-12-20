@@ -50,10 +50,18 @@ export const TeamSelector = ({ job, onSelect, onClose }: TeamSelectorProps) => {
       // Get WhatsApp number from DB settings
       const whatsappNumber = getTeamWhatsApp(teamId);
       
-      // Then prepare WhatsApp notification
+      // Then send WhatsApp notification via Twilio
       const result = await sendWhatsAppNotification(teamName, whatsappNumber, job);
       
-      if (result?.whatsappLink) {
+      if (result?.sentViaTwilio) {
+        // Message was sent automatically via Twilio
+        toast({
+          title: "Team Assigned & Notified",
+          description: `Job #${job.jobNumber} assigned to ${teamName}. WhatsApp message sent automatically.`,
+          duration: 5000,
+        });
+      } else if (result?.whatsappLink) {
+        // Fallback to manual link if Twilio not configured
         toast({
           title: "Team Assigned - Send WhatsApp?",
           description: (
@@ -83,7 +91,7 @@ export const TeamSelector = ({ job, onSelect, onClose }: TeamSelectorProps) => {
       console.error('WhatsApp error:', error);
       toast({
         title: "Team Assigned",
-        description: `Job assigned to ${teamName}. Notification preparation failed.`,
+        description: `Job assigned to ${teamName}. Notification failed.`,
       });
     } finally {
       setIsSending(false);
