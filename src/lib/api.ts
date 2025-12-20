@@ -123,11 +123,17 @@ export const sendWhatsAppNotification = async (
 };
 
 // Database operations
-export const fetchJobs = async (): Promise<Job[]> => {
-  const { data, error } = await supabase
+export const fetchJobs = async (categoryId?: string): Promise<Job[]> => {
+  let query = supabase
     .from('jobs')
     .select('*')
     .order('date_issued', { ascending: false });
+
+  if (categoryId) {
+    query = query.eq('category_id', categoryId);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     console.error('Error fetching jobs:', error);
@@ -137,8 +143,11 @@ export const fetchJobs = async (): Promise<Job[]> => {
   return (data || []).map(mapDatabaseJobToJob);
 };
 
-export const createJob = async (job: Omit<Job, 'id'>): Promise<Job> => {
+export const createJob = async (job: Omit<Job, 'id'>, categoryId?: string): Promise<Job> => {
   const dbJob = mapJobToDatabase(job);
+  if (categoryId) {
+    dbJob.category_id = categoryId;
+  }
   
   const { data, error } = await supabase
     .from('jobs')

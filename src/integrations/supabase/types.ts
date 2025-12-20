@@ -14,11 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      categories: {
+        Row: {
+          color: string | null
+          created_at: string
+          id: string
+          name: string
+          slug: string
+          sort_order: number
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          slug: string
+          sort_order?: number
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          slug?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
       jobs: {
         Row: {
           additional_works: Json | null
           address: string | null
           attachments: Json | null
+          category_id: string | null
           completion_date: string | null
           created_at: string
           date_issued: string | null
@@ -40,6 +68,7 @@ export type Database = {
           additional_works?: Json | null
           address?: string | null
           attachments?: Json | null
+          category_id?: string | null
           completion_date?: string | null
           created_at?: string
           date_issued?: string | null
@@ -61,6 +90,7 @@ export type Database = {
           additional_works?: Json | null
           address?: string | null
           attachments?: Json | null
+          category_id?: string | null
           completion_date?: string | null
           created_at?: string
           date_issued?: string | null
@@ -78,7 +108,15 @@ export type Database = {
           updated_at?: string
           work_items?: Json | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "jobs_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
