@@ -69,6 +69,12 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        section: {
+          stats: "hsl(var(--section-stats))",
+          filters: "hsl(var(--section-filters))",
+          upload: "hsl(var(--section-upload))",
+          database: "hsl(var(--section-database))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",

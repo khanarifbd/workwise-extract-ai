@@ -5,6 +5,7 @@ import { BulkImageUpload } from '@/components/BulkImageUpload';
 import { JobTable } from '@/components/JobTable';
 import { Header } from '@/components/Header';
 import { StatsCards } from '@/components/StatsCards';
+import { FanStatsCards } from '@/components/FanStatsCards';
 import { ExportPanel } from '@/components/ExportPanel';
 import { JobFilters, FilterState } from '@/components/JobFilters';
 import { CategoryTabs } from '@/components/CategoryTabs';
@@ -485,6 +486,12 @@ const Index = () => {
 
   const isLoading = categoriesLoading || jobsLoading;
 
+  // Check if current category is "Fan"
+  const isFanCategory = useMemo(() => {
+    const activeCat = categories.find(c => c.id === activeCategory);
+    return activeCat?.name.toLowerCase().includes('fan') || false;
+  }, [categories, activeCategory]);
+
   if (isLoading && categories.length === 0) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -512,22 +519,28 @@ const Index = () => {
         />
 
         {/* Compact Stats Row */}
-        <div className="flex items-center justify-between gap-4">
-          <StatsCards jobs={filteredJobs} />
+        <div className="flex items-center justify-between gap-4 bg-section-stats rounded-lg p-3">
+          {isFanCategory ? (
+            <FanStatsCards jobs={filteredJobs} />
+          ) : (
+            <StatsCards jobs={filteredJobs} />
+          )}
         </div>
 
         {/* Search and Filters */}
-        <JobFilters
-          filters={filters}
-          onFiltersChange={setFilters}
-          availableSorCodes={availableSorCodes}
-          onExportPDF={handleExportPDF}
-          onExportExcel={handleExportExcel}
-        />
+        <div className="bg-section-filters rounded-lg p-3">
+          <JobFilters
+            filters={filters}
+            onFiltersChange={setFilters}
+            availableSorCodes={availableSorCodes}
+            onExportPDF={handleExportPDF}
+            onExportExcel={handleExportExcel}
+          />
+        </div>
 
         {/* Collapsible Upload Section */}
         <section 
-          className="bg-card border border-border rounded-lg overflow-hidden"
+          className="bg-section-upload border border-border rounded-lg overflow-hidden"
           style={{ maxHeight: uploadExpanded ? '220px' : '48px' }}
         >
           <button
@@ -566,10 +579,10 @@ const Index = () => {
 
 
         {/* Jobs Database */}
-        <section className="flex-1 bg-card border border-border rounded-lg p-4 min-h-0 overflow-hidden flex flex-col">
+        <section className="flex-1 bg-section-database border border-border rounded-lg p-4 min-h-0 overflow-hidden flex flex-col">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h2 className="text-base font-semibold">Jobs Database</h2>
+              <h2 className="text-base font-semibold">{isFanCategory ? 'Fan Installations' : 'Jobs Database'}</h2>
               <p className="text-xs text-muted-foreground">
                 {filteredJobs.length} of {jobs.length} jobs
               </p>
@@ -600,6 +613,7 @@ const Index = () => {
                 onBatchUpdateTeam={handleBatchUpdateTeam}
                 fanCategoryId={categories.find(c => c.name.toLowerCase().includes('fan'))?.id}
                 onFanJobCreated={refreshJobs}
+                isFanCategory={isFanCategory}
               />
             ) : viewType === 'kanban' ? (
               <KanbanBoard

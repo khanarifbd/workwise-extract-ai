@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Job, ALLSAINTS_TEAMS, JobStatus, FanInfo } from '@/types/job';
+import { Job, ALLSAINTS_TEAMS, FAN_TEAMS, JobStatus, FanInfo } from '@/types/job';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -47,9 +47,10 @@ interface JobTableProps {
   onBatchUpdateTeam?: (jobIds: string[], teamName: string | null) => void;
   fanCategoryId?: string;
   onFanJobCreated?: () => void;
+  isFanCategory?: boolean;
 }
 
-export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onBatchUpdateTeam, fanCategoryId, onFanJobCreated }: JobTableProps) => {
+export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onBatchUpdateTeam, fanCategoryId, onFanJobCreated, isFanCategory = false }: JobTableProps) => {
   const [showTeamSelector, setShowTeamSelector] = useState<string | null>(null);
   const [showProgressEditor, setShowProgressEditor] = useState<string | null>(null);
   const [showJobDetails, setShowJobDetails] = useState<Job | null>(null);
@@ -57,12 +58,16 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
   const [selectedJobs, setSelectedJobs] = useState<Set<string>>(new Set());
   const [showBatchTeamSelector, setShowBatchTeamSelector] = useState(false);
   const [scanningFanJobId, setScanningFanJobId] = useState<string | null>(null);
+  const [isBulkScanning, setIsBulkScanning] = useState(false);
   const { toast } = useToast();
+  
+  // Use fan teams for fan category
+  const teams = isFanCategory ? FAN_TEAMS : ALLSAINTS_TEAMS;
 
   const handleTeamSelect = (jobId: string, teamId: string | null) => {
     const job = jobs.find(j => j.id === jobId);
     if (job) {
-      const team = teamId ? ALLSAINTS_TEAMS.find(t => t.id === teamId) : null;
+      const team = teamId ? teams.find(t => t.id === teamId) : null;
       onUpdateJob({ ...job, team: team?.name || null });
     }
     setShowTeamSelector(null);
@@ -70,7 +75,7 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
 
   const handleBatchTeamSelect = (teamId: string | null) => {
     if (onBatchUpdateTeam && selectedJobs.size > 0) {
-      const team = teamId ? ALLSAINTS_TEAMS.find(t => t.id === teamId) : null;
+      const team = teamId ? teams.find(t => t.id === teamId) : null;
       onBatchUpdateTeam(Array.from(selectedJobs), team?.name || null);
       setSelectedJobs(new Set());
     }
@@ -119,7 +124,7 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
 
   const getTeamColor = (teamName: string | null) => {
     if (!teamName) return undefined;
-    const team = ALLSAINTS_TEAMS.find(t => t.name === teamName);
+    const team = teams.find(t => t.name === teamName);
     return team?.color;
   };
 
@@ -195,6 +200,58 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
     }
   };
 
+  // Bulk fan scanning for selected jobs
+  const handleBulkFanScan = async () => {
+    if (selectedJobs.size === 0) return;
+    
+    setIsBulkScanning(true);
+    let scannedCount = 0;
+    let fansFoundCount = 0;
+    
+    try {
+      const jobsToScan = jobs.filter(j => selectedJobs.has(j.id) && (!j.fanInfo || j.fanInfo.length === 0));
+      
+      for (const job of jobsToScan) {
+        try {
+          const result = await extractFansWithAI(job.description || job.summaryOfWorks || '', job.workItems);
+          if (result && result.hasFans) {
+            onUpdateJob({ ...job, fanInfo: result.fans });
+            fansFoundCount += result.totalFanCount;
+            
+            // Auto-create linked fan job if category exists and not already linked
+            if (fanCategoryId && !job.linkedFanJobId) {
+              try {
+                await createLinkedFanJob(job, result.fans, fanCategoryId);
+                onFanJobCreated?.();
+              } catch (createError) {
+                console.error('Failed to create linked fan job:', createError);
+              }
+            }
+          } else {
+            onUpdateJob({ ...job, fanInfo: [] });
+          }
+          scannedCount++;
+        } catch (error) {
+          console.error(`Failed to scan job ${job.jobNumber}:`, error);
+        }
+      }
+      
+      toast({
+        title: "Bulk Scan Complete",
+        description: `Scanned ${scannedCount} jobs. Found ${fansFoundCount} fans total.`,
+      });
+      setSelectedJobs(new Set());
+    } catch (error) {
+      toast({
+        title: "Bulk Scan Failed",
+        description: "Some jobs could not be scanned.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsBulkScanning(false);
+    }
+  };
+
   const handleDescriptionSave = (jobId: string, newDescription: string) => {
     const job = jobs.find(j => j.id === jobId);
     if (job) {
@@ -240,6 +297,20 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
             </Button>
           </div>
           <div className="flex items-center gap-2 relative">
+            {/* Bulk Fan Scan Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleBulkFanScan}
+              disabled={isBulkScanning}
+            >
+              {isBulkScanning ? (
+                <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+              ) : (
+                <Fan className="w-3.5 h-3.5 mr-1" />
+              )}
+              Scan Fans
+            </Button>
             <Button
               variant="default"
               size="sm"
@@ -258,7 +329,7 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                   <div className="w-3 h-3 rounded-full bg-muted-foreground/30" />
                   Unassign
                 </button>
-                {ALLSAINTS_TEAMS.map(team => (
+                {teams.map(team => (
                   <button
                     key={team.id}
                     className="w-full text-left px-2 py-1.5 rounded hover:bg-muted text-sm flex items-center gap-2"
@@ -444,6 +515,7 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                           job={job}
                           onSelect={(teamId) => handleTeamSelect(job.id, teamId)}
                           onClose={() => setShowTeamSelector(null)}
+                          isFanCategory={isFanCategory}
                         />
                       )}
                     </div>

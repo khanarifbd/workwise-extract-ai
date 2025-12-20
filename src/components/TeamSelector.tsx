@@ -1,4 +1,4 @@
-import { ALLSAINTS_TEAMS, Job } from '@/types/job';
+import { ALLSAINTS_TEAMS, FAN_TEAMS, Job, Team } from '@/types/job';
 import { MessageCircle, ExternalLink, UserX } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { sendWhatsAppNotification, saveNotificationToHistory } from '@/lib/api';
@@ -9,13 +9,17 @@ interface TeamSelectorProps {
   job: Job;
   onSelect: (teamId: string | null) => void;
   onClose: () => void;
+  isFanCategory?: boolean;
 }
 
-export const TeamSelector = ({ job, onSelect, onClose }: TeamSelectorProps) => {
+export const TeamSelector = ({ job, onSelect, onClose, isFanCategory = false }: TeamSelectorProps) => {
   const ref = useRef<HTMLDivElement>(null);
   const [isSending, setIsSending] = useState(false);
   const { toast } = useToast();
   const { settings } = useTeamSettings();
+  
+  // Use fan teams if this is a fan category job
+  const teams: Team[] = isFanCategory ? FAN_TEAMS : ALLSAINTS_TEAMS;
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -134,7 +138,7 @@ export const TeamSelector = ({ job, onSelect, onClose }: TeamSelectorProps) => {
       className="absolute top-full left-0 mt-2 z-50 bg-popover border border-border rounded-xl shadow-lg p-2 min-w-[220px] animate-scale-in"
     >
       <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-        Allsaints Teams
+        {isFanCategory ? 'Fan Installers' : 'Allsaints Teams'}
       </div>
       <div className="space-y-1 max-h-48 overflow-y-auto">
         {/* Unassign option */}
@@ -149,7 +153,7 @@ export const TeamSelector = ({ job, onSelect, onClose }: TeamSelectorProps) => {
           </button>
         )}
         
-        {ALLSAINTS_TEAMS.map((team) => {
+        {teams.map((team) => {
           const hasWhatsApp = !!getTeamWhatsApp(team.id);
           return (
             <button
