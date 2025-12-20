@@ -2,10 +2,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Job, WorkItem, FanInfo } from "@/types/job";
 import { SOR_CODES_DATABASE } from "@/data/sorCodes";
 
-// Generate SOR codes context for AI
+// Generate SOR codes context for AI with costs
 const getSORCodesContext = () => {
   return SOR_CODES_DATABASE.map(code => 
-    `${code.code}: ${code.description} (Category: ${code.category})`
+    `${code.code}: ${code.description} (Category: ${code.category}, Cost: £${code.cost})`
   ).join('\n');
 };
 
