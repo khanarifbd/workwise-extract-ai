@@ -1,10 +1,11 @@
 import { useCallback, useState } from 'react';
-import { Upload, Image, X, Loader2, Check, AlertCircle } from 'lucide-react';
+import { Upload, Image, X, Loader2, Check, AlertCircle, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { Job } from '@/types/job';
-import { extractImageWithAI } from '@/lib/api';
+import { extractImageWithAI, extractPDFWithAI } from '@/lib/api';
+import { extractTextFromPDF } from '@/lib/pdfUtils';
 import { useToast } from '@/hooks/use-toast';
 
 interface BulkImageUploadProps {
@@ -17,9 +18,11 @@ interface FileStatus {
   status: 'pending' | 'processing' | 'success' | 'error';
   error?: string;
   jobData?: Partial<Job>;
+  fileType: 'image' | 'pdf';
 }
 
 const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const ACCEPTED_PDF_TYPE = 'application/pdf';
 
 export const BulkImageUpload = ({ onJobsExtracted, onClose }: BulkImageUploadProps) => {
   const [files, setFiles] = useState<FileStatus[]>([]);
@@ -31,14 +34,18 @@ export const BulkImageUpload = ({ onJobsExtracted, onClose }: BulkImageUploadPro
     const selectedFiles = e.target.files;
     if (!selectedFiles) return;
 
-    const validFiles = Array.from(selectedFiles)
-      .filter(f => ACCEPTED_IMAGE_TYPES.includes(f.type))
-      .map(file => ({ file, status: 'pending' as const }));
+    const validFiles: FileStatus[] = Array.from(selectedFiles)
+      .filter(file => ACCEPTED_IMAGE_TYPES.includes(file.type) || file.type === ACCEPTED_PDF_TYPE)
+      .map(file => ({ 
+        file, 
+        status: 'pending' as const,
+        fileType: file.type === ACCEPTED_PDF_TYPE ? 'pdf' as const : 'image' as const
+      }));
 
     if (validFiles.length < selectedFiles.length) {
       toast({
         title: "Some files skipped",
-        description: "Only image files (JPG, PNG, WebP, GIF) are supported.",
+        description: "Only image files (JPG, PNG, WebP, GIF) and PDFs are supported.",
         variant: "destructive",
       });
     }
@@ -50,9 +57,13 @@ export const BulkImageUpload = ({ onJobsExtracted, onClose }: BulkImageUploadPro
     e.preventDefault();
     const droppedFiles = e.dataTransfer.files;
     
-    const validFiles = Array.from(droppedFiles)
-      .filter(f => ACCEPTED_IMAGE_TYPES.includes(f.type))
-      .map(file => ({ file, status: 'pending' as const }));
+    const validFiles: FileStatus[] = Array.from(droppedFiles)
+      .filter(file => ACCEPTED_IMAGE_TYPES.includes(file.type) || file.type === ACCEPTED_PDF_TYPE)
+      .map(file => ({ 
+        file, 
+        status: 'pending' as const,
+        fileType: file.type === ACCEPTED_PDF_TYPE ? 'pdf' as const : 'image' as const
+      }));
 
     setFiles(prev => [...prev, ...validFiles]);
   }, []);
@@ -86,8 +97,15 @@ export const BulkImageUpload = ({ onJobsExtracted, onClose }: BulkImageUploadPro
       setProgress(Math.round(((i) / files.length) * 100));
 
       try {
-        const base64 = await fileToBase64(files[i].file);
-        const extractedData = await extractImageWithAI(base64, files[i].file.type);
+        let extractedData: Partial<Job> | null = null;
+        
+        if (files[i].fileType === 'pdf') {
+          const text = await extractTextFromPDF(files[i].file);
+          extractedData = await extractPDFWithAI(text);
+        } else {
+          const base64 = await fileToBase64(files[i].file);
+          extractedData = await extractImageWithAI(base64, files[i].file.type);
+        }
 
         if (extractedData) {
           const newJob: Omit<Job, 'id'> = {
@@ -184,16 +202,16 @@ export const BulkImageUpload = ({ onJobsExtracted, onClose }: BulkImageUploadPro
             <input
               id="bulk-file-input"
               type="file"
-              accept=".jpg,.jpeg,.png,.webp,.gif"
+              accept=".jpg,.jpeg,.png,.webp,.gif,.pdf"
               onChange={handleFileSelect}
               multiple
               className="hidden"
               disabled={isProcessing}
             />
             <Upload className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-            <p className="text-sm font-medium">Drop images here or click to browse</p>
+            <p className="text-sm font-medium">Drop images or PDFs here or click to browse</p>
             <p className="text-xs text-muted-foreground mt-1">
-              Supports JPG, PNG, WebP, GIF
+              Supports JPG, PNG, WebP, GIF, and PDF
             </p>
           </div>
 
@@ -238,6 +256,8 @@ export const BulkImageUpload = ({ onJobsExtracted, onClose }: BulkImageUploadPro
                         <Check className="w-4 h-4 text-success" />
                       ) : fileStatus.status === 'error' ? (
                         <AlertCircle className="w-4 h-4 text-destructive" />
+                      ) : fileStatus.fileType === 'pdf' ? (
+                        <FileText className="w-4 h-4 text-muted-foreground" />
                       ) : (
                         <Image className="w-4 h-4 text-muted-foreground" />
                       )}
