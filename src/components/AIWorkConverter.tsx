@@ -174,33 +174,40 @@ export const AIWorkConverter = ({ onConvert, onClose }: AIWorkConverterProps) =>
                         key={optionIndex}
                         onClick={() => handleSelectOption(itemIndex, optionIndex)}
                         className={cn(
-                          "flex items-center justify-between p-2 rounded-lg border transition-all text-left",
+                          "flex flex-col p-3 rounded-lg border transition-all text-left",
                           item.selectedOptionIndex === optionIndex
                             ? "border-primary bg-primary/5 ring-1 ring-primary"
                             : "border-border hover:border-muted-foreground/30 hover:bg-muted/30"
                         )}
                       >
-                        <div className="flex items-center gap-2">
-                          <Badge 
-                            variant={option.isPremium ? "default" : "secondary"} 
-                            className={cn(
-                              "font-mono text-xs",
-                              option.isPremium && "bg-amber-500/10 text-amber-600 border-amber-500/30"
+                        <div className="flex items-center justify-between w-full mb-1">
+                          <div className="flex items-center gap-2">
+                            <Badge 
+                              variant={option.isPremium ? "default" : "secondary"} 
+                              className={cn(
+                                "font-mono text-xs",
+                                option.isPremium && "bg-amber-500/10 text-amber-600 border-amber-500/30"
+                              )}
+                            >
+                              {option.isPremium && <Crown className="w-3 h-3 mr-1" />}
+                              {option.code}
+                            </Badge>
+                            {option.isPremium && (
+                              <span className="text-xs text-amber-600 font-medium">Premium</span>
                             )}
-                          >
-                            {option.isPremium && <Crown className="w-3 h-3 mr-1" />}
-                            {option.code}
-                          </Badge>
-                          {option.isPremium && (
-                            <span className="text-xs text-amber-600 font-medium">Premium</span>
-                          )}
+                          </div>
+                          <span className={cn(
+                            "font-semibold text-sm",
+                            option.isPremium ? "text-amber-600" : "text-foreground"
+                          )}>
+                            £{(option.cost * item.qty).toFixed(2)}
+                          </span>
                         </div>
-                        <span className={cn(
-                          "font-semibold text-sm",
-                          option.isPremium ? "text-amber-600" : "text-foreground"
-                        )}>
-                          £{(option.cost * item.qty).toFixed(2)}
-                        </span>
+                        {option.description && (
+                          <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                            {option.description}
+                          </p>
+                        )}
                       </button>
                     ))}
                   </div>
