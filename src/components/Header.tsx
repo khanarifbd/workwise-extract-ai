@@ -1,8 +1,9 @@
-import { FileDown, Moon, Sun, Settings, History } from 'lucide-react';
+import { FileDown, Moon, Sun, Settings, History, KeyRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect } from 'react';
 import { TeamSettingsModal } from './TeamSettingsModal';
 import { NotificationHistoryModal } from './NotificationHistoryModal';
+import { TeamAccessCodesModal } from './TeamAccessCodesModal';
 import logo from '@/assets/logo.png';
 
 interface HeaderProps {
@@ -14,6 +15,7 @@ export const Header = ({ onExport, jobCount }: HeaderProps) => {
   const [isDark, setIsDark] = useState(false);
   const [showTeamSettings, setShowTeamSettings] = useState(false);
   const [showNotificationHistory, setShowNotificationHistory] = useState(false);
+  const [showAccessCodes, setShowAccessCodes] = useState(false);
 
   useEffect(() => {
     const isDarkMode = document.documentElement.classList.contains('dark');
@@ -46,6 +48,10 @@ export const Header = ({ onExport, jobCount }: HeaderProps) => {
               <History className="w-4 h-4 mr-2" />
               Notifications
             </Button>
+            <Button variant="outline" onClick={() => setShowAccessCodes(true)}>
+              <KeyRound className="w-4 h-4 mr-2" />
+              Access Codes
+            </Button>
             <Button variant="outline" onClick={() => setShowTeamSettings(true)}>
               <Settings className="w-4 h-4 mr-2" />
               Team Settings
@@ -74,6 +80,10 @@ export const Header = ({ onExport, jobCount }: HeaderProps) => {
       
       {showNotificationHistory && (
         <NotificationHistoryModal onClose={() => setShowNotificationHistory(false)} />
+      )}
+
+      {showAccessCodes && (
+        <TeamAccessCodesModal onClose={() => setShowAccessCodes(false)} />
       )}
     </header>
   );
