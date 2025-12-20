@@ -24,7 +24,7 @@ export const StatsCards = forwardRef<HTMLDivElement, StatsCardsProps>(({ jobs },
 
   const stats = [
     { label: 'Total', value: totalJobs, icon: Briefcase, color: 'text-primary', bg: 'bg-primary/10' },
-    { label: 'Done', value: completedJobs, icon: CheckCircle2, color: 'text-success', bg: 'bg-success/10' },
+    { label: 'Complete', value: completedJobs, icon: CheckCircle2, color: 'text-success', bg: 'bg-success/10' },
     { label: 'Active', value: inProgressJobs, icon: Clock, color: 'text-warning', bg: 'bg-warning/10' },
     { label: 'Assigned', value: assignedJobs, icon: Users, color: 'text-primary', bg: 'bg-primary/10' },
     { label: 'Avg %', value: `${avgProgress}%`, icon: TrendingUp, color: 'text-success', bg: 'bg-success/10' },

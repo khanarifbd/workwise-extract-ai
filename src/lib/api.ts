@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { Job, WorkItem } from "@/types/job";
+import { Job, WorkItem, FanInfo } from "@/types/job";
 import { SOR_CODES_DATABASE } from "@/data/sorCodes";
 
 // Generate SOR codes context for AI
@@ -7,6 +7,32 @@ const getSORCodesContext = () => {
   return SOR_CODES_DATABASE.map(code => 
     `${code.code}: ${code.description} (Category: ${code.category})`
   ).join('\n');
+};
+
+// Extract fans from job description
+export const extractFansWithAI = async (description: string, workItems: WorkItem[]): Promise<{ hasFans: boolean; fans: FanInfo[]; totalFanCount: number } | null> => {
+  try {
+    const { data, error } = await supabase.functions.invoke('extract-fans', {
+      body: { 
+        description,
+        workItems
+      }
+    });
+
+    if (error) {
+      console.error('Error calling extract-fans function:', error);
+      throw error;
+    }
+
+    if (!data?.success) {
+      throw new Error(data?.error || 'Failed to extract fans');
+    }
+
+    return data.data;
+  } catch (error) {
+    console.error('Error extracting fans:', error);
+    throw error;
+  }
 };
 
 export const extractPDFWithAI = async (pdfText: string): Promise<Partial<Job> | null> => {
@@ -221,6 +247,8 @@ const mapDatabaseJobToJob = (dbJob: any): Job => ({
   completionDate: dbJob.completion_date ? new Date(dbJob.completion_date) : null,
   attachments: dbJob.attachments || [],
   status: dbJob.status || 'pending',
+  fanInfo: dbJob.fan_info || null,
+  linkedFanJobId: dbJob.linked_fan_job_id || null,
 });
 
 const mapJobToDatabase = (job: Partial<Job>): any => {
@@ -244,6 +272,8 @@ const mapJobToDatabase = (job: Partial<Job>): any => {
   if (job.completionDate !== undefined) dbJob.completion_date = job.completionDate;
   if (job.attachments !== undefined) dbJob.attachments = job.attachments;
   if (job.status !== undefined) dbJob.status = job.status;
+  if (job.fanInfo !== undefined) dbJob.fan_info = job.fanInfo;
+  if (job.linkedFanJobId !== undefined) dbJob.linked_fan_job_id = job.linkedFanJobId;
   
   return dbJob;
 };
