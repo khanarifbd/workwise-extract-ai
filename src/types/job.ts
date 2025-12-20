@@ -31,6 +31,12 @@ export const JOB_STATUS_OPTIONS: { value: JobStatus; label: string; color: strin
   { value: 'return_nph', label: 'Return NPH', color: '#EC4899' },
 ];
 
+export interface FanInfo {
+  type: string;
+  quantity: number;
+  location: string;
+}
+
 export interface Job {
   id: string;
   jobNumber: string;
@@ -51,6 +57,8 @@ export interface Job {
   completionDate: Date | null;
   attachments: Attachment[];
   status: JobStatus;
+  fanInfo: FanInfo[] | null;
+  linkedFanJobId: string | null;
 }
 
 export interface Attachment {

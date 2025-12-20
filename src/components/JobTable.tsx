@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Job, ALLSAINTS_TEAMS, JobStatus } from '@/types/job';
+import { Job, ALLSAINTS_TEAMS, JobStatus, FanInfo } from '@/types/job';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -17,13 +17,19 @@ import {
   ChevronDown,
   ChevronUp,
   CheckCircle2,
-  X
+  X,
+  Fan,
+  Loader2,
+  Wand2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TeamSelector } from './TeamSelector';
 import { ProgressEditor } from './ProgressEditor';
 import { JobDetailsModal } from './JobDetailsModal';
 import { StatusSelector } from './StatusSelector';
+import { BookedDateCell } from './BookedDateCell';
+import { extractFansWithAI } from '@/lib/api';
+import { useToast } from '@/hooks/use-toast';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -46,6 +52,8 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
   const [expandedDescriptions, setExpandedDescriptions] = useState<Set<string>>(new Set());
   const [selectedJobs, setSelectedJobs] = useState<Set<string>>(new Set());
   const [showBatchTeamSelector, setShowBatchTeamSelector] = useState(false);
+  const [scanningFanJobId, setScanningFanJobId] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const handleTeamSelect = (jobId: string, teamId: string | null) => {
     const job = jobs.find(j => j.id === jobId);
@@ -111,11 +119,60 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
     return team?.color;
   };
 
-  const handleStatusChange = (jobId: string, status: JobStatus) => {
+  const handleStatusChange = (jobId: string, status: JobStatus, isComplete: boolean) => {
     const job = jobs.find(j => j.id === jobId);
     if (job) {
-      onUpdateJob({ ...job, status });
+      const updates: Partial<Job> = { 
+        status,
+        isCompleted: isComplete,
+        progress: isComplete ? 100 : (job.progress === 100 ? 50 : job.progress),
+        completionDate: isComplete ? new Date() : (job.completionDate && !isComplete ? null : job.completionDate)
+      };
+      onUpdateJob({ ...job, ...updates });
     }
+  };
+
+  const handleBookedDateChange = (jobId: string, bookedDate: Date | null) => {
+    const job = jobs.find(j => j.id === jobId);
+    if (job) {
+      onUpdateJob({ ...job, bookedDate });
+    }
+  };
+
+  const handleScanForFans = async (jobId: string) => {
+    const job = jobs.find(j => j.id === jobId);
+    if (!job) return;
+
+    setScanningFanJobId(jobId);
+    try {
+      const result = await extractFansWithAI(job.description || job.summaryOfWorks || '', job.workItems);
+      if (result && result.hasFans) {
+        onUpdateJob({ ...job, fanInfo: result.fans });
+        toast({
+          title: "Fans Detected",
+          description: `Found ${result.totalFanCount} fan(s) requiring installation.`,
+        });
+      } else {
+        onUpdateJob({ ...job, fanInfo: [] });
+        toast({
+          title: "No Fans Found",
+          description: "No fan installations detected in this job.",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Scan Failed",
+        description: "Could not scan for fans.",
+        variant: "destructive",
+      });
+    } finally {
+      setScanningFanJobId(null);
+    }
+  };
+
+  const getTotalFanCount = (fanInfo: FanInfo[] | null): number => {
+    if (!fanInfo || fanInfo.length === 0) return 0;
+    return fanInfo.reduce((sum, fan) => sum + fan.quantity, 0);
   };
 
   if (jobs.length === 0) {
@@ -196,6 +253,7 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
               <th className="w-28">Job #</th>
               <th className="w-44">Name / Contact</th>
               <th className="min-w-[220px]">Description</th>
+              <th className="w-24">Fan</th>
               <th className="w-36">SOR Codes</th>
               <th className="w-28">Status</th>
               <th className="w-32">Team</th>
@@ -218,7 +276,7 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                   className={cn(
                     "transition-colors cursor-pointer",
                     isCompleted 
-                      ? "bg-emerald-100 dark:bg-emerald-900/40 border-l-4 border-l-emerald-500 hover:bg-emerald-200 dark:hover:bg-emerald-900/60" 
+                      ? "bg-emerald-200/80 dark:bg-emerald-800/60 border-l-4 border-l-emerald-500 hover:bg-emerald-300/80 dark:hover:bg-emerald-700/60 ring-1 ring-emerald-300 dark:ring-emerald-600" 
                       : "hover:bg-muted/30",
                     selectedJobs.has(job.id) && "bg-primary/5"
                   )}
@@ -235,8 +293,11 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                   <td className="font-mono text-muted-foreground">
                     {format(job.dateIssued, 'dd/MM/yy')}
                   </td>
-                  <td className="font-mono text-muted-foreground">
-                    {job.bookedDate ? format(job.bookedDate, 'dd/MM/yy') : '-'}
+                  <td onClick={(e) => e.stopPropagation()}>
+                    <BookedDateCell
+                      bookedDate={job.bookedDate}
+                      onDateChange={(date) => handleBookedDateChange(job.id, date)}
+                    />
                   </td>
                   <td>
                     <span className="font-mono font-semibold text-primary">
@@ -278,6 +339,34 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                       )}
                     </div>
                   </td>
+                  {/* Fan Column */}
+                  <td onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center gap-1">
+                      {job.fanInfo && job.fanInfo.length > 0 ? (
+                        <Badge className="bg-cyan-500/20 text-cyan-700 dark:text-cyan-400 border-cyan-500/30">
+                          <Fan className="w-3 h-3 mr-1" />
+                          {getTotalFanCount(job.fanInfo)}
+                        </Badge>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 text-xs"
+                          onClick={() => handleScanForFans(job.id)}
+                          disabled={scanningFanJobId === job.id}
+                        >
+                          {scanningFanJobId === job.id ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <>
+                              <Wand2 className="w-3 h-3 mr-1" />
+                              Scan
+                            </>
+                          )}
+                        </Button>
+                      )}
+                    </div>
+                  </td>
                   <td>
                     <div className="flex flex-wrap gap-1 max-w-[130px]">
                       {job.workItems.slice(0, 2).map((item, idx) => (
@@ -295,7 +384,7 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                   <td onClick={(e) => e.stopPropagation()}>
                     <StatusSelector 
                       currentStatus={job.status || 'pending'} 
-                      onSelect={(status) => handleStatusChange(job.id, status)}
+                      onSelect={(status, isComplete) => handleStatusChange(job.id, status, isComplete)}
                     />
                   </td>
                   <td onClick={(e) => e.stopPropagation()}>

@@ -5,13 +5,19 @@ import { cn } from '@/lib/utils';
 
 interface StatusSelectorProps {
   currentStatus: JobStatus;
-  onSelect: (status: JobStatus) => void;
+  onSelect: (status: JobStatus, isComplete: boolean) => void;
 }
 
 export const StatusSelector = ({ currentStatus, onSelect }: StatusSelectorProps) => {
   const [isOpen, setIsOpen] = useState(false);
   
   const currentOption = JOB_STATUS_OPTIONS.find(o => o.value === currentStatus) || JOB_STATUS_OPTIONS[0];
+
+  const handleSelect = (status: JobStatus) => {
+    const isComplete = status === 'complete';
+    onSelect(status, isComplete);
+    setIsOpen(false);
+  };
 
   return (
     <div className="relative">
@@ -49,10 +55,7 @@ export const StatusSelector = ({ currentStatus, onSelect }: StatusSelectorProps)
                   "hover:bg-muted",
                   currentStatus === option.value && "bg-muted"
                 )}
-                onClick={() => {
-                  onSelect(option.value);
-                  setIsOpen(false);
-                }}
+                onClick={() => handleSelect(option.value)}
               >
                 <div 
                   className="w-2.5 h-2.5 rounded-full" 

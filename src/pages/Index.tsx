@@ -104,7 +104,9 @@ const Index = () => {
         startDate: null,
         completionDate: null,
         attachments: [],
-        status: 'pending'
+        status: 'pending',
+        fanInfo: null,
+        linkedFanJobId: null
       };
       
       // Check for duplicates before adding
