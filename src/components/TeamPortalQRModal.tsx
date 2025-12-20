@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { X, Download, Copy, Check, QrCode, ExternalLink } from 'lucide-react';
+import { X, Download, Copy, Check, QrCode, ExternalLink, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 
@@ -13,6 +13,7 @@ export const TeamPortalQRModal = ({ onClose }: TeamPortalQRModalProps) => {
   const { toast } = useToast();
 
   const portalUrl = new URL('/team', window.location.href).toString();
+  const canShare = typeof navigator !== 'undefined' && !!navigator.share;
 
   const handleCopy = async () => {
     try {
@@ -29,6 +30,29 @@ export const TeamPortalQRModal = ({ onClose }: TeamPortalQRModalProps) => {
         description: 'Failed to copy URL',
         variant: 'destructive',
       });
+    }
+  };
+
+  const handleShare = async () => {
+    try {
+      await navigator.share({
+        title: 'AllSaints Team Portal',
+        text: 'Access the team portal to view and manage your assigned jobs.',
+        url: portalUrl,
+      });
+      toast({
+        title: 'Shared!',
+        description: 'Team portal link shared successfully',
+      });
+    } catch (error) {
+      // User cancelled or share failed - silently ignore
+      if ((error as Error).name !== 'AbortError') {
+        toast({
+          title: 'Share failed',
+          description: 'Could not share the link',
+          variant: 'destructive',
+        });
+      }
     }
   };
 
@@ -81,29 +105,29 @@ export const TeamPortalQRModal = ({ onClose }: TeamPortalQRModalProps) => {
       <div className="min-h-full w-full flex items-start justify-center py-6">
         <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-md animate-scale-in">
           {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-muted/30">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-              <QrCode className="w-5 h-5 text-primary" />
+          <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-muted/30 rounded-t-xl">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <QrCode className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">Team Portal QR Code</h2>
+                <p className="text-xs text-muted-foreground">Scan to access the team portal</p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-lg font-semibold text-foreground">Team Portal QR Code</h2>
-              <p className="text-xs text-muted-foreground">Scan to access the team portal</p>
-            </div>
+            <button onClick={onClose} className="p-2 hover:bg-muted rounded-lg transition-colors">
+              <X className="w-5 h-5" />
+            </button>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-muted rounded-lg transition-colors">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
 
-        {/* Content */}
+          {/* Content */}
           <div className="p-6 flex flex-col items-center space-y-6">
             {/* QR Code */}
             <div className="bg-white p-4 rounded-xl shadow-inner">
               <QRCodeSVG
                 id="team-portal-qr"
                 value={portalUrl}
-                size={220}
+                size={200}
                 level="H"
                 includeMargin={true}
                 bgColor="#FFFFFF"
@@ -115,7 +139,7 @@ export const TeamPortalQRModal = ({ onClose }: TeamPortalQRModalProps) => {
             <div className="w-full">
               <p className="text-xs text-muted-foreground mb-2 text-center">Portal URL</p>
               <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
-                <code className="text-sm flex-1 truncate">{portalUrl}</code>
+                <code className="text-xs flex-1 truncate">{portalUrl}</code>
                 <Button
                   variant="ghost"
                   size="icon"
@@ -142,12 +166,18 @@ export const TeamPortalQRModal = ({ onClose }: TeamPortalQRModalProps) => {
             </div>
 
             {/* Actions */}
-            <div className="flex gap-3 w-full">
-              <Button variant="outline" className="flex-1" onClick={handleDownload}>
+            <div className="flex flex-wrap gap-3 w-full">
+              <Button variant="outline" className="flex-1 min-w-[120px]" onClick={handleDownload}>
                 <Download className="w-4 h-4 mr-2" />
-                Download PNG
+                Download
               </Button>
-              <Button className="flex-1" onClick={handleOpenPortal}>
+              {canShare && (
+                <Button variant="outline" className="flex-1 min-w-[120px]" onClick={handleShare}>
+                  <Share2 className="w-4 h-4 mr-2" />
+                  Share
+                </Button>
+              )}
+              <Button className="flex-1 min-w-[120px]" onClick={handleOpenPortal}>
                 <ExternalLink className="w-4 h-4 mr-2" />
                 Open Portal
               </Button>
