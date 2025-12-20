@@ -105,6 +105,18 @@ const Index = () => {
         attachments: []
       };
       
+      // Check for duplicates before adding
+      const existing = findDuplicateJob(newJob.jobNumber);
+      if (existing) {
+        setDuplicateCheck({
+          newJob,
+          existingJob: existing,
+          pendingJobs: []
+        });
+        setIsProcessing(false);
+        return;
+      }
+      
       await addJob(newJob);
       setUploadExpanded(false);
       toast({
@@ -121,6 +133,11 @@ const Index = () => {
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handleMultipleFilesUpload = async (files: Array<{ file: File; type: FileType }>) => {
+    // Use bulk upload modal for multiple files
+    setShowBulkUpload(true);
   };
 
   const fileToBase64 = (file: File): Promise<string> => {
@@ -181,6 +198,24 @@ const Index = () => {
       toast({
         title: "Update Failed",
         description: "Could not update job status.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleBatchUpdateTeam = async (jobIds: string[], teamName: string | null) => {
+    try {
+      for (const jobId of jobIds) {
+        await editJob(jobId, { team: teamName });
+      }
+      toast({
+        title: "Jobs Updated",
+        description: `${jobIds.length} jobs assigned to ${teamName || 'Unassigned'}.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Update Failed",
+        description: "Could not update job assignments.",
         variant: "destructive",
       });
     }
@@ -487,7 +522,12 @@ const Index = () => {
           </button>
           {uploadExpanded && (
             <div className="px-4 pb-4 space-y-3">
-              <FileDropZone onFileUpload={handleFileUpload} isProcessing={isProcessing} />
+              <FileDropZone 
+                onFileUpload={handleFileUpload} 
+                onMultipleFilesUpload={handleMultipleFilesUpload}
+                isProcessing={isProcessing} 
+                allowMultiple={true}
+              />
               <div className="flex justify-center">
                 <Button
                   variant="outline"
@@ -535,6 +575,7 @@ const Index = () => {
                 onUpdateJob={handleUpdateJob}
                 onDeleteJob={handleDeleteJob}
                 onToggleComplete={handleToggleComplete}
+                onBatchUpdateTeam={handleBatchUpdateTeam}
               />
             ) : viewType === 'kanban' ? (
               <KanbanBoard
