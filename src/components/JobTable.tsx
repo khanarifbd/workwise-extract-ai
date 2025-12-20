@@ -21,7 +21,7 @@ import {
   Fan,
   Loader2,
   Wand2,
-  Link2
+  CheckCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TeamSelector } from './TeamSelector';
@@ -57,7 +57,6 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
   const [selectedJobs, setSelectedJobs] = useState<Set<string>>(new Set());
   const [showBatchTeamSelector, setShowBatchTeamSelector] = useState(false);
   const [scanningFanJobId, setScanningFanJobId] = useState<string | null>(null);
-  const [creatingFanJobId, setCreatingFanJobId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const handleTeamSelect = (jobId: string, teamId: string | null) => {
@@ -152,11 +151,32 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
     try {
       const result = await extractFansWithAI(job.description || job.summaryOfWorks || '', job.workItems);
       if (result && result.hasFans) {
+        // Update job with fan info
         onUpdateJob({ ...job, fanInfo: result.fans });
-        toast({
-          title: "Fans Detected",
-          description: `Found ${result.totalFanCount} fan(s) requiring installation.`,
-        });
+        
+        // Auto-create linked fan job if category exists and not already linked
+        if (fanCategoryId && !job.linkedFanJobId) {
+          try {
+            await createLinkedFanJob(job, result.fans, fanCategoryId);
+            onUpdateJob({ ...job, fanInfo: result.fans, linkedFanJobId: 'created' });
+            onFanJobCreated?.();
+            toast({
+              title: "Fan Job Created",
+              description: `Found ${result.totalFanCount} fan(s) - job created in Fan category.`,
+            });
+          } catch (createError) {
+            toast({
+              title: "Fans Detected",
+              description: `Found ${result.totalFanCount} fan(s) but could not create linked job.`,
+              variant: "destructive",
+            });
+          }
+        } else {
+          toast({
+            title: "Fans Detected",
+            description: `Found ${result.totalFanCount} fan(s) requiring installation.`,
+          });
+        }
       } else {
         onUpdateJob({ ...job, fanInfo: [] });
         toast({
@@ -172,37 +192,6 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
       });
     } finally {
       setScanningFanJobId(null);
-    }
-  };
-
-  const handleCreateLinkedFanJob = async (jobId: string) => {
-    const job = jobs.find(j => j.id === jobId);
-    if (!job || !job.fanInfo || job.fanInfo.length === 0 || !fanCategoryId) {
-      toast({
-        title: "Cannot Create Fan Job",
-        description: "No fans detected or Fan category not found.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setCreatingFanJobId(jobId);
-    try {
-      await createLinkedFanJob(job, job.fanInfo, fanCategoryId);
-      onUpdateJob({ ...job, linkedFanJobId: 'created' }); // Flag that it was created
-      onFanJobCreated?.();
-      toast({
-        title: "Fan Job Created",
-        description: `Fan installation job created in Fan category.`,
-      });
-    } catch (error) {
-      toast({
-        title: "Creation Failed",
-        description: "Could not create linked fan job.",
-        variant: "destructive",
-      });
-    } finally {
-      setCreatingFanJobId(null);
     }
   };
 
@@ -382,24 +371,6 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                             <Fan className="w-3 h-3 mr-1" />
                             {getTotalFanCount(job.fanInfo)}
                           </Badge>
-                          {fanCategoryId && !job.linkedFanJobId && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-5 px-1.5 text-xs"
-                              onClick={() => handleCreateLinkedFanJob(job.id)}
-                              disabled={creatingFanJobId === job.id}
-                            >
-                              {creatingFanJobId === job.id ? (
-                                <Loader2 className="w-3 h-3 animate-spin" />
-                              ) : (
-                                <>
-                                  <Link2 className="w-3 h-3 mr-1" />
-                                  Create
-                                </>
-                              )}
-                            </Button>
-                          )}
                           {job.linkedFanJobId && (
                             <Badge variant="outline" className="text-xs bg-green-500/10 text-green-700 dark:text-green-400">
                               Linked

@@ -13,6 +13,7 @@ import { CalendarView } from '@/components/CalendarView';
 import { ViewToggle } from '@/components/ViewToggle';
 import { JobDetailsModal } from '@/components/JobDetailsModal';
 import { DuplicateJobAlert } from '@/components/DuplicateJobAlert';
+import { FanTeamsList } from '@/components/FanTeamsList';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -562,6 +563,14 @@ const Index = () => {
             </div>
           )}
         </section>
+
+        {/* Fan Teams List - Show only for Fan category */}
+        {categories.find(c => c.id === activeCategory)?.name.toLowerCase().includes('fan') && (
+          <FanTeamsList 
+            jobs={filteredJobs} 
+            onUpdateJob={handleUpdateJob}
+          />
+        )}
 
         {/* Jobs Database */}
         <section className="flex-1 bg-card border border-border rounded-lg p-4 min-h-0 overflow-hidden flex flex-col">
