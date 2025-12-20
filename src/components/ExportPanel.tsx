@@ -1,12 +1,11 @@
 import { useState } from 'react';
 import { Job } from '@/types/job';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { 
   FileDown, 
   Printer, 
-  Calendar,
   FileText,
+  FileSpreadsheet,
   X
 } from 'lucide-react';
 import {
@@ -16,6 +15,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { format } from 'date-fns';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 
 interface ExportPanelProps {
   jobs: Job[];
@@ -24,7 +27,6 @@ interface ExportPanelProps {
 
 export const ExportPanel = ({ jobs, onClose }: ExportPanelProps) => {
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
-  const [exportType, setExportType] = useState<'all' | 'summary'>('all');
 
   const months = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -40,72 +42,133 @@ export const ExportPanel = ({ jobs, onClose }: ExportPanelProps) => {
         return jobMonth === parseInt(selectedMonth);
       });
 
-  const generatePDFContent = () => {
-    let content = `
-ALLSAINTS JOB REPORT
-Generated: ${new Date().toLocaleDateString()}
-${selectedMonth !== 'all' ? `Month: ${months[parseInt(selectedMonth)]} ${currentYear}` : 'All Jobs'}
-Total Jobs: ${filteredJobs.length}
+  const handleExportPDF = () => {
+    const doc = new jsPDF();
+    
+    // Title
+    doc.setFontSize(18);
+    doc.text('ALLSAINTS JOB REPORT', 14, 20);
+    doc.setFontSize(10);
+    doc.text(`Generated: ${format(new Date(), 'dd/MM/yyyy')}`, 14, 28);
+    doc.text(
+      selectedMonth !== 'all' 
+        ? `Month: ${months[parseInt(selectedMonth)]} ${currentYear}` 
+        : 'All Jobs',
+      14, 34
+    );
+    doc.text(`Total Jobs: ${filteredJobs.length}`, 14, 40);
 
-${'='.repeat(80)}
+    // Table data
+    const tableData = filteredJobs.map(job => [
+      job.jobNumber,
+      job.name,
+      job.address || '-',
+      job.team || 'Unassigned',
+      `${job.progress}%`,
+      job.startDate ? format(job.startDate, 'dd/MM/yy') : '-',
+      job.completionDate ? format(job.completionDate, 'dd/MM/yy') : '-',
+      job.workItems.map(w => w.sorCode).join(', ') || '-'
+    ]);
 
-`;
-
-    filteredJobs.forEach((job, index) => {
-      content += `
-JOB #${index + 1}: ${job.jobNumber}
-${'-'.repeat(40)}
-Name: ${job.name}
-Address: ${job.address}
-Phone: ${job.phoneNumber}
-Team: ${job.team || 'Unassigned'}
-Status: ${job.isCompleted ? 'COMPLETED' : `In Progress (${job.progress}%)`}
-
-Summary: ${job.summaryOfWorks}
-
-Works:
-${job.workItems.map(w => `  • ${w.description} [${w.sorCode}] - Qty: ${w.qty}, Cost: £${w.cost}`).join('\n')}
-
-${job.additionalWorks.length > 0 ? `Additional Works:\n${job.additionalWorks.map(w => `  • ${w.description} [${w.sorCode}] - Qty: ${w.qty}, Cost: £${w.cost}`).join('\n')}` : ''}
-
-Dates:
-  Issued: ${job.dateIssued.toLocaleDateString()}
-  ${job.startDate ? `Start: ${job.startDate.toLocaleDateString()}` : ''}
-  ${job.completionDate ? `Completed: ${job.completionDate.toLocaleDateString()}` : ''}
-
-${'='.repeat(80)}
-`;
+    autoTable(doc, {
+      head: [['Job #', 'Name', 'Address', 'Team', 'Progress', 'Start', 'End', 'SOR Codes']],
+      body: tableData,
+      startY: 48,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [59, 130, 246] },
     });
 
-    return content;
+    doc.save(`allsaints-jobs-${selectedMonth === 'all' ? 'all' : months[parseInt(selectedMonth)]}-${currentYear}.pdf`);
   };
 
-  const handleExport = () => {
-    const content = generatePDFContent();
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `allsaints-jobs-${selectedMonth === 'all' ? 'all' : months[parseInt(selectedMonth)]}-${currentYear}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const handleExportExcel = () => {
+    const excelData = filteredJobs.map(job => ({
+      'Job Number': job.jobNumber,
+      'Name': job.name,
+      'Address': job.address || '',
+      'Phone': job.phoneNumber || '',
+      'Team': job.team || 'Unassigned',
+      'Progress': `${job.progress}%`,
+      'Status': job.isCompleted ? 'Completed' : 'In Progress',
+      'Date Issued': format(job.dateIssued, 'dd/MM/yyyy'),
+      'Start Date': job.startDate ? format(job.startDate, 'dd/MM/yyyy') : '',
+      'Completion Date': job.completionDate ? format(job.completionDate, 'dd/MM/yyyy') : '',
+      'Summary': job.summaryOfWorks || '',
+      'SOR Codes': job.workItems.map(w => w.sorCode).join(', '),
+      'Work Items': job.workItems.map(w => `${w.description} (${w.sorCode})`).join('; '),
+      'Total Cost': `£${job.workItems.reduce((sum, w) => sum + w.cost, 0).toFixed(2)}`
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(excelData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Jobs');
+    
+    // Auto-size columns
+    const maxWidth = 50;
+    const colWidths = Object.keys(excelData[0] || {}).map(key => ({
+      wch: Math.min(maxWidth, Math.max(key.length, 10))
+    }));
+    worksheet['!cols'] = colWidths;
+
+    XLSX.writeFile(workbook, `allsaints-jobs-${selectedMonth === 'all' ? 'all' : months[parseInt(selectedMonth)]}-${currentYear}.xlsx`);
   };
 
   const handlePrint = () => {
-    const content = generatePDFContent();
+    const printContent = `
+      <html>
+        <head>
+          <title>Allsaints Job Report</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; }
+            h1 { color: #333; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 12px; }
+            th { background-color: #3b82f6; color: white; }
+            tr:nth-child(even) { background-color: #f9fafb; }
+            .header { margin-bottom: 20px; }
+            .meta { color: #666; font-size: 14px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>ALLSAINTS JOB REPORT</h1>
+            <p class="meta">Generated: ${format(new Date(), 'dd/MM/yyyy')}</p>
+            <p class="meta">${selectedMonth !== 'all' ? `Month: ${months[parseInt(selectedMonth)]} ${currentYear}` : 'All Jobs'}</p>
+            <p class="meta">Total Jobs: ${filteredJobs.length}</p>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Job #</th>
+                <th>Name</th>
+                <th>Address</th>
+                <th>Team</th>
+                <th>Progress</th>
+                <th>Start</th>
+                <th>End</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filteredJobs.map(job => `
+                <tr>
+                  <td>${job.jobNumber}</td>
+                  <td>${job.name}</td>
+                  <td>${job.address || '-'}</td>
+                  <td>${job.team || 'Unassigned'}</td>
+                  <td>${job.progress}%</td>
+                  <td>${job.startDate ? format(job.startDate, 'dd/MM/yy') : '-'}</td>
+                  <td>${job.completionDate ? format(job.completionDate, 'dd/MM/yy') : '-'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `;
+
     const printWindow = window.open('', '_blank');
     if (printWindow) {
-      printWindow.document.write(`
-        <html>
-          <head>
-            <title>Allsaints Job Report</title>
-            <style>
-              body { font-family: monospace; white-space: pre-wrap; padding: 20px; }
-            </style>
-          </head>
-          <body>${content}</body>
-        </html>
-      `);
+      printWindow.document.write(printContent);
       printWindow.document.close();
       printWindow.print();
     }
@@ -154,12 +217,16 @@ ${'='.repeat(80)}
             </div>
           </div>
 
-          <div className="flex gap-3">
-            <Button onClick={handleExport} className="flex-1">
+          <div className="space-y-2">
+            <Button onClick={handleExportPDF} className="w-full">
               <FileDown className="w-4 h-4 mr-2" />
-              Download Report
+              Download PDF Report
             </Button>
-            <Button variant="outline" onClick={handlePrint} className="flex-1">
+            <Button variant="outline" onClick={handleExportExcel} className="w-full">
+              <FileSpreadsheet className="w-4 h-4 mr-2" />
+              Download Excel
+            </Button>
+            <Button variant="ghost" onClick={handlePrint} className="w-full">
               <Printer className="w-4 h-4 mr-2" />
               Print
             </Button>

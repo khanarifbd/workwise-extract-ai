@@ -166,10 +166,24 @@ export const JobDetailsModal = ({ job, onClose, onUpdate }: JobDetailsModalProps
   };
 
   const handleDateChange = (field: 'startDate' | 'completionDate', value: string) => {
-    setEditedJob({
-      ...editedJob,
-      [field]: value ? new Date(value) : null
-    });
+    const newDate = value ? new Date(value) : null;
+    let updates: Partial<Job> = { [field]: newDate };
+    
+    // Auto-update progress based on dates
+    if (field === 'startDate' && newDate && editedJob.progress === 0) {
+      updates.progress = 10; // Job started
+    }
+    if (field === 'completionDate' && newDate) {
+      updates.progress = 100;
+      updates.isCompleted = true;
+    }
+    // If completion date is cleared, mark as not completed
+    if (field === 'completionDate' && !newDate && editedJob.isCompleted) {
+      updates.isCompleted = false;
+      updates.progress = editedJob.startDate ? 50 : 0;
+    }
+    
+    setEditedJob({ ...editedJob, ...updates });
   };
 
   return (
