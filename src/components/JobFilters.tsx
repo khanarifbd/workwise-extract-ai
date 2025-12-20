@@ -146,7 +146,7 @@ export const JobFilters = ({ filters, onFiltersChange, availableSorCodes }: JobF
             </SelectTrigger>
             <SelectContent className="max-h-60">
               <SelectItem value="all">All SOR Codes</SelectItem>
-              {availableSorCodes.map((code) => (
+              {availableSorCodes.filter(code => code && code.trim() !== '').map((code) => (
                 <SelectItem key={code} value={code}>
                   <span className="font-mono text-xs">{code}</span>
                 </SelectItem>
