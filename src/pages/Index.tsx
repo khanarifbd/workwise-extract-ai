@@ -33,7 +33,7 @@ type KanbanGroupBy = 'team' | 'status';
 const Index = () => {
   const { categories, isLoading: categoriesLoading, addCategory, updateCategory, deleteCategory } = useCategories();
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const { jobs, isLoading: jobsLoading, addJob, editJob, removeJob, toggleComplete, refreshJobs } = useJobs(activeCategory || undefined);
+  const { jobs, isLoading: jobsLoading, addJob, editJob, removeJob, toggleComplete, refreshJobs } = useJobs(activeCategory ?? undefined);
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [showExport, setShowExport] = useState(false);
