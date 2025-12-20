@@ -348,66 +348,6 @@ const Index = () => {
     return Array.from(codes).sort();
   }, [jobs]);
 
-  const handleExportPDF = () => {
-    const doc = new jsPDF();
-    const activeCat = categories.find(c => c.id === activeCategory);
-    
-    doc.setFontSize(18);
-    doc.text(`${activeCat?.name || 'ALLSAINTS'} JOB REPORT`, 14, 20);
-    doc.setFontSize(10);
-    doc.text(`Generated: ${format(new Date(), 'dd/MM/yyyy')}`, 14, 28);
-    doc.text(`Total Jobs: ${filteredJobs.length}`, 14, 34);
-
-    const tableData = filteredJobs.map(job => [
-      job.jobNumber,
-      job.name,
-      job.address || '-',
-      job.team || 'Unassigned',
-      `${job.progress}%`,
-      job.isCompleted ? 'Complete' : 'In Progress',
-      job.startDate ? format(job.startDate, 'dd/MM/yy') : '-',
-      job.workItems.map(w => w.sorCode).join(', ') || '-'
-    ]);
-
-    autoTable(doc, {
-      head: [['Job #', 'Name', 'Address', 'Team', 'Progress', 'Status', 'Start', 'SOR Codes']],
-      body: tableData,
-      startY: 42,
-      styles: { fontSize: 8 },
-      headStyles: { fillColor: [59, 130, 246] },
-    });
-
-    doc.save(`${activeCat?.slug || 'jobs'}-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
-    toast({ title: 'PDF downloaded!' });
-  };
-
-  const handleExportExcel = () => {
-    const activeCat = categories.find(c => c.id === activeCategory);
-    
-    const excelData = filteredJobs.map(job => ({
-      'Job Number': job.jobNumber,
-      'Name': job.name,
-      'Address': job.address || '',
-      'Phone': job.phoneNumber || '',
-      'Team': job.team || 'Unassigned',
-      'Progress': `${job.progress}%`,
-      'Status': job.isCompleted ? 'Completed' : 'In Progress',
-      'Date Issued': format(job.dateIssued, 'dd/MM/yyyy'),
-      'Start Date': job.startDate ? format(job.startDate, 'dd/MM/yyyy') : '',
-      'Completion Date': job.completionDate ? format(job.completionDate, 'dd/MM/yyyy') : '',
-      'Summary': job.summaryOfWorks || '',
-      'SOR Codes': job.workItems.map(w => w.sorCode).join(', '),
-      'Total Cost': `£${job.workItems.reduce((sum, w) => sum + w.cost, 0).toFixed(2)}`
-    }));
-
-    const worksheet = XLSX.utils.json_to_sheet(excelData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Jobs');
-
-    XLSX.writeFile(workbook, `${activeCat?.slug || 'jobs'}-${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
-    toast({ title: 'Excel downloaded!' });
-  };
-
   // Check if current category is "Fan"
   const isFanCategory = useMemo(() => {
     const activeCat = categories.find(c => c.id === activeCategory);
@@ -493,6 +433,66 @@ const Index = () => {
       return true;
     });
   }, [jobs, filters, isFanCategory]);
+
+  const handleExportPDF = () => {
+    const doc = new jsPDF();
+    const activeCat = categories.find(c => c.id === activeCategory);
+    
+    doc.setFontSize(18);
+    doc.text(`${activeCat?.name || 'ALLSAINTS'} JOB REPORT`, 14, 20);
+    doc.setFontSize(10);
+    doc.text(`Generated: ${format(new Date(), 'dd/MM/yyyy')}`, 14, 28);
+    doc.text(`Total Jobs: ${filteredJobs.length}`, 14, 34);
+
+    const tableData = filteredJobs.map(job => [
+      job.jobNumber,
+      job.name,
+      job.address || '-',
+      job.team || 'Unassigned',
+      `${job.progress}%`,
+      job.isCompleted ? 'Complete' : 'In Progress',
+      job.startDate ? format(job.startDate, 'dd/MM/yy') : '-',
+      job.workItems.map(w => w.sorCode).join(', ') || '-'
+    ]);
+
+    autoTable(doc, {
+      head: [['Job #', 'Name', 'Address', 'Team', 'Progress', 'Status', 'Start', 'SOR Codes']],
+      body: tableData,
+      startY: 42,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [59, 130, 246] },
+    });
+
+    doc.save(`${activeCat?.slug || 'jobs'}-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+    toast({ title: 'PDF downloaded!' });
+  };
+
+  const handleExportExcel = () => {
+    const activeCat = categories.find(c => c.id === activeCategory);
+    
+    const excelData = filteredJobs.map(job => ({
+      'Job Number': job.jobNumber,
+      'Name': job.name,
+      'Address': job.address || '',
+      'Phone': job.phoneNumber || '',
+      'Team': job.team || 'Unassigned',
+      'Progress': `${job.progress}%`,
+      'Status': job.isCompleted ? 'Completed' : 'In Progress',
+      'Date Issued': format(job.dateIssued, 'dd/MM/yyyy'),
+      'Start Date': job.startDate ? format(job.startDate, 'dd/MM/yyyy') : '',
+      'Completion Date': job.completionDate ? format(job.completionDate, 'dd/MM/yyyy') : '',
+      'Summary': job.summaryOfWorks || '',
+      'SOR Codes': job.workItems.map(w => w.sorCode).join(', '),
+      'Total Cost': `£${job.workItems.reduce((sum, w) => sum + w.cost, 0).toFixed(2)}`
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(excelData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Jobs');
+
+    XLSX.writeFile(workbook, `${activeCat?.slug || 'jobs'}-${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+    toast({ title: 'Excel downloaded!' });
+  };
 
   const isLoading = categoriesLoading || jobsLoading;
 
