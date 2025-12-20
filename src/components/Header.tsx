@@ -47,12 +47,12 @@ export const Header = ({ onExport, jobCount }: HeaderProps) => {
           </div>
 
           <div className="flex items-center gap-2 md:gap-3">
-            <a href="/team" target="_blank" rel="noopener noreferrer">
+            <Link to="/team">
               <Button variant="outline" size="icon" className="md:w-auto md:px-4">
                 <Users className="w-4 h-4 md:mr-2" />
                 <span className="hidden md:inline">Team Portal</span>
               </Button>
-            </a>
+            </Link>
             <Button variant="outline" size="icon" className="md:w-auto md:px-4" onClick={() => setShowQRCode(true)}>
               <QrCode className="w-4 h-4 md:mr-2" />
               <span className="hidden md:inline">QR Code</span>
