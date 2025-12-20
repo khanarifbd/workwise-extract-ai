@@ -11,8 +11,8 @@ interface TeamPortalQRModalProps {
 export const TeamPortalQRModal = ({ onClose }: TeamPortalQRModalProps) => {
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
-  
-  const portalUrl = `${window.location.origin}/team`;
+
+  const portalUrl = new URL('/team', window.location.href).toString();
 
   const handleCopy = async () => {
     try {
@@ -49,13 +49,13 @@ export const TeamPortalQRModal = ({ onClose }: TeamPortalQRModalProps) => {
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0, 400, 400);
       }
-      
+
       const pngFile = canvas.toDataURL('image/png');
       const downloadLink = document.createElement('a');
       downloadLink.download = 'team-portal-qr.png';
       downloadLink.href = pngFile;
       downloadLink.click();
-      
+
       toast({
         title: 'Downloaded!',
         description: 'QR code saved as PNG',
@@ -66,13 +66,21 @@ export const TeamPortalQRModal = ({ onClose }: TeamPortalQRModalProps) => {
   };
 
   const handleOpenPortal = () => {
-    window.open(portalUrl, '_blank');
+    window.location.assign('/team');
   };
 
   return (
-    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-md animate-scale-in my-auto">
-        {/* Header */}
+    <div
+      className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm p-4 overflow-y-auto"
+      role="dialog"
+      aria-modal="true"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="min-h-full w-full flex items-start justify-center py-6">
+        <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-md animate-scale-in">
+          {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-muted/30">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -89,60 +97,61 @@ export const TeamPortalQRModal = ({ onClose }: TeamPortalQRModalProps) => {
         </div>
 
         {/* Content */}
-        <div className="p-6 flex flex-col items-center space-y-6">
-          {/* QR Code */}
-          <div className="bg-white p-4 rounded-xl shadow-inner">
-            <QRCodeSVG
-              id="team-portal-qr"
-              value={portalUrl}
-              size={200}
-              level="H"
-              includeMargin={true}
-              bgColor="#FFFFFF"
-              fgColor="#000000"
-            />
-          </div>
+          <div className="p-6 flex flex-col items-center space-y-6">
+            {/* QR Code */}
+            <div className="bg-white p-4 rounded-xl shadow-inner">
+              <QRCodeSVG
+                id="team-portal-qr"
+                value={portalUrl}
+                size={220}
+                level="H"
+                includeMargin={true}
+                bgColor="#FFFFFF"
+                fgColor="#000000"
+              />
+            </div>
 
-          {/* URL Display */}
-          <div className="w-full">
-            <p className="text-xs text-muted-foreground mb-2 text-center">Portal URL</p>
-            <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
-              <code className="text-sm flex-1 truncate">{portalUrl}</code>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleCopy}
-                className="flex-shrink-0"
-              >
-                {copied ? (
-                  <Check className="w-4 h-4 text-green-500" />
-                ) : (
-                  <Copy className="w-4 h-4" />
-                )}
+            {/* URL Display */}
+            <div className="w-full">
+              <p className="text-xs text-muted-foreground mb-2 text-center">Portal URL</p>
+              <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+                <code className="text-sm flex-1 truncate">{portalUrl}</code>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleCopy}
+                  className="flex-shrink-0"
+                >
+                  {copied ? (
+                    <Check className="w-4 h-4 text-green-500" />
+                  ) : (
+                    <Copy className="w-4 h-4" />
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            {/* Instructions */}
+            <div className="w-full p-4 bg-primary/5 rounded-lg border border-primary/20">
+              <h4 className="font-medium text-sm mb-2">Instructions for teams:</h4>
+              <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
+                <li>Scan the QR code with your phone</li>
+                <li>Enter your team access code</li>
+                <li>View and manage your assigned jobs</li>
+              </ol>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3 w-full">
+              <Button variant="outline" className="flex-1" onClick={handleDownload}>
+                <Download className="w-4 h-4 mr-2" />
+                Download PNG
+              </Button>
+              <Button className="flex-1" onClick={handleOpenPortal}>
+                <ExternalLink className="w-4 h-4 mr-2" />
+                Open Portal
               </Button>
             </div>
-          </div>
-
-          {/* Instructions */}
-          <div className="w-full p-4 bg-primary/5 rounded-lg border border-primary/20">
-            <h4 className="font-medium text-sm mb-2">Instructions for teams:</h4>
-            <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
-              <li>Scan the QR code with your phone</li>
-              <li>Enter your team access code</li>
-              <li>View and manage your assigned jobs</li>
-            </ol>
-          </div>
-
-          {/* Actions */}
-          <div className="flex gap-3 w-full">
-            <Button variant="outline" className="flex-1" onClick={handleDownload}>
-              <Download className="w-4 h-4 mr-2" />
-              Download PNG
-            </Button>
-            <Button className="flex-1" onClick={handleOpenPortal}>
-              <ExternalLink className="w-4 h-4 mr-2" />
-              Open Portal
-            </Button>
           </div>
         </div>
       </div>
