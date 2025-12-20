@@ -3,7 +3,7 @@ import { X, Save, Users, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useTeamSettings, TeamSetting } from '@/hooks/useTeamSettings';
-import { ALLSAINTS_TEAMS } from '@/types/job';
+import { ALLSAINTS_TEAMS, FAN_TEAMS } from '@/types/job';
 import { cn } from '@/lib/utils';
 
 interface TeamSettingsModalProps {
@@ -30,8 +30,17 @@ export const TeamSettingsModal = ({ onClose }: TeamSettingsModalProps) => {
   };
 
   const getTeamColor = (teamId: string) => {
-    return ALLSAINTS_TEAMS.find((t) => t.id === teamId)?.color || '#888';
+    return ALLSAINTS_TEAMS.find((t) => t.id === teamId)?.color || 
+           FAN_TEAMS.find((t) => t.id === teamId)?.color || '#888';
   };
+
+  // Separate DM teams from Fan teams for display
+  const dmTeamSettings = settings.filter(s => 
+    ALLSAINTS_TEAMS.some(t => t.id === s.teamId)
+  );
+  const fanTeamSettings = settings.filter(s => 
+    FAN_TEAMS.some(t => t.id === s.teamId)
+  );
 
   return (
     <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -53,47 +62,97 @@ export const TeamSettingsModal = ({ onClose }: TeamSettingsModalProps) => {
         </div>
 
         {/* Content - Scrollable */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-4" style={{ minHeight: 0 }}>
+        <div className="flex-1 overflow-y-auto p-5 space-y-6" style={{ minHeight: 0 }}>
           {isLoading ? (
             <div className="text-center text-muted-foreground py-8">Loading...</div>
           ) : (
             <>
-              {settings.map((setting) => (
-                <div
-                  key={setting.teamId}
-                  className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/20"
-                >
-                  <div
-                    className="w-4 h-4 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: getTeamColor(setting.teamId) }}
-                  />
-                  <span className="font-medium min-w-[80px]">{setting.teamName}</span>
-                  <div className="flex-1 flex items-center gap-2">
-                    <MessageCircle className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                    <Input
-                      type="tel"
-                      placeholder="e.g. 447123456789"
-                      value={localSettings[setting.teamId] || ''}
-                      onChange={(e) =>
-                        setLocalSettings((prev) => ({
-                          ...prev,
-                          [setting.teamId]: e.target.value,
-                        }))
-                      }
-                      className="flex-1"
-                    />
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={saving === setting.teamId}
-                    onClick={() => handleSave(setting.teamId)}
-                    className={cn(saving === setting.teamId && 'opacity-50')}
-                  >
-                    {saving === setting.teamId ? '...' : <Save className="w-4 h-4" />}
-                  </Button>
+              {/* DM Teams Section */}
+              {dmTeamSettings.length > 0 && (
+                <div className="space-y-3">
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">DM Teams</h3>
+                  {dmTeamSettings.map((setting) => (
+                    <div
+                      key={setting.teamId}
+                      className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/20"
+                    >
+                      <div
+                        className="w-4 h-4 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: getTeamColor(setting.teamId) }}
+                      />
+                      <span className="font-medium min-w-[80px]">{setting.teamName}</span>
+                      <div className="flex-1 flex items-center gap-2">
+                        <MessageCircle className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                        <Input
+                          type="tel"
+                          placeholder="e.g. 447123456789"
+                          value={localSettings[setting.teamId] || ''}
+                          onChange={(e) =>
+                            setLocalSettings((prev) => ({
+                              ...prev,
+                              [setting.teamId]: e.target.value,
+                            }))
+                          }
+                          className="flex-1"
+                        />
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={saving === setting.teamId}
+                        onClick={() => handleSave(setting.teamId)}
+                        className={cn(saving === setting.teamId && 'opacity-50')}
+                      >
+                        {saving === setting.teamId ? '...' : <Save className="w-4 h-4" />}
+                      </Button>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
+
+              {/* Fan Installers Section */}
+              {fanTeamSettings.length > 0 && (
+                <div className="space-y-3">
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Fan Installers</h3>
+                  {fanTeamSettings.map((setting) => (
+                    <div
+                      key={setting.teamId}
+                      className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/20"
+                    >
+                      <div
+                        className="w-4 h-4 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: getTeamColor(setting.teamId) }}
+                      />
+                      <span className="font-medium min-w-[80px]">{setting.teamName}</span>
+                      <div className="flex-1 flex items-center gap-2">
+                        <MessageCircle className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                        <Input
+                          type="tel"
+                          placeholder="e.g. 447123456789"
+                          value={localSettings[setting.teamId] || ''}
+                          onChange={(e) =>
+                            setLocalSettings((prev) => ({
+                              ...prev,
+                              [setting.teamId]: e.target.value,
+                            }))
+                          }
+                          className="flex-1"
+                        />
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={saving === setting.teamId}
+                        onClick={() => handleSave(setting.teamId)}
+                        className={cn(saving === setting.teamId && 'opacity-50')}
+                      >
+                        {saving === setting.teamId ? '...' : <Save className="w-4 h-4" />}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <p className="text-xs text-muted-foreground">
                 Enter phone numbers in international format without '+' (e.g. 447123456789 for UK)
               </p>
