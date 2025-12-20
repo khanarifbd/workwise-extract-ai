@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Job } from '@/types/job';
 import { FileDropZone } from '@/components/FileDropZone';
 import { BulkImageUpload } from '@/components/BulkImageUpload';
@@ -6,16 +6,15 @@ import { JobTable } from '@/components/JobTable';
 import { Header } from '@/components/Header';
 import { StatsCards } from '@/components/StatsCards';
 import { ExportPanel } from '@/components/ExportPanel';
+import { JobFilters, FilterState } from '@/components/JobFilters';
 import { useToast } from '@/hooks/use-toast';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { ChevronDown, ChevronUp, Loader2, Images } from 'lucide-react';
-import { isToday, isThisWeek, isThisMonth } from 'date-fns';
+import { isAfter, isBefore, startOfDay, endOfDay } from 'date-fns';
 import { useJobs } from '@/hooks/useJobs';
 import { extractPDFWithAI, extractImageWithAI } from '@/lib/api';
 import { extractTextFromPDF } from '@/lib/pdfUtils';
 
-type FilterType = 'all' | 'today' | 'week' | 'month';
 type FileType = 'pdf' | 'image';
 
 const Index = () => {
@@ -24,7 +23,14 @@ const Index = () => {
   const [showExport, setShowExport] = useState(false);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [uploadExpanded, setUploadExpanded] = useState(false);
-  const [filter, setFilter] = useState<FilterType>('all');
+  const [filters, setFilters] = useState<FilterState>({
+    search: '',
+    team: '',
+    status: '',
+    sorCode: '',
+    dateFrom: undefined,
+    dateTo: undefined,
+  });
   const { toast } = useToast();
 
   const handleFileUpload = async (file: File, type: FileType) => {
@@ -136,20 +142,74 @@ const Index = () => {
     }
   };
 
-  // Filter jobs based on selected filter
-  const filteredJobs = jobs.filter(job => {
-    const date = job.dateIssued;
-    switch (filter) {
-      case 'today':
-        return isToday(date);
-      case 'week':
-        return isThisWeek(date);
-      case 'month':
-        return isThisMonth(date);
-      default:
-        return true;
-    }
-  });
+  // Get all unique SOR codes from jobs
+  const availableSorCodes = useMemo(() => {
+    const codes = new Set<string>();
+    jobs.forEach(job => {
+      job.workItems.forEach(item => codes.add(item.sorCode));
+      job.additionalWorks.forEach(item => codes.add(item.sorCode));
+    });
+    return Array.from(codes).sort();
+  }, [jobs]);
+
+  // Filter jobs based on all filters
+  const filteredJobs = useMemo(() => {
+    return jobs.filter(job => {
+      // Search filter
+      if (filters.search) {
+        const searchLower = filters.search.toLowerCase();
+        const matchesSearch = 
+          job.jobNumber.toLowerCase().includes(searchLower) ||
+          job.name.toLowerCase().includes(searchLower) ||
+          job.address.toLowerCase().includes(searchLower) ||
+          job.description?.toLowerCase().includes(searchLower) ||
+          job.summaryOfWorks?.toLowerCase().includes(searchLower);
+        if (!matchesSearch) return false;
+      }
+
+      // Team filter
+      if (filters.team && filters.team !== 'all') {
+        if (filters.team === 'unassigned') {
+          if (job.team) return false;
+        } else {
+          if (job.team !== filters.team) return false;
+        }
+      }
+
+      // Status filter
+      if (filters.status && filters.status !== 'all') {
+        switch (filters.status) {
+          case 'not-started':
+            if (job.progress > 0) return false;
+            break;
+          case 'in-progress':
+            if (job.progress === 0 || job.isCompleted) return false;
+            break;
+          case 'completed':
+            if (!job.isCompleted) return false;
+            break;
+        }
+      }
+
+      // SOR Code filter
+      if (filters.sorCode && filters.sorCode !== 'all') {
+        const hasSorCode = 
+          job.workItems.some(item => item.sorCode === filters.sorCode) ||
+          job.additionalWorks.some(item => item.sorCode === filters.sorCode);
+        if (!hasSorCode) return false;
+      }
+
+      // Date range filter
+      if (filters.dateFrom) {
+        if (isBefore(job.dateIssued, startOfDay(filters.dateFrom))) return false;
+      }
+      if (filters.dateTo) {
+        if (isAfter(job.dateIssued, endOfDay(filters.dateTo))) return false;
+      }
+
+      return true;
+    });
+  }, [jobs, filters]);
 
   if (isLoading) {
     return (
@@ -170,21 +230,14 @@ const Index = () => {
         {/* Compact Stats Row */}
         <div className="flex items-center justify-between gap-4">
           <StatsCards jobs={filteredJobs} />
-          
-          <div className="flex items-center gap-2">
-            <Select value={filter} onValueChange={(v) => setFilter(v as FilterType)}>
-              <SelectTrigger className="w-32 h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Jobs</SelectItem>
-                <SelectItem value="today">Today</SelectItem>
-                <SelectItem value="week">This Week</SelectItem>
-                <SelectItem value="month">This Month</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
         </div>
+
+        {/* Search and Filters */}
+        <JobFilters
+          filters={filters}
+          onFiltersChange={setFilters}
+          availableSorCodes={availableSorCodes}
+        />
 
         {/* Collapsible Upload Section - 5% */}
         <section 
