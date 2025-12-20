@@ -8,14 +8,29 @@ import {
   X, 
   Save, 
   Wand2, 
-  Plus, 
-  Trash2, 
-  Search
+  Plus,
+  Calendar
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { AIWorkConverter } from './AIWorkConverter';
 import { AttachmentUpload } from './AttachmentUpload';
+import { SortableWorkItem } from './SortableWorkItem';
 import { searchSORCodes, SORCode } from '@/data/sorCodes';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { format } from 'date-fns';
 
 interface JobDetailsModalProps {
   job: Job;
@@ -30,6 +45,14 @@ export const JobDetailsModal = ({ job, onClose, onUpdate }: JobDetailsModalProps
   const [sorSearchIndex, setSorSearchIndex] = useState<number | null>(null);
   const [sorSearchTerm, setSorSearchTerm] = useState('');
   const [sorSearchResults, setSorSearchResults] = useState<SORCode[]>([]);
+  const [isAdditionalSearch, setIsAdditionalSearch] = useState(false);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   const handleSave = () => {
     onUpdate(editedJob);
@@ -99,6 +122,7 @@ export const JobDetailsModal = ({ job, onClose, onUpdate }: JobDetailsModalProps
   const handleSORSearch = (term: string, index: number, isAdditional: boolean = false) => {
     setSorSearchTerm(term);
     setSorSearchIndex(index);
+    setIsAdditionalSearch(isAdditional);
     if (term.length >= 2) {
       const results = searchSORCodes(term);
       setSorSearchResults(results);
@@ -118,93 +142,35 @@ export const JobDetailsModal = ({ job, onClose, onUpdate }: JobDetailsModalProps
     setSorSearchResults([]);
   };
 
-  const renderWorkItemEditor = (
-    item: WorkItem, 
-    index: number, 
-    isAdditional: boolean,
-    updateFn: (index: number, field: keyof WorkItem, value: string | number) => void,
-    removeFn: (index: number) => void
-  ) => (
-    <div key={item.id} className="flex gap-2 items-start p-3 bg-muted/30 rounded-lg">
-      <div className="flex-1 space-y-2">
-        <Input
-          placeholder="Description"
-          value={item.description}
-          onChange={(e) => updateFn(index, 'description', e.target.value)}
-          className="text-sm"
-        />
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <div className="flex gap-1">
-              <Input
-                placeholder="SOR Code"
-                value={item.sorCode}
-                onChange={(e) => {
-                  updateFn(index, 'sorCode', e.target.value);
-                  handleSORSearch(e.target.value, index, isAdditional);
-                }}
-                onFocus={() => {
-                  if (item.sorCode.length >= 2) {
-                    handleSORSearch(item.sorCode, index, isAdditional);
-                  }
-                }}
-                className="w-28 font-mono text-xs"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="h-9 w-9"
-                onClick={() => {
-                  setSorSearchIndex(sorSearchIndex === index ? null : index);
-                  setSorSearchTerm('');
-                }}
-              >
-                <Search className="w-3 h-3" />
-              </Button>
-            </div>
-            {sorSearchIndex === index && sorSearchResults.length > 0 && (
-              <div className="absolute z-10 top-full left-0 mt-1 w-64 bg-popover border border-border rounded-md shadow-lg max-h-48 overflow-auto">
-                {sorSearchResults.map((sor) => (
-                  <button
-                    key={sor.code}
-                    type="button"
-                    className="w-full px-3 py-2 text-left hover:bg-muted text-sm"
-                    onClick={() => selectSORCode(sor.code, index, isAdditional)}
-                  >
-                    <span className="font-mono text-primary">{sor.code}</span>
-                    <span className="text-muted-foreground ml-2 text-xs">{sor.description}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          <Input
-            type="number"
-            placeholder="Qty"
-            value={item.qty}
-            onChange={(e) => updateFn(index, 'qty', parseInt(e.target.value) || 0)}
-            className="w-16 text-sm"
-          />
-          <Input
-            type="number"
-            placeholder="Cost"
-            value={item.cost}
-            onChange={(e) => updateFn(index, 'cost', parseFloat(e.target.value) || 0)}
-            className="w-24 text-sm"
-          />
-        </div>
-      </div>
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={() => removeFn(index)}
-        className="text-destructive hover:text-destructive h-8 w-8"
-      >
-        <Trash2 className="w-4 h-4" />
-      </Button>
-    </div>
-  );
+  const handleDragEnd = (event: DragEndEvent, isAdditional: boolean) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const items = isAdditional ? editedJob.additionalWorks : editedJob.workItems;
+      const oldIndex = items.findIndex((item) => item.id === active.id);
+      const newIndex = items.findIndex((item) => item.id === over.id);
+      
+      const newItems = arrayMove(items, oldIndex, newIndex);
+      
+      if (isAdditional) {
+        setEditedJob({ ...editedJob, additionalWorks: newItems });
+      } else {
+        setEditedJob({ ...editedJob, workItems: newItems });
+      }
+    }
+  };
+
+  const formatDateForInput = (date: Date | null): string => {
+    if (!date) return '';
+    return format(date, 'yyyy-MM-dd');
+  };
+
+  const handleDateChange = (field: 'startDate' | 'completionDate', value: string) => {
+    setEditedJob({
+      ...editedJob,
+      [field]: value ? new Date(value) : null
+    });
+  };
 
   return (
     <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -279,6 +245,35 @@ export const JobDetailsModal = ({ job, onClose, onUpdate }: JobDetailsModalProps
                   />
                 </div>
               </div>
+
+              {/* Date Fields */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium mb-1 flex items-center gap-1">
+                    <Calendar className="w-3 h-3" />
+                    Start Date
+                  </label>
+                  <Input
+                    type="date"
+                    value={formatDateForInput(editedJob.startDate)}
+                    onChange={(e) => handleDateChange('startDate', e.target.value)}
+                    className="text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium mb-1 flex items-center gap-1">
+                    <Calendar className="w-3 h-3" />
+                    Completion Date
+                  </label>
+                  <Input
+                    type="date"
+                    value={formatDateForInput(editedJob.completionDate)}
+                    onChange={(e) => handleDateChange('completionDate', e.target.value)}
+                    className="text-sm"
+                  />
+                </div>
+              </div>
+
               <div>
                 <label className="text-xs font-medium mb-1 block">Description</label>
                 <Textarea
@@ -294,7 +289,7 @@ export const JobDetailsModal = ({ job, onClose, onUpdate }: JobDetailsModalProps
                 <div>
                   <h3 className="font-medium text-sm">Works List</h3>
                   <p className="text-xs text-muted-foreground">
-                    Total: £{getTotalCost(editedJob.workItems).toLocaleString()}
+                    Total: £{getTotalCost(editedJob.workItems).toLocaleString()} • Drag to reorder
                   </p>
                 </div>
                 <div className="flex gap-2">
@@ -316,11 +311,38 @@ export const JobDetailsModal = ({ job, onClose, onUpdate }: JobDetailsModalProps
                 />
               )}
 
-              <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                {editedJob.workItems.map((item, index) => 
-                  renderWorkItemEditor(item, index, false, updateWorkItem, removeWorkItem)
-                )}
-              </div>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={(e) => handleDragEnd(e, false)}
+              >
+                <SortableContext
+                  items={editedJob.workItems.map(item => item.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                    {editedJob.workItems.map((item, index) => (
+                      <SortableWorkItem
+                        key={item.id}
+                        item={item}
+                        index={index}
+                        isAdditional={false}
+                        updateFn={updateWorkItem}
+                        removeFn={removeWorkItem}
+                        onSORSearch={handleSORSearch}
+                        sorSearchIndex={!isAdditionalSearch ? sorSearchIndex : null}
+                        sorSearchResults={sorSearchResults}
+                        onSelectSOR={selectSORCode}
+                        onToggleSearch={(idx) => {
+                          setSorSearchIndex(sorSearchIndex === idx && !isAdditionalSearch ? null : idx);
+                          setIsAdditionalSearch(false);
+                          setSorSearchTerm('');
+                        }}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
             </TabsContent>
 
             <TabsContent value="additional" className="space-y-4">
@@ -328,7 +350,7 @@ export const JobDetailsModal = ({ job, onClose, onUpdate }: JobDetailsModalProps
                 <div>
                   <h3 className="font-medium text-sm">Additional Works (Variations)</h3>
                   <p className="text-xs text-muted-foreground">
-                    Total: £{getTotalCost(editedJob.additionalWorks).toLocaleString()}
+                    Total: £{getTotalCost(editedJob.additionalWorks).toLocaleString()} • Drag to reorder
                   </p>
                 </div>
                 <div className="flex gap-2">
@@ -350,18 +372,45 @@ export const JobDetailsModal = ({ job, onClose, onUpdate }: JobDetailsModalProps
                 />
               )}
 
-              <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                {editedJob.additionalWorks.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <p className="text-sm">No additional works added yet</p>
-                    <p className="text-xs">Use the AI converter or add items manually</p>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={(e) => handleDragEnd(e, true)}
+              >
+                <SortableContext
+                  items={editedJob.additionalWorks.map(item => item.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                    {editedJob.additionalWorks.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <p className="text-sm">No additional works added yet</p>
+                        <p className="text-xs">Use the AI converter or add items manually</p>
+                      </div>
+                    ) : (
+                      editedJob.additionalWorks.map((item, index) => (
+                        <SortableWorkItem
+                          key={item.id}
+                          item={item}
+                          index={index}
+                          isAdditional={true}
+                          updateFn={updateAdditionalWork}
+                          removeFn={removeAdditionalWork}
+                          onSORSearch={handleSORSearch}
+                          sorSearchIndex={isAdditionalSearch ? sorSearchIndex : null}
+                          sorSearchResults={sorSearchResults}
+                          onSelectSOR={selectSORCode}
+                          onToggleSearch={(idx) => {
+                            setSorSearchIndex(sorSearchIndex === idx && isAdditionalSearch ? null : idx);
+                            setIsAdditionalSearch(true);
+                            setSorSearchTerm('');
+                          }}
+                        />
+                      ))
+                    )}
                   </div>
-                ) : (
-                  editedJob.additionalWorks.map((item, index) => 
-                    renderWorkItemEditor(item, index, true, updateAdditionalWork, removeAdditionalWork)
-                  )
-                )}
-              </div>
+                </SortableContext>
+              </DndContext>
             </TabsContent>
 
             <TabsContent value="attachments" className="space-y-4">

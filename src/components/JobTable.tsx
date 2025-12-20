@@ -99,6 +99,7 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob }: JobTableProps) => {
               <th className="w-32">SOR Codes</th>
               <th className="w-28">Team</th>
               <th className="w-28">Progress</th>
+              <th className="w-32">Start/End</th>
               <th className="w-16">Files</th>
               <th className="w-10"></th>
             </tr>
@@ -225,6 +226,18 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob }: JobTableProps) => {
                           onClose={() => setShowProgressEditor(null)}
                         />
                       )}
+                    </div>
+                  </td>
+                  <td>
+                    <div className="text-[10px] text-muted-foreground space-y-0.5">
+                      <div className="flex items-center gap-1">
+                        <span className="text-muted-foreground/70">S:</span>
+                        <span>{job.startDate ? format(job.startDate, 'dd/MM/yy') : '-'}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className="text-muted-foreground/70">E:</span>
+                        <span>{job.completionDate ? format(job.completionDate, 'dd/MM/yy') : '-'}</span>
+                      </div>
                     </div>
                   </td>
                   <td>

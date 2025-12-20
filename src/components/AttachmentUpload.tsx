@@ -46,6 +46,26 @@ export const AttachmentUpload = ({ jobId, attachments, onAttachmentsChange }: At
     documents: attachments.filter(a => a.type === 'document'),
   };
 
+  const uploadToStorage = async (file: File, category: MediaCategory): Promise<string | null> => {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${jobId}/${category}/${crypto.randomUUID()}.${fileExt}`;
+    
+    const { data, error } = await supabase.storage
+      .from('job-attachments')
+      .upload(fileName, file);
+
+    if (error) {
+      console.error('Storage upload error:', error);
+      return null;
+    }
+
+    const { data: urlData } = supabase.storage
+      .from('job-attachments')
+      .getPublicUrl(data.path);
+
+    return urlData.publicUrl;
+  };
+
   const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -65,8 +85,16 @@ export const AttachmentUpload = ({ jobId, attachments, onAttachmentsChange }: At
           continue;
         }
 
-        // For now, create a local URL (in production you'd upload to storage)
-        const url = URL.createObjectURL(file);
+        const url = await uploadToStorage(file, category);
+        
+        if (!url) {
+          toast({
+            title: "Upload failed",
+            description: `Failed to upload ${file.name}.`,
+            variant: "destructive",
+          });
+          continue;
+        }
         
         const attachment: Attachment = {
           id: crypto.randomUUID(),
@@ -83,7 +111,7 @@ export const AttachmentUpload = ({ jobId, attachments, onAttachmentsChange }: At
         onAttachmentsChange([...attachments, ...newAttachments]);
         toast({
           title: "Files uploaded",
-          description: `${newAttachments.length} file(s) added successfully.`,
+          description: `${newAttachments.length} file(s) uploaded to cloud storage.`,
         });
       }
     } catch (error) {
@@ -99,10 +127,21 @@ export const AttachmentUpload = ({ jobId, attachments, onAttachmentsChange }: At
         fileInputRef.current.value = '';
       }
     }
-  }, [attachments, onAttachmentsChange, toast]);
+  }, [attachments, onAttachmentsChange, toast, jobId]);
 
-  const removeAttachment = (id: string) => {
-    onAttachmentsChange(attachments.filter(a => a.id !== id));
+  const removeAttachment = async (attachment: Attachment) => {
+    // Extract the path from the URL to delete from storage
+    try {
+      const urlParts = attachment.url.split('/job-attachments/');
+      if (urlParts.length > 1) {
+        const filePath = urlParts[1];
+        await supabase.storage.from('job-attachments').remove([filePath]);
+      }
+    } catch (error) {
+      console.error('Error deleting from storage:', error);
+    }
+    
+    onAttachmentsChange(attachments.filter(a => a.id !== attachment.id));
   };
 
   const getAcceptString = (category: MediaCategory) => {
@@ -199,7 +238,7 @@ export const AttachmentUpload = ({ jobId, attachments, onAttachmentsChange }: At
                 {new Date(attachment.uploadedAt).toLocaleDateString()}
               </p>
               <button
-                onClick={() => removeAttachment(attachment.id)}
+                onClick={() => removeAttachment(attachment)}
                 className="absolute top-1 right-1 p-1 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity"
               >
                 <X className="w-3 h-3" />
