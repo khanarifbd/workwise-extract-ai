@@ -20,7 +20,8 @@ import {
   X,
   Fan,
   Loader2,
-  Wand2
+  Wand2,
+  Link2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TeamSelector } from './TeamSelector';
@@ -28,7 +29,8 @@ import { ProgressEditor } from './ProgressEditor';
 import { JobDetailsModal } from './JobDetailsModal';
 import { StatusSelector } from './StatusSelector';
 import { BookedDateCell } from './BookedDateCell';
-import { extractFansWithAI } from '@/lib/api';
+import { InlineDescriptionEditor } from './InlineDescriptionEditor';
+import { extractFansWithAI, createLinkedFanJob } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import {
   DropdownMenu,
@@ -43,9 +45,11 @@ interface JobTableProps {
   onDeleteJob: (jobId: string) => void;
   onToggleComplete: (job: Job) => void;
   onBatchUpdateTeam?: (jobIds: string[], teamName: string | null) => void;
+  fanCategoryId?: string;
+  onFanJobCreated?: () => void;
 }
 
-export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onBatchUpdateTeam }: JobTableProps) => {
+export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onBatchUpdateTeam, fanCategoryId, onFanJobCreated }: JobTableProps) => {
   const [showTeamSelector, setShowTeamSelector] = useState<string | null>(null);
   const [showProgressEditor, setShowProgressEditor] = useState<string | null>(null);
   const [showJobDetails, setShowJobDetails] = useState<Job | null>(null);
@@ -53,6 +57,7 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
   const [selectedJobs, setSelectedJobs] = useState<Set<string>>(new Set());
   const [showBatchTeamSelector, setShowBatchTeamSelector] = useState(false);
   const [scanningFanJobId, setScanningFanJobId] = useState<string | null>(null);
+  const [creatingFanJobId, setCreatingFanJobId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const handleTeamSelect = (jobId: string, teamId: string | null) => {
@@ -167,6 +172,48 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
       });
     } finally {
       setScanningFanJobId(null);
+    }
+  };
+
+  const handleCreateLinkedFanJob = async (jobId: string) => {
+    const job = jobs.find(j => j.id === jobId);
+    if (!job || !job.fanInfo || job.fanInfo.length === 0 || !fanCategoryId) {
+      toast({
+        title: "Cannot Create Fan Job",
+        description: "No fans detected or Fan category not found.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setCreatingFanJobId(jobId);
+    try {
+      await createLinkedFanJob(job, job.fanInfo, fanCategoryId);
+      onUpdateJob({ ...job, linkedFanJobId: 'created' }); // Flag that it was created
+      onFanJobCreated?.();
+      toast({
+        title: "Fan Job Created",
+        description: `Fan installation job created in Fan category.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Creation Failed",
+        description: "Could not create linked fan job.",
+        variant: "destructive",
+      });
+    } finally {
+      setCreatingFanJobId(null);
+    }
+  };
+
+  const handleDescriptionSave = (jobId: string, newDescription: string) => {
+    const job = jobs.find(j => j.id === jobId);
+    if (job) {
+      onUpdateJob({ ...job, description: newDescription });
+      toast({
+        title: "Description Updated",
+        description: "Job description has been saved.",
+      });
     }
   };
 
@@ -318,35 +365,47 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                     </div>
                   </td>
                   <td onClick={(e) => e.stopPropagation()}>
-                    <div className="relative">
-                      <p className={cn(
-                        "text-foreground",
-                        !isExpanded && shouldTruncate && "line-clamp-2"
-                      )}>
-                        {description}
-                      </p>
-                      {shouldTruncate && (
-                        <button
-                          onClick={() => toggleDescription(job.id)}
-                          className="flex items-center gap-1 text-primary hover:underline mt-1"
-                        >
-                          {isExpanded ? (
-                            <>Less <ChevronUp className="w-3.5 h-3.5" /></>
-                          ) : (
-                            <>More <ChevronDown className="w-3.5 h-3.5" /></>
-                          )}
-                        </button>
-                      )}
-                    </div>
+                    <InlineDescriptionEditor
+                      description={description}
+                      onSave={(newDesc) => handleDescriptionSave(job.id, newDesc)}
+                      isExpanded={isExpanded}
+                      onToggleExpand={() => toggleDescription(job.id)}
+                      shouldTruncate={shouldTruncate}
+                    />
                   </td>
                   {/* Fan Column */}
                   <td onClick={(e) => e.stopPropagation()}>
-                    <div className="flex items-center gap-1">
+                    <div className="flex flex-col gap-1">
                       {job.fanInfo && job.fanInfo.length > 0 ? (
-                        <Badge className="bg-cyan-500/20 text-cyan-700 dark:text-cyan-400 border-cyan-500/30">
-                          <Fan className="w-3 h-3 mr-1" />
-                          {getTotalFanCount(job.fanInfo)}
-                        </Badge>
+                        <>
+                          <Badge className="bg-cyan-500/20 text-cyan-700 dark:text-cyan-400 border-cyan-500/30">
+                            <Fan className="w-3 h-3 mr-1" />
+                            {getTotalFanCount(job.fanInfo)}
+                          </Badge>
+                          {fanCategoryId && !job.linkedFanJobId && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-5 px-1.5 text-xs"
+                              onClick={() => handleCreateLinkedFanJob(job.id)}
+                              disabled={creatingFanJobId === job.id}
+                            >
+                              {creatingFanJobId === job.id ? (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <>
+                                  <Link2 className="w-3 h-3 mr-1" />
+                                  Create
+                                </>
+                              )}
+                            </Button>
+                          )}
+                          {job.linkedFanJobId && (
+                            <Badge variant="outline" className="text-xs bg-green-500/10 text-green-700 dark:text-green-400">
+                              Linked
+                            </Badge>
+                          )}
+                        </>
                       ) : (
                         <Button
                           variant="ghost"

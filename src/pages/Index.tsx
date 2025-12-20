@@ -33,7 +33,7 @@ type KanbanGroupBy = 'team' | 'status';
 const Index = () => {
   const { categories, isLoading: categoriesLoading, addCategory, updateCategory, deleteCategory } = useCategories();
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const { jobs, isLoading: jobsLoading, addJob, editJob, removeJob, toggleComplete } = useJobs(activeCategory || undefined);
+  const { jobs, isLoading: jobsLoading, addJob, editJob, removeJob, toggleComplete, refreshJobs } = useJobs(activeCategory || undefined);
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [showExport, setShowExport] = useState(false);
@@ -49,6 +49,8 @@ const Index = () => {
     sorCode: '',
     dateFrom: undefined,
     dateTo: undefined,
+    hasFans: '',
+    hasBookedDate: '',
   });
   const [duplicateCheck, setDuplicateCheck] = useState<{
     newJob: Omit<Job, 'id'>;
@@ -462,6 +464,20 @@ const Index = () => {
         if (isAfter(job.dateIssued, endOfDay(filters.dateTo))) return false;
       }
 
+      // Fan filter
+      if (filters.hasFans && filters.hasFans !== 'all') {
+        const hasFans = job.fanInfo && job.fanInfo.length > 0;
+        if (filters.hasFans === 'with-fans' && !hasFans) return false;
+        if (filters.hasFans === 'no-fans' && hasFans) return false;
+      }
+
+      // Booked date filter
+      if (filters.hasBookedDate && filters.hasBookedDate !== 'all') {
+        const hasBookedDate = !!job.bookedDate;
+        if (filters.hasBookedDate === 'booked' && !hasBookedDate) return false;
+        if (filters.hasBookedDate === 'unbooked' && hasBookedDate) return false;
+      }
+
       return true;
     });
   }, [jobs, filters]);
@@ -580,6 +596,8 @@ const Index = () => {
                 onDeleteJob={handleDeleteJob}
                 onToggleComplete={handleToggleComplete}
                 onBatchUpdateTeam={handleBatchUpdateTeam}
+                fanCategoryId={categories.find(c => c.name.toLowerCase().includes('fan'))?.id}
+                onFanJobCreated={refreshJobs}
               />
             ) : viewType === 'kanban' ? (
               <KanbanBoard
