@@ -128,6 +128,18 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
     return team?.color;
   };
 
+  // Check if job was scanned but no fans were found
+  const wasScannedNoFans = (fanInfo: FanInfo[] | null): boolean => {
+    if (!fanInfo || fanInfo.length === 0) return false;
+    return fanInfo.length === 1 && fanInfo[0].type === '__SCANNED_NO_FANS__';
+  };
+
+  // Check if job has actual fans (not just the "no fans" marker)
+  const hasActualFans = (fanInfo: FanInfo[] | null): boolean => {
+    if (!fanInfo || fanInfo.length === 0) return false;
+    return !wasScannedNoFans(fanInfo);
+  };
+
   const handleStatusChange = (jobId: string, status: JobStatus, isComplete: boolean) => {
     const job = jobs.find(j => j.id === jobId);
     if (job) {
@@ -155,41 +167,36 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
     setScanningFanJobId(jobId);
     try {
       const result = await extractFansWithAI(job.description || job.summaryOfWorks || '', job.workItems);
-      if (result && result.hasFans) {
-        // Update job with fan info
-        onUpdateJob({ ...job, fanInfo: result.fans });
+      
+      if (result) {
+        // Always update fanInfo - if no fans found, set to empty array with a marker
+        const fanInfoToSave: FanInfo[] = result.hasFans && result.fans.length > 0 
+          ? result.fans 
+          : [{ type: '__SCANNED_NO_FANS__', quantity: 0, location: '' }]; // Marker for "scanned but no fans"
         
-        // Auto-create linked fan job if category exists and not already linked
-        if (fanCategoryId && !job.linkedFanJobId) {
-          try {
-            const fanJob = await createLinkedFanJob(job, result.fans, fanCategoryId);
-            // The linked_fan_job_id is updated in createLinkedFanJob, just refresh
-            onFanJobCreated?.();
-            toast({
-              title: "Fan Job Created",
-              description: `Found ${result.totalFanCount} fan(s) - job created in Fan category.`,
-            });
-          } catch (createError) {
-            toast({
-              title: "Fans Detected",
-              description: `Found ${result.totalFanCount} fan(s) but could not create linked job.`,
-              variant: "destructive",
-            });
-          }
+        onUpdateJob({ ...job, fanInfo: fanInfoToSave });
+        
+        if (result.hasFans && result.fans.length > 0) {
+          toast({
+            title: "Fans Found!",
+            description: `Found ${result.totalFanCount} fan(s) in ${result.fans.length} type(s).`,
+          });
         } else {
           toast({
-            title: "Fans Detected",
-            description: `Found ${result.totalFanCount} fan(s) requiring installation.`,
+            title: "No Fans Found",
+            description: "Scan complete - no fans detected in this job.",
           });
         }
       } else {
-        onUpdateJob({ ...job, fanInfo: [] });
+        // API returned null - mark as scanned with no fans
+        onUpdateJob({ ...job, fanInfo: [{ type: '__SCANNED_NO_FANS__', quantity: 0, location: '' }] });
         toast({
           title: "No Fans Found",
-          description: "No fan installations detected in this job.",
+          description: "Scan complete - no fans detected in this job.",
         });
       }
     } catch (error) {
+      console.error('Error scanning for fans:', error);
       toast({
         title: "Scan Failed",
         description: "Could not scan for fans.",
@@ -436,7 +443,7 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                   {/* Fan Column */}
                   <td onClick={(e) => e.stopPropagation()}>
                     <div className="flex flex-col gap-1">
-                      {job.fanInfo && job.fanInfo.length > 0 ? (
+                      {hasActualFans(job.fanInfo) ? (
                         <>
                           <Badge className="bg-cyan-500/20 text-cyan-700 dark:text-cyan-400 border-cyan-500/30">
                             <Fan className="w-3 h-3 mr-1" />
@@ -448,6 +455,10 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                             </Badge>
                           )}
                         </>
+                      ) : wasScannedNoFans(job.fanInfo) ? (
+                        <Badge variant="outline" className="text-xs bg-muted text-muted-foreground">
+                          NONE
+                        </Badge>
                       ) : (
                         <Button
                           variant="ghost"

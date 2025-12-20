@@ -56,6 +56,19 @@ export const useCategories = () => {
   }, []);
 
   const addCategory = async (name: string, color: string = '#3B82F6') => {
+    // Check if category with this name already exists locally
+    const existingCategory = categories.find(
+      c => c.name.toLowerCase() === name.toLowerCase()
+    );
+    if (existingCategory) {
+      toast({ 
+        title: "Category already exists", 
+        description: `"${existingCategory.name}" is already in your categories list.`,
+        variant: "destructive" 
+      });
+      return null;
+    }
+
     const slug = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
     const maxOrder = Math.max(...categories.map(c => c.sortOrder), -1);
     
@@ -67,7 +80,13 @@ export const useCategories = () => {
 
     if (error) {
       if (error.code === '23505') {
-        toast({ title: "Category already exists", variant: "destructive" });
+        // Refresh categories to sync with database
+        await loadCategories();
+        toast({ 
+          title: "Category already exists", 
+          description: `A category with this name already exists. The list has been refreshed.`,
+          variant: "destructive" 
+        });
       } else {
         throw error;
       }
