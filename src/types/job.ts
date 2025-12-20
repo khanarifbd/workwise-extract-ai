@@ -98,3 +98,11 @@ export const ALLSAINTS_TEAMS: Team[] = [
   { id: '7', name: 'Ramesh', color: '#14B8A6', whatsappGroup: 'ramesh-team' },
   { id: '8', name: 'Kumar', color: '#6366F1', whatsappGroup: 'kumar-team' },
 ];
+
+// Fan Installers Teams for Fan category jobs
+export const FAN_TEAMS: Team[] = [
+  { id: 'f1', name: 'Billy', color: '#0EA5E9', whatsappGroup: 'billy-fans' },
+  { id: 'f2', name: 'Argen', color: '#8B5CF6', whatsappGroup: 'argen-fans' },
+  { id: 'f3', name: 'Leci', color: '#10B981', whatsappGroup: 'leci-fans' },
+  { id: 'f4', name: 'Sam', color: '#F97316', whatsappGroup: 'sam-fans' },
+];
