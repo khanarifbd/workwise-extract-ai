@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Job } from '@/types/job';
 import { FileDropZone } from '@/components/FileDropZone';
 import { BulkImageUpload } from '@/components/BulkImageUpload';
@@ -9,8 +9,10 @@ import { ExportPanel } from '@/components/ExportPanel';
 import { JobFilters, FilterState } from '@/components/JobFilters';
 import { CategoryTabs } from '@/components/CategoryTabs';
 import { KanbanBoard } from '@/components/KanbanBoard';
+import { CalendarView } from '@/components/CalendarView';
 import { ViewToggle } from '@/components/ViewToggle';
 import { JobDetailsModal } from '@/components/JobDetailsModal';
+import { DuplicateJobAlert } from '@/components/DuplicateJobAlert';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -25,7 +27,7 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 
 type FileType = 'pdf' | 'image';
-type ViewType = 'table' | 'kanban';
+type ViewType = 'table' | 'kanban' | 'calendar';
 type KanbanGroupBy = 'team' | 'status';
 
 const Index = () => {
@@ -48,6 +50,11 @@ const Index = () => {
     dateFrom: undefined,
     dateTo: undefined,
   });
+  const [duplicateCheck, setDuplicateCheck] = useState<{
+    newJob: Omit<Job, 'id'>;
+    existingJob: Job;
+    pendingJobs: Omit<Job, 'id'>[];
+  } | null>(null);
   const { toast } = useToast();
 
   // Set first category as active when loaded
@@ -176,6 +183,125 @@ const Index = () => {
         description: "Could not update job status.",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleKanbanMoveJob = useCallback(async (jobId: string, newTeam: string | null, newStatus?: string) => {
+    const job = jobs.find(j => j.id === jobId);
+    if (!job) return;
+
+    try {
+      if (newStatus) {
+        // Moving by status
+        let updates: Partial<Job> = {};
+        if (newStatus === 'completed') {
+          updates = { isCompleted: true, progress: 100, completionDate: new Date() };
+        } else if (newStatus === 'in-progress') {
+          updates = { isCompleted: false, progress: job.progress === 0 ? 25 : job.progress, completionDate: null };
+        } else {
+          updates = { isCompleted: false, progress: 0, completionDate: null };
+        }
+        await editJob(jobId, updates);
+      } else {
+        // Moving by team
+        await editJob(jobId, { team: newTeam });
+      }
+      toast({
+        title: "Job Moved",
+        description: `Job #${job.jobNumber} has been updated.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Move Failed",
+        description: "Could not move the job.",
+        variant: "destructive",
+      });
+    }
+  }, [jobs, editJob, toast]);
+
+  // Duplicate check helper
+  const findDuplicateJob = useCallback((jobNumber: string) => {
+    return jobs.find(j => j.jobNumber.toLowerCase() === jobNumber.toLowerCase());
+  }, [jobs]);
+
+  const handleBulkJobsExtracted = useCallback(async (newJobs: Omit<Job, 'id'>[]) => {
+    const remaining = [...newJobs];
+    
+    const processNext = async () => {
+      if (remaining.length === 0) {
+        setShowBulkUpload(false);
+        return;
+      }
+
+      const currentJob = remaining[0];
+      const existing = findDuplicateJob(currentJob.jobNumber);
+      
+      if (existing) {
+        setDuplicateCheck({
+          newJob: currentJob,
+          existingJob: existing,
+          pendingJobs: remaining.slice(1)
+        });
+      } else {
+        await addJob(currentJob);
+        remaining.shift();
+        await processNext();
+      }
+    };
+
+    await processNext();
+  }, [findDuplicateJob, addJob]);
+
+  const handleDuplicateKeepBoth = async () => {
+    if (!duplicateCheck) return;
+    const modifiedJob = {
+      ...duplicateCheck.newJob,
+      jobNumber: `${duplicateCheck.newJob.jobNumber}-DUP-${Date.now().toString().slice(-4)}`
+    };
+    await addJob(modifiedJob);
+    const remaining = duplicateCheck.pendingJobs;
+    setDuplicateCheck(null);
+    if (remaining.length > 0) {
+      await handleBulkJobsExtracted(remaining);
+    } else {
+      setShowBulkUpload(false);
+    }
+  };
+
+  const handleDuplicateReplace = async () => {
+    if (!duplicateCheck) return;
+    await removeJob(duplicateCheck.existingJob.id);
+    await addJob(duplicateCheck.newJob);
+    const remaining = duplicateCheck.pendingJobs;
+    setDuplicateCheck(null);
+    if (remaining.length > 0) {
+      await handleBulkJobsExtracted(remaining);
+    } else {
+      setShowBulkUpload(false);
+    }
+  };
+
+  const handleDuplicateSkip = async () => {
+    if (!duplicateCheck) return;
+    const remaining = duplicateCheck.pendingJobs;
+    setDuplicateCheck(null);
+    if (remaining.length > 0) {
+      await handleBulkJobsExtracted(remaining);
+    } else {
+      setShowBulkUpload(false);
+    }
+  };
+
+  const handleDuplicateDeleteExisting = async () => {
+    if (!duplicateCheck) return;
+    await removeJob(duplicateCheck.existingJob.id);
+    await addJob(duplicateCheck.newJob);
+    const remaining = duplicateCheck.pendingJobs;
+    setDuplicateCheck(null);
+    if (remaining.length > 0) {
+      await handleBulkJobsExtracted(remaining);
+    } else {
+      setShowBulkUpload(false);
     }
   };
 
@@ -410,10 +536,17 @@ const Index = () => {
                 onDeleteJob={handleDeleteJob}
                 onToggleComplete={handleToggleComplete}
               />
-            ) : (
+            ) : viewType === 'kanban' ? (
               <KanbanBoard
                 jobs={filteredJobs}
                 groupBy={kanbanGroupBy}
+                onJobClick={setSelectedJobForModal}
+                onToggleComplete={handleToggleComplete}
+                onMoveJob={handleKanbanMoveJob}
+              />
+            ) : (
+              <CalendarView
+                jobs={filteredJobs}
                 onJobClick={setSelectedJobForModal}
                 onToggleComplete={handleToggleComplete}
               />
@@ -428,13 +561,19 @@ const Index = () => {
 
       {showBulkUpload && (
         <BulkImageUpload
-          onJobsExtracted={async (newJobs) => {
-            for (const job of newJobs) {
-              await addJob(job);
-            }
-            setShowBulkUpload(false);
-          }}
+          onJobsExtracted={handleBulkJobsExtracted}
           onClose={() => setShowBulkUpload(false)}
+        />
+      )}
+
+      {duplicateCheck && (
+        <DuplicateJobAlert
+          newJob={duplicateCheck.newJob}
+          existingJob={duplicateCheck.existingJob}
+          onKeepBoth={handleDuplicateKeepBoth}
+          onReplace={handleDuplicateReplace}
+          onSkip={handleDuplicateSkip}
+          onDeleteExisting={handleDuplicateDeleteExisting}
         />
       )}
 
