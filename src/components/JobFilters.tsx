@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
-import { ALLSAINTS_TEAMS } from '@/types/job';
+import { ALLSAINTS_TEAMS, FAN_TEAMS } from '@/types/job';
 import { Search, Filter, X, CalendarDays, Bookmark, Save, FileDown, FileSpreadsheet, Fan, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -34,11 +34,12 @@ interface JobFiltersProps {
   availableSorCodes: string[];
   onExportPDF?: () => void;
   onExportExcel?: () => void;
+  isFanCategory?: boolean;
 }
 
 const STORAGE_KEY = 'job-filter-presets';
 
-export const JobFilters = ({ filters, onFiltersChange, availableSorCodes, onExportPDF, onExportExcel }: JobFiltersProps) => {
+export const JobFilters = ({ filters, onFiltersChange, availableSorCodes, onExportPDF, onExportExcel, isFanCategory = false }: JobFiltersProps) => {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [presets, setPresets] = useState<FilterPreset[]>([]);
   const [presetName, setPresetName] = useState('');
@@ -263,7 +264,7 @@ export const JobFilters = ({ filters, onFiltersChange, availableSorCodes, onExpo
             <SelectContent>
               <SelectItem value="all">All Teams</SelectItem>
               <SelectItem value="unassigned">Unassigned</SelectItem>
-              {ALLSAINTS_TEAMS.map((team) => (
+              {(isFanCategory ? FAN_TEAMS : ALLSAINTS_TEAMS).map((team) => (
                 <SelectItem key={team.id} value={team.name}>
                   <div className="flex items-center gap-2">
                     <div
