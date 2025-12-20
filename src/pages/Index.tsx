@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { Job } from '@/types/job';
 import { FileDropZone } from '@/components/FileDropZone';
+import { BulkImageUpload } from '@/components/BulkImageUpload';
 import { JobTable } from '@/components/JobTable';
 import { Header } from '@/components/Header';
 import { StatsCards } from '@/components/StatsCards';
 import { ExportPanel } from '@/components/ExportPanel';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { ChevronDown, ChevronUp, Loader2, Images } from 'lucide-react';
 import { isToday, isThisWeek, isThisMonth } from 'date-fns';
 import { useJobs } from '@/hooks/useJobs';
 import { extractPDFWithAI, extractImageWithAI } from '@/lib/api';
@@ -20,6 +22,7 @@ const Index = () => {
   const { jobs, isLoading, addJob, editJob, removeJob } = useJobs();
   const [isProcessing, setIsProcessing] = useState(false);
   const [showExport, setShowExport] = useState(false);
+  const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [uploadExpanded, setUploadExpanded] = useState(false);
   const [filter, setFilter] = useState<FilterType>('all');
   const { toast } = useToast();
@@ -186,7 +189,7 @@ const Index = () => {
         {/* Collapsible Upload Section - 5% */}
         <section 
           className="bg-card border border-border rounded-lg overflow-hidden"
-          style={{ maxHeight: uploadExpanded ? '200px' : '48px' }}
+          style={{ maxHeight: uploadExpanded ? '220px' : '48px' }}
         >
           <button
             onClick={() => setUploadExpanded(!uploadExpanded)}
@@ -200,8 +203,19 @@ const Index = () => {
             )}
           </button>
           {uploadExpanded && (
-            <div className="px-4 pb-4">
+            <div className="px-4 pb-4 space-y-3">
               <FileDropZone onFileUpload={handleFileUpload} isProcessing={isProcessing} />
+              <div className="flex justify-center">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowBulkUpload(true)}
+                  className="text-xs"
+                >
+                  <Images className="w-3 h-3 mr-1" />
+                  Bulk Image Upload
+                </Button>
+              </div>
             </div>
           )}
         </section>
@@ -229,6 +243,18 @@ const Index = () => {
 
       {showExport && (
         <ExportPanel jobs={jobs} onClose={() => setShowExport(false)} />
+      )}
+
+      {showBulkUpload && (
+        <BulkImageUpload
+          onJobsExtracted={async (newJobs) => {
+            for (const job of newJobs) {
+              await addJob(job);
+            }
+            setShowBulkUpload(false);
+          }}
+          onClose={() => setShowBulkUpload(false)}
+        />
       )}
     </div>
   );

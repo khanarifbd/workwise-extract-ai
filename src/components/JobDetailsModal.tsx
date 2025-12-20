@@ -3,7 +3,6 @@ import { Job, WorkItem } from '@/types/job';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   X, 
@@ -11,14 +10,11 @@ import {
   Wand2, 
   Plus, 
   Trash2, 
-  Upload, 
-  FileText, 
-  Image as ImageIcon,
-  Video,
   Search
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AIWorkConverter } from './AIWorkConverter';
+import { AttachmentUpload } from './AttachmentUpload';
 import { searchSORCodes, SORCode } from '@/data/sorCodes';
 
 interface JobDetailsModalProps {
@@ -369,42 +365,11 @@ export const JobDetailsModal = ({ job, onClose, onUpdate }: JobDetailsModalProps
             </TabsContent>
 
             <TabsContent value="attachments" className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="font-medium text-sm">Attachments</h3>
-                <Button size="sm">
-                  <Upload className="w-3 h-3 mr-1" />
-                  Upload
-                </Button>
-              </div>
-
-              {editedJob.attachments.length === 0 ? (
-                <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
-                  <Upload className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-                  <p className="text-sm text-muted-foreground">No attachments yet</p>
-                  <p className="text-xs text-muted-foreground">
-                    Upload photos, videos, or documents
-                  </p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-3 gap-3">
-                  {editedJob.attachments.map((attachment) => (
-                    <div 
-                      key={attachment.id}
-                      className="p-3 border border-border rounded-lg hover:bg-muted/30 transition-colors"
-                    >
-                      <div className="w-full aspect-video bg-muted rounded flex items-center justify-center mb-2">
-                        {attachment.type === 'image' && <ImageIcon className="w-6 h-6 text-muted-foreground" />}
-                        {attachment.type === 'video' && <Video className="w-6 h-6 text-muted-foreground" />}
-                        {attachment.type === 'document' && <FileText className="w-6 h-6 text-muted-foreground" />}
-                      </div>
-                      <p className="text-xs font-medium truncate">{attachment.name}</p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {attachment.uploadedAt.toLocaleDateString()}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <AttachmentUpload
+                jobId={editedJob.id}
+                attachments={editedJob.attachments}
+                onAttachmentsChange={(attachments) => setEditedJob({ ...editedJob, attachments })}
+              />
             </TabsContent>
           </Tabs>
         </div>
