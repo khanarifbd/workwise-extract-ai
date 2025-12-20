@@ -535,6 +535,7 @@ const Index = () => {
             availableSorCodes={availableSorCodes}
             onExportPDF={handleExportPDF}
             onExportExcel={handleExportExcel}
+            isFanCategory={isFanCategory}
           />
         </div>
 

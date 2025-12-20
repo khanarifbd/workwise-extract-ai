@@ -64,6 +64,7 @@ export const ExportPanel = ({ jobs, onClose, isFanCategory = false }: ExportPane
       const tableData = filteredJobs.map(job => {
         const fanInfo = job.fanInfo || [];
         const fanSummary = fanInfo.map((f: any) => `${f.quantity || 1}x ${f.fanType || 'Fan'}`).join(', ');
+        const sorCodes = job.workItems.map(w => w.sorCode).filter(Boolean).join(', ');
         return [
           job.dateIssued ? format(job.dateIssued, 'dd/MM/yy') : '-',
           job.bookedDate ? format(job.bookedDate, 'dd/MM/yy') : '-',
@@ -71,19 +72,22 @@ export const ExportPanel = ({ jobs, onClose, isFanCategory = false }: ExportPane
           `${job.name}${job.phoneNumber ? `\n${job.phoneNumber}` : ''}`,
           job.summaryOfWorks || job.description || '-',
           fanSummary || '-',
+          sorCodes || '-',
+          job.status || 'pending',
           job.team || 'Unassigned'
         ];
       });
 
       autoTable(doc, {
-        head: [['Issued', 'Booked', 'Job', 'Name/Contact', 'Description', 'Fan', 'Status']],
+        head: [['Issued', 'Booked', 'Job #', 'Name/Contact', 'Description', 'Fan', 'SOR Codes', 'Status', 'Team']],
         body: tableData,
         startY: 48,
-        styles: { fontSize: 8, cellPadding: 2 },
+        styles: { fontSize: 7, cellPadding: 2 },
         headStyles: { fillColor: [59, 130, 246] },
         columnStyles: {
-          3: { cellWidth: 35 },
-          4: { cellWidth: 45 },
+          3: { cellWidth: 28 },
+          4: { cellWidth: 35 },
+          6: { cellWidth: 22 },
         }
       });
     } else {
@@ -118,15 +122,17 @@ export const ExportPanel = ({ jobs, onClose, isFanCategory = false }: ExportPane
       excelData = filteredJobs.map(job => {
         const fanInfo = job.fanInfo || [];
         const fanSummary = fanInfo.map((f: any) => `${f.quantity || 1}x ${f.fanType || 'Fan'}`).join(', ');
+        const sorCodes = job.workItems.map(w => w.sorCode).filter(Boolean).join(', ');
         return {
           'Issued': job.dateIssued ? format(job.dateIssued, 'dd/MM/yyyy') : '',
           'Booked': job.bookedDate ? format(job.bookedDate, 'dd/MM/yyyy') : '',
-          'Job': job.jobNumber,
-          'Name': job.name,
-          'Contact': job.phoneNumber || '',
+          'Job #': job.jobNumber,
+          'Name/Contact': `${job.name}${job.phoneNumber ? ` - ${job.phoneNumber}` : ''}`,
           'Description': job.summaryOfWorks || job.description || '',
           'Fan': fanSummary,
-          'Status': job.team || 'Unassigned'
+          'SOR Codes': sorCodes,
+          'Status': job.status || 'pending',
+          'Team': job.team || 'Unassigned'
         };
       });
     } else {
