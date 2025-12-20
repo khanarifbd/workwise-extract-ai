@@ -6,9 +6,12 @@ interface TeamSession {
   teamName: string;
   accessCode: string;
   authenticatedAt: string;
+  rememberMe?: boolean;
 }
 
 const SESSION_KEY = 'team_portal_session';
+const SESSION_DURATION_STANDARD = 24; // hours
+const SESSION_DURATION_EXTENDED = 24 * 30; // 30 days
 
 export const useTeamAuth = () => {
   const [session, setSession] = useState<TeamSession | null>(null);
@@ -21,12 +24,12 @@ export const useTeamAuth = () => {
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
-        // Check if session is still valid (24 hours)
         const authTime = new Date(parsed.authenticatedAt);
         const now = new Date();
         const hoursDiff = (now.getTime() - authTime.getTime()) / (1000 * 60 * 60);
+        const maxDuration = parsed.rememberMe ? SESSION_DURATION_EXTENDED : SESSION_DURATION_STANDARD;
         
-        if (hoursDiff < 24) {
+        if (hoursDiff < maxDuration) {
           setSession(parsed);
         } else {
           localStorage.removeItem(SESSION_KEY);
@@ -38,7 +41,7 @@ export const useTeamAuth = () => {
     setIsLoading(false);
   }, []);
 
-  const login = useCallback(async (accessCode: string): Promise<boolean> => {
+  const login = useCallback(async (accessCode: string, rememberMe: boolean = false): Promise<boolean> => {
     setIsLoading(true);
     setError(null);
 
@@ -61,6 +64,7 @@ export const useTeamAuth = () => {
         teamName: data.team_name,
         accessCode: data.access_code,
         authenticatedAt: new Date().toISOString(),
+        rememberMe,
       };
 
       localStorage.setItem(SESSION_KEY, JSON.stringify(newSession));

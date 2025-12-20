@@ -2,16 +2,18 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Loader2 } from 'lucide-react';
 import allsaintsLogo from '@/assets/allsaints-logo.png';
 
 interface TeamLoginFormProps {
-  onLogin: (accessCode: string) => Promise<boolean>;
+  onLogin: (accessCode: string, rememberMe: boolean) => Promise<boolean>;
   error: string | null;
 }
 
 export const TeamLoginForm = ({ onLogin, error }: TeamLoginFormProps) => {
   const [accessCode, setAccessCode] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -19,7 +21,7 @@ export const TeamLoginForm = ({ onLogin, error }: TeamLoginFormProps) => {
     if (!accessCode.trim()) return;
 
     setIsLoading(true);
-    await onLogin(accessCode);
+    await onLogin(accessCode, rememberMe);
     setIsLoading(false);
   };
 
@@ -48,6 +50,20 @@ export const TeamLoginForm = ({ onLogin, error }: TeamLoginFormProps) => {
                 autoComplete="off"
                 autoFocus
               />
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="remember-me"
+                checked={rememberMe}
+                onCheckedChange={(checked) => setRememberMe(checked === true)}
+              />
+              <label
+                htmlFor="remember-me"
+                className="text-sm text-muted-foreground cursor-pointer select-none"
+              >
+                Remember me for 30 days
+              </label>
             </div>
             
             {error && (
