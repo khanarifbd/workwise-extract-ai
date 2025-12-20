@@ -27,7 +27,7 @@ serve(async (req) => {
 
     console.log('Converting description to work items with multiple SOR options...');
 
-    const systemPrompt = `You are a construction work analysis specialist. Convert the provided description into a precise list of individual work items.
+const systemPrompt = `You are a construction work analysis specialist. Convert the provided description into a precise list of individual work items.
 
 For each work item, provide THREE suitable SOR (Schedule of Rates) codes from this database:
 ${sorCodesContext}
@@ -37,9 +37,9 @@ Return ONLY a JSON array in this exact format:
   {
     "description": "Clear, precise description of the work item",
     "options": [
-      { "code": "Primary SOR code - best match", "cost": estimated_cost_number },
-      { "code": "Secondary SOR code - alternative match", "cost": estimated_cost_number },
-      { "code": "Premium SOR code - higher specification/more comprehensive work", "cost": higher_cost_number, "isPremium": true }
+      { "code": "SOR-CODE-1", "description": "Brief explanation of what this code covers and why it matches", "cost": estimated_cost_number },
+      { "code": "SOR-CODE-2", "description": "Brief explanation of the alternative approach", "cost": estimated_cost_number },
+      { "code": "SOR-CODE-3", "description": "Premium option description explaining additional scope/quality", "cost": higher_cost_number, "isPremium": true }
     ],
     "qty": 1
   }
@@ -48,9 +48,10 @@ Return ONLY a JSON array in this exact format:
 Guidelines:
 - Break down complex descriptions into individual actionable work items
 - Use clear, professional construction terminology
-- Option 1: Best matching code for the described work
-- Option 2: Alternative suitable code (different approach or scope)
-- Option 3: Premium option with higher cost - more comprehensive work, higher spec materials, or additional related work included
+- Option 1: Best matching code for the described work - explain why it's the best fit
+- Option 2: Alternative suitable code (different approach or scope) - explain the difference
+- Option 3: Premium option with higher cost - explain what additional work/quality is included
+- Each option MUST include a description explaining alignment with the work item
 - The premium option should be 20-50% more expensive and represent a realistic upgrade
 - Costs should be realistic UK construction rates in GBP
 - Be thorough but avoid duplicates`;
