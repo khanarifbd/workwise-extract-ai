@@ -227,7 +227,7 @@ export const deleteJob = async (id: string): Promise<void> => {
 };
 
 // Helper functions to map between frontend and database formats
-const mapDatabaseJobToJob = (dbJob: any): Job => ({
+export const mapDatabaseJobToJob = (dbJob: any): Job => ({
   id: dbJob.id,
   jobNumber: dbJob.job_number,
   name: dbJob.name,
@@ -251,7 +251,7 @@ const mapDatabaseJobToJob = (dbJob: any): Job => ({
   linkedFanJobId: dbJob.linked_fan_job_id || null,
 });
 
-const mapJobToDatabase = (job: Partial<Job>): any => {
+export const mapJobToDatabase = (job: Partial<Job>): any => {
   const dbJob: any = {};
   
   if (job.jobNumber !== undefined) dbJob.job_number = job.jobNumber;

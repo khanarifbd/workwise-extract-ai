@@ -181,6 +181,116 @@ export type Database = {
           },
         ]
       }
+      offline_sync_queue: {
+        Row: {
+          action_type: string
+          created_at: string
+          id: string
+          payload: Json
+          synced: boolean
+          synced_at: string | null
+          team_id: string
+        }
+        Insert: {
+          action_type: string
+          created_at?: string
+          id?: string
+          payload: Json
+          synced?: boolean
+          synced_at?: string | null
+          team_id: string
+        }
+        Update: {
+          action_type?: string
+          created_at?: string
+          id?: string
+          payload?: Json
+          synced?: boolean
+          synced_at?: string | null
+          team_id?: string
+        }
+        Relationships: []
+      }
+      team_access_codes: {
+        Row: {
+          access_code: string
+          created_at: string
+          id: string
+          is_active: boolean
+          team_id: string
+          team_name: string
+          updated_at: string
+        }
+        Insert: {
+          access_code: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          team_id: string
+          team_name: string
+          updated_at?: string
+        }
+        Update: {
+          access_code?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          team_id?: string
+          team_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      team_job_updates: {
+        Row: {
+          created_at: string
+          id: string
+          job_id: string
+          notes: string | null
+          photos: string[] | null
+          progress: number | null
+          status: string | null
+          synced_at: string | null
+          team_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          job_id: string
+          notes?: string | null
+          photos?: string[] | null
+          progress?: number | null
+          status?: string | null
+          synced_at?: string | null
+          team_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          job_id?: string
+          notes?: string | null
+          photos?: string[] | null
+          progress?: number | null
+          status?: string | null
+          synced_at?: string | null
+          team_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_job_updates_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_notification_settings: {
         Row: {
           created_at: string
