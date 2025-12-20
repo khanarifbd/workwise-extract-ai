@@ -193,6 +193,7 @@ const TeamPortal = () => {
         <TeamJobList
           jobs={jobs}
           teamName={session!.teamName}
+          teamId={session!.teamId}
           isLoading={isLoadingJobs}
           onSelectJob={setSelectedJob}
           onRefresh={loadJobs}
