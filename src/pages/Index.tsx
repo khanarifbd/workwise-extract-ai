@@ -7,7 +7,7 @@ import { Header } from '@/components/Header';
 import { StatsCards } from '@/components/StatsCards';
 import { FanStatsCards } from '@/components/FanStatsCards';
 import { ExportPanel } from '@/components/ExportPanel';
-import { JobFilters, FilterState } from '@/components/JobFilters';
+import { DMJobFilters, FanJobFilters, FilterState, getDefaultFilterState } from '@/components/filters';
 import { CategoryTabs } from '@/components/CategoryTabs';
 import { KanbanBoard } from '@/components/KanbanBoard';
 import { CalendarView } from '@/components/CalendarView';
@@ -44,16 +44,7 @@ const Index = () => {
   const [viewType, setViewType] = useState<ViewType>('table');
   const [kanbanGroupBy, setKanbanGroupBy] = useState<KanbanGroupBy>('team');
   const [selectedJobForModal, setSelectedJobForModal] = useState<Job | null>(null);
-  const [filters, setFilters] = useState<FilterState>({
-    search: '',
-    team: '',
-    status: '',
-    sorCode: '',
-    dateFrom: undefined,
-    dateTo: undefined,
-    hasFans: '',
-    hasBookedDate: '',
-  });
+  const [filters, setFilters] = useState<FilterState>(getDefaultFilterState());
   const [duplicateCheck, setDuplicateCheck] = useState<{
     newJob: Omit<Job, 'id'>;
     existingJob: Job;
@@ -417,6 +408,12 @@ const Index = () => {
     toast({ title: 'Excel downloaded!' });
   };
 
+  // Check if current category is "Fan"
+  const isFanCategory = useMemo(() => {
+    const activeCat = categories.find(c => c.id === activeCategory);
+    return activeCat?.name.toLowerCase().includes('fan') || false;
+  }, [categories, activeCategory]);
+
   const filteredJobs = useMemo(() => {
     return jobs.filter(job => {
       if (filters.search) {
@@ -426,8 +423,15 @@ const Index = () => {
           job.name.toLowerCase().includes(searchLower) ||
           job.address.toLowerCase().includes(searchLower) ||
           job.description?.toLowerCase().includes(searchLower) ||
+          job.phoneNumber?.toLowerCase().includes(searchLower) ||
           job.summaryOfWorks?.toLowerCase().includes(searchLower);
         if (!matchesSearch) return false;
+      }
+
+      // Phone number filter
+      if (filters.phoneNumber) {
+        const phoneLower = filters.phoneNumber.toLowerCase();
+        if (!job.phoneNumber?.toLowerCase().includes(phoneLower)) return false;
       }
 
       if (filters.team && filters.team !== 'all') {
@@ -439,16 +443,22 @@ const Index = () => {
       }
 
       if (filters.status && filters.status !== 'all') {
-        switch (filters.status) {
-          case 'not-started':
-            if (job.progress > 0) return false;
-            break;
-          case 'in-progress':
-            if (job.progress === 0 || job.isCompleted) return false;
-            break;
-          case 'completed':
-            if (!job.isCompleted) return false;
-            break;
+        // For fan category, use direct status match
+        if (isFanCategory) {
+          if (job.status !== filters.status) return false;
+        } else {
+          // For DM category, use progress-based status
+          switch (filters.status) {
+            case 'not-started':
+              if (job.progress > 0) return false;
+              break;
+            case 'in-progress':
+              if (job.progress === 0 || job.isCompleted) return false;
+              break;
+            case 'completed':
+              if (!job.isCompleted) return false;
+              break;
+          }
         }
       }
 
@@ -466,8 +476,8 @@ const Index = () => {
         if (isAfter(job.dateIssued, endOfDay(filters.dateTo))) return false;
       }
 
-      // Fan filter
-      if (filters.hasFans && filters.hasFans !== 'all') {
+      // Fan filter (only for DM categories)
+      if (!isFanCategory && filters.hasFans && filters.hasFans !== 'all') {
         const hasFans = job.fanInfo && job.fanInfo.length > 0;
         if (filters.hasFans === 'with-fans' && !hasFans) return false;
         if (filters.hasFans === 'no-fans' && hasFans) return false;
@@ -482,15 +492,9 @@ const Index = () => {
 
       return true;
     });
-  }, [jobs, filters]);
+  }, [jobs, filters, isFanCategory]);
 
   const isLoading = categoriesLoading || jobsLoading;
-
-  // Check if current category is "Fan"
-  const isFanCategory = useMemo(() => {
-    const activeCat = categories.find(c => c.id === activeCategory);
-    return activeCat?.name.toLowerCase().includes('fan') || false;
-  }, [categories, activeCategory]);
 
   if (isLoading && categories.length === 0) {
     return (
@@ -527,16 +531,25 @@ const Index = () => {
           )}
         </div>
 
-        {/* Search and Filters */}
+        {/* Search and Filters - Category Specific */}
         <div className="bg-section-filters rounded-lg p-3">
-          <JobFilters
-            filters={filters}
-            onFiltersChange={setFilters}
-            availableSorCodes={availableSorCodes}
-            onExportPDF={handleExportPDF}
-            onExportExcel={handleExportExcel}
-            isFanCategory={isFanCategory}
-          />
+          {isFanCategory ? (
+            <FanJobFilters
+              filters={filters}
+              onFiltersChange={setFilters}
+              availableSorCodes={availableSorCodes}
+              onExportPDF={handleExportPDF}
+              onExportExcel={handleExportExcel}
+            />
+          ) : (
+            <DMJobFilters
+              filters={filters}
+              onFiltersChange={setFilters}
+              availableSorCodes={availableSorCodes}
+              onExportPDF={handleExportPDF}
+              onExportExcel={handleExportExcel}
+            />
+          )}
         </div>
 
         {/* Collapsible Upload Section */}

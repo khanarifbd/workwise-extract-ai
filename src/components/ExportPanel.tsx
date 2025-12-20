@@ -69,7 +69,8 @@ export const ExportPanel = ({ jobs, onClose, isFanCategory = false }: ExportPane
           job.dateIssued ? format(job.dateIssued, 'dd/MM/yy') : '-',
           job.bookedDate ? format(job.bookedDate, 'dd/MM/yy') : '-',
           job.jobNumber,
-          `${job.name}${job.phoneNumber ? `\n${job.phoneNumber}` : ''}`,
+          job.name,
+          job.phoneNumber || '-',
           job.summaryOfWorks || job.description || '-',
           fanSummary || '-',
           sorCodes || '-',
@@ -79,21 +80,23 @@ export const ExportPanel = ({ jobs, onClose, isFanCategory = false }: ExportPane
       });
 
       autoTable(doc, {
-        head: [['Issued', 'Booked', 'Job #', 'Name/Contact', 'Description', 'Fan', 'SOR Codes', 'Status', 'Team']],
+        head: [['Issued', 'Booked', 'Job #', 'Name', 'Phone', 'Description', 'Fan', 'SOR Codes', 'Status', 'Team']],
         body: tableData,
         startY: 48,
-        styles: { fontSize: 7, cellPadding: 2 },
+        styles: { fontSize: 6, cellPadding: 1.5 },
         headStyles: { fillColor: [59, 130, 246] },
         columnStyles: {
-          3: { cellWidth: 28 },
-          4: { cellWidth: 35 },
-          6: { cellWidth: 22 },
+          3: { cellWidth: 22 },
+          4: { cellWidth: 22 },
+          5: { cellWidth: 30 },
+          7: { cellWidth: 18 },
         }
       });
     } else {
       const tableData = filteredJobs.map(job => [
         job.jobNumber,
         job.name,
+        job.phoneNumber || '-',
         job.address || '-',
         job.team || 'Unassigned',
         `${job.progress}%`,
@@ -103,10 +106,10 @@ export const ExportPanel = ({ jobs, onClose, isFanCategory = false }: ExportPane
       ]);
 
       autoTable(doc, {
-        head: [['Job #', 'Name', 'Address', 'Team', 'Progress', 'Start', 'End', 'SOR Codes']],
+        head: [['Job #', 'Name', 'Phone', 'Address', 'Team', 'Progress', 'Start', 'End', 'SOR Codes']],
         body: tableData,
         startY: 48,
-        styles: { fontSize: 8 },
+        styles: { fontSize: 7 },
         headStyles: { fillColor: [59, 130, 246] },
       });
     }
@@ -127,7 +130,8 @@ export const ExportPanel = ({ jobs, onClose, isFanCategory = false }: ExportPane
           'Issued': job.dateIssued ? format(job.dateIssued, 'dd/MM/yyyy') : '',
           'Booked': job.bookedDate ? format(job.bookedDate, 'dd/MM/yyyy') : '',
           'Job #': job.jobNumber,
-          'Name/Contact': `${job.name}${job.phoneNumber ? ` - ${job.phoneNumber}` : ''}`,
+          'Name': job.name,
+          'Phone': job.phoneNumber || '',
           'Description': job.summaryOfWorks || job.description || '',
           'Fan': fanSummary,
           'SOR Codes': sorCodes,
