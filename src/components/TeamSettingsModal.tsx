@@ -35,7 +35,7 @@ export const TeamSettingsModal = ({ onClose }: TeamSettingsModalProps) => {
 
   return (
     <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-hidden animate-scale-in">
+      <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col animate-scale-in">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-muted/30">
           <div className="flex items-center gap-3">
@@ -53,7 +53,7 @@ export const TeamSettingsModal = ({ onClose }: TeamSettingsModalProps) => {
         </div>
 
         {/* Content */}
-        <div className="p-5 space-y-4 max-h-[calc(80vh-140px)] overflow-y-auto">
+        <div className="flex-1 p-5 space-y-4 overflow-y-auto min-h-0">
           {isLoading ? (
             <div className="text-center text-muted-foreground py-8">Loading...</div>
           ) : (
