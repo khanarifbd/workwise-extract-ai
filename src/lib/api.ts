@@ -93,7 +93,12 @@ export const sendWhatsAppNotification = async (
   teamName: string, 
   whatsappGroup: string | undefined, 
   jobDetails: Partial<Job>
-): Promise<{ whatsappLink: string; notificationMessage: string } | null> => {
+): Promise<{ 
+  whatsappLink: string; 
+  notificationMessage: string; 
+  sentViaTwilio?: boolean;
+  twilioResult?: { sid: string; status: string } | null;
+} | null> => {
   try {
     const { data, error } = await supabase.functions.invoke('send-whatsapp', {
       body: { 
@@ -114,7 +119,9 @@ export const sendWhatsAppNotification = async (
 
     return {
       whatsappLink: data.whatsappLink,
-      notificationMessage: data.notificationMessage
+      notificationMessage: data.notificationMessage,
+      sentViaTwilio: data.sentViaTwilio,
+      twilioResult: data.twilioResult
     };
   } catch (error) {
     console.error('Error sending WhatsApp:', error);
