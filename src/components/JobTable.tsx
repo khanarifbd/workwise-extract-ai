@@ -157,8 +157,8 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
         // Auto-create linked fan job if category exists and not already linked
         if (fanCategoryId && !job.linkedFanJobId) {
           try {
-            await createLinkedFanJob(job, result.fans, fanCategoryId);
-            onUpdateJob({ ...job, fanInfo: result.fans, linkedFanJobId: 'created' });
+            const fanJob = await createLinkedFanJob(job, result.fans, fanCategoryId);
+            // The linked_fan_job_id is updated in createLinkedFanJob, just refresh
             onFanJobCreated?.();
             toast({
               title: "Fan Job Created",
