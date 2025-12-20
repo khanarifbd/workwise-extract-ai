@@ -1,9 +1,11 @@
-import { FileDown, Moon, Sun, Settings, History, KeyRound } from 'lucide-react';
+import { FileDown, Moon, Sun, Settings, History, KeyRound, QrCode, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { TeamSettingsModal } from './TeamSettingsModal';
 import { NotificationHistoryModal } from './NotificationHistoryModal';
 import { TeamAccessCodesModal } from './TeamAccessCodesModal';
+import { TeamPortalQRModal } from './TeamPortalQRModal';
 import logo from '@/assets/logo.png';
 
 interface HeaderProps {
@@ -16,6 +18,7 @@ export const Header = ({ onExport, jobCount }: HeaderProps) => {
   const [showTeamSettings, setShowTeamSettings] = useState(false);
   const [showNotificationHistory, setShowNotificationHistory] = useState(false);
   const [showAccessCodes, setShowAccessCodes] = useState(false);
+  const [showQRCode, setShowQRCode] = useState(false);
 
   useEffect(() => {
     const isDarkMode = document.documentElement.classList.contains('dark');
@@ -44,6 +47,16 @@ export const Header = ({ onExport, jobCount }: HeaderProps) => {
           </div>
 
           <div className="flex items-center gap-3">
+            <Link to="/team" target="_blank">
+              <Button variant="outline">
+                <Users className="w-4 h-4 mr-2" />
+                Team Portal
+              </Button>
+            </Link>
+            <Button variant="outline" onClick={() => setShowQRCode(true)}>
+              <QrCode className="w-4 h-4 mr-2" />
+              QR Code
+            </Button>
             <Button variant="outline" onClick={() => setShowNotificationHistory(true)}>
               <History className="w-4 h-4 mr-2" />
               Notifications
@@ -84,6 +97,10 @@ export const Header = ({ onExport, jobCount }: HeaderProps) => {
 
       {showAccessCodes && (
         <TeamAccessCodesModal onClose={() => setShowAccessCodes(false)} />
+      )}
+
+      {showQRCode && (
+        <TeamPortalQRModal onClose={() => setShowQRCode(false)} />
       )}
     </header>
   );
