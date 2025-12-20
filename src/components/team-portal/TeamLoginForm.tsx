@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, KeyRound } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
+import allsaintsLogo from '@/assets/allsaints-logo.png';
 
 interface TeamLoginFormProps {
   onLogin: (accessCode: string) => Promise<boolean>;
@@ -26,10 +27,10 @@ export const TeamLoginForm = ({ onLogin, error }: TeamLoginFormProps) => {
     <div className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5 flex items-center justify-center p-4">
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="text-center pb-2">
-          <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
-            <KeyRound className="w-8 h-8 text-primary" />
+          <div className="mx-auto mb-4">
+            <img src={allsaintsLogo} alt="AllSaints Logo" className="w-32 h-auto object-contain" />
           </div>
-          <CardTitle className="text-2xl font-bold">Team Portal</CardTitle>
+          <CardTitle className="text-2xl font-bold">AllSaints Team Login</CardTitle>
           <CardDescription>
             Enter your team access code to view and manage your assigned jobs
           </CardDescription>

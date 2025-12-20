@@ -46,32 +46,32 @@ export const Header = ({ onExport, jobCount }: HeaderProps) => {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 md:gap-3">
             <Link to="/team" target="_blank">
-              <Button variant="outline">
-                <Users className="w-4 h-4 mr-2" />
-                Team Portal
+              <Button variant="outline" size="icon" className="md:w-auto md:px-4">
+                <Users className="w-4 h-4 md:mr-2" />
+                <span className="hidden md:inline">Team Portal</span>
               </Button>
             </Link>
-            <Button variant="outline" onClick={() => setShowQRCode(true)}>
-              <QrCode className="w-4 h-4 mr-2" />
-              QR Code
+            <Button variant="outline" size="icon" className="md:w-auto md:px-4" onClick={() => setShowQRCode(true)}>
+              <QrCode className="w-4 h-4 md:mr-2" />
+              <span className="hidden md:inline">QR Code</span>
             </Button>
-            <Button variant="outline" onClick={() => setShowNotificationHistory(true)}>
-              <History className="w-4 h-4 mr-2" />
-              Notifications
+            <Button variant="outline" size="icon" className="md:w-auto md:px-4" onClick={() => setShowNotificationHistory(true)}>
+              <History className="w-4 h-4 md:mr-2" />
+              <span className="hidden md:inline">Notifications</span>
             </Button>
-            <Button variant="outline" onClick={() => setShowAccessCodes(true)}>
-              <KeyRound className="w-4 h-4 mr-2" />
-              Access Codes
+            <Button variant="outline" size="icon" className="md:w-auto md:px-4" onClick={() => setShowAccessCodes(true)}>
+              <KeyRound className="w-4 h-4 md:mr-2" />
+              <span className="hidden md:inline">Access Codes</span>
             </Button>
-            <Button variant="outline" onClick={() => setShowTeamSettings(true)}>
-              <Settings className="w-4 h-4 mr-2" />
-              Team Settings
+            <Button variant="outline" size="icon" className="md:w-auto md:px-4" onClick={() => setShowTeamSettings(true)}>
+              <Settings className="w-4 h-4 md:mr-2" />
+              <span className="hidden md:inline">Team Settings</span>
             </Button>
-            <Button variant="outline" onClick={onExport}>
-              <FileDown className="w-4 h-4 mr-2" />
-              Export
+            <Button variant="outline" size="icon" className="md:w-auto md:px-4" onClick={onExport}>
+              <FileDown className="w-4 h-4 md:mr-2" />
+              <span className="hidden md:inline">Export</span>
             </Button>
             <button
               onClick={toggleTheme}
