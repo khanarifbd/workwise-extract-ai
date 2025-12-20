@@ -19,10 +19,10 @@ export type JobStatus =
   | 'started';
 
 export const JOB_STATUS_OPTIONS: { value: JobStatus; label: string; color: string }[] = [
+  { value: 'complete', label: 'Complete', color: '#10B981' },
   { value: 'pending', label: 'Pending', color: '#6B7280' },
   { value: 'started', label: 'Started', color: '#3B82F6' },
   { value: 'pause', label: 'Pause', color: '#F59E0B' },
-  { value: 'complete', label: 'Complete', color: '#10B981' },
   { value: 'no_show', label: 'No Show', color: '#EF4444' },
   { value: 'no_answer', label: 'No Answer', color: '#F97316' },
   { value: 'voice_message', label: 'Voice Message', color: '#8B5CF6' },
