@@ -6,7 +6,9 @@ type FileType = 'pdf' | 'image';
 
 interface FileDropZoneProps {
   onFileUpload: (file: File, type: FileType) => void;
+  onMultipleFilesUpload?: (files: Array<{ file: File; type: FileType }>) => void;
   isProcessing: boolean;
+  allowMultiple?: boolean;
 }
 
 const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
@@ -18,9 +20,9 @@ const getFileType = (file: File): FileType | null => {
   return null;
 };
 
-export const FileDropZone = ({ onFileUpload, isProcessing }: FileDropZoneProps) => {
+export const FileDropZone = ({ onFileUpload, onMultipleFilesUpload, isProcessing, allowMultiple = false }: FileDropZoneProps) => {
   const [isDragging, setIsDragging] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -32,37 +34,50 @@ export const FileDropZone = ({ onFileUpload, isProcessing }: FileDropZoneProps) 
     }
   }, []);
 
+  const processFiles = useCallback((files: FileList) => {
+    const validFiles: Array<{ file: File; type: FileType }> = [];
+    
+    Array.from(files).forEach(file => {
+      const fileType = getFileType(file);
+      if (fileType) {
+        validFiles.push({ file, type: fileType });
+      }
+    });
+
+    if (validFiles.length === 0) return;
+
+    if (allowMultiple && onMultipleFilesUpload && validFiles.length > 1) {
+      setSelectedFiles(validFiles.map(f => f.file));
+      onMultipleFilesUpload(validFiles);
+    } else if (validFiles.length >= 1) {
+      setSelectedFiles([validFiles[0].file]);
+      onFileUpload(validFiles[0].file, validFiles[0].type);
+    }
+  }, [onFileUpload, onMultipleFilesUpload, allowMultiple]);
+
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
 
     const files = e.dataTransfer.files;
-    if (files && files[0]) {
-      const fileType = getFileType(files[0]);
-      if (fileType) {
-        setSelectedFile(files[0]);
-        onFileUpload(files[0], fileType);
-      }
+    if (files && files.length > 0) {
+      processFiles(files);
     }
-  }, [onFileUpload]);
+  }, [processFiles]);
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (files && files[0]) {
-      const fileType = getFileType(files[0]);
-      if (fileType) {
-        setSelectedFile(files[0]);
-        onFileUpload(files[0], fileType);
-      }
+    if (files && files.length > 0) {
+      processFiles(files);
     }
-  }, [onFileUpload]);
+  }, [processFiles]);
 
-  const clearFile = () => {
-    setSelectedFile(null);
+  const clearFiles = () => {
+    setSelectedFiles([]);
   };
 
-  const isImage = selectedFile && ACCEPTED_IMAGE_TYPES.includes(selectedFile.type);
+  const isImage = selectedFiles.length === 1 && ACCEPTED_IMAGE_TYPES.includes(selectedFiles[0].type);
 
   return (
     <div
@@ -84,6 +99,7 @@ export const FileDropZone = ({ onFileUpload, isProcessing }: FileDropZoneProps) 
         type="file"
         accept=".pdf,.jpg,.jpeg,.png,.webp,.gif"
         onChange={handleFileSelect}
+        multiple={allowMultiple}
         className="hidden"
       />
 
@@ -94,29 +110,39 @@ export const FileDropZone = ({ onFileUpload, isProcessing }: FileDropZoneProps) 
               <Loader2 className="w-8 h-8 text-primary animate-spin" />
             </div>
             <div>
-              <p className="font-semibold text-foreground">Processing file...</p>
+              <p className="font-semibold text-foreground">Processing {selectedFiles.length > 1 ? 'files' : 'file'}...</p>
               <p className="text-sm text-muted-foreground mt-1">Extracting job details with AI</p>
             </div>
           </>
-        ) : selectedFile ? (
+        ) : selectedFiles.length > 0 ? (
           <>
             <div className="w-16 h-16 rounded-full bg-success/10 flex items-center justify-center">
-              {isImage ? (
+              {selectedFiles.length > 1 ? (
+                <span className="text-2xl font-bold text-success">{selectedFiles.length}</span>
+              ) : isImage ? (
                 <Image className="w-8 h-8 text-success" />
               ) : (
                 <FileText className="w-8 h-8 text-success" />
               )}
             </div>
             <div>
-              <p className="font-semibold text-foreground">{selectedFile.name}</p>
+              <p className="font-semibold text-foreground">
+                {selectedFiles.length > 1 
+                  ? `${selectedFiles.length} files selected`
+                  : selectedFiles[0].name
+                }
+              </p>
               <p className="text-sm text-muted-foreground mt-1">
-                {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                {selectedFiles.length > 1 
+                  ? selectedFiles.map(f => f.name).join(', ').substring(0, 50) + (selectedFiles.length > 2 ? '...' : '')
+                  : `${(selectedFiles[0].size / 1024 / 1024).toFixed(2)} MB`
+                }
               </p>
             </div>
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                clearFile();
+                clearFiles();
               }}
               className="absolute top-4 right-4 p-1 rounded-full hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
             >

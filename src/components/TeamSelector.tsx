@@ -29,35 +29,44 @@ export const TeamSelector = ({ job, onSelect, onClose }: TeamSelectorProps) => {
   const handleTeamClick = async (teamId: string, teamName: string, whatsappGroup?: string) => {
     setIsSending(true);
     try {
-      // Send WhatsApp notification
-      if (whatsappGroup) {
-        const result = await sendWhatsAppNotification(teamName, whatsappGroup, job);
-        
-        if (result?.whatsappLink) {
-          // Open WhatsApp in new tab
-          window.open(result.whatsappLink, '_blank');
-          
-          toast({
-            title: "WhatsApp Ready",
-            description: `Job assignment prepared for ${teamName}. WhatsApp opened in new tab.`,
-          });
-        }
+      // Always select the team first
+      onSelect(teamId);
+      
+      // Then prepare WhatsApp notification
+      const result = await sendWhatsAppNotification(teamName, whatsappGroup, job);
+      
+      if (result?.whatsappLink) {
+        toast({
+          title: "Team Assigned - Send WhatsApp?",
+          description: (
+            <div className="flex flex-col gap-2">
+              <span>Job #{job.jobNumber} assigned to {teamName}</span>
+              <a
+                href={result.whatsappLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 bg-green-500 text-white px-3 py-1.5 rounded-md text-sm font-medium hover:bg-green-600 transition-colors w-fit"
+              >
+                <MessageCircle className="w-4 h-4" />
+                Open WhatsApp
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+          ),
+          duration: 10000,
+        });
       } else {
         toast({
           title: "Team Assigned",
-          description: `Job assigned to ${teamName}. No WhatsApp group configured.`,
+          description: `Job assigned to ${teamName}`,
         });
       }
-      
-      onSelect(teamId);
     } catch (error) {
       console.error('WhatsApp error:', error);
       toast({
-        title: "Assignment Saved",
-        description: `Job assigned to ${teamName}. WhatsApp notification failed.`,
-        variant: "destructive",
+        title: "Team Assigned",
+        description: `Job assigned to ${teamName}. Notification preparation failed.`,
       });
-      onSelect(teamId);
     } finally {
       setIsSending(false);
     }
