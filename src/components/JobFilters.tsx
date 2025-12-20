@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -6,9 +6,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { ALLSAINTS_TEAMS } from '@/types/job';
-import { Search, Filter, X, CalendarDays } from 'lucide-react';
+import { Search, Filter, X, CalendarDays, Bookmark, Save, FileDown, FileSpreadsheet } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { toast } from '@/hooks/use-toast';
 
 export interface FilterState {
   search: string;
@@ -19,14 +20,43 @@ export interface FilterState {
   dateTo: Date | undefined;
 }
 
+interface FilterPreset {
+  id: string;
+  name: string;
+  filters: Omit<FilterState, 'search'>;
+}
+
 interface JobFiltersProps {
   filters: FilterState;
   onFiltersChange: (filters: FilterState) => void;
   availableSorCodes: string[];
+  onExportPDF?: () => void;
+  onExportExcel?: () => void;
 }
 
-export const JobFilters = ({ filters, onFiltersChange, availableSorCodes }: JobFiltersProps) => {
+const STORAGE_KEY = 'job-filter-presets';
+
+export const JobFilters = ({ filters, onFiltersChange, availableSorCodes, onExportPDF, onExportExcel }: JobFiltersProps) => {
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [presets, setPresets] = useState<FilterPreset[]>([]);
+  const [presetName, setPresetName] = useState('');
+  const [showSavePreset, setShowSavePreset] = useState(false);
+
+  useEffect(() => {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      try {
+        setPresets(JSON.parse(stored));
+      } catch {
+        // ignore
+      }
+    }
+  }, []);
+
+  const savePresets = (newPresets: FilterPreset[]) => {
+    setPresets(newPresets);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(newPresets));
+  };
 
   const updateFilter = <K extends keyof FilterState>(key: K, value: FilterState[K]) => {
     onFiltersChange({ ...filters, [key]: value });
@@ -43,6 +73,41 @@ export const JobFilters = ({ filters, onFiltersChange, availableSorCodes }: JobF
     });
   };
 
+  const saveCurrentAsPreset = () => {
+    if (!presetName.trim()) {
+      toast({ title: 'Please enter a preset name', variant: 'destructive' });
+      return;
+    }
+    const newPreset: FilterPreset = {
+      id: Date.now().toString(),
+      name: presetName.trim(),
+      filters: {
+        team: filters.team,
+        status: filters.status,
+        sorCode: filters.sorCode,
+        dateFrom: filters.dateFrom,
+        dateTo: filters.dateTo,
+      },
+    };
+    savePresets([...presets, newPreset]);
+    setPresetName('');
+    setShowSavePreset(false);
+    toast({ title: 'Preset saved!' });
+  };
+
+  const applyPreset = (preset: FilterPreset) => {
+    onFiltersChange({
+      ...filters,
+      ...preset.filters,
+    });
+    toast({ title: `Applied: ${preset.name}` });
+  };
+
+  const deletePreset = (presetId: string) => {
+    savePresets(presets.filter(p => p.id !== presetId));
+    toast({ title: 'Preset deleted' });
+  };
+
   const activeFilterCount = [
     filters.team,
     filters.status,
@@ -53,15 +118,15 @@ export const JobFilters = ({ filters, onFiltersChange, availableSorCodes }: JobF
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         {/* Search Input */}
-        <div className="relative flex-1 max-w-sm">
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             placeholder="Search jobs, names, addresses..."
             value={filters.search}
             onChange={(e) => updateFilter('search', e.target.value)}
-            className="pl-9 h-8 text-sm"
+            className="pl-9 h-9 text-sm"
           />
           {filters.search && (
             <button
@@ -78,35 +143,113 @@ export const JobFilters = ({ filters, onFiltersChange, availableSorCodes }: JobF
           variant={showAdvanced ? 'secondary' : 'outline'}
           size="sm"
           onClick={() => setShowAdvanced(!showAdvanced)}
-          className="h-8 text-xs"
+          className="h-9 text-sm"
         >
-          <Filter className="w-3 h-3 mr-1" />
+          <Filter className="w-4 h-4 mr-1.5" />
           Filters
           {activeFilterCount > 0 && (
-            <Badge variant="destructive" className="ml-1 h-4 w-4 p-0 text-[10px] flex items-center justify-center">
+            <Badge variant="destructive" className="ml-1.5 h-5 w-5 p-0 text-xs flex items-center justify-center">
               {activeFilterCount}
             </Badge>
           )}
         </Button>
 
-        {activeFilterCount > 0 && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={clearFilters}
-            className="h-8 text-xs text-muted-foreground"
-          >
-            Clear all
-          </Button>
+        {/* Presets Dropdown */}
+        {presets.length > 0 && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="h-9 text-sm">
+                <Bookmark className="w-4 h-4 mr-1.5" />
+                Presets
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-56 p-2" align="start">
+              <div className="space-y-1">
+                {presets.map(preset => (
+                  <div key={preset.id} className="flex items-center justify-between gap-2 p-2 rounded hover:bg-muted/50">
+                    <button
+                      onClick={() => applyPreset(preset)}
+                      className="text-sm font-medium text-left flex-1 truncate"
+                    >
+                      {preset.name}
+                    </button>
+                    <button
+                      onClick={() => deletePreset(preset.id)}
+                      className="text-muted-foreground hover:text-destructive"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
         )}
+
+        {activeFilterCount > 0 && (
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearFilters}
+              className="h-9 text-sm text-muted-foreground"
+            >
+              Clear all
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowSavePreset(!showSavePreset)}
+              className="h-9 text-sm"
+            >
+              <Save className="w-4 h-4 mr-1.5" />
+              Save Preset
+            </Button>
+          </>
+        )}
+
+        {/* Export Buttons */}
+        <div className="flex items-center gap-1 ml-auto">
+          {onExportPDF && (
+            <Button variant="outline" size="sm" onClick={onExportPDF} className="h-9 text-sm">
+              <FileDown className="w-4 h-4 mr-1.5" />
+              PDF
+            </Button>
+          )}
+          {onExportExcel && (
+            <Button variant="outline" size="sm" onClick={onExportExcel} className="h-9 text-sm">
+              <FileSpreadsheet className="w-4 h-4 mr-1.5" />
+              Excel
+            </Button>
+          )}
+        </div>
       </div>
+
+      {/* Save Preset Input */}
+      {showSavePreset && (
+        <div className="flex items-center gap-2 p-3 bg-muted/30 rounded-lg border border-border">
+          <Input
+            placeholder="Preset name..."
+            value={presetName}
+            onChange={(e) => setPresetName(e.target.value)}
+            className="h-9 flex-1 max-w-xs text-sm"
+            onKeyDown={(e) => e.key === 'Enter' && saveCurrentAsPreset()}
+          />
+          <Button size="sm" onClick={saveCurrentAsPreset} className="h-9">
+            Save
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setShowSavePreset(false)} className="h-9">
+            Cancel
+          </Button>
+        </div>
+      )}
 
       {/* Advanced Filters Panel */}
       {showAdvanced && (
         <div className="flex flex-wrap items-center gap-2 p-3 bg-muted/30 rounded-lg border border-border">
           {/* Team Filter */}
           <Select value={filters.team} onValueChange={(v) => updateFilter('team', v)}>
-            <SelectTrigger className="w-32 h-8 text-xs">
+            <SelectTrigger className="w-36 h-9 text-sm">
               <SelectValue placeholder="All Teams" />
             </SelectTrigger>
             <SelectContent>
@@ -128,7 +271,7 @@ export const JobFilters = ({ filters, onFiltersChange, availableSorCodes }: JobF
 
           {/* Status Filter */}
           <Select value={filters.status} onValueChange={(v) => updateFilter('status', v)}>
-            <SelectTrigger className="w-32 h-8 text-xs">
+            <SelectTrigger className="w-36 h-9 text-sm">
               <SelectValue placeholder="All Status" />
             </SelectTrigger>
             <SelectContent>
@@ -141,14 +284,14 @@ export const JobFilters = ({ filters, onFiltersChange, availableSorCodes }: JobF
 
           {/* SOR Code Filter */}
           <Select value={filters.sorCode} onValueChange={(v) => updateFilter('sorCode', v)}>
-            <SelectTrigger className="w-36 h-8 text-xs">
+            <SelectTrigger className="w-40 h-9 text-sm">
               <SelectValue placeholder="All SOR Codes" />
             </SelectTrigger>
             <SelectContent className="max-h-60">
               <SelectItem value="all">All SOR Codes</SelectItem>
               {availableSorCodes.filter(code => code && code.trim() !== '').map((code) => (
                 <SelectItem key={code} value={code}>
-                  <span className="font-mono text-xs">{code}</span>
+                  <span className="font-mono text-sm">{code}</span>
                 </SelectItem>
               ))}
             </SelectContent>
@@ -161,11 +304,11 @@ export const JobFilters = ({ filters, onFiltersChange, availableSorCodes }: JobF
                 variant="outline"
                 size="sm"
                 className={cn(
-                  "h-8 text-xs justify-start",
+                  "h-9 text-sm justify-start",
                   !filters.dateFrom && "text-muted-foreground"
                 )}
               >
-                <CalendarDays className="w-3 h-3 mr-1" />
+                <CalendarDays className="w-4 h-4 mr-1.5" />
                 {filters.dateFrom ? format(filters.dateFrom, 'dd/MM/yy') : 'From'}
               </Button>
             </PopoverTrigger>
@@ -186,11 +329,11 @@ export const JobFilters = ({ filters, onFiltersChange, availableSorCodes }: JobF
                 variant="outline"
                 size="sm"
                 className={cn(
-                  "h-8 text-xs justify-start",
+                  "h-9 text-sm justify-start",
                   !filters.dateTo && "text-muted-foreground"
                 )}
               >
-                <CalendarDays className="w-3 h-3 mr-1" />
+                <CalendarDays className="w-4 h-4 mr-1.5" />
                 {filters.dateTo ? format(filters.dateTo, 'dd/MM/yy') : 'To'}
               </Button>
             </PopoverTrigger>
@@ -212,9 +355,9 @@ export const JobFilters = ({ filters, onFiltersChange, availableSorCodes }: JobF
                 updateFilter('dateFrom', undefined);
                 updateFilter('dateTo', undefined);
               }}
-              className="h-8 text-xs text-muted-foreground"
+              className="h-9 text-sm text-muted-foreground"
             >
-              <X className="w-3 h-3 mr-1" />
+              <X className="w-4 h-4 mr-1" />
               Clear dates
             </Button>
           )}

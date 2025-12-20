@@ -10,10 +10,13 @@ import { JobFilters, FilterState } from '@/components/JobFilters';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { ChevronDown, ChevronUp, Loader2, Images } from 'lucide-react';
-import { isAfter, isBefore, startOfDay, endOfDay } from 'date-fns';
+import { isAfter, isBefore, startOfDay, endOfDay, format } from 'date-fns';
 import { useJobs } from '@/hooks/useJobs';
 import { extractPDFWithAI, extractImageWithAI } from '@/lib/api';
 import { extractTextFromPDF } from '@/lib/pdfUtils';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 
 type FileType = 'pdf' | 'image';
 
@@ -152,6 +155,65 @@ const Index = () => {
     return Array.from(codes).sort();
   }, [jobs]);
 
+  // Export filtered jobs to PDF
+  const handleExportPDF = () => {
+    const doc = new jsPDF();
+    
+    doc.setFontSize(18);
+    doc.text('ALLSAINTS JOB REPORT', 14, 20);
+    doc.setFontSize(10);
+    doc.text(`Generated: ${format(new Date(), 'dd/MM/yyyy')}`, 14, 28);
+    doc.text(`Total Jobs: ${filteredJobs.length}`, 14, 34);
+
+    const tableData = filteredJobs.map(job => [
+      job.jobNumber,
+      job.name,
+      job.address || '-',
+      job.team || 'Unassigned',
+      `${job.progress}%`,
+      job.isCompleted ? 'Complete' : 'In Progress',
+      job.startDate ? format(job.startDate, 'dd/MM/yy') : '-',
+      job.workItems.map(w => w.sorCode).join(', ') || '-'
+    ]);
+
+    autoTable(doc, {
+      head: [['Job #', 'Name', 'Address', 'Team', 'Progress', 'Status', 'Start', 'SOR Codes']],
+      body: tableData,
+      startY: 42,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [59, 130, 246] },
+    });
+
+    doc.save(`allsaints-jobs-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+    toast({ title: 'PDF downloaded!' });
+  };
+
+  // Export filtered jobs to Excel
+  const handleExportExcel = () => {
+    const excelData = filteredJobs.map(job => ({
+      'Job Number': job.jobNumber,
+      'Name': job.name,
+      'Address': job.address || '',
+      'Phone': job.phoneNumber || '',
+      'Team': job.team || 'Unassigned',
+      'Progress': `${job.progress}%`,
+      'Status': job.isCompleted ? 'Completed' : 'In Progress',
+      'Date Issued': format(job.dateIssued, 'dd/MM/yyyy'),
+      'Start Date': job.startDate ? format(job.startDate, 'dd/MM/yyyy') : '',
+      'Completion Date': job.completionDate ? format(job.completionDate, 'dd/MM/yyyy') : '',
+      'Summary': job.summaryOfWorks || '',
+      'SOR Codes': job.workItems.map(w => w.sorCode).join(', '),
+      'Total Cost': `£${job.workItems.reduce((sum, w) => sum + w.cost, 0).toFixed(2)}`
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(excelData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Jobs');
+
+    XLSX.writeFile(workbook, `allsaints-jobs-${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+    toast({ title: 'Excel downloaded!' });
+  };
+
   // Filter jobs based on all filters
   const filteredJobs = useMemo(() => {
     return jobs.filter(job => {
@@ -237,6 +299,8 @@ const Index = () => {
           filters={filters}
           onFiltersChange={setFilters}
           availableSorCodes={availableSorCodes}
+          onExportPDF={handleExportPDF}
+          onExportExcel={handleExportExcel}
         />
 
         {/* Collapsible Upload Section - 5% */}
