@@ -64,12 +64,54 @@ export const useJobs = (categoryId?: string) => {
 
   const editJob = async (id: string, updates: Partial<Job>) => {
     try {
+      // Check if team is being assigned
+      const currentJob = jobs.find(j => j.id === id);
+      const isNewTeamAssignment = updates.team && updates.team !== currentJob?.team;
+      
       const updated = await updateJob(id, updates);
       setJobs(prev => prev.map(j => j.id === id ? updated : j));
+      
+      // Send push notification if team was just assigned
+      if (isNewTeamAssignment && updates.team) {
+        sendTeamNotification(updates.team, updated);
+      }
+      
       return updated;
     } catch (error) {
       console.error('Error updating job:', error);
       throw error;
+    }
+  };
+
+  const sendTeamNotification = async (teamName: string, job: Job) => {
+    try {
+      // Get team_id from team_access_codes
+      const { data: teamData } = await supabase
+        .from('team_access_codes')
+        .select('team_id')
+        .eq('team_name', teamName)
+        .eq('is_active', true)
+        .single();
+
+      if (!teamData?.team_id) {
+        console.log('No active team found for:', teamName);
+        return;
+      }
+
+      // Send push notification
+      await supabase.functions.invoke('send-push-notification', {
+        body: {
+          teamId: teamData.team_id,
+          title: 'New Job Assigned',
+          body: `Job #${job.jobNumber} - ${job.name} has been assigned to your team`,
+          data: { jobId: job.id, jobNumber: job.jobNumber }
+        }
+      });
+
+      console.log('Push notification sent to team:', teamName);
+    } catch (error) {
+      console.error('Error sending push notification:', error);
+      // Don't throw - notification failure shouldn't block job update
     }
   };
 
