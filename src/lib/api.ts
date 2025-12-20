@@ -278,6 +278,62 @@ const mapJobToDatabase = (job: Partial<Job>): any => {
   return dbJob;
 };
 
+// Create a linked fan job from an existing job
+export const createLinkedFanJob = async (
+  sourceJob: Job,
+  fanInfo: FanInfo[],
+  fanCategoryId: string
+): Promise<Job> => {
+  const fanDescription = fanInfo.map(fan => 
+    `${fan.type} x${fan.quantity}${fan.location ? ` - ${fan.location}` : ''}`
+  ).join('\n');
+
+  const fanJob: Omit<Job, 'id'> = {
+    jobNumber: `${sourceJob.jobNumber}-FAN`,
+    name: sourceJob.name,
+    address: sourceJob.address,
+    phoneNumber: sourceJob.phoneNumber,
+    summaryOfWorks: `Fan Installation from ${sourceJob.jobNumber}`,
+    description: fanDescription,
+    workItems: [],
+    additionalWorks: [],
+    team: null,
+    progress: 0,
+    progressNotes: '',
+    isCompleted: false,
+    dateIssued: new Date(),
+    bookedDate: null,
+    startDate: null,
+    completionDate: null,
+    attachments: [],
+    status: 'pending',
+    fanInfo: fanInfo,
+    linkedFanJobId: null,
+  };
+
+  const dbJob = mapJobToDatabase(fanJob);
+  dbJob.category_id = fanCategoryId;
+
+  const { data, error } = await supabase
+    .from('jobs')
+    .insert(dbJob)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating linked fan job:', error);
+    throw error;
+  }
+
+  // Update the source job to link to the fan job
+  await supabase
+    .from('jobs')
+    .update({ linked_fan_job_id: data.id })
+    .eq('id', sourceJob.id);
+
+  return mapDatabaseJobToJob(data);
+};
+
 // Notification history functions
 export const fetchNotificationHistory = async (): Promise<any[]> => {
   const { data, error } = await supabase

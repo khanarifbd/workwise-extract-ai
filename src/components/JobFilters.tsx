@@ -4,9 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { ALLSAINTS_TEAMS } from '@/types/job';
-import { Search, Filter, X, CalendarDays, Bookmark, Save, FileDown, FileSpreadsheet } from 'lucide-react';
+import { Search, Filter, X, CalendarDays, Bookmark, Save, FileDown, FileSpreadsheet, Fan, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
@@ -18,6 +18,8 @@ export interface FilterState {
   sorCode: string;
   dateFrom: Date | undefined;
   dateTo: Date | undefined;
+  hasFans: string;
+  hasBookedDate: string;
 }
 
 interface FilterPreset {
@@ -70,6 +72,8 @@ export const JobFilters = ({ filters, onFiltersChange, availableSorCodes, onExpo
       sorCode: '',
       dateFrom: undefined,
       dateTo: undefined,
+      hasFans: '',
+      hasBookedDate: '',
     });
   };
 
@@ -87,6 +91,8 @@ export const JobFilters = ({ filters, onFiltersChange, availableSorCodes, onExpo
         sorCode: filters.sorCode,
         dateFrom: filters.dateFrom,
         dateTo: filters.dateTo,
+        hasFans: filters.hasFans,
+        hasBookedDate: filters.hasBookedDate,
       },
     };
     savePresets([...presets, newPreset]);
@@ -114,6 +120,8 @@ export const JobFilters = ({ filters, onFiltersChange, availableSorCodes, onExpo
     filters.sorCode,
     filters.dateFrom,
     filters.dateTo,
+    filters.hasFans,
+    filters.hasBookedDate,
   ].filter(Boolean).length;
 
   return (
@@ -313,7 +321,7 @@ export const JobFilters = ({ filters, onFiltersChange, availableSorCodes, onExpo
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
+              <CalendarComponent
                 mode="single"
                 selected={filters.dateFrom}
                 onSelect={(date) => updateFilter('dateFrom', date)}
@@ -338,7 +346,7 @@ export const JobFilters = ({ filters, onFiltersChange, availableSorCodes, onExpo
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
+              <CalendarComponent
                 mode="single"
                 selected={filters.dateTo}
                 onSelect={(date) => updateFilter('dateTo', date)}
@@ -361,6 +369,40 @@ export const JobFilters = ({ filters, onFiltersChange, availableSorCodes, onExpo
               Clear dates
             </Button>
           )}
+
+          {/* Fan Filter */}
+          <Select value={filters.hasFans} onValueChange={(v) => updateFilter('hasFans', v)}>
+            <SelectTrigger className="w-32 h-9 text-sm">
+              <SelectValue placeholder="All Fans" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Jobs</SelectItem>
+              <SelectItem value="with-fans">
+                <div className="flex items-center gap-2">
+                  <Fan className="w-3 h-3" />
+                  With Fans
+                </div>
+              </SelectItem>
+              <SelectItem value="no-fans">No Fans</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Booked Date Filter */}
+          <Select value={filters.hasBookedDate} onValueChange={(v) => updateFilter('hasBookedDate', v)}>
+            <SelectTrigger className="w-32 h-9 text-sm">
+              <SelectValue placeholder="All Dates" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Jobs</SelectItem>
+              <SelectItem value="booked">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-3 h-3" />
+                  Booked
+                </div>
+              </SelectItem>
+              <SelectItem value="unbooked">Unbooked</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       )}
     </div>

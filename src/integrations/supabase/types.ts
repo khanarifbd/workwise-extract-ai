@@ -52,9 +52,11 @@ export type Database = {
           created_at: string
           date_issued: string | null
           description: string | null
+          fan_info: Json | null
           id: string
           is_completed: boolean | null
           job_number: string
+          linked_fan_job_id: string | null
           name: string
           phone_number: string | null
           progress: number | null
@@ -76,9 +78,11 @@ export type Database = {
           created_at?: string
           date_issued?: string | null
           description?: string | null
+          fan_info?: Json | null
           id?: string
           is_completed?: boolean | null
           job_number: string
+          linked_fan_job_id?: string | null
           name: string
           phone_number?: string | null
           progress?: number | null
@@ -100,9 +104,11 @@ export type Database = {
           created_at?: string
           date_issued?: string | null
           description?: string | null
+          fan_info?: Json | null
           id?: string
           is_completed?: boolean | null
           job_number?: string
+          linked_fan_job_id?: string | null
           name?: string
           phone_number?: string | null
           progress?: number | null
@@ -120,6 +126,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jobs_linked_fan_job_id_fkey"
+            columns: ["linked_fan_job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
             referencedColumns: ["id"]
           },
         ]
