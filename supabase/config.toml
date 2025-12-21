@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.update-team-job]
 verify_jwt = false
+
+[functions.geocode-addresses]
+verify_jwt = false
