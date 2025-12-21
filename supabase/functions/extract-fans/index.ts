@@ -1,9 +1,22 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Input validation schema
+const extractFansSchema = z.object({
+  description: z.string().max(50000, "Description too long").optional(),
+  workItems: z.array(z.object({
+    description: z.string().max(1000).optional(),
+  }).passthrough()).max(200, "Too many work items").optional(),
+}).refine(
+  data => data.description || (data.workItems && data.workItems.length > 0),
+  { message: "Description or work items are required" }
+);
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -11,21 +24,62 @@ serve(async (req) => {
   }
 
   try {
-    const { description, workItems } = await req.json();
-    
-    if (!description && (!workItems || workItems.length === 0)) {
+    // Authenticate the request - require admin access
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      console.error('Missing or invalid Authorization header');
       return new Response(
-        JSON.stringify({ error: 'Description or work items are required' }),
+        JSON.stringify({ error: 'Unauthorized - missing authentication' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    
+    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+    if (authError || !user) {
+      console.error('Authentication failed:', authError?.message);
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized - invalid token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Verify user is admin
+    const { data: isAdmin, error: roleError } = await supabaseClient.rpc('is_admin', { _user_id: user.id });
+    if (roleError || !isAdmin) {
+      console.error('Admin check failed:', roleError?.message || 'User is not admin');
+      return new Response(
+        JSON.stringify({ error: 'Forbidden - admin access required' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Parse and validate input
+    const rawBody = await req.json();
+    const parseResult = extractFansSchema.safeParse(rawBody);
+    
+    if (!parseResult.success) {
+      console.error('Validation failed:', parseResult.error.errors);
+      return new Response(
+        JSON.stringify({ error: 'Invalid input', details: parseResult.error.errors }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    const { description, workItems } = parseResult.data;
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
-    console.log('Scanning for fan installations with Lovable AI...');
+    console.log(`Scanning for fan installations for user ${user.id}...`);
 
     const combinedText = [
       description || '',
@@ -119,8 +173,7 @@ If no fans are mentioned, return:
       throw new Error('No content in AI response');
     }
 
-    console.log('Fan extraction completed');
-    console.log('Raw response:', content);
+    console.log('Fan extraction completed for user:', user.id);
 
     // Clean the response - remove markdown code blocks if present
     let cleanedContent = content.trim();

@@ -1,9 +1,17 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Input validation schema
+const extractPdfSchema = z.object({
+  pdfText: z.string().min(1, "PDF text is required").max(100000, "PDF text too long (max 100KB)"),
+  sorCodesContext: z.string().max(50000, "SOR codes context too long").optional(),
+});
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -11,21 +19,62 @@ serve(async (req) => {
   }
 
   try {
-    const { pdfText, sorCodesContext } = await req.json();
-    
-    if (!pdfText) {
+    // Authenticate the request - require admin access
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      console.error('Missing or invalid Authorization header');
       return new Response(
-        JSON.stringify({ error: 'PDF text is required' }),
+        JSON.stringify({ error: 'Unauthorized - missing authentication' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    
+    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+    if (authError || !user) {
+      console.error('Authentication failed:', authError?.message);
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized - invalid token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Verify user is admin
+    const { data: isAdmin, error: roleError } = await supabaseClient.rpc('is_admin', { _user_id: user.id });
+    if (roleError || !isAdmin) {
+      console.error('Admin check failed:', roleError?.message || 'User is not admin');
+      return new Response(
+        JSON.stringify({ error: 'Forbidden - admin access required' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Parse and validate input
+    const rawBody = await req.json();
+    const parseResult = extractPdfSchema.safeParse(rawBody);
+    
+    if (!parseResult.success) {
+      console.error('Validation failed:', parseResult.error.errors);
+      return new Response(
+        JSON.stringify({ error: 'Invalid input', details: parseResult.error.errors }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    const { pdfText, sorCodesContext } = parseResult.data;
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
-    console.log('Processing PDF text with Lovable AI (Gemini 2.5 Flash)...');
+    console.log(`Processing PDF text for user ${user.id}...`);
     console.log('Text length:', pdfText.length);
 
     const systemPrompt = `You are a job extraction specialist. Extract the following information from the provided text:
@@ -37,7 +86,7 @@ serve(async (req) => {
 - WORK_ITEMS: A list of individual work items with descriptions
 
 For each work item, try to match it with the most appropriate SOR code from this database:
-${sorCodesContext}
+${sorCodesContext || ''}
 
 Return the data in this exact JSON format:
 {
@@ -101,8 +150,7 @@ Be precise and extract all relevant information. If a field is not found, use an
       throw new Error('No content in AI response');
     }
 
-    console.log('Lovable AI extraction completed');
-    console.log('Raw response preview:', content.substring(0, 300));
+    console.log('Lovable AI extraction completed for user:', user.id);
 
     // Parse the JSON from the response
     const jsonMatch = content.match(/\{[\s\S]*\}/);
