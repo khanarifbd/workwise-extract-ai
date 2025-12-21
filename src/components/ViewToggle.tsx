@@ -1,10 +1,10 @@
 import { Button } from '@/components/ui/button';
-import { LayoutGrid, Table2, Calendar, MapPin } from 'lucide-react';
+import { LayoutGrid, Table2, Calendar } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ViewToggleProps {
-  view: 'table' | 'kanban' | 'calendar' | 'map';
-  onViewChange: (view: 'table' | 'kanban' | 'calendar' | 'map') => void;
+  view: 'table' | 'kanban' | 'calendar';
+  onViewChange: (view: 'table' | 'kanban' | 'calendar') => void;
 }
 
 export const ViewToggle = ({ view, onViewChange }: ViewToggleProps) => {
@@ -46,18 +46,7 @@ export const ViewToggle = ({ view, onViewChange }: ViewToggleProps) => {
         <Calendar className="w-4 h-4" />
         Calendar
       </Button>
-      <Button
-        variant="ghost"
-        size="sm"
-        className={cn(
-          "h-7 px-3 gap-1.5",
-          view === 'map' && "bg-background shadow-sm"
-        )}
-        onClick={() => onViewChange('map')}
-      >
-        <MapPin className="w-4 h-4" />
-        Map
-      </Button>
     </div>
   );
 };
+

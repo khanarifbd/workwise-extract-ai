@@ -11,7 +11,6 @@ import { DMJobFilters, FanJobFilters, FilterState, getDefaultFilterState } from 
 import { CategoryTabs } from '@/components/CategoryTabs';
 import { KanbanBoard } from '@/components/KanbanBoard';
 import { CalendarView } from '@/components/CalendarView';
-import { JobMapView } from '@/components/JobMapView';
 import { MonthlyFolderTabs } from '@/components/MonthlyFolderTabs';
 import { ViewToggle } from '@/components/ViewToggle';
 import { JobDetailsModal } from '@/components/JobDetailsModal';
@@ -31,7 +30,7 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 
 type FileType = 'pdf' | 'image';
-type ViewType = 'table' | 'kanban' | 'calendar' | 'map';
+type ViewType = 'table' | 'kanban' | 'calendar';
 type KanbanGroupBy = 'team' | 'status';
 
 const Index = () => {
@@ -746,12 +745,6 @@ const Index = () => {
                 onJobClick={setSelectedJobForModal}
                 onToggleComplete={handleToggleComplete}
                 onMoveJob={handleKanbanMoveJob}
-              />
-            ) : viewType === 'map' ? (
-              <JobMapView
-                jobs={filteredJobs}
-                onJobClick={setSelectedJobForModal}
-                isFanCategory={isFanCategory}
               />
             ) : (
               <CalendarView
