@@ -98,13 +98,23 @@ export const useJobs = (categoryId?: string) => {
         return;
       }
 
-      // Send push notification
+      // Get auth headers for the edge function call
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        console.log('No auth session for push notification');
+        return;
+      }
+
+      // Send push notification with auth headers
       await supabase.functions.invoke('send-push-notification', {
         body: {
           teamId: teamData.team_id,
           title: 'New Job Assigned',
           body: `Job #${job.jobNumber} - ${job.name} has been assigned to your team`,
           data: { jobId: job.id, jobNumber: job.jobNumber }
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
         }
       });
 
