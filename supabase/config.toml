@@ -20,3 +20,12 @@ verify_jwt = false
 
 [functions.send-push-notification]
 verify_jwt = false
+
+[functions.validate-team-code]
+verify_jwt = false
+
+[functions.get-team-jobs]
+verify_jwt = false
+
+[functions.update-team-job]
+verify_jwt = false

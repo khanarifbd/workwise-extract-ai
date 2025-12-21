@@ -1,10 +1,11 @@
-import { FileDown, Moon, Sun, Settings, History, KeyRound, QrCode, Users } from 'lucide-react';
+import { FileDown, Moon, Sun, Settings, History, KeyRound, QrCode, Users, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { TeamSettingsModal } from './TeamSettingsModal';
 import { NotificationHistoryModal } from './NotificationHistoryModal';
 import { TeamAccessCodesModal } from './TeamAccessCodesModal';
+import { useAdminAuth } from '@/hooks/useAdminAuth';
 import logo from '@/assets/logo.png';
 
 interface HeaderProps {
@@ -17,6 +18,7 @@ export const Header = ({ onExport, jobCount }: HeaderProps) => {
   const [showTeamSettings, setShowTeamSettings] = useState(false);
   const [showNotificationHistory, setShowNotificationHistory] = useState(false);
   const [showAccessCodes, setShowAccessCodes] = useState(false);
+  const { signOut, user } = useAdminAuth();
 
   useEffect(() => {
     const isDarkMode = document.documentElement.classList.contains('dark');
@@ -26,6 +28,10 @@ export const Header = ({ onExport, jobCount }: HeaderProps) => {
   const toggleTheme = () => {
     document.documentElement.classList.toggle('dark');
     setIsDark(!isDark);
+  };
+
+  const handleLogout = async () => {
+    await signOut();
   };
 
   return (
@@ -45,6 +51,11 @@ export const Header = ({ onExport, jobCount }: HeaderProps) => {
           </div>
 
           <div className="flex items-center gap-2 md:gap-3">
+            {user && (
+              <span className="text-xs text-muted-foreground hidden lg:inline-block mr-2">
+                {user.email}
+              </span>
+            )}
             <Link to="/team">
               <Button variant="outline" size="icon" className="md:w-auto md:px-4">
                 <Users className="w-4 h-4 md:mr-2" />
@@ -83,6 +94,15 @@ export const Header = ({ onExport, jobCount }: HeaderProps) => {
                 <Moon className="w-5 h-5" />
               )}
             </button>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={handleLogout}
+              className="text-muted-foreground hover:text-destructive"
+              title="Sign out"
+            >
+              <LogOut className="w-5 h-5" />
+            </Button>
           </div>
         </div>
       </div>
