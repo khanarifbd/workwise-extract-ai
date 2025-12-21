@@ -1,4 +1,4 @@
-import { useCallback, useState, useRef } from 'react';
+import { useCallback, useState, useRef, useEffect } from 'react';
 import { Upload, Image as ImageIcon, Video, FileText, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -34,9 +34,50 @@ const getAttachmentType = (category: MediaCategory): 'image' | 'video' | 'docume
   return 'document';
 };
 
+// Cache for signed URLs to avoid regenerating them
+const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
+
+// Generate signed URL for an attachment
+const getSignedUrl = async (path: string): Promise<string | null> => {
+  // Check cache first
+  const cached = signedUrlCache.get(path);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.url;
+  }
+
+  try {
+    const { data, error } = await supabase.storage
+      .from('job-attachments')
+      .createSignedUrl(path, 3600); // 1 hour expiry
+
+    if (error) {
+      console.error('Error creating signed URL:', error);
+      return null;
+    }
+
+    // Cache the URL with expiry (refresh 5 mins before actual expiry)
+    signedUrlCache.set(path, {
+      url: data.signedUrl,
+      expiresAt: Date.now() + (55 * 60 * 1000) // 55 minutes
+    });
+
+    return data.signedUrl;
+  } catch (error) {
+    console.error('Error getting signed URL:', error);
+    return null;
+  }
+};
+
+// Extract path from old public URL format
+const extractPathFromUrl = (url: string): string | null => {
+  const match = url.match(/\/job-attachments\/(.+)$/);
+  return match ? match[1] : null;
+};
+
 export const AttachmentUpload = ({ jobId, attachments, onAttachmentsChange }: AttachmentUploadProps) => {
   const [isUploading, setIsUploading] = useState(false);
   const [activeCategory, setActiveCategory] = useState<MediaCategory>('images');
+  const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -46,24 +87,49 @@ export const AttachmentUpload = ({ jobId, attachments, onAttachmentsChange }: At
     documents: attachments.filter(a => a.type === 'document'),
   };
 
-  const uploadToStorage = async (file: File, category: MediaCategory): Promise<string | null> => {
+  // Generate signed URLs for all attachments
+  useEffect(() => {
+    const loadSignedUrls = async () => {
+      const urlPromises = attachments.map(async (attachment) => {
+        // Use path if available, otherwise extract from URL
+        const path = attachment.path || extractPathFromUrl(attachment.url);
+        if (!path) return { id: attachment.id, url: attachment.url };
+
+        const signedUrl = await getSignedUrl(path);
+        return { id: attachment.id, url: signedUrl || attachment.url };
+      });
+
+      const results = await Promise.all(urlPromises);
+      const urlMap: Record<string, string> = {};
+      results.forEach(r => { urlMap[r.id] = r.url; });
+      setSignedUrls(urlMap);
+    };
+
+    if (attachments.length > 0) {
+      loadSignedUrls();
+    }
+  }, [attachments]);
+
+  const uploadToStorage = async (file: File, category: MediaCategory): Promise<{ path: string; signedUrl: string } | null> => {
     const fileExt = file.name.split('.').pop();
-    const fileName = `${jobId}/${category}/${crypto.randomUUID()}.${fileExt}`;
+    const filePath = `${jobId}/${category}/${crypto.randomUUID()}.${fileExt}`;
     
     const { data, error } = await supabase.storage
       .from('job-attachments')
-      .upload(fileName, file);
+      .upload(filePath, file);
 
     if (error) {
       console.error('Storage upload error:', error);
       return null;
     }
 
-    const { data: urlData } = supabase.storage
-      .from('job-attachments')
-      .getPublicUrl(data.path);
+    // Generate signed URL for immediate display
+    const signedUrl = await getSignedUrl(data.path);
+    if (!signedUrl) {
+      return null;
+    }
 
-    return urlData.publicUrl;
+    return { path: data.path, signedUrl };
   };
 
   const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -85,9 +151,9 @@ export const AttachmentUpload = ({ jobId, attachments, onAttachmentsChange }: At
           continue;
         }
 
-        const url = await uploadToStorage(file, category);
+        const result = await uploadToStorage(file, category);
         
-        if (!url) {
+        if (!result) {
           toast({
             title: "Upload failed",
             description: `Failed to upload ${file.name}.`,
@@ -100,18 +166,22 @@ export const AttachmentUpload = ({ jobId, attachments, onAttachmentsChange }: At
           id: crypto.randomUUID(),
           name: file.name,
           type: getAttachmentType(category),
-          url,
+          url: result.signedUrl, // Store signed URL for immediate use
+          path: result.path, // Store path for future signed URL generation
           uploadedAt: new Date(),
         };
         
         newAttachments.push(attachment);
+        
+        // Update signed URLs cache
+        setSignedUrls(prev => ({ ...prev, [attachment.id]: result.signedUrl }));
       }
 
       if (newAttachments.length > 0) {
         onAttachmentsChange([...attachments, ...newAttachments]);
         toast({
           title: "Files uploaded",
-          description: `${newAttachments.length} file(s) uploaded to cloud storage.`,
+          description: `${newAttachments.length} file(s) uploaded securely.`,
         });
       }
     } catch (error) {
@@ -130,12 +200,12 @@ export const AttachmentUpload = ({ jobId, attachments, onAttachmentsChange }: At
   }, [attachments, onAttachmentsChange, toast, jobId]);
 
   const removeAttachment = async (attachment: Attachment) => {
-    // Extract the path from the URL to delete from storage
     try {
-      const urlParts = attachment.url.split('/job-attachments/');
-      if (urlParts.length > 1) {
-        const filePath = urlParts[1];
-        await supabase.storage.from('job-attachments').remove([filePath]);
+      // Use path if available, otherwise extract from URL
+      const path = attachment.path || extractPathFromUrl(attachment.url);
+      if (path) {
+        await supabase.storage.from('job-attachments').remove([path]);
+        signedUrlCache.delete(path);
       }
     } catch (error) {
       console.error('Error deleting from storage:', error);
@@ -152,6 +222,11 @@ export const AttachmentUpload = ({ jobId, attachments, onAttachmentsChange }: At
     if (category === 'images') return <ImageIcon className="w-4 h-4" />;
     if (category === 'videos') return <Video className="w-4 h-4" />;
     return <FileText className="w-4 h-4" />;
+  };
+
+  // Get display URL for an attachment (signed URL if available)
+  const getDisplayUrl = (attachment: Attachment): string => {
+    return signedUrls[attachment.id] || attachment.url;
   };
 
   return (
@@ -225,7 +300,7 @@ export const AttachmentUpload = ({ jobId, attachments, onAttachmentsChange }: At
               <div className="w-full aspect-video bg-muted rounded flex items-center justify-center mb-2 overflow-hidden">
                 {attachment.type === 'image' ? (
                   <img
-                    src={attachment.url}
+                    src={getDisplayUrl(attachment)}
                     alt={attachment.name}
                     className="w-full h-full object-cover"
                   />

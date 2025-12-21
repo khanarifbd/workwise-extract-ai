@@ -65,7 +65,8 @@ export interface Attachment {
   id: string;
   name: string;
   type: 'image' | 'video' | 'document';
-  url: string;
+  url: string; // For backward compatibility - may be public URL or signed URL
+  path?: string; // Storage path for generating signed URLs
   uploadedAt: Date;
 }
 
