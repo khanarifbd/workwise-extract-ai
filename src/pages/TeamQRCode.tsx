@@ -28,11 +28,7 @@ const TeamQRCode = () => {
     return new URL("/team", base).toString();
   }, [searchParams]);
 
-  const canShare =
-    typeof navigator !== "undefined" &&
-    typeof window !== "undefined" &&
-    !!navigator.share &&
-    window.isSecureContext;
+  const canShare = typeof navigator !== "undefined" && !!(navigator as any).share;
 
   const handleCopy = async () => {
     try {
@@ -162,12 +158,23 @@ const TeamQRCode = () => {
             <Download className="w-4 h-4 mr-2" />
             Download
           </Button>
-          {canShare && (
-            <Button variant="outline" className="flex-1" onClick={handleShare}>
-              <Share2 className="w-4 h-4 mr-2" />
-              Share
-            </Button>
-          )}
+          <Button
+            variant="outline"
+            className="flex-1"
+            onClick={() => {
+              if (!canShare) {
+                toast({
+                  title: "Share not available",
+                  description: "Your device/browser doesn't support Share here. Use Copy instead.",
+                });
+                return;
+              }
+              handleShare();
+            }}
+          >
+            <Share2 className="w-4 h-4 mr-2" />
+            Share
+          </Button>
         </section>
 
         <section className="w-full" aria-label="Open portal">
