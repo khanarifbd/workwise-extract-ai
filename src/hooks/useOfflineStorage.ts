@@ -10,7 +10,7 @@ const DRAFTS_STORE = 'drafts';
 interface SyncQueueItem {
   id: string;
   teamId: string;
-  actionType: 'progress_update' | 'photo_upload' | 'status_update';
+  actionType: 'progress_update' | 'photo_upload' | 'status_update' | 'job_complete';
   payload: any;
   createdAt: string;
   synced: boolean;
