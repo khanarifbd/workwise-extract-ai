@@ -227,9 +227,9 @@ export default function AdminAuth() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-md">
-        <Link to="/" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6">
+        <Link to="/team" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6">
           <ArrowLeft className="h-4 w-4" />
-          Back to Home
+          Back to Team Portal
         </Link>
 
         <Card>
