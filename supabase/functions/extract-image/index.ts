@@ -1,9 +1,18 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Input validation schema - base64 ~4MB image = ~5.3MB base64
+const extractImageSchema = z.object({
+  imageBase64: z.string().min(1, "Image data is required").max(5500000, "Image too large (max ~4MB)"),
+  mimeType: z.enum(['image/jpeg', 'image/png', 'image/jpg', 'image/webp', 'image/gif']).optional(),
+  sorCodesContext: z.string().max(50000, "SOR codes context too long").optional(),
+});
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -11,22 +20,63 @@ serve(async (req) => {
   }
 
   try {
-    const { imageBase64, mimeType, sorCodesContext } = await req.json();
-    
-    if (!imageBase64) {
+    // Authenticate the request - require admin access
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      console.error('Missing or invalid Authorization header');
       return new Response(
-        JSON.stringify({ error: 'Image data is required' }),
+        JSON.stringify({ error: 'Unauthorized - missing authentication' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    
+    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+    if (authError || !user) {
+      console.error('Authentication failed:', authError?.message);
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized - invalid token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Verify user is admin
+    const { data: isAdmin, error: roleError } = await supabaseClient.rpc('is_admin', { _user_id: user.id });
+    if (roleError || !isAdmin) {
+      console.error('Admin check failed:', roleError?.message || 'User is not admin');
+      return new Response(
+        JSON.stringify({ error: 'Forbidden - admin access required' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Parse and validate input
+    const rawBody = await req.json();
+    const parseResult = extractImageSchema.safeParse(rawBody);
+    
+    if (!parseResult.success) {
+      console.error('Validation failed:', parseResult.error.errors);
+      return new Response(
+        JSON.stringify({ error: 'Invalid input', details: parseResult.error.errors }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    const { imageBase64, mimeType, sorCodesContext } = parseResult.data;
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
-    console.log('Processing image with Lovable AI (Gemini 2.5 Flash) for OCR...');
-    console.log('MIME type:', mimeType);
+    console.log(`Processing image for user ${user.id}...`);
+    console.log('MIME type:', mimeType || 'image/jpeg');
 
     const systemPrompt = `You are a job extraction specialist with OCR capabilities. Analyze the image and extract the following information:
 - NAME: The customer/client name
@@ -37,7 +87,7 @@ serve(async (req) => {
 - WORK_ITEMS: A list of individual work items with descriptions
 
 For each work item, try to match it with the most appropriate SOR code from this database:
-${sorCodesContext}
+${sorCodesContext || ''}
 
 Return the data in this exact JSON format:
 {
@@ -115,8 +165,7 @@ Be precise and extract all relevant information from the image. If a field is no
       throw new Error('No content in AI response');
     }
 
-    console.log('Lovable AI OCR extraction completed');
-    console.log('Raw response preview:', content.substring(0, 300));
+    console.log('Lovable AI OCR extraction completed for user:', user.id);
 
     // Parse the JSON from the response
     const jsonMatch = content.match(/\{[\s\S]*\}/);

@@ -9,14 +9,27 @@ const getSORCodesContext = () => {
   ).join('\n');
 };
 
+// Helper to get auth headers for authenticated edge function calls
+const getAuthHeaders = async (): Promise<Record<string, string>> => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) {
+    throw new Error('Authentication required - please log in');
+  }
+  return {
+    Authorization: `Bearer ${session.access_token}`
+  };
+};
+
 // Extract fans from job description
 export const extractFansWithAI = async (description: string, workItems: WorkItem[]): Promise<{ hasFans: boolean; fans: FanInfo[]; totalFanCount: number } | null> => {
   try {
+    const headers = await getAuthHeaders();
     const { data, error } = await supabase.functions.invoke('extract-fans', {
       body: { 
         description,
         workItems
-      }
+      },
+      headers
     });
 
     if (error) {
@@ -37,11 +50,13 @@ export const extractFansWithAI = async (description: string, workItems: WorkItem
 
 export const extractPDFWithAI = async (pdfText: string): Promise<Partial<Job> | null> => {
   try {
+    const headers = await getAuthHeaders();
     const { data, error } = await supabase.functions.invoke('extract-pdf', {
       body: { 
         pdfText,
         sorCodesContext: getSORCodesContext()
-      }
+      },
+      headers
     });
 
     if (error) {
@@ -62,12 +77,14 @@ export const extractPDFWithAI = async (pdfText: string): Promise<Partial<Job> | 
 
 export const extractImageWithAI = async (imageBase64: string, mimeType: string): Promise<Partial<Job> | null> => {
   try {
+    const headers = await getAuthHeaders();
     const { data, error } = await supabase.functions.invoke('extract-image', {
       body: { 
         imageBase64,
         mimeType,
         sorCodesContext: getSORCodesContext()
-      }
+      },
+      headers
     });
 
     if (error) {
@@ -88,11 +105,13 @@ export const extractImageWithAI = async (imageBase64: string, mimeType: string):
 
 export const convertDescriptionToWorkItems = async (description: string): Promise<WorkItem[]> => {
   try {
+    const headers = await getAuthHeaders();
     const { data, error } = await supabase.functions.invoke('convert-description', {
       body: { 
         description,
         sorCodesContext: getSORCodesContext()
-      }
+      },
+      headers
     });
 
     if (error) {
@@ -126,12 +145,14 @@ export const sendWhatsAppNotification = async (
   twilioResult?: { sid: string; status: string } | null;
 } | null> => {
   try {
+    const headers = await getAuthHeaders();
     const { data, error } = await supabase.functions.invoke('send-whatsapp', {
       body: { 
         teamName,
         whatsappGroup,
         jobDetails
-      }
+      },
+      headers
     });
 
     if (error) {

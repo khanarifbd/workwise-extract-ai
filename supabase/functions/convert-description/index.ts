@@ -1,9 +1,17 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Input validation schema
+const convertDescriptionSchema = z.object({
+  description: z.string().min(1, "Description is required").max(50000, "Description too long"),
+  sorCodesContext: z.string().max(50000, "SOR codes context too long").optional(),
+});
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -11,26 +19,67 @@ serve(async (req) => {
   }
 
   try {
-    const { description, sorCodesContext } = await req.json();
-    
-    if (!description) {
+    // Authenticate the request - require admin access
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      console.error('Missing or invalid Authorization header');
       return new Response(
-        JSON.stringify({ error: 'Description is required' }),
+        JSON.stringify({ error: 'Unauthorized - missing authentication' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    
+    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+    if (authError || !user) {
+      console.error('Authentication failed:', authError?.message);
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized - invalid token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Verify user is admin
+    const { data: isAdmin, error: roleError } = await supabaseClient.rpc('is_admin', { _user_id: user.id });
+    if (roleError || !isAdmin) {
+      console.error('Admin check failed:', roleError?.message || 'User is not admin');
+      return new Response(
+        JSON.stringify({ error: 'Forbidden - admin access required' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Parse and validate input
+    const rawBody = await req.json();
+    const parseResult = convertDescriptionSchema.safeParse(rawBody);
+    
+    if (!parseResult.success) {
+      console.error('Validation failed:', parseResult.error.errors);
+      return new Response(
+        JSON.stringify({ error: 'Invalid input', details: parseResult.error.errors }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    const { description, sorCodesContext } = parseResult.data;
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
-    console.log('Converting description to work items with multiple SOR options...');
+    console.log(`Converting description to work items for user ${user.id}...`);
 
-const systemPrompt = `You are a construction work analysis specialist. Convert the provided description into a precise list of individual work items.
+    const systemPrompt = `You are a construction work analysis specialist. Convert the provided description into a precise list of individual work items.
 
 For each work item, provide THREE suitable SOR (Schedule of Rates) codes from this database:
-${sorCodesContext}
+${sorCodesContext || ''}
 
 Return ONLY a JSON array in this exact format:
 [
@@ -96,7 +145,7 @@ Guidelines:
       throw new Error('No content in AI response');
     }
 
-    console.log('AI conversion completed');
+    console.log('AI conversion completed for user:', user.id);
 
     // Parse the JSON array from the response
     const jsonMatch = content.match(/\[[\s\S]*\]/);
