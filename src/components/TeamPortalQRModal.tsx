@@ -12,8 +12,8 @@ export const TeamPortalQRModal = ({ onClose }: TeamPortalQRModalProps) => {
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
 
-  const portalUrl = new URL('/team', window.location.href).toString();
-  const canShare = typeof navigator !== 'undefined' && !!navigator.share;
+  const portalUrl = new URL('/#/team', window.location.origin).toString();
+  const canShare = typeof navigator !== 'undefined' && !!(navigator as any).share;
 
   const handleCopy = async () => {
     try {
@@ -24,7 +24,7 @@ export const TeamPortalQRModal = ({ onClose }: TeamPortalQRModalProps) => {
         description: 'Team portal URL copied to clipboard',
       });
       setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
+    } catch {
       toast({
         title: 'Error',
         description: 'Failed to copy URL',
@@ -35,7 +35,7 @@ export const TeamPortalQRModal = ({ onClose }: TeamPortalQRModalProps) => {
 
   const handleShare = async () => {
     try {
-      await navigator.share({
+      await (navigator as any).share({
         title: 'AllSaints Team Portal',
         text: 'Access the team portal to view and manage your assigned jobs.',
         url: portalUrl,
@@ -45,7 +45,6 @@ export const TeamPortalQRModal = ({ onClose }: TeamPortalQRModalProps) => {
         description: 'Team portal link shared successfully',
       });
     } catch (error) {
-      // User cancelled or share failed - silently ignore
       if ((error as Error).name !== 'AbortError') {
         toast({
           title: 'Share failed',
@@ -90,7 +89,7 @@ export const TeamPortalQRModal = ({ onClose }: TeamPortalQRModalProps) => {
   };
 
   const handleOpenPortal = () => {
-    window.location.assign('/team');
+    window.location.assign('/#/team');
   };
 
   return (
