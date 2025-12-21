@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import { ArrowLeft, Check, Copy, Download, ExternalLink, Share2 } from "lucide-react";
 
@@ -19,13 +19,16 @@ const TeamQRCode = () => {
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   const portalUrl = useMemo(() => {
-    // Allow generating a QR for a deployed/custom domain from preview:
+    // Use a hash-based URL so it works reliably when opened from a phone camera/QR scanner
+    // (some hosts don't support SPA deep links on refresh).
     // /team-qr?baseUrl=https://yourdomain.com
     const baseFromQuery = searchParams.get("baseUrl") || searchParams.get("base") || "";
     const base = isValidHttpUrl(baseFromQuery) ? baseFromQuery : window.location.origin;
-    return new URL("/team", base).toString();
+    const trimmed = base.replace(/\/$/, "");
+    return `${trimmed}/#/team`;
   }, [searchParams]);
 
   const canShare = typeof navigator !== "undefined" && !!(navigator as any).share;
@@ -43,7 +46,7 @@ const TeamQRCode = () => {
 
   const handleShare = async () => {
     try {
-      await navigator.share({
+      await (navigator as any).share({
         title: "AllSaints Team Portal",
         text: "Access the team portal to view and manage your assigned jobs.",
         url: portalUrl,
@@ -90,7 +93,8 @@ const TeamQRCode = () => {
   };
 
   const handleOpenPortal = () => {
-    window.location.assign(portalUrl);
+    // In-app navigation (no full page reload)
+    navigate("/team");
   };
 
   return (
@@ -129,7 +133,13 @@ const TeamQRCode = () => {
             <code className="text-xs flex-1 truncate text-center" title={portalUrl}>
               {portalUrl}
             </code>
-            <Button variant="ghost" size="icon" onClick={handleCopy} className="flex-shrink-0" aria-label="Copy URL">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleCopy}
+              className="flex-shrink-0"
+              aria-label="Copy URL"
+            >
               {copied ? <Check className="w-4 h-4 text-success" /> : <Copy className="w-4 h-4" />}
             </Button>
           </div>
