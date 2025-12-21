@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { SafeMapContainer as MapContainer } from '@/components/leaflet/SafeMapContainer';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Job, ALLSAINTS_TEAMS, FAN_TEAMS } from '@/types/job';
