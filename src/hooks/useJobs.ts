@@ -85,6 +85,8 @@ export const useJobs = (categoryId?: string) => {
 
   const sendTeamNotification = async (teamName: string, job: Job) => {
     try {
+      console.log('Sending push notification to team:', teamName, 'for job:', job.jobNumber);
+      
       // Get team_id from team_access_codes
       const { data: teamData } = await supabase
         .from('team_access_codes')
