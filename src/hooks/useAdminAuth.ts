@@ -109,7 +109,7 @@ export const useAdminAuth = () => {
   const signUp = async (email: string, password: string): Promise<{ error: Error | null }> => {
     setState(prev => ({ ...prev, error: null }));
 
-    const redirectUrl = `${window.location.origin}/`;
+    const redirectUrl = `${window.location.origin}/#/admin`;
 
     const { error } = await supabase.auth.signUp({
       email: email.trim(),
