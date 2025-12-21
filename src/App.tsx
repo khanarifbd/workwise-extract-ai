@@ -6,7 +6,9 @@ import { HashRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import TeamPortal from "./pages/TeamPortal";
 import TeamQRCode from "./pages/TeamQRCode";
+import AdminAuth from "./pages/AdminAuth";
 import NotFound from "./pages/NotFound";
+import { AdminRoute } from "./components/AdminRoute";
 
 const queryClient = new QueryClient();
 
@@ -17,7 +19,12 @@ const App = () => (
       <Sonner />
       <HashRouter>
         <Routes>
-          <Route path="/" element={<Index />} />
+          <Route path="/admin" element={<AdminAuth />} />
+          <Route path="/" element={
+            <AdminRoute>
+              <Index />
+            </AdminRoute>
+          } />
           <Route path="/team" element={<TeamPortal />} />
           <Route path="/team-qr" element={<TeamQRCode />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

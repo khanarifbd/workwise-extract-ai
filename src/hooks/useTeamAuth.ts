@@ -4,14 +4,11 @@ import { supabase } from '@/integrations/supabase/client';
 interface TeamSession {
   teamId: string;
   teamName: string;
-  accessCode: string;
-  authenticatedAt: string;
-  rememberMe?: boolean;
+  validatedAt: string;
+  expiresAt: string;
 }
 
 const SESSION_KEY = 'team_portal_session';
-const SESSION_DURATION_STANDARD = 24; // hours
-const SESSION_DURATION_EXTENDED = 24 * 30; // 30 days
 
 export const useTeamAuth = () => {
   const [session, setSession] = useState<TeamSession | null>(null);
@@ -23,15 +20,14 @@ export const useTeamAuth = () => {
     const stored = localStorage.getItem(SESSION_KEY);
     if (stored) {
       try {
-        const parsed = JSON.parse(stored);
-        const authTime = new Date(parsed.authenticatedAt);
+        const parsed: TeamSession = JSON.parse(stored);
+        const expiresAt = new Date(parsed.expiresAt);
         const now = new Date();
-        const hoursDiff = (now.getTime() - authTime.getTime()) / (1000 * 60 * 60);
-        const maxDuration = parsed.rememberMe ? SESSION_DURATION_EXTENDED : SESSION_DURATION_STANDARD;
         
-        if (hoursDiff < maxDuration) {
+        if (now < expiresAt) {
           setSession(parsed);
         } else {
+          // Session expired
           localStorage.removeItem(SESSION_KEY);
         }
       } catch {
@@ -46,27 +42,34 @@ export const useTeamAuth = () => {
     setError(null);
 
     try {
-      const { data, error: queryError } = await supabase
-        .from('team_access_codes')
-        .select('*')
-        .eq('access_code', accessCode.toUpperCase().trim())
-        .eq('is_active', true)
-        .single();
+      // Use edge function for secure validation
+      const { data, error: fnError } = await supabase.functions.invoke('validate-team-code', {
+        body: { accessCode },
+      });
 
-      if (queryError || !data) {
-        setError('Invalid access code. Please try again.');
+      if (fnError) {
+        console.error('Validation error:', fnError);
+        setError('Failed to validate access code. Please try again.');
+        setIsLoading(false);
+        return false;
+      }
+
+      if (!data?.success || !data?.session) {
+        setError(data?.error || 'Invalid access code. Please try again.');
         setIsLoading(false);
         return false;
       }
 
       const newSession: TeamSession = {
-        teamId: data.team_id,
-        teamName: data.team_name,
-        accessCode: data.access_code,
-        authenticatedAt: new Date().toISOString(),
-        rememberMe,
+        teamId: data.session.teamId,
+        teamName: data.session.teamName,
+        validatedAt: data.session.validatedAt,
+        expiresAt: rememberMe 
+          ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days
+          : data.session.expiresAt, // 24 hours from server
       };
 
+      // Store session without access code (security improvement)
       localStorage.setItem(SESSION_KEY, JSON.stringify(newSession));
       setSession(newSession);
       setIsLoading(false);
@@ -84,6 +87,59 @@ export const useTeamAuth = () => {
     setSession(null);
   }, []);
 
+  // Function to fetch jobs through edge function
+  const fetchTeamJobs = useCallback(async () => {
+    if (!session) {
+      throw new Error('Not authenticated');
+    }
+
+    const { data, error: fnError } = await supabase.functions.invoke('get-team-jobs', {
+      body: { 
+        teamId: session.teamId, 
+        teamName: session.teamName 
+      },
+    });
+
+    if (fnError) {
+      throw new Error('Failed to fetch jobs');
+    }
+
+    if (!data?.success) {
+      throw new Error(data?.error || 'Failed to fetch jobs');
+    }
+
+    return data.jobs;
+  }, [session]);
+
+  // Function to update job through edge function
+  const updateTeamJob = useCallback(async (
+    jobId: string, 
+    updates: { status?: string; progress?: number; notes?: string; photos?: string[] }
+  ) => {
+    if (!session) {
+      throw new Error('Not authenticated');
+    }
+
+    const { data, error: fnError } = await supabase.functions.invoke('update-team-job', {
+      body: {
+        teamId: session.teamId,
+        teamName: session.teamName,
+        jobId,
+        updates,
+      },
+    });
+
+    if (fnError) {
+      throw new Error('Failed to update job');
+    }
+
+    if (!data?.success) {
+      throw new Error(data?.error || 'Failed to update job');
+    }
+
+    return true;
+  }, [session]);
+
   return {
     session,
     isLoading,
@@ -91,5 +147,7 @@ export const useTeamAuth = () => {
     isAuthenticated: !!session,
     login,
     logout,
+    fetchTeamJobs,
+    updateTeamJob,
   };
 };

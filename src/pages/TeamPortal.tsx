@@ -11,7 +11,16 @@ import { mapDatabaseJobToJob } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 
 const TeamPortal = () => {
-  const { session, isAuthenticated, isLoading: authLoading, login, logout, error: authError } = useTeamAuth();
+  const { 
+    session, 
+    isAuthenticated, 
+    isLoading: authLoading, 
+    login, 
+    logout, 
+    error: authError,
+    fetchTeamJobs,
+    updateTeamJob 
+  } = useTeamAuth();
   const { isOnline, pendingSyncCount, cacheJobs, getCachedJobs, getPendingSyncItems, markSynced } = useOfflineStorage();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
@@ -19,21 +28,15 @@ const TeamPortal = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const { toast } = useToast();
 
-  // Load jobs for the authenticated team
+  // Load jobs for the authenticated team using secure edge function
   const loadJobs = async () => {
     if (!session?.teamName) return;
 
     setIsLoadingJobs(true);
     try {
       if (isOnline) {
-        const { data, error } = await supabase
-          .from('jobs')
-          .select('*')
-          .eq('team', session.teamName)
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-
+        // Use edge function for secure job fetching
+        const data = await fetchTeamJobs();
         const mappedJobs = (data || []).map((row: any) => mapDatabaseJobToJob(row));
         setJobs(mappedJobs);
         
@@ -65,9 +68,9 @@ const TeamPortal = () => {
     }
   };
 
-  // Sync pending updates when online
+  // Sync pending updates when online using secure edge function
   const syncPendingUpdates = async () => {
-    if (!isOnline || isSyncing) return;
+    if (!isOnline || isSyncing || !session) return;
 
     setIsSyncing(true);
     try {
@@ -76,29 +79,18 @@ const TeamPortal = () => {
       for (const item of pendingItems) {
         try {
           if (item.actionType === 'progress_update' || item.actionType === 'status_update') {
-            const { error } = await supabase
-              .from('jobs')
-              .update(item.payload)
-              .eq('id', item.payload.id);
-
-            if (!error) {
-              await markSynced(item.id);
-            }
+            await updateTeamJob(item.payload.id, {
+              status: item.payload.status,
+              progress: item.payload.progress,
+              notes: item.payload.progress_notes,
+            });
+            await markSynced(item.id);
           } else if (item.actionType === 'photo_upload') {
-            // Handle photo upload sync
-            const { error } = await supabase
-              .from('team_job_updates')
-              .insert({
-                job_id: item.payload.jobId,
-                team_id: item.teamId,
-                photos: item.payload.photos,
-                notes: item.payload.notes,
-                synced_at: new Date().toISOString(),
-              });
-
-            if (!error) {
-              await markSynced(item.id);
-            }
+            await updateTeamJob(item.payload.jobId, {
+              photos: item.payload.photos,
+              notes: item.payload.notes,
+            });
+            await markSynced(item.id);
           }
         } catch (err) {
           console.error('Error syncing item:', err);
@@ -131,7 +123,7 @@ const TeamPortal = () => {
     }
   }, [isOnline, isAuthenticated]);
 
-  // Set up realtime subscription
+  // Set up realtime subscription (still works as teams can subscribe to changes)
   useEffect(() => {
     if (!isAuthenticated || !session?.teamName) return;
 
