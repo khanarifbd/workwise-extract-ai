@@ -5,7 +5,6 @@ import { Link } from 'react-router-dom';
 import { TeamSettingsModal } from './TeamSettingsModal';
 import { NotificationHistoryModal } from './NotificationHistoryModal';
 import { TeamAccessCodesModal } from './TeamAccessCodesModal';
-import { TeamPortalQRModal } from './TeamPortalQRModal';
 import logo from '@/assets/logo.png';
 
 interface HeaderProps {
@@ -18,7 +17,6 @@ export const Header = ({ onExport, jobCount }: HeaderProps) => {
   const [showTeamSettings, setShowTeamSettings] = useState(false);
   const [showNotificationHistory, setShowNotificationHistory] = useState(false);
   const [showAccessCodes, setShowAccessCodes] = useState(false);
-  const [showQRCode, setShowQRCode] = useState(false);
 
   useEffect(() => {
     const isDarkMode = document.documentElement.classList.contains('dark');
@@ -53,10 +51,12 @@ export const Header = ({ onExport, jobCount }: HeaderProps) => {
                 <span className="hidden md:inline">Team Portal</span>
               </Button>
             </Link>
-            <Button variant="outline" size="icon" className="md:w-auto md:px-4" onClick={() => setShowQRCode(true)}>
-              <QrCode className="w-4 h-4 md:mr-2" />
-              <span className="hidden md:inline">QR Code</span>
-            </Button>
+            <Link to="/team-qr">
+              <Button variant="outline" size="icon" className="md:w-auto md:px-4">
+                <QrCode className="w-4 h-4 md:mr-2" />
+                <span className="hidden md:inline">QR Code</span>
+              </Button>
+            </Link>
             <Button variant="outline" size="icon" className="md:w-auto md:px-4" onClick={() => setShowNotificationHistory(true)}>
               <History className="w-4 h-4 md:mr-2" />
               <span className="hidden md:inline">Notifications</span>
@@ -97,10 +97,6 @@ export const Header = ({ onExport, jobCount }: HeaderProps) => {
 
       {showAccessCodes && (
         <TeamAccessCodesModal onClose={() => setShowAccessCodes(false)} />
-      )}
-
-      {showQRCode && (
-        <TeamPortalQRModal onClose={() => setShowQRCode(false)} />
       )}
     </header>
   );
