@@ -11,6 +11,8 @@ import { DMJobFilters, FanJobFilters, FilterState, getDefaultFilterState } from 
 import { CategoryTabs } from '@/components/CategoryTabs';
 import { KanbanBoard } from '@/components/KanbanBoard';
 import { CalendarView } from '@/components/CalendarView';
+import { JobMapView } from '@/components/JobMapView';
+import { MonthlyFolderTabs } from '@/components/MonthlyFolderTabs';
 import { ViewToggle } from '@/components/ViewToggle';
 import { JobDetailsModal } from '@/components/JobDetailsModal';
 import { DuplicateJobAlert } from '@/components/DuplicateJobAlert';
@@ -19,7 +21,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ChevronDown, ChevronUp, Loader2, Images } from 'lucide-react';
-import { isAfter, isBefore, startOfDay, endOfDay, format } from 'date-fns';
+import { isAfter, isBefore, startOfDay, endOfDay, format, parseISO, isValid } from 'date-fns';
 import { useJobs } from '@/hooks/useJobs';
 import { useCategories } from '@/hooks/useCategories';
 import { extractPDFWithAI, extractImageWithAI } from '@/lib/api';
@@ -29,7 +31,7 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 
 type FileType = 'pdf' | 'image';
-type ViewType = 'table' | 'kanban' | 'calendar';
+type ViewType = 'table' | 'kanban' | 'calendar' | 'map';
 type KanbanGroupBy = 'team' | 'status';
 
 const Index = () => {
@@ -45,6 +47,7 @@ const Index = () => {
   const [kanbanGroupBy, setKanbanGroupBy] = useState<KanbanGroupBy>('team');
   const [selectedJobForModal, setSelectedJobForModal] = useState<Job | null>(null);
   const [filters, setFilters] = useState<FilterState>(getDefaultFilterState());
+  const [activeMonthFolder, setActiveMonthFolder] = useState<string | null>(null);
   const [duplicateCheck, setDuplicateCheck] = useState<{
     newJob: Omit<Job, 'id'>;
     existingJob: Job;
@@ -356,6 +359,14 @@ const Index = () => {
 
   const filteredJobs = useMemo(() => {
     return jobs.filter(job => {
+      // Monthly folder filter
+      if (activeMonthFolder) {
+        const date = job.dateIssued;
+        if (!date || !isValid(date)) return false;
+        const jobMonthKey = format(date, 'yyyy-MM');
+        if (jobMonthKey !== activeMonthFolder) return false;
+      }
+
       if (filters.search) {
         const searchLower = filters.search.toLowerCase();
         const matchesSearch = 
@@ -432,7 +443,7 @@ const Index = () => {
 
       return true;
     });
-  }, [jobs, filters, isFanCategory]);
+  }, [jobs, filters, isFanCategory, activeMonthFolder]);
 
   // Helper function to extract phone number from description or name column
   const extractPhoneNumber = (job: Job): string => {
@@ -679,6 +690,13 @@ const Index = () => {
         </section>
 
 
+        {/* Monthly Folder Tabs */}
+        <MonthlyFolderTabs
+          jobs={jobs}
+          activeFolder={activeMonthFolder}
+          onFolderChange={setActiveMonthFolder}
+        />
+
         {/* Jobs Database */}
         <section className="flex-1 bg-section-database border border-border rounded-lg p-4 min-h-0 overflow-hidden flex flex-col">
           <div className="flex items-center justify-between mb-3">
@@ -686,6 +704,11 @@ const Index = () => {
               <h2 className="text-base font-semibold">{isFanCategory ? 'Fan Installations' : 'Jobs Database'}</h2>
               <p className="text-xs text-muted-foreground">
                 {filteredJobs.length} of {jobs.length} jobs
+                {activeMonthFolder && (
+                  <span className="ml-1">
+                    • Showing {format(new Date(activeMonthFolder + '-01'), 'MMMM yyyy')}
+                  </span>
+                )}
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -723,6 +746,12 @@ const Index = () => {
                 onJobClick={setSelectedJobForModal}
                 onToggleComplete={handleToggleComplete}
                 onMoveJob={handleKanbanMoveJob}
+              />
+            ) : viewType === 'map' ? (
+              <JobMapView
+                jobs={filteredJobs}
+                onJobClick={setSelectedJobForModal}
+                isFanCategory={isFanCategory}
               />
             ) : (
               <CalendarView
