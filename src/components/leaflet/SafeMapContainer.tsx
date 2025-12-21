@@ -1,4 +1,13 @@
-// Re-export MapContainer from react-leaflet v4 which is compatible with React 18
-import { MapContainer } from 'react-leaflet';
+import React, { forwardRef } from "react";
+import { MapContainer as RLMapContainer, type MapContainerProps } from "react-leaflet";
+import type { Map as LeafletMap } from "leaflet";
 
-export { MapContainer as SafeMapContainer };
+/**
+ * Thin wrapper around react-leaflet's MapContainer.
+ * Keeps our app code stable while ensuring we use the library's own context wiring.
+ */
+export const SafeMapContainer = forwardRef<LeafletMap, MapContainerProps>((props, ref) => {
+  return <RLMapContainer {...props} ref={ref} />;
+});
+
+SafeMapContainer.displayName = "SafeMapContainer";
