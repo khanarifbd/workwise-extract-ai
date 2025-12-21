@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import { SafeMapContainer as MapContainer } from '@/components/leaflet/SafeMapContainer';
 import L from 'leaflet';
@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MapPin, Users, Navigation, Loader2, AlertCircle, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
 
 // Fix leaflet default marker icons
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -102,68 +103,93 @@ export const JobMapView = ({ jobs, onJobClick, isFanCategory = false }: JobMapVi
   const [geocodeProgress, setGeocodeProgress] = useState({ current: 0, total: 0 });
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
   const [hoveredJob, setHoveredJob] = useState<string | null>(null);
+  
+  // Track which job IDs we've already geocoded to avoid re-fetching
+  const geocodedJobIdsRef = useRef<Set<string>>(new Set());
 
   const teams = isFanCategory ? FAN_TEAMS : ALLSAINTS_TEAMS;
 
-  // Geocode addresses using Nominatim (OpenStreetMap)
+  // Geocode addresses using backend with caching
   useEffect(() => {
     const geocodeJobs = async () => {
-      setIsGeocoding(true);
       const uncompletedJobs = jobs.filter(j => !j.isCompleted);
-      setGeocodeProgress({ current: 0, total: uncompletedJobs.length });
       
-      const results: GeocodedJob[] = [];
+      // Check which jobs are already geocoded
+      const newJobs = uncompletedJobs.filter(j => !geocodedJobIdsRef.current.has(j.id));
       
-      for (let i = 0; i < uncompletedJobs.length; i++) {
-        const job = uncompletedJobs[i];
-        setGeocodeProgress({ current: i + 1, total: uncompletedJobs.length });
-        
-        if (!job.address) {
-          results.push({ ...job, geocodeError: true });
-          continue;
-        }
-
-        try {
-          // Add UK context to address for better geocoding
-          const searchAddress = job.address.includes('UK') 
-            ? job.address 
-            : `${job.address}, UK`;
-          
-          const response = await fetch(
-            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchAddress)}&limit=1`,
-            { headers: { 'User-Agent': 'AllsaintsJobTracker/1.0' } }
-          );
-          
-          if (!response.ok) throw new Error('Geocoding failed');
-          
-          const data = await response.json();
-          
-          if (data.length > 0) {
-            results.push({
-              ...job,
-              lat: parseFloat(data[0].lat),
-              lng: parseFloat(data[0].lon),
-            });
-          } else {
-            results.push({ ...job, geocodeError: true });
-          }
-          
-          // Rate limit to avoid API abuse (1 request per second for Nominatim)
-          if (i < uncompletedJobs.length - 1) {
-            await new Promise(r => setTimeout(r, 1100));
-          }
-        } catch (error) {
-          console.error('Geocoding error for:', job.address, error);
-          results.push({ ...job, geocodeError: true });
-        }
+      // If no new jobs to geocode, just update with existing data
+      if (newJobs.length === 0 && geocodedJobs.length > 0) {
+        // Filter out any completed jobs from current geocoded list
+        setGeocodedJobs(prev => prev.filter(gj => uncompletedJobs.some(j => j.id === gj.id)));
+        return;
       }
       
-      setGeocodedJobs(results);
+      setIsGeocoding(true);
+      
+      // Get addresses for new jobs only
+      const addressesToGeocode = newJobs
+        .filter(j => j.address)
+        .map(j => j.address!);
+      
+      setGeocodeProgress({ current: 0, total: addressesToGeocode.length });
+      
+      try {
+        let geocodeResults: Record<string, { lat: number | null; lng: number | null; geocode_error: boolean }> = {};
+        
+        if (addressesToGeocode.length > 0) {
+          // Call backend geocoding function with all addresses
+          const { data, error } = await supabase.functions.invoke('geocode-addresses', {
+            body: { addresses: addressesToGeocode }
+          });
+          
+          if (error) {
+            console.error('Geocoding error:', error);
+          } else if (data?.results) {
+            geocodeResults = data.results;
+          }
+        }
+        
+        // Merge results with jobs
+        const newGeocodedJobs: GeocodedJob[] = newJobs.map(job => {
+          if (!job.address) {
+            return { ...job, geocodeError: true };
+          }
+          
+          const result = geocodeResults[job.address];
+          if (result) {
+            geocodedJobIdsRef.current.add(job.id);
+            return {
+              ...job,
+              lat: result.lat ?? undefined,
+              lng: result.lng ?? undefined,
+              geocodeError: result.geocode_error,
+            };
+          }
+          
+          return { ...job, geocodeError: true };
+        });
+        
+        // Combine with existing geocoded jobs (preserving previous results)
+        setGeocodedJobs(prev => {
+          const existingMap = new Map(prev.map(j => [j.id, j]));
+          newGeocodedJobs.forEach(j => existingMap.set(j.id, j));
+          // Only include jobs that are still in the uncompleted list
+          return Array.from(existingMap.values())
+            .filter(gj => uncompletedJobs.some(j => j.id === gj.id));
+        });
+        
+        setGeocodeProgress({ current: addressesToGeocode.length, total: addressesToGeocode.length });
+      } catch (error) {
+        console.error('Geocoding failed:', error);
+      }
+      
       setIsGeocoding(false);
     };
 
     if (jobs.length > 0) {
       geocodeJobs();
+    } else {
+      setGeocodedJobs([]);
     }
   }, [jobs]);
 

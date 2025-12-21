@@ -41,6 +41,39 @@ export type Database = {
         }
         Relationships: []
       }
+      geocode_cache: {
+        Row: {
+          address: string
+          address_hash: string
+          created_at: string
+          geocode_error: boolean | null
+          id: string
+          lat: number | null
+          lng: number | null
+          updated_at: string
+        }
+        Insert: {
+          address: string
+          address_hash: string
+          created_at?: string
+          geocode_error?: boolean | null
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string
+          address_hash?: string
+          created_at?: string
+          geocode_error?: boolean | null
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       jobs: {
         Row: {
           additional_works: Json | null
