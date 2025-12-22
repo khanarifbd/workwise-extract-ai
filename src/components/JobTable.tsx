@@ -677,6 +677,13 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                           onSelect={(teamId) => handleTeamSelect(job.id, teamId)}
                           onClose={() => setShowTeamSelector(null)}
                           isFanCategory={isFanCategory}
+                          onTransferToRoof={(jobId) => {
+                            const roofCategory = categories.find(c => c.name.toLowerCase() === 'roof');
+                            if (roofCategory && onTransferJob) {
+                              onTransferJob(jobId, roofCategory.id);
+                              setShowTeamSelector(null);
+                            }
+                          }}
                         />
                       )}
                     </div>

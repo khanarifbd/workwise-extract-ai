@@ -11,17 +11,19 @@ interface TeamSelectorProps {
   onSelect: (teamId: string | null) => void;
   onClose: () => void;
   isFanCategory?: boolean;
+  onTransferToRoof?: (jobId: string) => void;
 }
 
-export const TeamSelector = ({ job, onSelect, onClose, isFanCategory = false }: TeamSelectorProps) => {
+export const TeamSelector = ({ job, onSelect, onClose, isFanCategory = false, onTransferToRoof }: TeamSelectorProps) => {
   const ref = useRef<HTMLDivElement>(null);
   const [isSending, setIsSending] = useState(false);
   const { toast } = useToast();
   const { settings, isLoading } = useTeamSettings();
   
   // Build dynamic teams list from settings based on category type
+  // Add Roof option for non-fan categories
   const teams: Team[] = useMemo(() => {
-    return settings
+    const baseTeams = settings
       .filter(s => isFanCategory ? s.type === 'fan' : s.type === 'dm' || !s.type)
       .map(s => ({
         id: s.teamId,
@@ -29,6 +31,18 @@ export const TeamSelector = ({ job, onSelect, onClose, isFanCategory = false }: 
         color: s.color || '#3B82F6',
         whatsappGroup: s.whatsappGroup || undefined,
       }));
+    
+    // Add Roof option if not fan category
+    if (!isFanCategory) {
+      baseTeams.push({
+        id: 'roof',
+        name: 'Roof',
+        color: '#78350F',
+        whatsappGroup: undefined,
+      });
+    }
+    
+    return baseTeams;
   }, [settings, isFanCategory]);
 
   useEffect(() => {
@@ -142,6 +156,17 @@ export const TeamSelector = ({ job, onSelect, onClose, isFanCategory = false }: 
     }
   };
 
+  const handleRoofSelect = () => {
+    if (onTransferToRoof) {
+      onTransferToRoof(job.id);
+      onClose();
+      toast({
+        title: 'Transferring to Roof',
+        description: `Job #${job.jobNumber} will be transferred to the Roof database.`,
+      });
+    }
+  };
+
   return (
     <div 
       ref={ref}
@@ -150,7 +175,7 @@ export const TeamSelector = ({ job, onSelect, onClose, isFanCategory = false }: 
       <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
         {isFanCategory ? 'Fan Installers' : 'Allsaints Teams'}
       </div>
-      <ScrollArea className="max-h-64">
+      <ScrollArea className="h-[280px]">
         <div className="space-y-1 pr-2">
           {isLoading ? (
             <div className="flex items-center justify-center py-4">
@@ -175,11 +200,12 @@ export const TeamSelector = ({ job, onSelect, onClose, isFanCategory = false }: 
               )}
               
               {teams.map((team) => {
-                const hasWhatsApp = !!getTeamWhatsApp(team.id);
+                const isRoof = team.id === 'roof';
+                const hasWhatsApp = !isRoof && !!getTeamWhatsApp(team.id);
                 return (
                   <button
                     key={team.id}
-                    onClick={() => handleTeamClick(team.id, team.name)}
+                    onClick={() => isRoof ? handleRoofSelect() : handleTeamClick(team.id, team.name)}
                     disabled={isSending}
                     className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted transition-colors text-left disabled:opacity-50"
                   >
@@ -188,6 +214,9 @@ export const TeamSelector = ({ job, onSelect, onClose, isFanCategory = false }: 
                       style={{ backgroundColor: team.color }}
                     />
                     <span className="flex-1 font-medium text-sm truncate">{team.name}</span>
+                    {isRoof && (
+                      <span className="text-xs text-muted-foreground">(transfer)</span>
+                    )}
                     {hasWhatsApp && (
                       <div className="flex items-center gap-1 flex-shrink-0">
                         <MessageCircle className="w-4 h-4 text-success" />

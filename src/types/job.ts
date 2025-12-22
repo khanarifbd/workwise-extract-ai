@@ -16,7 +16,8 @@ export type JobStatus =
   | 'call_back'
   | 'left_property'
   | 'return_nph'
-  | 'started';
+  | 'started'
+  | 'jan2026';
 
 export const JOB_STATUS_OPTIONS: { value: JobStatus; label: string; color: string }[] = [
   { value: 'complete', label: 'Complete', color: '#10B981' },
@@ -29,6 +30,7 @@ export const JOB_STATUS_OPTIONS: { value: JobStatus; label: string; color: strin
   { value: 'call_back', label: 'Call Back', color: '#06B6D4' },
   { value: 'left_property', label: 'Left Property', color: '#84CC16' },
   { value: 'return_nph', label: 'Return NPH', color: '#EC4899' },
+  { value: 'jan2026', label: 'Jan2026', color: '#0D9488' },
 ];
 
 export interface FanInfo {
