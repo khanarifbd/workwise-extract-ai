@@ -46,7 +46,7 @@ export const StatusSelector = ({ currentStatus, onSelect }: StatusSelectorProps)
             className="fixed inset-0 z-40" 
             onClick={() => setIsOpen(false)} 
           />
-          <div className="absolute top-full left-0 mt-1 z-50 bg-card border border-border rounded-lg shadow-xl p-1 min-w-[140px]">
+          <div className="absolute top-full left-0 mt-1 z-50 bg-card border border-border rounded-lg shadow-xl p-1 min-w-[140px] max-h-[320px] overflow-y-auto">
             {JOB_STATUS_OPTIONS.map((option) => (
               <button
                 key={option.value}
