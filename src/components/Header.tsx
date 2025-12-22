@@ -1,4 +1,4 @@
-import { FileDown, Moon, Sun, Settings, History, KeyRound, QrCode, Users, LogOut } from 'lucide-react';
+import { FileDown, Moon, Sun, Settings, History, KeyRound, QrCode, Users, LogOut, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
@@ -7,6 +7,12 @@ import { NotificationHistoryModal } from './NotificationHistoryModal';
 import { TeamAccessCodesModal } from './TeamAccessCodesModal';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import logo from '@/assets/logo.png';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface HeaderProps {
   onExport: () => void;
@@ -56,30 +62,41 @@ export const Header = ({ onExport, jobCount }: HeaderProps) => {
                 {user.email}
               </span>
             )}
-            <Link to="/team">
-              <Button variant="outline" size="icon" className="md:w-auto md:px-4">
-                <Users className="w-4 h-4 md:mr-2" />
-                <span className="hidden md:inline">Team Portal</span>
-              </Button>
-            </Link>
-            <Link to="/team-qr">
-              <Button variant="outline" size="icon" className="md:w-auto md:px-4">
-                <QrCode className="w-4 h-4 md:mr-2" />
-                <span className="hidden md:inline">QR Code</span>
-              </Button>
-            </Link>
-            <Button variant="outline" size="icon" className="md:w-auto md:px-4" onClick={() => setShowNotificationHistory(true)}>
-              <History className="w-4 h-4 md:mr-2" />
-              <span className="hidden md:inline">Notifications</span>
-            </Button>
-            <Button variant="outline" size="icon" className="md:w-auto md:px-4" onClick={() => setShowAccessCodes(true)}>
-              <KeyRound className="w-4 h-4 md:mr-2" />
-              <span className="hidden md:inline">Access Codes</span>
-            </Button>
-            <Button variant="outline" size="icon" className="md:w-auto md:px-4" onClick={() => setShowTeamSettings(true)}>
-              <Settings className="w-4 h-4 md:mr-2" />
-              <span className="hidden md:inline">Team Settings</span>
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="gap-2">
+                  <Users className="w-4 h-4" />
+                  <span className="hidden md:inline">TEAMS</span>
+                  <ChevronDown className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem asChild>
+                  <Link to="/team" className="flex items-center gap-2 cursor-pointer">
+                    <Users className="w-4 h-4" />
+                    Team Portal
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/team-qr" className="flex items-center gap-2 cursor-pointer">
+                    <QrCode className="w-4 h-4" />
+                    QR Code
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowNotificationHistory(true)} className="flex items-center gap-2 cursor-pointer">
+                  <History className="w-4 h-4" />
+                  Notifications
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowAccessCodes(true)} className="flex items-center gap-2 cursor-pointer">
+                  <KeyRound className="w-4 h-4" />
+                  Access Codes
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowTeamSettings(true)} className="flex items-center gap-2 cursor-pointer">
+                  <Settings className="w-4 h-4" />
+                  Team Settings
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button variant="outline" size="icon" className="md:w-auto md:px-4" onClick={onExport}>
               <FileDown className="w-4 h-4 md:mr-2" />
               <span className="hidden md:inline">Export</span>
