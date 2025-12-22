@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Save, Users, MessageCircle, Plus, Trash2 } from 'lucide-react';
+import { X, Save, Users, MessageCircle, Plus, Trash2, Pencil, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useTeamSettings, TeamSetting } from '@/hooks/useTeamSettings';
@@ -19,10 +19,11 @@ interface TeamSettingsModalProps {
 }
 
 export const TeamSettingsModal = ({ onClose }: TeamSettingsModalProps) => {
-  const { settings, isLoading, updateSetting, addTeamMember, removeTeamMember } = useTeamSettings();
+  const { settings, isLoading, updateSetting, addTeamMember, removeTeamMember, updateTeamMember } = useTeamSettings();
   const [localSettings, setLocalSettings] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState<string | null>(null);
   const [showAddTeam, setShowAddTeam] = useState<'dm' | 'fan' | null>(null);
+  const [editingTeam, setEditingTeam] = useState<TeamSetting | null>(null);
   const [newTeamName, setNewTeamName] = useState('');
   const [newTeamColor, setNewTeamColor] = useState('#3B82F6');
   const [newTeamWhatsapp, setNewTeamWhatsapp] = useState('');
@@ -35,6 +36,31 @@ export const TeamSettingsModal = ({ onClose }: TeamSettingsModalProps) => {
     });
     setLocalSettings(initial);
   }, [settings]);
+
+  const handleEditTeam = (setting: TeamSetting) => {
+    setEditingTeam(setting);
+    setNewTeamName(setting.teamName);
+    setNewTeamColor(setting.color || '#3B82F6');
+    setNewTeamWhatsapp(setting.whatsappGroup || '');
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingTeam || !newTeamName.trim()) return;
+    setIsAddingTeam(true);
+    try {
+      await updateTeamMember(editingTeam.teamId, {
+        name: newTeamName.trim(),
+        color: newTeamColor,
+        whatsappGroup: newTeamWhatsapp || null,
+      });
+      setEditingTeam(null);
+      setNewTeamName('');
+      setNewTeamColor('#3B82F6');
+      setNewTeamWhatsapp('');
+    } finally {
+      setIsAddingTeam(false);
+    }
+  };
 
   const handleSave = async (teamId: string) => {
     setSaving(teamId);
@@ -122,47 +148,37 @@ export const TeamSettingsModal = ({ onClose }: TeamSettingsModalProps) => {
                   {dmTeamSettings.map((setting) => (
                     <div
                       key={setting.teamId}
-                      className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/20"
+                      className="flex items-center gap-2 p-3 rounded-lg border border-border bg-muted/20"
                     >
                       <div
                         className="w-4 h-4 rounded-full flex-shrink-0"
                         style={{ backgroundColor: setting.color || getTeamColor(setting.teamId) }}
                       />
-                      <span className="font-medium min-w-[80px]">{setting.teamName}</span>
-                      <div className="flex-1 flex items-center gap-2">
-                        <MessageCircle className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                        <Input
-                          type="tel"
-                          placeholder="e.g. 447123456789"
-                          value={localSettings[setting.teamId] || ''}
-                          onChange={(e) =>
-                            setLocalSettings((prev) => ({
-                              ...prev,
-                              [setting.teamId]: e.target.value,
-                            }))
-                          }
-                          className="flex-1"
-                        />
+                      <div className="flex-1 min-w-0">
+                        <span className="font-medium text-sm block truncate">{setting.teamName}</span>
+                        {setting.whatsappGroup && (
+                          <span className="text-xs text-muted-foreground flex items-center gap-1">
+                            <Phone className="w-3 h-3" />
+                            {setting.whatsappGroup}
+                          </span>
+                        )}
                       </div>
                       <Button
                         size="sm"
-                        variant="outline"
-                        disabled={saving === setting.teamId}
-                        onClick={() => handleSave(setting.teamId)}
-                        className={cn(saving === setting.teamId && 'opacity-50')}
+                        variant="ghost"
+                        onClick={() => handleEditTeam(setting)}
+                        className="h-7 w-7 p-0"
                       >
-                        {saving === setting.teamId ? '...' : <Save className="w-4 h-4" />}
+                        <Pencil className="w-3.5 h-3.5" />
                       </Button>
-                      {setting.isCustom && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => handleRemoveTeamMember(setting.teamId, setting.teamName)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      )}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-destructive hover:text-destructive h-7 w-7 p-0"
+                        onClick={() => handleRemoveTeamMember(setting.teamId, setting.teamName)}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
                     </div>
                   ))}
                 </div>
@@ -184,47 +200,37 @@ export const TeamSettingsModal = ({ onClose }: TeamSettingsModalProps) => {
                   {fanTeamSettings.map((setting) => (
                     <div
                       key={setting.teamId}
-                      className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/20"
+                      className="flex items-center gap-2 p-3 rounded-lg border border-border bg-muted/20"
                     >
                       <div
                         className="w-4 h-4 rounded-full flex-shrink-0"
                         style={{ backgroundColor: setting.color || getTeamColor(setting.teamId) }}
                       />
-                      <span className="font-medium min-w-[80px]">{setting.teamName}</span>
-                      <div className="flex-1 flex items-center gap-2">
-                        <MessageCircle className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                        <Input
-                          type="tel"
-                          placeholder="e.g. 447123456789"
-                          value={localSettings[setting.teamId] || ''}
-                          onChange={(e) =>
-                            setLocalSettings((prev) => ({
-                              ...prev,
-                              [setting.teamId]: e.target.value,
-                            }))
-                          }
-                          className="flex-1"
-                        />
+                      <div className="flex-1 min-w-0">
+                        <span className="font-medium text-sm block truncate">{setting.teamName}</span>
+                        {setting.whatsappGroup && (
+                          <span className="text-xs text-muted-foreground flex items-center gap-1">
+                            <Phone className="w-3 h-3" />
+                            {setting.whatsappGroup}
+                          </span>
+                        )}
                       </div>
                       <Button
                         size="sm"
-                        variant="outline"
-                        disabled={saving === setting.teamId}
-                        onClick={() => handleSave(setting.teamId)}
-                        className={cn(saving === setting.teamId && 'opacity-50')}
+                        variant="ghost"
+                        onClick={() => handleEditTeam(setting)}
+                        className="h-7 w-7 p-0"
                       >
-                        {saving === setting.teamId ? '...' : <Save className="w-4 h-4" />}
+                        <Pencil className="w-3.5 h-3.5" />
                       </Button>
-                      {setting.isCustom && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => handleRemoveTeamMember(setting.teamId, setting.teamName)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      )}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-destructive hover:text-destructive h-7 w-7 p-0"
+                        onClick={() => handleRemoveTeamMember(setting.teamId, setting.teamName)}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
                     </div>
                   ))}
                 </div>
@@ -244,12 +250,15 @@ export const TeamSettingsModal = ({ onClose }: TeamSettingsModalProps) => {
           </Button>
         </div>
 
-        {/* Add Team Member Dialog */}
-        {showAddTeam && (
+        {/* Add/Edit Team Member Dialog */}
+        {(showAddTeam || editingTeam) && (
           <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
             <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-sm p-5 space-y-4">
               <h3 className="text-lg font-semibold">
-                Add {showAddTeam === 'dm' ? 'DM Team' : 'Fan Installer'} Member
+                {editingTeam 
+                  ? `Edit ${editingTeam.teamName}` 
+                  : `Add ${showAddTeam === 'dm' ? 'DM Team' : 'Fan Installer'} Member`
+                }
               </h3>
               <div className="space-y-3">
                 <div>
@@ -287,11 +296,14 @@ export const TeamSettingsModal = ({ onClose }: TeamSettingsModalProps) => {
                 </div>
               </div>
               <div className="flex gap-2 justify-end">
-                <Button variant="outline" onClick={() => setShowAddTeam(null)}>
+                <Button variant="outline" onClick={() => { setShowAddTeam(null); setEditingTeam(null); setNewTeamName(''); setNewTeamColor('#3B82F6'); setNewTeamWhatsapp(''); }}>
                   Cancel
                 </Button>
-                <Button onClick={handleAddTeamMember} disabled={!newTeamName.trim() || isAddingTeam}>
-                  {isAddingTeam ? 'Adding...' : 'Add Member'}
+                <Button 
+                  onClick={editingTeam ? handleSaveEdit : handleAddTeamMember} 
+                  disabled={!newTeamName.trim() || isAddingTeam}
+                >
+                  {isAddingTeam ? 'Saving...' : editingTeam ? 'Save Changes' : 'Add Member'}
                 </Button>
               </div>
             </div>

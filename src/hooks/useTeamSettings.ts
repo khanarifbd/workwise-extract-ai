@@ -148,6 +148,43 @@ export const useTeamSettings = () => {
     }
   };
 
+  const updateTeamMember = async (teamId: string, updates: {
+    name: string;
+    color: string;
+    whatsappGroup: string | null;
+  }) => {
+    try {
+      const { error } = await supabase
+        .from('team_notification_settings')
+        .update({
+          team_name: updates.name,
+          color: updates.color,
+          whatsapp_group: updates.whatsappGroup,
+        })
+        .eq('team_id', teamId);
+
+      if (error) throw error;
+
+      setSettings((prev) =>
+        prev.map((s) =>
+          s.teamId === teamId
+            ? { ...s, teamName: updates.name, color: updates.color, whatsappGroup: updates.whatsappGroup }
+            : s
+        )
+      );
+
+      toast({
+        title: 'Team member updated',
+      });
+    } catch (error) {
+      console.error('Error updating team member:', error);
+      toast({
+        title: 'Failed to update team member',
+        variant: 'destructive',
+      });
+    }
+  };
+
   useEffect(() => {
     loadSettings();
   }, []);
@@ -158,6 +195,7 @@ export const useTeamSettings = () => {
     updateSetting, 
     addTeamMember, 
     removeTeamMember, 
+    updateTeamMember,
     refreshSettings: loadSettings 
   };
 };

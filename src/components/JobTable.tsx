@@ -463,7 +463,14 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
             </tr>
           </thead>
           <tbody>
-            {jobs.map((job) => {
+            {/* Sort jobs: completed at the bottom */}
+            {[...jobs].sort((a, b) => {
+              const aCompleted = a.status === 'complete' || a.isCompleted || a.progress === 100;
+              const bCompleted = b.status === 'complete' || b.isCompleted || b.progress === 100;
+              if (aCompleted && !bCompleted) return 1;
+              if (!aCompleted && bCompleted) return -1;
+              return 0;
+            }).map((job) => {
               const isExpanded = expandedDescriptions.has(job.id);
               const description = job.description || job.summaryOfWorks;
               const shouldTruncate = description.length > 100;
@@ -656,16 +663,25 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                   </td>
                   <td onClick={(e) => e.stopPropagation()}>
                     <div className="relative min-w-[110px]">
-                      <div 
-                        className="cursor-pointer"
-                        onClick={() => setShowProgressEditor(job.id)}
-                      >
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-xs font-medium">{job.progress}%</span>
+                      {isCompleted ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-emerald-700 dark:text-emerald-300 font-black text-sm uppercase tracking-wide">
+                            COMPLETED
+                          </span>
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                         </div>
-                        <Progress value={job.progress} className="h-2" />
-                      </div>
-                      {showProgressEditor === job.id && (
+                      ) : (
+                        <div 
+                          className="cursor-pointer"
+                          onClick={() => setShowProgressEditor(job.id)}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-medium">{job.progress}%</span>
+                          </div>
+                          <Progress value={job.progress} className="h-2" />
+                        </div>
+                      )}
+                      {showProgressEditor === job.id && !isCompleted && (
                         <ProgressEditor
                           currentProgress={job.progress}
                           currentNotes={job.progressNotes}

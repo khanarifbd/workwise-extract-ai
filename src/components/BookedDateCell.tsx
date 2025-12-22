@@ -61,25 +61,26 @@ export const BookedDateCell = ({ bookedDate, onDateChange }: BookedDateCellProps
       {isOpen && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
-          <div className="absolute top-full left-0 mt-1 z-50 bg-card border border-border rounded-lg shadow-xl p-2 min-w-[180px]">
-            <div className="space-y-2">
-              <input
-                type="date"
-                value={inputValue}
-                onChange={(e) => handleDateInput(e.target.value)}
-                className="w-full px-2 py-1.5 text-xs border border-border rounded bg-background text-foreground"
-                autoFocus
-              />
+          <div className="absolute top-full left-0 mt-1 z-50 bg-card border border-border rounded-lg shadow-xl p-3 min-w-[200px]">
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Set Date</label>
+                <input
+                  type="date"
+                  value={inputValue}
+                  onChange={(e) => handleDateInput(e.target.value)}
+                  className="w-full px-2 py-1.5 text-xs border border-border rounded bg-background text-foreground"
+                  autoFocus
+                />
+              </div>
               
-              {bookedDate && (
-                <button
-                  onClick={handleClear}
-                  className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs rounded bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
-                >
-                  <X className="w-3 h-3" />
-                  Clear Booked Date
-                </button>
-              )}
+              <button
+                onClick={handleClear}
+                className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs rounded bg-muted text-muted-foreground hover:bg-muted/80 transition-colors border border-border"
+              >
+                <X className="w-3 h-3" />
+                Set as Not Booked
+              </button>
             </div>
           </div>
         </>
