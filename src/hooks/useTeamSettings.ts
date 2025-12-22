@@ -7,6 +7,9 @@ export interface TeamSetting {
   teamId: string;
   teamName: string;
   whatsappGroup: string | null;
+  color?: string;
+  type?: 'dm' | 'fan';
+  isCustom?: boolean;
 }
 
 export const useTeamSettings = () => {
@@ -29,6 +32,9 @@ export const useTeamSettings = () => {
           teamId: row.team_id,
           teamName: row.team_name,
           whatsappGroup: row.whatsapp_group,
+          color: row.color,
+          type: row.team_type,
+          isCustom: row.is_custom || false,
         }))
       );
     } catch (error) {
@@ -69,9 +75,88 @@ export const useTeamSettings = () => {
     }
   };
 
+  const addTeamMember = async (member: {
+    name: string;
+    color: string;
+    whatsappGroup: string | null;
+    type: 'dm' | 'fan';
+  }) => {
+    try {
+      const teamId = `custom-${member.type}-${Date.now()}`;
+      const { data, error } = await supabase
+        .from('team_notification_settings')
+        .insert({
+          team_id: teamId,
+          team_name: member.name,
+          whatsapp_group: member.whatsappGroup,
+          color: member.color,
+          team_type: member.type,
+          is_custom: true,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setSettings((prev) => [
+        ...prev,
+        {
+          id: data.id,
+          teamId: data.team_id,
+          teamName: data.team_name,
+          whatsappGroup: data.whatsapp_group,
+          color: data.color,
+          type: data.team_type,
+          isCustom: true,
+        },
+      ]);
+
+      toast({
+        title: 'Team member added',
+        description: `${member.name} has been added to the team.`,
+      });
+    } catch (error) {
+      console.error('Error adding team member:', error);
+      toast({
+        title: 'Failed to add team member',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const removeTeamMember = async (teamId: string) => {
+    try {
+      const { error } = await supabase
+        .from('team_notification_settings')
+        .delete()
+        .eq('team_id', teamId);
+
+      if (error) throw error;
+
+      setSettings((prev) => prev.filter((s) => s.teamId !== teamId));
+
+      toast({
+        title: 'Team member removed',
+      });
+    } catch (error) {
+      console.error('Error removing team member:', error);
+      toast({
+        title: 'Failed to remove team member',
+        variant: 'destructive',
+      });
+    }
+  };
+
   useEffect(() => {
     loadSettings();
   }, []);
 
-  return { settings, isLoading, updateSetting, refreshSettings: loadSettings };
+  return { 
+    settings, 
+    isLoading, 
+    updateSetting, 
+    addTeamMember, 
+    removeTeamMember, 
+    refreshSettings: loadSettings 
+  };
 };
