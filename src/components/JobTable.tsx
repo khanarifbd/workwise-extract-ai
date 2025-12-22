@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Job, ALLSAINTS_TEAMS, FAN_TEAMS, JobStatus, FanInfo } from '@/types/job';
+import { useState, useMemo } from 'react';
+import { Job, JobStatus, FanInfo, Team } from '@/types/job';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -23,7 +23,8 @@ import {
   Wand2,
   CheckCircle,
   AlertTriangle,
-  Copy
+  Copy,
+  ArrowRightLeft
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TeamSelector } from './TeamSelector';
@@ -34,6 +35,8 @@ import { BookedDateCell } from './BookedDateCell';
 import { InlineDescriptionEditor } from './InlineDescriptionEditor';
 import { extractFansWithAI, createLinkedFanJob } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
+import { useTeamSettings } from '@/hooks/useTeamSettings';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,9 +50,11 @@ interface JobTableProps {
   onDeleteJob: (jobId: string) => void;
   onToggleComplete: (job: Job) => void;
   onBatchUpdateTeam?: (jobIds: string[], teamName: string | null) => void;
+  onTransferJob?: (jobId: string, targetCategoryId: string) => void;
   fanCategoryId?: string;
   onFanJobCreated?: () => void;
   isFanCategory?: boolean;
+  categories?: { id: string; name: string; color: string }[];
 }
 
 // Helper to find duplicate job numbers
@@ -68,8 +73,9 @@ const findDuplicates = (jobs: Job[]): Set<string> => {
   return duplicates;
 };
 
-export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onBatchUpdateTeam, fanCategoryId, onFanJobCreated, isFanCategory = false }: JobTableProps) => {
+export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onBatchUpdateTeam, onTransferJob, fanCategoryId, onFanJobCreated, isFanCategory = false, categories = [] }: JobTableProps) => {
   const [showTeamSelector, setShowTeamSelector] = useState<string | null>(null);
+  const [showTransferModal, setShowTransferModal] = useState<Job | null>(null);
   const [showProgressEditor, setShowProgressEditor] = useState<string | null>(null);
   const [showJobDetails, setShowJobDetails] = useState<Job | null>(null);
   const [expandedDescriptions, setExpandedDescriptions] = useState<Set<string>>(new Set());
@@ -79,9 +85,19 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
   const [isBulkScanning, setIsBulkScanning] = useState(false);
   const [duplicateActionJob, setDuplicateActionJob] = useState<Job | null>(null);
   const { toast } = useToast();
+  const { settings: teamSettings } = useTeamSettings();
   
-  // Use fan teams for fan category
-  const teams = isFanCategory ? FAN_TEAMS : ALLSAINTS_TEAMS;
+  // Build dynamic teams list from settings based on category type
+  const teams: Team[] = useMemo(() => {
+    return teamSettings
+      .filter(s => isFanCategory ? s.type === 'fan' : s.type === 'dm' || !s.type)
+      .map(s => ({
+        id: s.teamId,
+        name: s.teamName,
+        color: s.color || '#3B82F6',
+        whatsappGroup: s.whatsappGroup || undefined,
+      }));
+  }, [teamSettings, isFanCategory]);
   
   // Find all duplicate job numbers
   const duplicateJobIds = findDuplicates(jobs);
@@ -414,23 +430,27 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
             {showBatchTeamSelector && (
               <div className="absolute top-full right-0 mt-2 z-50 bg-card border border-border rounded-lg shadow-xl p-2 min-w-[180px]">
                 <div className="text-xs font-medium text-muted-foreground px-2 py-1 mb-1">Select Team</div>
-                <button
-                  className="w-full text-left px-2 py-1.5 rounded hover:bg-muted text-sm flex items-center gap-2"
-                  onClick={() => handleBatchTeamSelect(null)}
-                >
-                  <div className="w-3 h-3 rounded-full bg-muted-foreground/30" />
-                  Unassign
-                </button>
-                {teams.map(team => (
-                  <button
-                    key={team.id}
-                    className="w-full text-left px-2 py-1.5 rounded hover:bg-muted text-sm flex items-center gap-2"
-                    onClick={() => handleBatchTeamSelect(team.id)}
-                  >
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: team.color }} />
-                    {team.name}
-                  </button>
-                ))}
+                <ScrollArea className="max-h-64">
+                  <div className="space-y-0.5 pr-2">
+                    <button
+                      className="w-full text-left px-2 py-1.5 rounded hover:bg-muted text-sm flex items-center gap-2"
+                      onClick={() => handleBatchTeamSelect(null)}
+                    >
+                      <div className="w-3 h-3 rounded-full bg-muted-foreground/30" />
+                      Unassign
+                    </button>
+                    {teams.map(team => (
+                      <button
+                        key={team.id}
+                        className="w-full text-left px-2 py-1.5 rounded hover:bg-muted text-sm flex items-center gap-2"
+                        onClick={() => handleBatchTeamSelect(team.id)}
+                      >
+                        <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: team.color }} />
+                        <span className="truncate">{team.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </ScrollArea>
               </div>
             )}
           </div>
@@ -724,6 +744,12 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                             <Edit2 className="w-4 h-4 mr-2" />
                             Edit Details
                           </DropdownMenuItem>
+                          {onTransferJob && categories.length > 1 && (
+                            <DropdownMenuItem onClick={() => setShowTransferModal(job)}>
+                              <ArrowRightLeft className="w-4 h-4 mr-2" />
+                              Transfer to...
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem 
                             className="text-destructive"
                             onClick={() => {
@@ -854,6 +880,65 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
               >
                 <Trash2 className="w-4 h-4" />
                 Delete This Job
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Transfer Job Modal */}
+      {showTransferModal && onTransferJob && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-sm animate-scale-in">
+            <div className="flex items-center gap-3 px-5 py-4 border-b border-border bg-muted/30">
+              <div className="p-2 rounded-full bg-primary/20">
+                <ArrowRightLeft className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold">Transfer Job</h2>
+                <p className="text-sm text-muted-foreground">
+                  Move <span className="font-mono font-medium">#{showTransferModal.jobNumber}</span> to another database
+                </p>
+              </div>
+              <button 
+                onClick={() => setShowTransferModal(null)} 
+                className="ml-auto p-2 hover:bg-muted rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5">
+              <p className="text-sm text-muted-foreground mb-3">Select destination:</p>
+              <ScrollArea className="max-h-64">
+                <div className="space-y-2 pr-2">
+                  {categories.map(cat => (
+                    <button
+                      key={cat.id}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border border-border hover:bg-muted transition-colors text-left"
+                      onClick={() => {
+                        onTransferJob(showTransferModal.id, cat.id);
+                        toast({
+                          title: "Job Transferred",
+                          description: `Job #${showTransferModal.jobNumber} moved to ${cat.name}.`,
+                        });
+                        setShowTransferModal(null);
+                      }}
+                    >
+                      <div 
+                        className="w-3 h-3 rounded-full flex-shrink-0" 
+                        style={{ backgroundColor: cat.color }} 
+                      />
+                      <span className="font-medium text-sm">{cat.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </ScrollArea>
+            </div>
+
+            <div className="flex justify-end gap-2 px-5 pb-5">
+              <Button variant="outline" onClick={() => setShowTransferModal(null)}>
+                Cancel
               </Button>
             </div>
           </div>
