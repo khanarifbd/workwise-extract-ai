@@ -92,21 +92,22 @@ export const useTeamSettings = () => {
           color: member.color,
           team_type: member.type,
           is_custom: true,
-        })
+        } as any)
         .select()
         .single();
 
       if (error) throw error;
 
+      const row = data as any;
       setSettings((prev) => [
         ...prev,
         {
-          id: data.id,
-          teamId: data.team_id,
-          teamName: data.team_name,
-          whatsappGroup: data.whatsapp_group,
-          color: data.color,
-          type: data.team_type,
+          id: row.id,
+          teamId: row.team_id,
+          teamName: row.team_name,
+          whatsappGroup: row.whatsapp_group,
+          color: row.color,
+          type: row.team_type,
           isCustom: true,
         },
       ]);
