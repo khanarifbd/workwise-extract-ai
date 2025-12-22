@@ -222,6 +222,23 @@ const Index = () => {
     }
   };
 
+  const handleTransferJob = async (jobId: string, targetCategoryId: string) => {
+    try {
+      await editJob(jobId, { categoryId: targetCategoryId } as any);
+      refreshJobs();
+      toast({
+        title: "Job Transferred",
+        description: `Job has been moved to the new category.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Transfer Failed",
+        description: "Could not transfer the job.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleKanbanMoveJob = useCallback(async (jobId: string, newTeam: string | null, newStatus?: string) => {
     const job = jobs.find(j => j.id === jobId);
     if (!job) return;
@@ -734,9 +751,11 @@ const Index = () => {
                 onDeleteJob={handleDeleteJob}
                 onToggleComplete={handleToggleComplete}
                 onBatchUpdateTeam={handleBatchUpdateTeam}
+                onTransferJob={handleTransferJob}
                 fanCategoryId={categories.find(c => c.name.toLowerCase().includes('fan'))?.id}
                 onFanJobCreated={refreshJobs}
                 isFanCategory={isFanCategory}
+                categories={categories.filter(c => c.id !== activeCategory).map(c => ({ id: c.id, name: c.name, color: c.color }))}
               />
             ) : viewType === 'kanban' ? (
               <KanbanBoard

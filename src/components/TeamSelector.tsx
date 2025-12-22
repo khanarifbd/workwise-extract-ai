@@ -1,9 +1,10 @@
-import { ALLSAINTS_TEAMS, FAN_TEAMS, Job, Team } from '@/types/job';
-import { MessageCircle, ExternalLink, UserX } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { Job, Team } from '@/types/job';
+import { MessageCircle, ExternalLink, UserX, Loader2 } from 'lucide-react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { sendWhatsAppNotification, saveNotificationToHistory } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { useTeamSettings } from '@/hooks/useTeamSettings';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface TeamSelectorProps {
   job: Job;
@@ -16,10 +17,19 @@ export const TeamSelector = ({ job, onSelect, onClose, isFanCategory = false }: 
   const ref = useRef<HTMLDivElement>(null);
   const [isSending, setIsSending] = useState(false);
   const { toast } = useToast();
-  const { settings } = useTeamSettings();
+  const { settings, isLoading } = useTeamSettings();
   
-  // Use fan teams if this is a fan category job
-  const teams: Team[] = isFanCategory ? FAN_TEAMS : ALLSAINTS_TEAMS;
+  // Build dynamic teams list from settings based on category type
+  const teams: Team[] = useMemo(() => {
+    return settings
+      .filter(s => isFanCategory ? s.type === 'fan' : s.type === 'dm' || !s.type)
+      .map(s => ({
+        id: s.teamId,
+        name: s.teamName,
+        color: s.color || '#3B82F6',
+        whatsappGroup: s.whatsappGroup || undefined,
+      }));
+  }, [settings, isFanCategory]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -140,43 +150,57 @@ export const TeamSelector = ({ job, onSelect, onClose, isFanCategory = false }: 
       <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
         {isFanCategory ? 'Fan Installers' : 'Allsaints Teams'}
       </div>
-      <div className="space-y-1 max-h-48 overflow-y-auto">
-        {/* Unassign option */}
-        {job.team && (
-          <button
-            onClick={handleUnassign}
-            disabled={isSending}
-            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-destructive/10 transition-colors text-left disabled:opacity-50 text-destructive"
-          >
-            <UserX className="w-4 h-4" />
-            <span className="flex-1 font-medium text-sm">Unassign Team</span>
-          </button>
-        )}
-        
-        {teams.map((team) => {
-          const hasWhatsApp = !!getTeamWhatsApp(team.id);
-          return (
-            <button
-              key={team.id}
-              onClick={() => handleTeamClick(team.id, team.name)}
-              disabled={isSending}
-              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted transition-colors text-left disabled:opacity-50"
-            >
-              <div 
-                className="w-3 h-3 rounded-full"
-                style={{ backgroundColor: team.color }}
-              />
-              <span className="flex-1 font-medium text-sm">{team.name}</span>
-              {hasWhatsApp && (
-                <div className="flex items-center gap-1">
-                  <MessageCircle className="w-4 h-4 text-success" />
-                  <ExternalLink className="w-3 h-3 text-muted-foreground" />
-                </div>
+      <ScrollArea className="max-h-64">
+        <div className="space-y-1 pr-2">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+            </div>
+          ) : teams.length === 0 ? (
+            <div className="px-3 py-2 text-sm text-muted-foreground">
+              No team members configured
+            </div>
+          ) : (
+            <>
+              {/* Unassign option */}
+              {job.team && (
+                <button
+                  onClick={handleUnassign}
+                  disabled={isSending}
+                  className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-destructive/10 transition-colors text-left disabled:opacity-50 text-destructive"
+                >
+                  <UserX className="w-4 h-4" />
+                  <span className="flex-1 font-medium text-sm">Unassign Team</span>
+                </button>
               )}
-            </button>
-          );
-        })}
-      </div>
+              
+              {teams.map((team) => {
+                const hasWhatsApp = !!getTeamWhatsApp(team.id);
+                return (
+                  <button
+                    key={team.id}
+                    onClick={() => handleTeamClick(team.id, team.name)}
+                    disabled={isSending}
+                    className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted transition-colors text-left disabled:opacity-50"
+                  >
+                    <div 
+                      className="w-3 h-3 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: team.color }}
+                    />
+                    <span className="flex-1 font-medium text-sm truncate">{team.name}</span>
+                    {hasWhatsApp && (
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <MessageCircle className="w-4 h-4 text-success" />
+                        <ExternalLink className="w-3 h-3 text-muted-foreground" />
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </>
+          )}
+        </div>
+      </ScrollArea>
       {isSending && (
         <div className="px-2 py-1 text-xs text-muted-foreground text-center">
           Preparing WhatsApp...
