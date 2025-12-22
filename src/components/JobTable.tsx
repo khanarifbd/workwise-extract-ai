@@ -21,7 +21,9 @@ import {
   Fan,
   Loader2,
   Wand2,
-  CheckCircle
+  CheckCircle,
+  AlertTriangle,
+  Copy
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TeamSelector } from './TeamSelector';
@@ -50,6 +52,22 @@ interface JobTableProps {
   isFanCategory?: boolean;
 }
 
+// Helper to find duplicate job numbers
+const findDuplicates = (jobs: Job[]): Set<string> => {
+  const jobNumberCounts = new Map<string, number>();
+  jobs.forEach(job => {
+    const key = job.jobNumber.toLowerCase();
+    jobNumberCounts.set(key, (jobNumberCounts.get(key) || 0) + 1);
+  });
+  const duplicates = new Set<string>();
+  jobs.forEach(job => {
+    if ((jobNumberCounts.get(job.jobNumber.toLowerCase()) || 0) > 1) {
+      duplicates.add(job.id);
+    }
+  });
+  return duplicates;
+};
+
 export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onBatchUpdateTeam, fanCategoryId, onFanJobCreated, isFanCategory = false }: JobTableProps) => {
   const [showTeamSelector, setShowTeamSelector] = useState<string | null>(null);
   const [showProgressEditor, setShowProgressEditor] = useState<string | null>(null);
@@ -59,10 +77,14 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
   const [showBatchTeamSelector, setShowBatchTeamSelector] = useState(false);
   const [scanningFanJobId, setScanningFanJobId] = useState<string | null>(null);
   const [isBulkScanning, setIsBulkScanning] = useState(false);
+  const [duplicateActionJob, setDuplicateActionJob] = useState<Job | null>(null);
   const { toast } = useToast();
   
   // Use fan teams for fan category
   const teams = isFanCategory ? FAN_TEAMS : ALLSAINTS_TEAMS;
+  
+  // Find all duplicate job numbers
+  const duplicateJobIds = findDuplicates(jobs);
 
   const handleTeamSelect = (jobId: string, teamId: string | null) => {
     const job = jobs.find(j => j.id === jobId);
@@ -177,10 +199,28 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
         onUpdateJob({ ...job, fanInfo: fanInfoToSave });
         
         if (result.hasFans && result.fans.length > 0) {
-          toast({
-            title: "Fans Found!",
-            description: `Found ${result.totalFanCount} fan(s) in ${result.fans.length} type(s).`,
-          });
+          // Auto-create linked fan job if category exists and not already linked
+          if (fanCategoryId && !job.linkedFanJobId) {
+            try {
+              await createLinkedFanJob(job, result.fans, fanCategoryId);
+              onFanJobCreated?.();
+              toast({
+                title: "Fans Found & Job Created!",
+                description: `Found ${result.totalFanCount} fan(s) - linked fan job created.`,
+              });
+            } catch (createError) {
+              console.error('Failed to create linked fan job:', createError);
+              toast({
+                title: "Fans Found!",
+                description: `Found ${result.totalFanCount} fan(s) in ${result.fans.length} type(s).`,
+              });
+            }
+          } else {
+            toast({
+              title: "Fans Found!",
+              description: `Found ${result.totalFanCount} fan(s) in ${result.fans.length} type(s).`,
+            });
+          }
         } else {
           toast({
             title: "No Fans Found",
@@ -428,42 +468,62 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
               const description = job.description || job.summaryOfWorks;
               const shouldTruncate = description.length > 100;
               const isCompleted = job.status === 'complete' || job.isCompleted || job.progress === 100;
+              const isDuplicate = duplicateJobIds.has(job.id);
               
               return (
                 <tr 
                   key={job.id} 
                   className={cn(
-                    "transition-colors cursor-pointer",
-                    isCompleted 
-                      ? "bg-emerald-200/80 dark:bg-emerald-800/60 border-l-4 border-l-emerald-500 hover:bg-emerald-300/80 dark:hover:bg-emerald-700/60 ring-1 ring-emerald-300 dark:ring-emerald-600" 
-                      : "hover:bg-muted/30",
+                    "transition-colors cursor-pointer relative",
+                    isDuplicate 
+                      ? "bg-red-500/30 dark:bg-red-900/50 border-l-8 border-l-red-600 hover:bg-red-500/40 dark:hover:bg-red-800/60 ring-2 ring-red-500 animate-pulse" 
+                      : isCompleted 
+                        ? "bg-emerald-200/80 dark:bg-emerald-800/60 border-l-4 border-l-emerald-500 hover:bg-emerald-300/80 dark:hover:bg-emerald-700/60 ring-1 ring-emerald-300 dark:ring-emerald-600" 
+                        : "hover:bg-muted/30",
                     selectedJobs.has(job.id) && "bg-primary/5"
                   )}
-                  onClick={() => setShowJobDetails(job)}
+                  onClick={() => isDuplicate ? setDuplicateActionJob(job) : setShowJobDetails(job)}
                 >
+                  {/* Duplicate Overlay */}
+                  {isDuplicate && (
+                    <td colSpan={1} className="absolute inset-0 pointer-events-none flex items-center justify-center z-10">
+                      <div className="absolute inset-0 flex items-center">
+                        <span className="text-red-700 dark:text-red-300 font-black text-4xl tracking-widest opacity-40 rotate-[-5deg] whitespace-nowrap ml-[200px]">
+                          DUPLICATE
+                        </span>
+                      </div>
+                    </td>
+                  )}
                   {/* Checkbox Column */}
-                  <td className="text-center" onClick={(e) => e.stopPropagation()}>
+                  <td className="text-center relative z-20" onClick={(e) => e.stopPropagation()}>
                     <Checkbox
                       checked={selectedJobs.has(job.id)}
                       onCheckedChange={() => toggleJobSelection(job.id)}
                     />
                   </td>
                   {/* Issued Column - When job was uploaded */}
-                  <td className="font-mono text-muted-foreground">
+                  <td className="font-mono text-muted-foreground relative z-20">
                     {format(job.dateIssued, 'dd/MM/yy')}
                   </td>
-                  <td onClick={(e) => e.stopPropagation()}>
+                  <td onClick={(e) => e.stopPropagation()} className="relative z-20">
                     <BookedDateCell
                       bookedDate={job.bookedDate}
                       onDateChange={(date) => handleBookedDateChange(job.id, date)}
                     />
                   </td>
-                  <td>
-                    <span className="font-mono font-semibold text-primary">
-                      {job.jobNumber}
-                    </span>
+                  <td className="relative z-20">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-semibold text-primary">
+                        {job.jobNumber}
+                      </span>
+                      {isDuplicate && (
+                        <Badge className="bg-red-600 text-white font-bold text-xs animate-pulse">
+                          DUP
+                        </Badge>
+                      )}
+                    </div>
                   </td>
-                  <td>
+                  <td className="relative z-20">
                     <div className="space-y-1">
                       <p className="font-medium text-foreground">{job.name}</p>
                       <div className="flex items-center gap-1.5 text-muted-foreground">
@@ -476,7 +536,7 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                       </div>
                     </div>
                   </td>
-                  <td onClick={(e) => e.stopPropagation()}>
+                  <td onClick={(e) => e.stopPropagation()} className="relative z-20">
                     <InlineDescriptionEditor
                       description={description}
                       onSave={(newDesc) => handleDescriptionSave(job.id, newDesc)}
@@ -688,6 +748,100 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
           onClose={() => setShowJobDetails(null)}
           onUpdate={onUpdateJob}
         />
+      )}
+
+      {/* Duplicate Action Modal */}
+      {duplicateActionJob && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-card border-4 border-red-500 rounded-xl shadow-2xl w-full max-w-md animate-scale-in">
+            {/* Header */}
+            <div className="flex items-center gap-3 px-5 py-4 border-b border-red-500 bg-red-500/20">
+              <div className="p-2 rounded-full bg-red-500/30">
+                <AlertTriangle className="w-6 h-6 text-red-600" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-red-700 dark:text-red-400">DUPLICATE JOB</h2>
+                <p className="text-sm text-muted-foreground">
+                  Job <span className="font-mono font-bold">{duplicateActionJob.jobNumber}</span> appears multiple times
+                </p>
+              </div>
+              <button 
+                onClick={() => setDuplicateActionJob(null)} 
+                className="ml-auto p-2 hover:bg-muted rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Job Details */}
+            <div className="p-5 space-y-3">
+              <div className="border border-border rounded-lg p-3 bg-muted/20">
+                <p className="font-semibold">{duplicateActionJob.name}</p>
+                <p className="text-sm text-muted-foreground truncate">{duplicateActionJob.address}</p>
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="text-xs bg-muted px-2 py-0.5 rounded">
+                    {duplicateActionJob.workItems.length} work items
+                  </span>
+                  <span className="text-xs bg-muted px-2 py-0.5 rounded">
+                    {duplicateActionJob.progress}% complete
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    Added {format(duplicateActionJob.dateIssued, 'dd MMM yyyy')}
+                  </span>
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Choose an action for this duplicate job:
+              </p>
+            </div>
+
+            {/* Actions */}
+            <div className="flex flex-col gap-2 px-5 pb-5">
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-2"
+                onClick={() => {
+                  setShowJobDetails(duplicateActionJob);
+                  setDuplicateActionJob(null);
+                }}
+              >
+                <Edit2 className="w-4 h-4" />
+                Edit / Modify This Job
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-2"
+                onClick={() => {
+                  const newJobNumber = `${duplicateActionJob.jobNumber}-${Date.now().toString().slice(-4)}`;
+                  onUpdateJob({ ...duplicateActionJob, jobNumber: newJobNumber });
+                  toast({
+                    title: "Job Number Updated",
+                    description: `Changed to ${newJobNumber} to resolve duplicate.`,
+                  });
+                  setDuplicateActionJob(null);
+                }}
+              >
+                <Copy className="w-4 h-4" />
+                Keep with New Job Number
+              </Button>
+              <Button
+                variant="destructive"
+                className="w-full justify-start gap-2"
+                onClick={() => {
+                  onDeleteJob(duplicateActionJob.id);
+                  toast({
+                    title: "Duplicate Deleted",
+                    description: `Job #${duplicateActionJob.jobNumber} has been removed.`,
+                  });
+                  setDuplicateActionJob(null);
+                }}
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete This Job
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

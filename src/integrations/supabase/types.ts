@@ -353,26 +353,35 @@ export type Database = {
       }
       team_notification_settings: {
         Row: {
+          color: string | null
           created_at: string
           id: string
+          is_custom: boolean | null
           team_id: string
           team_name: string
+          team_type: string | null
           updated_at: string
           whatsapp_group: string | null
         }
         Insert: {
+          color?: string | null
           created_at?: string
           id?: string
+          is_custom?: boolean | null
           team_id: string
           team_name: string
+          team_type?: string | null
           updated_at?: string
           whatsapp_group?: string | null
         }
         Update: {
+          color?: string | null
           created_at?: string
           id?: string
+          is_custom?: boolean | null
           team_id?: string
           team_name?: string
+          team_type?: string | null
           updated_at?: string
           whatsapp_group?: string | null
         }
