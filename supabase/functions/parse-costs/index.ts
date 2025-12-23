@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
@@ -7,7 +6,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Input validation schema
 const parseCostsSchema = z.object({
   input: z.string().min(1, "Input is required").max(5000, "Input too long"),
 });
@@ -18,43 +16,6 @@ serve(async (req) => {
   }
 
   try {
-    // Authenticate the request
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      console.error('Missing or invalid Authorization header');
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized - missing authentication' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-    
-    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } }
-    });
-
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
-    if (authError || !user) {
-      console.error('Authentication failed:', authError?.message);
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized - invalid token' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Verify user is admin
-    const { data: isAdmin, error: roleError } = await supabaseClient.rpc('is_admin', { _user_id: user.id });
-    if (roleError || !isAdmin) {
-      console.error('Admin check failed:', roleError?.message || 'User is not admin');
-      return new Response(
-        JSON.stringify({ error: 'Forbidden - admin access required' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Parse and validate input
     const rawBody = await req.json();
     const parseResult = parseCostsSchema.safeParse(rawBody);
     
@@ -73,28 +34,39 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
-    console.log(`Parsing costs for user ${user.id}...`);
+    console.log('Parsing costs input:', input);
 
     const systemPrompt = `You are a construction cost extraction specialist. Parse the user's natural language input and extract costs into three categories: materials, labour, and other.
 
-Rules:
-1. "Materials" includes: parts, supplies, equipment purchases, consumables
+CRITICAL RULES:
+1. "Materials" includes: parts, supplies, equipment purchases, consumables, building materials
 2. "Labour" includes: worker time, installation fees, service charges based on time
 3. "Other" includes: disposal, skip hire, permits, travel, accommodation, anything else
 
-If the user mentions "days" or hourly rates, calculate the total (e.g., "2 days at £200/day" = £400 labour).
-If amounts are unclear, make reasonable estimates for UK construction work.
+CALCULATION RULES:
+- If user mentions "days" or daily rates, calculate: days × rate (e.g., "2 days at £200/day" = £400)
+- If user mentions "hours" or hourly rates, calculate: hours × rate (e.g., "8 hours at £25/hour" = £200)
+- If user mentions "weeks", calculate: weeks × 5 days × daily rate
+- Extract ALL numeric values mentioned with £ or "pounds"
+- If a number has "k" suffix, multiply by 1000 (e.g., "2k" = 2000)
 
-Return ONLY a JSON object in this exact format:
+EXAMPLES:
+Input: "Materials about £500, labour 2 days at £200 per day, skip hire £150"
+Output: {"materials": 500, "labour": 400, "other": 150, "notes": "Materials: £500, Labour: 2 days × £200 = £400, Skip hire: £150"}
+
+Input: "parts 1.2k, 3 men for 2 days at 180 each per day, disposal 200"
+Output: {"materials": 1200, "labour": 1080, "other": 200, "notes": "Parts: £1,200, Labour: 3 workers × 2 days × £180 = £1,080, Disposal: £200"}
+
+Input: "total job cost around 2500, mostly labour"
+Output: {"materials": 500, "labour": 1750, "other": 250, "notes": "Estimated split of £2,500: Materials ~20%, Labour ~70%, Other ~10%"}
+
+Return ONLY a valid JSON object with this exact structure:
 {
   "materials": number,
   "labour": number,
   "other": number,
-  "notes": "Brief breakdown of what was extracted"
-}
-
-Example input: "Materials about £500, labour 2 days at £200 per day, skip hire £150"
-Example output: {"materials": 500, "labour": 400, "other": 150, "notes": "Materials: £500, Labour: 2 days x £200 = £400, Skip hire: £150"}`;
+  "notes": "Brief breakdown of calculations"
+}`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -136,18 +108,34 @@ Example output: {"materials": 500, "labour": 400, "other": 150, "notes": "Materi
       throw new Error('No content in AI response');
     }
 
-    console.log('AI cost parsing completed for user:', user.id);
+    console.log('AI response:', content);
 
-    // Parse the JSON from the response
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error('Could not parse JSON from AI response');
+    // Parse the JSON from the response - handle markdown code blocks
+    let jsonStr = content;
+    const codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (codeBlockMatch) {
+      jsonStr = codeBlockMatch[1].trim();
+    } else {
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        jsonStr = jsonMatch[0];
+      }
     }
 
-    const costs = JSON.parse(jsonMatch[0]);
+    const costs = JSON.parse(jsonStr);
+    
+    // Ensure all values are numbers
+    const result = {
+      materials: Number(costs.materials) || 0,
+      labour: Number(costs.labour) || 0,
+      other: Number(costs.other) || 0,
+      notes: String(costs.notes || '')
+    };
+
+    console.log('Parsed costs:', result);
 
     return new Response(
-      JSON.stringify({ success: true, costs }),
+      JSON.stringify({ success: true, costs: result }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
