@@ -539,7 +539,9 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                   <td onClick={(e) => e.stopPropagation()} className="relative z-20">
                     <BookedDateCell
                       bookedDate={job.bookedDate}
+                      bookingNotes={job.bookingNotes || ''}
                       onDateChange={(date) => handleBookedDateChange(job.id, date)}
+                      onNotesChange={(notes) => onUpdateJob({ ...job, bookingNotes: notes })}
                     />
                   </td>
                   <td className="relative z-20">

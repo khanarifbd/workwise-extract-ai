@@ -80,6 +80,7 @@ export type Database = {
           address: string | null
           attachments: Json | null
           booked_date: string | null
+          booking_notes: string | null
           category_id: string | null
           completion_date: string | null
           created_at: string
@@ -106,6 +107,7 @@ export type Database = {
           address?: string | null
           attachments?: Json | null
           booked_date?: string | null
+          booking_notes?: string | null
           category_id?: string | null
           completion_date?: string | null
           created_at?: string
@@ -132,6 +134,7 @@ export type Database = {
           address?: string | null
           attachments?: Json | null
           booked_date?: string | null
+          booking_notes?: string | null
           category_id?: string | null
           completion_date?: string | null
           created_at?: string
