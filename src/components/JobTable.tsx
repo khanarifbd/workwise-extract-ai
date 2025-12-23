@@ -506,9 +506,11 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                     "transition-colors cursor-pointer relative",
                     isDuplicate 
                       ? "bg-red-500/30 dark:bg-red-900/50 border-l-8 border-l-red-600 hover:bg-red-500/40 dark:hover:bg-red-800/60 ring-2 ring-red-500 animate-pulse" 
-                      : isCompleted 
-                        ? "bg-emerald-200/80 dark:bg-emerald-800/60 border-l-4 border-l-emerald-500 hover:bg-emerald-300/80 dark:hover:bg-emerald-700/60 ring-1 ring-emerald-300 dark:ring-emerald-600" 
-                        : "hover:bg-muted/30",
+                      : job.bookedDate
+                        ? "bg-amber-400/50 dark:bg-amber-600/40 border-l-4 border-l-amber-500 hover:bg-amber-400/60 dark:hover:bg-amber-600/50 ring-1 ring-amber-400"
+                        : isCompleted 
+                          ? "bg-emerald-200/80 dark:bg-emerald-800/60 border-l-4 border-l-emerald-500 hover:bg-emerald-300/80 dark:hover:bg-emerald-700/60 ring-1 ring-emerald-300 dark:ring-emerald-600" 
+                          : "hover:bg-muted/30",
                     selectedJobs.has(job.id) && "bg-primary/5"
                   )}
                   onClick={() => isDuplicate ? setDuplicateActionJob(job) : setShowJobDetails(job)}
