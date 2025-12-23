@@ -33,6 +33,7 @@ type FileType = 'pdf' | 'image';
 type ViewType = 'table' | 'kanban' | 'calendar';
 type KanbanGroupBy = 'team' | 'status';
 type DatabaseTab = 'all' | 'booked';
+type BookedSortOrder = 'newest' | 'oldest';
 
 const Index = () => {
   const { categories, isLoading: categoriesLoading, addCategory, updateCategory, deleteCategory } = useCategories();
@@ -49,6 +50,7 @@ const Index = () => {
   const [filters, setFilters] = useState<FilterState>(getDefaultFilterState());
   const [activeMonthFolder, setActiveMonthFolder] = useState<string | null>(null);
   const [activeDatabaseTab, setActiveDatabaseTab] = useState<DatabaseTab>('all');
+  const [bookedSortOrder, setBookedSortOrder] = useState<BookedSortOrder>('newest');
   const [duplicateCheck, setDuplicateCheck] = useState<{
     newJob: Omit<Job, 'id'>;
     existingJob: Job;
@@ -500,8 +502,17 @@ const Index = () => {
       return true;
     });
     
+    // Sort by booked date if in booked tab
+    if (activeDatabaseTab === 'booked') {
+      result.sort((a, b) => {
+        const dateA = a.bookedDate ? new Date(a.bookedDate).getTime() : 0;
+        const dateB = b.bookedDate ? new Date(b.bookedDate).getTime() : 0;
+        return bookedSortOrder === 'newest' ? dateB - dateA : dateA - dateB;
+      });
+    }
+    
     return result;
-  }, [jobs, filters, isFanCategory, activeMonthFolder, activeDatabaseTab]);
+  }, [jobs, filters, isFanCategory, activeMonthFolder, activeDatabaseTab, bookedSortOrder]);
 
   // Count booked jobs for badge
   const bookedJobsCount = useMemo(() => {
@@ -814,6 +825,18 @@ const Index = () => {
               </p>
             </div>
             <div className="flex items-center gap-3">
+              {/* Sort by booked date when in BOOKED tab */}
+              {activeDatabaseTab === 'booked' && (
+                <Select value={bookedSortOrder} onValueChange={(v) => setBookedSortOrder(v as BookedSortOrder)}>
+                  <SelectTrigger className="w-40 h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="newest">Newest Booked First</SelectItem>
+                    <SelectItem value="oldest">Oldest Booked First</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
               {viewType === 'kanban' && (
                 <Select value={kanbanGroupBy} onValueChange={(v) => setKanbanGroupBy(v as KanbanGroupBy)}>
                   <SelectTrigger className="w-32 h-8 text-xs">
