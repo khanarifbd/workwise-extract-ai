@@ -36,7 +36,9 @@ export const BookedDateCell = ({ bookedDate, bookingNotes, onDateChange, onNotes
     }
   };
 
-  const handleConfirmBooking = () => {
+  const handleConfirmBooking = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     if (pendingDate) {
       onDateChange(pendingDate);
       setIsOpen(false);
@@ -210,10 +212,11 @@ export const BookedDateCell = ({ bookedDate, bookingNotes, onDateChange, onNotes
             )}
             <div className="flex gap-2">
               <Button
+                type="button"
                 size="sm"
                 onClick={handleConfirmBooking}
                 disabled={!pendingDate}
-                className="flex-1 bg-amber-500 hover:bg-amber-600 text-white"
+                className="flex-1 bg-amber-500 hover:bg-amber-600 text-white pointer-events-auto"
               >
                 <Check className="w-3 h-3 mr-1" />
                 Confirm Booking
