@@ -10,6 +10,7 @@ export interface TeamSetting {
   color?: string;
   type?: 'dm' | 'fan';
   isCustom?: boolean;
+  categoryId?: string | null;
 }
 
 export const useTeamSettings = () => {
@@ -35,6 +36,7 @@ export const useTeamSettings = () => {
           color: row.color,
           type: row.team_type,
           isCustom: row.is_custom || false,
+          categoryId: row.category_id || null,
         }))
       );
     } catch (error) {
@@ -80,6 +82,7 @@ export const useTeamSettings = () => {
     color: string;
     whatsappGroup: string | null;
     type: 'dm' | 'fan';
+    categoryId?: string | null;
   }) => {
     try {
       const teamId = `custom-${member.type}-${Date.now()}`;
@@ -92,6 +95,7 @@ export const useTeamSettings = () => {
           color: member.color,
           team_type: member.type,
           is_custom: true,
+          category_id: member.categoryId || null,
         } as any)
         .select()
         .single();
@@ -109,6 +113,7 @@ export const useTeamSettings = () => {
           color: row.color,
           type: row.team_type,
           isCustom: true,
+          categoryId: row.category_id || null,
         },
       ]);
 
@@ -152,6 +157,7 @@ export const useTeamSettings = () => {
     name: string;
     color: string;
     whatsappGroup: string | null;
+    categoryId?: string | null;
   }) => {
     try {
       const { error } = await supabase
@@ -160,6 +166,7 @@ export const useTeamSettings = () => {
           team_name: updates.name,
           color: updates.color,
           whatsapp_group: updates.whatsappGroup,
+          category_id: updates.categoryId || null,
         })
         .eq('team_id', teamId);
 
@@ -168,7 +175,7 @@ export const useTeamSettings = () => {
       setSettings((prev) =>
         prev.map((s) =>
           s.teamId === teamId
-            ? { ...s, teamName: updates.name, color: updates.color, whatsappGroup: updates.whatsappGroup }
+            ? { ...s, teamName: updates.name, color: updates.color, whatsappGroup: updates.whatsappGroup, categoryId: updates.categoryId }
             : s
         )
       );
@@ -185,6 +192,16 @@ export const useTeamSettings = () => {
     }
   };
 
+  // Get teams for a specific category
+  const getTeamsForCategory = (categoryId: string): TeamSetting[] => {
+    return settings.filter(s => s.categoryId === categoryId);
+  };
+
+  // Get teams without category (legacy/global teams)
+  const getGlobalTeams = (): TeamSetting[] => {
+    return settings.filter(s => !s.categoryId);
+  };
+
   useEffect(() => {
     loadSettings();
   }, []);
@@ -196,6 +213,8 @@ export const useTeamSettings = () => {
     addTeamMember, 
     removeTeamMember, 
     updateTeamMember,
+    getTeamsForCategory,
+    getGlobalTeams,
     refreshSettings: loadSettings 
   };
 };

@@ -353,6 +353,7 @@ export type Database = {
       }
       team_notification_settings: {
         Row: {
+          category_id: string | null
           color: string | null
           created_at: string
           id: string
@@ -364,6 +365,7 @@ export type Database = {
           whatsapp_group: string | null
         }
         Insert: {
+          category_id?: string | null
           color?: string | null
           created_at?: string
           id?: string
@@ -375,6 +377,7 @@ export type Database = {
           whatsapp_group?: string | null
         }
         Update: {
+          category_id?: string | null
           color?: string | null
           created_at?: string
           id?: string
@@ -385,7 +388,15 @@ export type Database = {
           updated_at?: string
           whatsapp_group?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "team_notification_settings_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       team_push_subscriptions: {
         Row: {

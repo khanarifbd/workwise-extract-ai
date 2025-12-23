@@ -51,9 +51,11 @@ interface JobTableProps {
   onToggleComplete: (job: Job) => void;
   onBatchUpdateTeam?: (jobIds: string[], teamName: string | null) => void;
   onTransferJob?: (jobId: string, targetCategoryId: string) => void;
+  onDuplicateToCategory?: (jobId: string, targetCategoryId: string, teamId: string) => void;
   fanCategoryId?: string;
   onFanJobCreated?: () => void;
   isFanCategory?: boolean;
+  currentCategoryId?: string;
   categories?: { id: string; name: string; color: string }[];
 }
 
@@ -73,7 +75,7 @@ const findDuplicates = (jobs: Job[]): Set<string> => {
   return duplicates;
 };
 
-export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onBatchUpdateTeam, onTransferJob, fanCategoryId, onFanJobCreated, isFanCategory = false, categories = [] }: JobTableProps) => {
+export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onBatchUpdateTeam, onTransferJob, onDuplicateToCategory, fanCategoryId, onFanJobCreated, isFanCategory = false, currentCategoryId, categories = [] }: JobTableProps) => {
   const [showTeamSelector, setShowTeamSelector] = useState<string | null>(null);
   const [showTransferModal, setShowTransferModal] = useState<Job | null>(null);
   const [showProgressEditor, setShowProgressEditor] = useState<string | null>(null);
@@ -674,14 +676,12 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                       {showTeamSelector === job.id && (
                         <TeamSelector
                           job={job}
+                          currentCategoryId={currentCategoryId}
                           onSelect={(teamId) => handleTeamSelect(job.id, teamId)}
                           onClose={() => setShowTeamSelector(null)}
-                          isFanCategory={isFanCategory}
-                          onTransferToRoof={(jobId) => {
-                            const roofCategory = categories.find(c => c.name.toLowerCase() === 'roof');
-                            if (roofCategory && onTransferJob) {
-                              onTransferJob(jobId, roofCategory.id);
-                              setShowTeamSelector(null);
+                          onDuplicateToCategory={(jobId, targetCategoryId, teamId) => {
+                            if (onDuplicateToCategory) {
+                              onDuplicateToCategory(jobId, targetCategoryId, teamId);
                             }
                           }}
                         />

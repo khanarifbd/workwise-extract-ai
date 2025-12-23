@@ -239,6 +239,34 @@ const Index = () => {
     }
   };
 
+  const handleDuplicateToCategory = async (jobId: string, targetCategoryId: string, teamId: string) => {
+    const job = jobs.find(j => j.id === jobId);
+    if (!job) return;
+
+    try {
+      // Create a duplicate of the job in the target category
+      const duplicatedJob: Omit<Job, 'id'> = {
+        ...job,
+        team: teamId, // Assign the team from the target category
+        categoryId: targetCategoryId,
+      } as any;
+      
+      // Remove the id field to create a new job
+      await addJob(duplicatedJob);
+      
+      toast({
+        title: "Job Duplicated",
+        description: `Job #${job.jobNumber} has been duplicated to another category.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Duplication Failed",
+        description: "Could not duplicate the job.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleKanbanMoveJob = useCallback(async (jobId: string, newTeam: string | null, newStatus?: string) => {
     const job = jobs.find(j => j.id === jobId);
     if (!job) return;
@@ -752,10 +780,12 @@ const Index = () => {
                 onToggleComplete={handleToggleComplete}
                 onBatchUpdateTeam={handleBatchUpdateTeam}
                 onTransferJob={handleTransferJob}
+                onDuplicateToCategory={handleDuplicateToCategory}
                 fanCategoryId={categories.find(c => c.name.toLowerCase().includes('fan'))?.id}
                 onFanJobCreated={refreshJobs}
                 isFanCategory={isFanCategory}
-                categories={categories.filter(c => c.id !== activeCategory).map(c => ({ id: c.id, name: c.name, color: c.color }))}
+                currentCategoryId={activeCategory || undefined}
+                categories={categories.map(c => ({ id: c.id, name: c.name, color: c.color }))}
               />
             ) : viewType === 'kanban' ? (
               <KanbanBoard
