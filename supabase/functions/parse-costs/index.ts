@@ -36,36 +36,57 @@ serve(async (req) => {
 
     console.log('Parsing costs input:', input);
 
-    const systemPrompt = `You are a construction cost extraction specialist. Parse the user's natural language input and extract costs into three categories: materials, labour, and other.
+    const systemPrompt = `You are a construction cost extraction specialist. Parse the user's natural language input and extract EACH cost as a SEPARATE item.
 
 CRITICAL RULES:
-1. "Materials" includes: parts, supplies, equipment purchases, consumables, building materials
-2. "Labour" includes: worker time, installation fees, service charges based on time
-3. "Other" includes: disposal, skip hire, permits, travel, accommodation, anything else
+1. Each distinct cost mentioned becomes a separate item
+2. "materials" category: parts, supplies, equipment purchases, consumables, building materials
+3. "labour" category: worker time, installation fees, service charges based on time
+4. "other" category: disposal, skip hire, permits, travel, accommodation, anything else
 
 CALCULATION RULES:
-- If user mentions "days" or daily rates, calculate: days × rate (e.g., "2 days at £200/day" = £400)
-- If user mentions "hours" or hourly rates, calculate: hours × rate (e.g., "8 hours at £25/hour" = £200)
-- If user mentions "weeks", calculate: weeks × 5 days × daily rate
-- Extract ALL numeric values mentioned with £ or "pounds"
-- If a number has "k" suffix, multiply by 1000 (e.g., "2k" = 2000)
+- Multiple workers × days × rate: "3 workers for 2 days at £180 each" = 3 × 2 × 180 = £1080 (ONE item)
+- Hourly rates: "8 hours at £25/hour" = 8 × 25 = £200
+- Weekly rates: multiply by 5 days
+- "k" suffix: multiply by 1000 (e.g., "2k" = 2000)
+- Daily rate: "2 days at £200/day" = 2 × 200 = £400
+
+ALWAYS show your calculation in the description clearly.
 
 EXAMPLES:
-Input: "Materials about £500, labour 2 days at £200 per day, skip hire £150"
-Output: {"materials": 500, "labour": 400, "other": 150, "notes": "Materials: £500, Labour: 2 days × £200 = £400, Skip hire: £150"}
+Input: "Materials 500, 3 men 2 days at 180 each, skip 200"
+Output: {
+  "items": [
+    { "description": "Materials", "amount": 500, "category": "materials" },
+    { "description": "Labour: 3 workers × 2 days × £180", "amount": 1080, "category": "labour" },
+    { "description": "Skip hire", "amount": 200, "category": "other" }
+  ]
+}
 
-Input: "parts 1.2k, 3 men for 2 days at 180 each per day, disposal 200"
-Output: {"materials": 1200, "labour": 1080, "other": 200, "notes": "Parts: £1,200, Labour: 3 workers × 2 days × £180 = £1,080, Disposal: £200"}
+Input: "plumber 4hrs at 45/hr, pipe fittings 80, drain cover 25"
+Output: {
+  "items": [
+    { "description": "Plumber: 4hrs × £45/hr", "amount": 180, "category": "labour" },
+    { "description": "Pipe fittings", "amount": 80, "category": "materials" },
+    { "description": "Drain cover", "amount": 25, "category": "materials" }
+  ]
+}
 
-Input: "total job cost around 2500, mostly labour"
-Output: {"materials": 500, "labour": 1750, "other": 250, "notes": "Estimated split of £2,500: Materials ~20%, Labour ~70%, Other ~10%"}
+Input: "2 electricians 3 days 200 each, cable 150, consumer unit 280, permits 50"
+Output: {
+  "items": [
+    { "description": "Electricians: 2 × 3 days × £200", "amount": 1200, "category": "labour" },
+    { "description": "Cable", "amount": 150, "category": "materials" },
+    { "description": "Consumer unit", "amount": 280, "category": "materials" },
+    { "description": "Permits", "amount": 50, "category": "other" }
+  ]
+}
 
 Return ONLY a valid JSON object with this exact structure:
 {
-  "materials": number,
-  "labour": number,
-  "other": number,
-  "notes": "Brief breakdown of calculations"
+  "items": [
+    { "description": "Clear description with calculation if applicable", "amount": number, "category": "materials|labour|other" }
+  ]
 }`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -80,6 +101,7 @@ Return ONLY a valid JSON object with this exact structure:
           { role: 'system', content: systemPrompt },
           { role: 'user', content: input }
         ],
+        temperature: 0.1,
       }),
     });
 
@@ -122,20 +144,32 @@ Return ONLY a valid JSON object with this exact structure:
       }
     }
 
-    const costs = JSON.parse(jsonStr);
+    const parsed = JSON.parse(jsonStr);
     
-    // Ensure all values are numbers
-    const result = {
-      materials: Number(costs.materials) || 0,
-      labour: Number(costs.labour) || 0,
-      other: Number(costs.other) || 0,
-      notes: String(costs.notes || '')
+    // Validate and normalize items
+    let items: Array<{ description: string; amount: number; category: string }> = [];
+    
+    if (parsed.items && Array.isArray(parsed.items)) {
+      items = parsed.items.map((item: any) => ({
+        description: String(item.description || 'Item'),
+        amount: Math.round(Number(item.amount) || 0),
+        category: ['materials', 'labour', 'other'].includes(item.category) ? item.category : 'other'
+      }));
+    }
+
+    // Also provide legacy format for backwards compatibility
+    const costs = {
+      materials: items.filter(i => i.category === 'materials').reduce((sum, i) => sum + i.amount, 0),
+      labour: items.filter(i => i.category === 'labour').reduce((sum, i) => sum + i.amount, 0),
+      other: items.filter(i => i.category === 'other').reduce((sum, i) => sum + i.amount, 0),
+      notes: items.map(i => `${i.description}: £${i.amount}`).join(', ')
     };
 
-    console.log('Parsed costs:', result);
+    console.log('Parsed items:', items);
+    console.log('Legacy costs:', costs);
 
     return new Response(
-      JSON.stringify({ success: true, costs: result }),
+      JSON.stringify({ success: true, items, costs }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
