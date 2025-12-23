@@ -257,7 +257,7 @@ export const CostsEditor = ({ costs, onUpdate }: CostsEditorProps) => {
           {hasData ? (
             <Badge className="bg-green-500/20 text-green-700 dark:text-green-400 border-green-500/30 cursor-pointer hover:bg-green-500/30">
               <PoundSterling className="w-3 h-3 mr-0.5" />
-              {totals.total.toLocaleString()}
+              {totals.total.toLocaleString('en-GB', { maximumFractionDigits: 2, minimumFractionDigits: 0 })}
             </Badge>
           ) : (
             <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
@@ -274,8 +274,8 @@ export const CostsEditor = ({ costs, onUpdate }: CostsEditorProps) => {
               <PoundSterling className="w-4 h-4 text-green-500" />
               Job Costs
             </h4>
-            <Badge variant="outline" className="font-mono">
-              Total: £{totals.total.toLocaleString()}
+            <Badge variant="outline" className="font-mono text-sm">
+              Total: £{totals.total.toLocaleString('en-GB', { maximumFractionDigits: 2, minimumFractionDigits: 0 })}
             </Badge>
           </div>
 
@@ -348,7 +348,7 @@ export const CostsEditor = ({ costs, onUpdate }: CostsEditorProps) => {
                           type="number"
                           value={item.amount || ''}
                           onChange={(e) => updateItemAmount(item.id, Number(e.target.value))}
-                          className="h-6 text-xs w-16 pl-4 pr-1"
+                          className="h-6 text-xs w-24 pl-4 pr-1 font-mono"
                           min={0}
                         />
                       </div>
@@ -414,19 +414,19 @@ export const CostsEditor = ({ costs, onUpdate }: CostsEditorProps) => {
             <div className="text-[10px] text-muted-foreground mb-1">Summary (enabled items only)</div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Materials:</span>
-              <span className="font-mono">£{totals.materials.toLocaleString()}</span>
+              <span className="font-mono">£{totals.materials.toLocaleString('en-GB', { maximumFractionDigits: 2 })}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Labour:</span>
-              <span className="font-mono">£{totals.labour.toLocaleString()}</span>
+              <span className="font-mono">£{totals.labour.toLocaleString('en-GB', { maximumFractionDigits: 2 })}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Other:</span>
-              <span className="font-mono">£{totals.other.toLocaleString()}</span>
+              <span className="font-mono">£{totals.other.toLocaleString('en-GB', { maximumFractionDigits: 2 })}</span>
             </div>
             <div className="flex justify-between pt-1 border-t border-border font-semibold">
               <span>Total:</span>
-              <span className="font-mono text-green-600 dark:text-green-400">£{totals.total.toLocaleString()}</span>
+              <span className="font-mono text-green-600 dark:text-green-400">£{totals.total.toLocaleString('en-GB', { maximumFractionDigits: 2 })}</span>
             </div>
           </div>
 
