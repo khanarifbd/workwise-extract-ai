@@ -32,8 +32,9 @@ import * as XLSX from 'xlsx';
 type FileType = 'pdf' | 'image';
 type ViewType = 'table' | 'kanban' | 'calendar';
 type KanbanGroupBy = 'team' | 'status';
-type DatabaseTab = 'all' | 'booked';
+type DatabaseTab = 'all' | 'booked' | 'completed';
 type BookedSortOrder = 'newest' | 'oldest';
+type CompletedSortOrder = 'newest' | 'oldest';
 
 const Index = () => {
   const { categories, isLoading: categoriesLoading, addCategory, updateCategory, deleteCategory } = useCategories();
@@ -51,6 +52,7 @@ const Index = () => {
   const [activeMonthFolder, setActiveMonthFolder] = useState<string | null>(null);
   const [activeDatabaseTab, setActiveDatabaseTab] = useState<DatabaseTab>('all');
   const [bookedSortOrder, setBookedSortOrder] = useState<BookedSortOrder>('newest');
+  const [completedSortOrder, setCompletedSortOrder] = useState<CompletedSortOrder>('newest');
   const [duplicateCheck, setDuplicateCheck] = useState<{
     newJob: Omit<Job, 'id'>;
     existingJob: Job;
@@ -409,12 +411,17 @@ const Index = () => {
 
   const filteredJobs = useMemo(() => {
     let result = jobs.filter(job => {
-      // Database tab filter (booked/unbooked)
+      // Database tab filter (booked/completed/all)
       if (activeDatabaseTab === 'booked') {
-        if (!job.bookedDate) return false;
+        // Show only booked jobs that are NOT completed
+        if (!job.bookedDate || job.isCompleted || job.progress === 100) return false;
+      } else if (activeDatabaseTab === 'completed') {
+        // Show only completed jobs
+        if (!job.isCompleted && job.progress !== 100) return false;
       } else {
-        // In main "all" tab, exclude booked jobs - they only show in BOOKED tab
+        // In main "all" tab, exclude booked and completed jobs
         if (job.bookedDate) return false;
+        if (job.isCompleted || job.progress === 100) return false;
       }
 
       // Monthly folder filter
@@ -511,12 +518,26 @@ const Index = () => {
       });
     }
     
+    // Sort by completion date if in completed tab
+    if (activeDatabaseTab === 'completed') {
+      result.sort((a, b) => {
+        const dateA = a.completionDate ? new Date(a.completionDate).getTime() : new Date(a.dateIssued).getTime();
+        const dateB = b.completionDate ? new Date(b.completionDate).getTime() : new Date(b.dateIssued).getTime();
+        return completedSortOrder === 'newest' ? dateB - dateA : dateA - dateB;
+      });
+    }
+    
     return result;
-  }, [jobs, filters, isFanCategory, activeMonthFolder, activeDatabaseTab, bookedSortOrder]);
+  }, [jobs, filters, isFanCategory, activeMonthFolder, activeDatabaseTab, bookedSortOrder, completedSortOrder]);
 
-  // Count booked jobs for badge
+  // Count booked jobs for badge (exclude completed)
   const bookedJobsCount = useMemo(() => {
-    return jobs.filter(j => !!j.bookedDate).length;
+    return jobs.filter(j => !!j.bookedDate && !j.isCompleted && j.progress !== 100).length;
+  }, [jobs]);
+
+  // Count completed jobs for badge
+  const completedJobsCount = useMemo(() => {
+    return jobs.filter(j => j.isCompleted || j.progress === 100).length;
   }, [jobs]);
 
   // Helper function to extract phone number from description or name column
@@ -773,7 +794,7 @@ const Index = () => {
 
         {/* Jobs Database */}
         <section className="flex-1 bg-section-database border border-border rounded-lg p-4 min-h-0 overflow-hidden flex flex-col">
-          {/* Database Tabs - Job Database / BOOKED */}
+          {/* Database Tabs - Job Database / BOOKED / COMPLETED */}
           <div className="flex items-center gap-2 mb-3 border-b border-border pb-2">
             <button
               onClick={() => setActiveDatabaseTab('all')}
@@ -804,6 +825,25 @@ const Index = () => {
                 </span>
               )}
             </button>
+            <button
+              onClick={() => setActiveDatabaseTab('completed')}
+              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-2 ${
+                activeDatabaseTab === 'completed'
+                  ? 'bg-emerald-500 text-white'
+                  : 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-200 dark:hover:bg-emerald-900/60'
+              }`}
+            >
+              COMPLETED
+              {completedJobsCount > 0 && (
+                <span className={`px-1.5 py-0.5 text-xs font-bold rounded-full ${
+                  activeDatabaseTab === 'completed'
+                    ? 'bg-white/20 text-white'
+                    : 'bg-emerald-500 text-white'
+                }`}>
+                  {completedJobsCount}
+                </span>
+              )}
+            </button>
           </div>
 
           <div className="flex items-center justify-between mb-3">
@@ -811,12 +851,14 @@ const Index = () => {
               <h2 className="text-base font-semibold">
                 {activeDatabaseTab === 'booked' 
                   ? 'Booked Jobs' 
-                  : isFanCategory 
-                    ? 'Fan Installations' 
-                    : 'Jobs Database'}
+                  : activeDatabaseTab === 'completed'
+                    ? 'Completed Jobs'
+                    : isFanCategory 
+                      ? 'Fan Installations' 
+                      : 'Jobs Database'}
               </h2>
               <p className="text-xs text-muted-foreground">
-                {filteredJobs.length} of {activeDatabaseTab === 'booked' ? bookedJobsCount : jobs.length} jobs
+                {filteredJobs.length} of {activeDatabaseTab === 'booked' ? bookedJobsCount : activeDatabaseTab === 'completed' ? completedJobsCount : jobs.length} jobs
                 {activeMonthFolder && (
                   <span className="ml-1">
                     • Showing {format(new Date(activeMonthFolder + '-01'), 'MMMM yyyy')}
@@ -834,6 +876,18 @@ const Index = () => {
                   <SelectContent>
                     <SelectItem value="newest">Newest Booked First</SelectItem>
                     <SelectItem value="oldest">Oldest Booked First</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+              {/* Sort by completion date when in COMPLETED tab */}
+              {activeDatabaseTab === 'completed' && (
+                <Select value={completedSortOrder} onValueChange={(v) => setCompletedSortOrder(v as CompletedSortOrder)}>
+                  <SelectTrigger className="w-44 h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="newest">Newest Completed First</SelectItem>
+                    <SelectItem value="oldest">Oldest Completed First</SelectItem>
                   </SelectContent>
                 </Select>
               )}

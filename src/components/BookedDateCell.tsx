@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { CalendarCheck, CalendarX, StickyNote } from 'lucide-react';
+import { CalendarCheck, CalendarX, StickyNote, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
@@ -23,16 +23,25 @@ export const BookedDateCell = ({ bookedDate, bookingNotes, onDateChange, onNotes
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
   const [notesValue, setNotesValue] = useState(bookingNotes || '');
+  const [pendingDate, setPendingDate] = useState<Date | null>(null);
 
   const handleSetBooked = () => {
     setShowDatePicker(true);
+    setPendingDate(bookedDate);
   };
 
   const handleDateSelect = (date: Date | undefined) => {
     if (date) {
-      onDateChange(date);
+      setPendingDate(date);
+    }
+  };
+
+  const handleConfirmBooking = () => {
+    if (pendingDate) {
+      onDateChange(pendingDate);
       setIsOpen(false);
       setShowDatePicker(false);
+      setPendingDate(null);
     }
   };
 
@@ -40,6 +49,7 @@ export const BookedDateCell = ({ bookedDate, bookingNotes, onDateChange, onNotes
     onDateChange(null);
     setIsOpen(false);
     setShowDatePicker(false);
+    setPendingDate(null);
   };
 
   const handleSaveNotes = () => {
@@ -59,6 +69,7 @@ export const BookedDateCell = ({ bookedDate, bookingNotes, onDateChange, onNotes
       setShowDatePicker(false);
       setShowNotes(false);
       setNotesValue(bookingNotes || '');
+      setPendingDate(null);
     }
   };
 
@@ -185,13 +196,34 @@ export const BookedDateCell = ({ bookedDate, bookingNotes, onDateChange, onNotes
             <label className="text-xs font-medium text-muted-foreground block">Select Booked Date</label>
             <Calendar
               mode="single"
-              selected={bookedDate || undefined}
+              selected={pendingDate || undefined}
               onSelect={handleDateSelect}
               initialFocus
               className="p-0 pointer-events-auto"
             />
+            {pendingDate && (
+              <div className="bg-amber-50 dark:bg-amber-900/30 rounded-md p-2 text-center">
+                <p className="text-xs text-amber-700 dark:text-amber-400">
+                  Selected: <span className="font-semibold">{format(pendingDate, 'dd/MM/yyyy')}</span>
+                </p>
+              </div>
+            )}
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                onClick={handleConfirmBooking}
+                disabled={!pendingDate}
+                className="flex-1 bg-amber-500 hover:bg-amber-600 text-white"
+              >
+                <Check className="w-3 h-3 mr-1" />
+                Confirm Booking
+              </Button>
+            </div>
             <button
-              onClick={() => setShowDatePicker(false)}
+              onClick={() => {
+                setShowDatePicker(false);
+                setPendingDate(null);
+              }}
               className="w-full text-xs text-muted-foreground hover:text-foreground py-1"
             >
               ← Back
