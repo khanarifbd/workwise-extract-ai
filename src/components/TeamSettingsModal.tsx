@@ -3,9 +3,10 @@ import { X, Save, Users, MessageCircle, Plus, Trash2, Pencil, Phone } from 'luci
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useTeamSettings, TeamSetting } from '@/hooks/useTeamSettings';
-import { ALLSAINTS_TEAMS, FAN_TEAMS, Team } from '@/types/job';
+import { useCategories } from '@/hooks/useCategories';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
   DialogContent,
@@ -13,29 +14,39 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import { ChevronDown } from 'lucide-react';
 
 interface TeamSettingsModalProps {
   onClose: () => void;
 }
 
 export const TeamSettingsModal = ({ onClose }: TeamSettingsModalProps) => {
-  const { settings, isLoading, updateSetting, addTeamMember, removeTeamMember, updateTeamMember } = useTeamSettings();
-  const [localSettings, setLocalSettings] = useState<Record<string, string>>({});
-  const [saving, setSaving] = useState<string | null>(null);
-  const [showAddTeam, setShowAddTeam] = useState<'dm' | 'fan' | null>(null);
+  const { settings, isLoading, addTeamMember, removeTeamMember, updateTeamMember, getTeamsForCategory, getGlobalTeams } = useTeamSettings();
+  const { categories, isLoading: categoriesLoading } = useCategories();
+  const [showAddTeam, setShowAddTeam] = useState<string | null>(null); // category id or 'global'
   const [editingTeam, setEditingTeam] = useState<TeamSetting | null>(null);
   const [newTeamName, setNewTeamName] = useState('');
   const [newTeamColor, setNewTeamColor] = useState('#3B82F6');
   const [newTeamWhatsapp, setNewTeamWhatsapp] = useState('');
   const [isAddingTeam, setIsAddingTeam] = useState(false);
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
-    const initial: Record<string, string> = {};
-    settings.forEach((s) => {
-      initial[s.teamId] = s.whatsappGroup || '';
+  const toggleExpanded = (categoryId: string) => {
+    setExpandedCategories(prev => {
+      const next = new Set(prev);
+      if (next.has(categoryId)) {
+        next.delete(categoryId);
+      } else {
+        next.add(categoryId);
+      }
+      return next;
     });
-    setLocalSettings(initial);
-  }, [settings]);
+  };
 
   const handleEditTeam = (setting: TeamSetting) => {
     setEditingTeam(setting);
@@ -52,6 +63,7 @@ export const TeamSettingsModal = ({ onClose }: TeamSettingsModalProps) => {
         name: newTeamName.trim(),
         color: newTeamColor,
         whatsappGroup: newTeamWhatsapp || null,
+        categoryId: editingTeam.categoryId,
       });
       setEditingTeam(null);
       setNewTeamName('');
@@ -62,12 +74,6 @@ export const TeamSettingsModal = ({ onClose }: TeamSettingsModalProps) => {
     }
   };
 
-  const handleSave = async (teamId: string) => {
-    setSaving(teamId);
-    await updateSetting(teamId, localSettings[teamId] || null);
-    setSaving(null);
-  };
-
   const handleAddTeamMember = async () => {
     if (!newTeamName.trim() || !showAddTeam) return;
     setIsAddingTeam(true);
@@ -76,7 +82,8 @@ export const TeamSettingsModal = ({ onClose }: TeamSettingsModalProps) => {
         name: newTeamName.trim(),
         color: newTeamColor,
         whatsappGroup: newTeamWhatsapp || null,
-        type: showAddTeam,
+        type: 'dm', // Default type
+        categoryId: showAddTeam === 'global' ? null : showAddTeam,
       });
       setNewTeamName('');
       setNewTeamColor('#3B82F6');
@@ -93,23 +100,90 @@ export const TeamSettingsModal = ({ onClose }: TeamSettingsModalProps) => {
     }
   };
 
-  const getTeamColor = (teamId: string) => {
-    return ALLSAINTS_TEAMS.find((t) => t.id === teamId)?.color || 
-           FAN_TEAMS.find((t) => t.id === teamId)?.color || 
-           settings.find(s => s.teamId === teamId)?.color || '#888';
+  const TeamMemberCard = ({ setting }: { setting: TeamSetting }) => (
+    <div
+      className="flex items-center gap-2 p-3 rounded-lg border border-border bg-muted/20"
+    >
+      <div
+        className="w-4 h-4 rounded-full flex-shrink-0"
+        style={{ backgroundColor: setting.color || '#888' }}
+      />
+      <div className="flex-1 min-w-0">
+        <span className="font-medium text-sm block truncate">{setting.teamName}</span>
+        {setting.whatsappGroup && (
+          <span className="text-xs text-muted-foreground flex items-center gap-1">
+            <Phone className="w-3 h-3" />
+            {setting.whatsappGroup}
+          </span>
+        )}
+      </div>
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={() => handleEditTeam(setting)}
+        className="h-7 w-7 p-0"
+      >
+        <Pencil className="w-3.5 h-3.5" />
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        className="text-destructive hover:text-destructive h-7 w-7 p-0"
+        onClick={() => handleRemoveTeamMember(setting.teamId, setting.teamName)}
+      >
+        <Trash2 className="w-3.5 h-3.5" />
+      </Button>
+    </div>
+  );
+
+  const CategoryTeamList = ({ categoryId, categoryName, categoryColor }: { categoryId: string; categoryName: string; categoryColor: string }) => {
+    const categoryTeams = getTeamsForCategory(categoryId);
+    const isExpanded = expandedCategories.has(categoryId);
+
+    return (
+      <Collapsible open={isExpanded} onOpenChange={() => toggleExpanded(categoryId)}>
+        <CollapsibleTrigger asChild>
+          <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-card hover:bg-muted/50 cursor-pointer transition-colors">
+            <div className="flex items-center gap-2">
+              <div
+                className="w-4 h-4 rounded-full flex-shrink-0"
+                style={{ backgroundColor: categoryColor }}
+              />
+              <span className="font-medium">{categoryName}</span>
+              <span className="text-xs text-muted-foreground">({categoryTeams.length} members)</span>
+            </div>
+            <ChevronDown className={cn("w-4 h-4 transition-transform", isExpanded && "rotate-180")} />
+          </div>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="pl-4 pt-2 space-y-2">
+            {categoryTeams.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-2">No team members for this category</p>
+            ) : (
+              categoryTeams.map((setting) => (
+                <TeamMemberCard key={setting.teamId} setting={setting} />
+              ))
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowAddTeam(categoryId)}
+              className="h-8 gap-1 w-full"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Add Team Member
+            </Button>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+    );
   };
 
-  // Separate DM teams from Fan teams for display
-  const dmTeamSettings = settings.filter(s => 
-    s.type === 'dm' || ALLSAINTS_TEAMS.some(t => t.id === s.teamId)
-  );
-  const fanTeamSettings = settings.filter(s => 
-    s.type === 'fan' || FAN_TEAMS.some(t => t.id === s.teamId)
-  );
+  const globalTeams = getGlobalTeams();
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-lg max-h-[90vh] p-0 flex flex-col">
+      <DialogContent className="max-w-4xl max-h-[90vh] p-0 flex flex-col">
         <DialogHeader className="px-5 pt-5 pb-3 border-b border-border bg-muted/30 flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -118,7 +192,7 @@ export const TeamSettingsModal = ({ onClose }: TeamSettingsModalProps) => {
             <div>
               <DialogTitle className="text-lg font-semibold">Team Settings</DialogTitle>
               <DialogDescription className="text-xs">
-                Configure WhatsApp numbers and manage team members
+                Manage team members for each category with WhatsApp notifications
               </DialogDescription>
             </div>
           </div>
@@ -126,120 +200,67 @@ export const TeamSettingsModal = ({ onClose }: TeamSettingsModalProps) => {
 
         {/* Content - Scrollable */}
         <ScrollArea className="flex-1 min-h-0">
-          <div className="p-5 space-y-6">
-            {isLoading ? (
+          <div className="p-5">
+            {isLoading || categoriesLoading ? (
               <div className="text-center text-muted-foreground py-8">Loading...</div>
             ) : (
-              <>
-                {/* DM Teams Section */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">DM Teams</h3>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => setShowAddTeam('dm')}
-                      className="h-7 gap-1"
+              <Tabs defaultValue="categories" className="w-full">
+                <TabsList className="grid w-full grid-cols-2 mb-4">
+                  <TabsTrigger value="categories">By Category</TabsTrigger>
+                  <TabsTrigger value="global">Global Teams ({globalTeams.length})</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="categories" className="space-y-3">
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Assign team members to specific categories. Click a category to expand and manage its team.
+                  </p>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {categories.map((category) => (
+                      <CategoryTeamList
+                        key={category.id}
+                        categoryId={category.id}
+                        categoryName={category.name}
+                        categoryColor={category.color}
+                      />
+                    ))}
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="global" className="space-y-3">
+                  <div className="flex items-center justify-between mb-4">
+                    <p className="text-sm text-muted-foreground">
+                      Global teams are available across all categories (legacy mode).
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowAddTeam('global')}
+                      className="h-8 gap-1"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       Add
                     </Button>
                   </div>
-                  {dmTeamSettings.map((setting) => (
-                    <div
-                      key={setting.teamId}
-                      className="flex items-center gap-2 p-3 rounded-lg border border-border bg-muted/20"
-                    >
-                      <div
-                        className="w-4 h-4 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: setting.color || getTeamColor(setting.teamId) }}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <span className="font-medium text-sm block truncate">{setting.teamName}</span>
-                        {setting.whatsappGroup && (
-                          <span className="text-xs text-muted-foreground flex items-center gap-1">
-                            <Phone className="w-3 h-3" />
-                            {setting.whatsappGroup}
-                          </span>
-                        )}
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleEditTeam(setting)}
-                        className="h-7 w-7 p-0"
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-destructive hover:text-destructive h-7 w-7 p-0"
-                        onClick={() => handleRemoveTeamMember(setting.teamId, setting.teamName)}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
+                  <ScrollArea className="h-[300px]">
+                    <div className="space-y-2 pr-2">
+                      {globalTeams.length === 0 ? (
+                        <p className="text-sm text-muted-foreground py-4 text-center">
+                          No global team members. Add teams to specific categories instead.
+                        </p>
+                      ) : (
+                        globalTeams.map((setting) => (
+                          <TeamMemberCard key={setting.teamId} setting={setting} />
+                        ))
+                      )}
                     </div>
-                  ))}
-                </div>
-
-                {/* Fan Installers Section */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Fan Installers</h3>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => setShowAddTeam('fan')}
-                      className="h-7 gap-1"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      Add
-                    </Button>
-                  </div>
-                  {fanTeamSettings.map((setting) => (
-                    <div
-                      key={setting.teamId}
-                      className="flex items-center gap-2 p-3 rounded-lg border border-border bg-muted/20"
-                    >
-                      <div
-                        className="w-4 h-4 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: setting.color || getTeamColor(setting.teamId) }}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <span className="font-medium text-sm block truncate">{setting.teamName}</span>
-                        {setting.whatsappGroup && (
-                          <span className="text-xs text-muted-foreground flex items-center gap-1">
-                            <Phone className="w-3 h-3" />
-                            {setting.whatsappGroup}
-                          </span>
-                        )}
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleEditTeam(setting)}
-                        className="h-7 w-7 p-0"
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-destructive hover:text-destructive h-7 w-7 p-0"
-                        onClick={() => handleRemoveTeamMember(setting.teamId, setting.teamName)}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-
-                <p className="text-xs text-muted-foreground">
-                  Enter phone numbers in international format without '+' (e.g. 447123456789 for UK)
-                </p>
-              </>
+                  </ScrollArea>
+                </TabsContent>
+              </Tabs>
             )}
+
+            <p className="text-xs text-muted-foreground mt-4">
+              Enter phone numbers in international format without '+' (e.g. 447123456789 for UK)
+            </p>
           </div>
         </ScrollArea>
 
@@ -257,7 +278,7 @@ export const TeamSettingsModal = ({ onClose }: TeamSettingsModalProps) => {
               <h3 className="text-lg font-semibold">
                 {editingTeam 
                   ? `Edit ${editingTeam.teamName}` 
-                  : `Add ${showAddTeam === 'dm' ? 'DM Team' : 'Fan Installer'} Member`
+                  : `Add Team Member ${showAddTeam !== 'global' ? `to ${categories.find(c => c.id === showAddTeam)?.name || 'Category'}` : '(Global)'}`
                 }
               </h3>
               <div className="space-y-3">
