@@ -271,6 +271,7 @@ export const mapDatabaseJobToJob = (dbJob: any): Job => ({
   status: dbJob.status || 'pending',
   fanInfo: dbJob.fan_info || null,
   linkedFanJobId: dbJob.linked_fan_job_id || null,
+  costs: dbJob.costs || null,
 });
 
 export const mapJobToDatabase = (job: Partial<Job>): any => {
@@ -297,6 +298,7 @@ export const mapJobToDatabase = (job: Partial<Job>): any => {
   if (job.status !== undefined) dbJob.status = job.status;
   if (job.fanInfo !== undefined) dbJob.fan_info = job.fanInfo;
   if (job.linkedFanJobId !== undefined) dbJob.linked_fan_job_id = job.linkedFanJobId;
+  if (job.costs !== undefined) dbJob.costs = job.costs;
   
   return dbJob;
 };
@@ -333,6 +335,7 @@ export const createLinkedFanJob = async (
     status: 'pending',
     fanInfo: fanInfo,
     linkedFanJobId: null,
+    costs: null,
   };
 
   const dbJob = mapJobToDatabase(fanJob);

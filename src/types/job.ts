@@ -39,6 +39,13 @@ export interface FanInfo {
   location: string;
 }
 
+export interface JobCosts {
+  materials: number;
+  labour: number;
+  other: number;
+  notes: string;
+}
+
 export interface Job {
   id: string;
   jobNumber: string;
@@ -62,6 +69,7 @@ export interface Job {
   status: JobStatus;
   fanInfo: FanInfo[] | null;
   linkedFanJobId: string | null;
+  costs: JobCosts | null;
 }
 
 export interface Attachment {

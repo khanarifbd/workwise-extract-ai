@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.geocode-addresses]
 verify_jwt = false
+
+[functions.parse-costs]
+verify_jwt = true

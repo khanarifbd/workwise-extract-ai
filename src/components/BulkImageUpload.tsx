@@ -135,7 +135,8 @@ export const BulkImageUpload = ({ onJobsExtracted, onClose }: BulkImageUploadPro
             attachments: [],
             status: 'pending',
             fanInfo: null,
-            linkedFanJobId: null
+            linkedFanJobId: null,
+            costs: null
           };
 
           extractedJobs.push(newJob);

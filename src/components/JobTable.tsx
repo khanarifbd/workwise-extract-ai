@@ -2,7 +2,6 @@ import { useState, useMemo } from 'react';
 import { Job, JobStatus, FanInfo, Team } from '@/types/job';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { Checkbox } from '@/components/ui/checkbox';
 import { format } from 'date-fns';
 import { 
@@ -14,25 +13,22 @@ import {
   FileText,
   MoreVertical,
   Paperclip,
-  ChevronDown,
-  ChevronUp,
-  CheckCircle2,
   X,
   Fan,
   Loader2,
   Wand2,
-  CheckCircle,
   AlertTriangle,
   Copy,
   ArrowRightLeft
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TeamSelector } from './TeamSelector';
-import { ProgressEditor } from './ProgressEditor';
 import { JobDetailsModal } from './JobDetailsModal';
-import { StatusSelector } from './StatusSelector';
 import { BookedDateCell } from './BookedDateCell';
 import { InlineDescriptionEditor } from './InlineDescriptionEditor';
+import { StatusProgressColumn } from './StatusProgressColumn';
+import { FanEditor } from './FanEditor';
+import { CostsEditor } from './CostsEditor';
 import { extractFansWithAI, createLinkedFanJob } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { useTeamSettings } from '@/hooks/useTeamSettings';
@@ -78,7 +74,6 @@ const findDuplicates = (jobs: Job[]): Set<string> => {
 export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onBatchUpdateTeam, onTransferJob, onDuplicateToCategory, fanCategoryId, onFanJobCreated, isFanCategory = false, currentCategoryId, categories = [] }: JobTableProps) => {
   const [showTeamSelector, setShowTeamSelector] = useState<string | null>(null);
   const [showTransferModal, setShowTransferModal] = useState<Job | null>(null);
-  const [showProgressEditor, setShowProgressEditor] = useState<string | null>(null);
   const [showJobDetails, setShowJobDetails] = useState<Job | null>(null);
   const [expandedDescriptions, setExpandedDescriptions] = useState<Set<string>>(new Set());
   const [selectedJobs, setSelectedJobs] = useState<Set<string>>(new Set());
@@ -122,12 +117,11 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
     setShowBatchTeamSelector(false);
   };
 
-  const handleProgressUpdate = (jobId: string, progress: number, notes: string) => {
+  const handleStatusProgressUpdate = (jobId: string, updates: { status?: JobStatus; progress?: number; progressNotes?: string; isCompleted?: boolean }) => {
     const job = jobs.find(j => j.id === jobId);
     if (job) {
-      onUpdateJob({ ...job, progress, progressNotes: notes });
+      onUpdateJob({ ...job, ...updates });
     }
-    setShowProgressEditor(null);
   };
 
   const toggleDescription = (jobId: string) => {
@@ -649,10 +643,14 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                       )}
                     </div>
                   </td>
+                  {/* Merged Status/Progress Column */}
                   <td onClick={(e) => e.stopPropagation()}>
-                    <StatusSelector 
-                      currentStatus={job.status || 'pending'} 
-                      onSelect={(status, isComplete) => handleStatusChange(job.id, status, isComplete)}
+                    <StatusProgressColumn
+                      currentStatus={job.status || 'pending'}
+                      progress={job.progress}
+                      progressNotes={job.progressNotes}
+                      isCompleted={isCompleted}
+                      onUpdate={(updates) => handleStatusProgressUpdate(job.id, updates)}
                     />
                   </td>
                   <td onClick={(e) => e.stopPropagation()}>
@@ -692,35 +690,12 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                       )}
                     </div>
                   </td>
+                  {/* Costs Column */}
                   <td onClick={(e) => e.stopPropagation()}>
-                    <div className="relative min-w-[110px]">
-                      {isCompleted ? (
-                        <div className="flex items-center gap-2">
-                          <span className="text-emerald-700 dark:text-emerald-300 font-black text-sm uppercase tracking-wide">
-                            COMPLETED
-                          </span>
-                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                        </div>
-                      ) : (
-                        <div 
-                          className="cursor-pointer"
-                          onClick={() => setShowProgressEditor(job.id)}
-                        >
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-xs font-medium">{job.progress}%</span>
-                          </div>
-                          <Progress value={job.progress} className="h-2" />
-                        </div>
-                      )}
-                      {showProgressEditor === job.id && !isCompleted && (
-                        <ProgressEditor
-                          currentProgress={job.progress}
-                          currentNotes={job.progressNotes}
-                          onSave={(progress, notes) => handleProgressUpdate(job.id, progress, notes)}
-                          onClose={() => setShowProgressEditor(null)}
-                        />
-                      )}
-                    </div>
+                    <CostsEditor
+                      costs={job.costs}
+                      onUpdate={(costs) => onUpdateJob({ ...job, costs })}
+                    />
                   </td>
                   <td>
                     <div className="text-xs text-muted-foreground space-y-0.5">
