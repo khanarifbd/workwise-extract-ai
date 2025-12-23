@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Save, Users, MessageCircle, Plus, Trash2, Pencil, Phone } from 'lucide-react';
+import { X, Save, Users, MessageCircle, Plus, Trash2, Pencil, Phone, Pause, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useTeamSettings, TeamSetting } from '@/hooks/useTeamSettings';
@@ -26,7 +26,7 @@ interface TeamSettingsModalProps {
 }
 
 export const TeamSettingsModal = ({ onClose }: TeamSettingsModalProps) => {
-  const { settings, isLoading, addTeamMember, removeTeamMember, updateTeamMember, getTeamsForCategory, getGlobalTeams } = useTeamSettings();
+  const { settings, isLoading, addTeamMember, removeTeamMember, updateTeamMember, toggleTeamPause, getTeamsForCategory, getGlobalTeams } = useTeamSettings();
   const { categories, isLoading: categoriesLoading } = useCategories();
   const [showAddTeam, setShowAddTeam] = useState<string | null>(null); // category id or 'global'
   const [editingTeam, setEditingTeam] = useState<TeamSetting | null>(null);
@@ -102,14 +102,28 @@ export const TeamSettingsModal = ({ onClose }: TeamSettingsModalProps) => {
 
   const TeamMemberCard = ({ setting }: { setting: TeamSetting }) => (
     <div
-      className="flex items-center gap-2 p-3 rounded-lg border border-border bg-muted/20"
+      className={cn(
+        "flex items-center gap-2 p-3 rounded-lg border border-border bg-muted/20",
+        setting.isPaused && "opacity-50 bg-muted/40"
+      )}
     >
       <div
-        className="w-4 h-4 rounded-full flex-shrink-0"
+        className={cn(
+          "w-4 h-4 rounded-full flex-shrink-0",
+          setting.isPaused && "grayscale"
+        )}
         style={{ backgroundColor: setting.color || '#888' }}
       />
       <div className="flex-1 min-w-0">
-        <span className="font-medium text-sm block truncate">{setting.teamName}</span>
+        <div className="flex items-center gap-2">
+          <span className={cn(
+            "font-medium text-sm block truncate",
+            setting.isPaused && "line-through text-muted-foreground"
+          )}>{setting.teamName}</span>
+          {setting.isPaused && (
+            <span className="text-xs bg-amber-500/20 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 rounded">PAUSED</span>
+          )}
+        </div>
         {setting.whatsappGroup && (
           <span className="text-xs text-muted-foreground flex items-center gap-1">
             <Phone className="w-3 h-3" />
@@ -117,6 +131,15 @@ export const TeamSettingsModal = ({ onClose }: TeamSettingsModalProps) => {
           </span>
         )}
       </div>
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={() => toggleTeamPause(setting.teamId)}
+        className={cn("h-7 w-7 p-0", setting.isPaused ? "text-green-600 hover:text-green-700" : "text-amber-600 hover:text-amber-700")}
+        title={setting.isPaused ? "Resume team" : "Pause team"}
+      >
+        {setting.isPaused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
+      </Button>
       <Button
         size="sm"
         variant="ghost"

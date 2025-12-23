@@ -361,6 +361,7 @@ export type Database = {
           created_at: string
           id: string
           is_custom: boolean | null
+          is_paused: boolean
           team_id: string
           team_name: string
           team_type: string | null
@@ -373,6 +374,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_custom?: boolean | null
+          is_paused?: boolean
           team_id: string
           team_name: string
           team_type?: string | null
@@ -385,6 +387,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_custom?: boolean | null
+          is_paused?: boolean
           team_id?: string
           team_name?: string
           team_type?: string | null
