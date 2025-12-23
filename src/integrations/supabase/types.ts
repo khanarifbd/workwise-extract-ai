@@ -83,6 +83,7 @@ export type Database = {
           booking_notes: string | null
           category_id: string | null
           completion_date: string | null
+          costs: Json | null
           created_at: string
           date_issued: string | null
           description: string | null
@@ -110,6 +111,7 @@ export type Database = {
           booking_notes?: string | null
           category_id?: string | null
           completion_date?: string | null
+          costs?: Json | null
           created_at?: string
           date_issued?: string | null
           description?: string | null
@@ -137,6 +139,7 @@ export type Database = {
           booking_notes?: string | null
           category_id?: string | null
           completion_date?: string | null
+          costs?: Json | null
           created_at?: string
           date_issued?: string | null
           description?: string | null

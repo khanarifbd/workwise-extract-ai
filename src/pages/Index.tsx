@@ -110,7 +110,8 @@ const Index = () => {
         attachments: [],
         status: 'pending',
         fanInfo: null,
-        linkedFanJobId: null
+        linkedFanJobId: null,
+        costs: null
       };
       
       // Check for duplicates before adding

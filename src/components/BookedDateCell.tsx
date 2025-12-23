@@ -94,11 +94,13 @@ export const BookedDateCell = ({ bookedDate, bookingNotes, onDateChange, onNotes
               <CalendarCheck className="w-3 h-3" />
               <span>{format(bookedDate, 'dd/MM/yy')}</span>
               <span className="font-bold uppercase">BOOKED</span>
+              {hasNotes && <StickyNote className="w-3 h-3 ml-0.5 text-amber-100" />}
             </>
           ) : (
             <>
               <CalendarX className="w-3 h-3" />
               <span>UnBooked</span>
+              {hasNotes && <StickyNote className="w-3 h-3 ml-0.5 text-amber-600" />}
             </>
           )}
         </button>
