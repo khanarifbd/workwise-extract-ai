@@ -11,6 +11,7 @@ export interface TeamSetting {
   type?: 'dm' | 'fan';
   isCustom?: boolean;
   categoryId?: string | null;
+  isPaused?: boolean;
 }
 
 export const useTeamSettings = () => {
@@ -37,6 +38,7 @@ export const useTeamSettings = () => {
           type: row.team_type,
           isCustom: row.is_custom || false,
           categoryId: row.category_id || null,
+          isPaused: row.is_paused || false,
         }))
       );
     } catch (error) {
@@ -158,6 +160,7 @@ export const useTeamSettings = () => {
     color: string;
     whatsappGroup: string | null;
     categoryId?: string | null;
+    isPaused?: boolean;
   }) => {
     try {
       const { error } = await supabase
@@ -167,6 +170,7 @@ export const useTeamSettings = () => {
           color: updates.color,
           whatsapp_group: updates.whatsappGroup,
           category_id: updates.categoryId || null,
+          is_paused: updates.isPaused ?? false,
         })
         .eq('team_id', teamId);
 
@@ -175,7 +179,7 @@ export const useTeamSettings = () => {
       setSettings((prev) =>
         prev.map((s) =>
           s.teamId === teamId
-            ? { ...s, teamName: updates.name, color: updates.color, whatsappGroup: updates.whatsappGroup, categoryId: updates.categoryId }
+            ? { ...s, teamName: updates.name, color: updates.color, whatsappGroup: updates.whatsappGroup, categoryId: updates.categoryId, isPaused: updates.isPaused }
             : s
         )
       );
@@ -187,6 +191,38 @@ export const useTeamSettings = () => {
       console.error('Error updating team member:', error);
       toast({
         title: 'Failed to update team member',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const toggleTeamPause = async (teamId: string) => {
+    const team = settings.find(s => s.teamId === teamId);
+    if (!team) return;
+    
+    try {
+      const newPausedState = !team.isPaused;
+      const { error } = await supabase
+        .from('team_notification_settings')
+        .update({ is_paused: newPausedState })
+        .eq('team_id', teamId);
+
+      if (error) throw error;
+
+      setSettings((prev) =>
+        prev.map((s) =>
+          s.teamId === teamId ? { ...s, isPaused: newPausedState } : s
+        )
+      );
+
+      toast({
+        title: newPausedState ? 'Team paused' : 'Team resumed',
+        description: `${team.teamName} has been ${newPausedState ? 'paused' : 'resumed'}.`,
+      });
+    } catch (error) {
+      console.error('Error toggling team pause:', error);
+      toast({
+        title: 'Failed to update team',
         variant: 'destructive',
       });
     }
@@ -213,6 +249,7 @@ export const useTeamSettings = () => {
     addTeamMember, 
     removeTeamMember, 
     updateTeamMember,
+    toggleTeamPause,
     getTeamsForCategory,
     getGlobalTeams,
     refreshSettings: loadSettings 
