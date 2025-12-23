@@ -20,20 +20,31 @@ interface HeaderProps {
 }
 
 export const Header = ({ onExport, jobCount }: HeaderProps) => {
-  const [isDark, setIsDark] = useState(false);
+  const [isDark, setIsDark] = useState(() => {
+    // Initialize from localStorage or system preference
+    const stored = localStorage.getItem('theme');
+    if (stored) {
+      return stored === 'dark';
+    }
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
   const [showTeamSettings, setShowTeamSettings] = useState(false);
   const [showNotificationHistory, setShowNotificationHistory] = useState(false);
   const [showAccessCodes, setShowAccessCodes] = useState(false);
   const { signOut, user } = useAdminAuth();
 
+  // Apply theme on mount and when isDark changes
   useEffect(() => {
-    const isDarkMode = document.documentElement.classList.contains('dark');
-    setIsDark(isDarkMode);
-  }, []);
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+  }, [isDark]);
 
   const toggleTheme = () => {
-    document.documentElement.classList.toggle('dark');
-    setIsDark(!isDark);
+    setIsDark(prev => !prev);
   };
 
   const handleLogout = async () => {
