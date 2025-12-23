@@ -100,6 +100,7 @@ const Index = () => {
         isCompleted: false,
         dateIssued: new Date(),
         bookedDate: extractedData.bookedDate || null,
+        bookingNotes: '',
         startDate: null,
         completionDate: null,
         attachments: [],
@@ -409,6 +410,9 @@ const Index = () => {
       // Database tab filter (booked/unbooked)
       if (activeDatabaseTab === 'booked') {
         if (!job.bookedDate) return false;
+      } else {
+        // In main "all" tab, exclude booked jobs - they only show in BOOKED tab
+        if (job.bookedDate) return false;
       }
 
       // Monthly folder filter
@@ -684,7 +688,7 @@ const Index = () => {
           {isFanCategory ? (
             <FanStatsCards jobs={filteredJobs} />
           ) : (
-            <StatsCards jobs={filteredJobs} />
+            <StatsCards jobs={filteredJobs} allJobs={jobs} />
           )}
         </div>
 

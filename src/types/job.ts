@@ -55,6 +55,7 @@ export interface Job {
   isCompleted: boolean;
   dateIssued: Date;
   bookedDate: Date | null;
+  bookingNotes: string;
   startDate: Date | null;
   completionDate: Date | null;
   attachments: Attachment[];

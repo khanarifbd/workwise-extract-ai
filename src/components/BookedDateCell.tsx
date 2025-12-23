@@ -1,16 +1,22 @@
 import { useState, useRef, useEffect } from 'react';
 import { format } from 'date-fns';
-import { Calendar, CalendarCheck, CalendarX } from 'lucide-react';
+import { CalendarCheck, CalendarX, StickyNote } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Textarea } from '@/components/ui/textarea';
+import { Button } from '@/components/ui/button';
 
 interface BookedDateCellProps {
   bookedDate: Date | null;
+  bookingNotes: string;
   onDateChange: (date: Date | null) => void;
+  onNotesChange: (notes: string) => void;
 }
 
-export const BookedDateCell = ({ bookedDate, onDateChange }: BookedDateCellProps) => {
+export const BookedDateCell = ({ bookedDate, bookingNotes, onDateChange, onNotesChange }: BookedDateCellProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showNotes, setShowNotes] = useState(false);
+  const [notesValue, setNotesValue] = useState(bookingNotes || '');
   const [inputValue, setInputValue] = useState(
     bookedDate ? format(bookedDate, 'yyyy-MM-dd') : ''
   );
@@ -21,10 +27,15 @@ export const BookedDateCell = ({ bookedDate, onDateChange }: BookedDateCellProps
   }, [bookedDate]);
 
   useEffect(() => {
+    setNotesValue(bookingNotes || '');
+  }, [bookingNotes]);
+
+  useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsOpen(false);
         setShowDatePicker(false);
+        setShowNotes(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -51,7 +62,19 @@ export const BookedDateCell = ({ bookedDate, onDateChange }: BookedDateCellProps
     setShowDatePicker(false);
   };
 
+  const handleSaveNotes = () => {
+    onNotesChange(notesValue);
+    setShowNotes(false);
+  };
+
+  const handleOpenNotes = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowNotes(true);
+    setShowDatePicker(false);
+  };
+
   const isBooked = !!bookedDate;
+  const hasNotes = !!bookingNotes && bookingNotes.trim().length > 0;
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -81,37 +104,95 @@ export const BookedDateCell = ({ bookedDate, onDateChange }: BookedDateCellProps
       {isOpen && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
-          <div className="absolute top-full left-0 mt-1 z-50 bg-card border border-border rounded-lg shadow-xl p-2 min-w-[180px]">
-            {!showDatePicker ? (
+          <div className="absolute top-full left-0 mt-1 z-50 bg-card border border-border rounded-lg shadow-xl p-2 min-w-[220px]">
+            {showNotes ? (
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground block">Tenant Interaction Notes</label>
+                <Textarea
+                  value={notesValue}
+                  onChange={(e) => setNotesValue(e.target.value)}
+                  placeholder="Add notes about tenant interaction..."
+                  className="min-h-[100px] text-sm"
+                  autoFocus
+                />
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={handleSaveNotes}
+                    className="flex-1"
+                  >
+                    Save
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowNotes(false)}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : !showDatePicker ? (
               <div className="space-y-1">
-                <button
-                  onClick={handleSetBooked}
-                  className={cn(
-                    "w-full flex items-center gap-2 px-3 py-2 text-sm rounded transition-colors text-left",
-                    isBooked 
-                      ? "bg-amber-500/20 text-amber-700 dark:text-amber-400" 
-                      : "hover:bg-muted"
-                  )}
-                >
-                  <CalendarCheck className="w-4 h-4" />
-                  <span className="font-medium">Booked</span>
-                  {isBooked && (
-                    <span className="text-xs ml-auto">{format(bookedDate, 'dd/MM/yy')}</span>
-                  )}
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={handleSetBooked}
+                    className={cn(
+                      "flex-1 flex items-center gap-2 px-3 py-2 text-sm rounded transition-colors text-left",
+                      isBooked 
+                        ? "bg-amber-500/20 text-amber-700 dark:text-amber-400" 
+                        : "hover:bg-muted"
+                    )}
+                  >
+                    <CalendarCheck className="w-4 h-4" />
+                    <span className="font-medium">Booked</span>
+                    {isBooked && (
+                      <span className="text-xs ml-auto">{format(bookedDate, 'dd/MM/yy')}</span>
+                    )}
+                  </button>
+                  <button
+                    onClick={handleOpenNotes}
+                    className={cn(
+                      "p-2 rounded transition-colors hover:bg-muted",
+                      hasNotes && "text-amber-600 bg-amber-500/10"
+                    )}
+                    title="Tenant notes"
+                  >
+                    <StickyNote className="w-4 h-4" />
+                  </button>
+                </div>
                 
-                <button
-                  onClick={handleSetUnbooked}
-                  className={cn(
-                    "w-full flex items-center gap-2 px-3 py-2 text-sm rounded transition-colors text-left",
-                    !isBooked 
-                      ? "bg-muted text-foreground" 
-                      : "hover:bg-muted"
-                  )}
-                >
-                  <CalendarX className="w-4 h-4" />
-                  <span className="font-medium">UnBooked</span>
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={handleSetUnbooked}
+                    className={cn(
+                      "flex-1 flex items-center gap-2 px-3 py-2 text-sm rounded transition-colors text-left",
+                      !isBooked 
+                        ? "bg-muted text-foreground" 
+                        : "hover:bg-muted"
+                    )}
+                  >
+                    <CalendarX className="w-4 h-4" />
+                    <span className="font-medium">UnBooked</span>
+                  </button>
+                  <button
+                    onClick={handleOpenNotes}
+                    className={cn(
+                      "p-2 rounded transition-colors hover:bg-muted",
+                      hasNotes && "text-amber-600 bg-amber-500/10"
+                    )}
+                    title="Tenant notes"
+                  >
+                    <StickyNote className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {hasNotes && (
+                  <div className="mt-2 pt-2 border-t border-border">
+                    <p className="text-xs text-muted-foreground line-clamp-2">{bookingNotes}</p>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="space-y-2">
