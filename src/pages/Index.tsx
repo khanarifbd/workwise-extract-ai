@@ -32,6 +32,7 @@ import * as XLSX from 'xlsx';
 type FileType = 'pdf' | 'image';
 type ViewType = 'table' | 'kanban' | 'calendar';
 type KanbanGroupBy = 'team' | 'status';
+type DatabaseTab = 'all' | 'booked';
 
 const Index = () => {
   const { categories, isLoading: categoriesLoading, addCategory, updateCategory, deleteCategory } = useCategories();
@@ -47,6 +48,7 @@ const Index = () => {
   const [selectedJobForModal, setSelectedJobForModal] = useState<Job | null>(null);
   const [filters, setFilters] = useState<FilterState>(getDefaultFilterState());
   const [activeMonthFolder, setActiveMonthFolder] = useState<string | null>(null);
+  const [activeDatabaseTab, setActiveDatabaseTab] = useState<DatabaseTab>('all');
   const [duplicateCheck, setDuplicateCheck] = useState<{
     newJob: Omit<Job, 'id'>;
     existingJob: Job;
@@ -239,29 +241,30 @@ const Index = () => {
     }
   };
 
-  const handleDuplicateToCategory = async (jobId: string, targetCategoryId: string, teamId: string) => {
+  const handleDuplicateToCategory = async (jobId: string, targetCategoryId: string, teamName: string) => {
     const job = jobs.find(j => j.id === jobId);
     if (!job) return;
 
     try {
-      // Create a duplicate of the job in the target category
+      // Create a duplicate of the job in the target category with team name
       const duplicatedJob: Omit<Job, 'id'> = {
         ...job,
-        team: teamId, // Assign the team from the target category
+        team: teamName, // Assign the team name (not ID)
         categoryId: targetCategoryId,
       } as any;
       
       // Remove the id field to create a new job
       await addJob(duplicatedJob);
       
+      const targetCategory = categories.find(c => c.id === targetCategoryId);
       toast({
-        title: "Job Duplicated",
-        description: `Job #${job.jobNumber} has been duplicated to another category.`,
+        title: "Job Assigned to Category",
+        description: `Job #${job.jobNumber} assigned to ${teamName} in ${targetCategory?.name || 'category'}.`,
       });
     } catch (error) {
       toast({
-        title: "Duplication Failed",
-        description: "Could not duplicate the job.",
+        title: "Assignment Failed",
+        description: "Could not assign the job to category.",
         variant: "destructive",
       });
     }
@@ -402,7 +405,12 @@ const Index = () => {
   }, [categories, activeCategory]);
 
   const filteredJobs = useMemo(() => {
-    return jobs.filter(job => {
+    let result = jobs.filter(job => {
+      // Database tab filter (booked/unbooked)
+      if (activeDatabaseTab === 'booked') {
+        if (!job.bookedDate) return false;
+      }
+
       // Monthly folder filter
       if (activeMonthFolder) {
         const date = job.dateIssued;
@@ -487,7 +495,14 @@ const Index = () => {
 
       return true;
     });
-  }, [jobs, filters, isFanCategory, activeMonthFolder]);
+    
+    return result;
+  }, [jobs, filters, isFanCategory, activeMonthFolder, activeDatabaseTab]);
+
+  // Count booked jobs for badge
+  const bookedJobsCount = useMemo(() => {
+    return jobs.filter(j => !!j.bookedDate).length;
+  }, [jobs]);
 
   // Helper function to extract phone number from description or name column
   const extractPhoneNumber = (job: Job): string => {
@@ -743,11 +758,50 @@ const Index = () => {
 
         {/* Jobs Database */}
         <section className="flex-1 bg-section-database border border-border rounded-lg p-4 min-h-0 overflow-hidden flex flex-col">
+          {/* Database Tabs - Job Database / BOOKED */}
+          <div className="flex items-center gap-2 mb-3 border-b border-border pb-2">
+            <button
+              onClick={() => setActiveDatabaseTab('all')}
+              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+                activeDatabaseTab === 'all'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
+              }`}
+            >
+              {isFanCategory ? 'Fan Installations' : 'Job Database'}
+            </button>
+            <button
+              onClick={() => setActiveDatabaseTab('booked')}
+              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-2 ${
+                activeDatabaseTab === 'booked'
+                  ? 'bg-amber-500 text-white'
+                  : 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/60'
+              }`}
+            >
+              BOOKED
+              {bookedJobsCount > 0 && (
+                <span className={`px-1.5 py-0.5 text-xs font-bold rounded-full ${
+                  activeDatabaseTab === 'booked'
+                    ? 'bg-white/20 text-white'
+                    : 'bg-amber-500 text-white'
+                }`}>
+                  {bookedJobsCount}
+                </span>
+              )}
+            </button>
+          </div>
+
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h2 className="text-base font-semibold">{isFanCategory ? 'Fan Installations' : 'Jobs Database'}</h2>
+              <h2 className="text-base font-semibold">
+                {activeDatabaseTab === 'booked' 
+                  ? 'Booked Jobs' 
+                  : isFanCategory 
+                    ? 'Fan Installations' 
+                    : 'Jobs Database'}
+              </h2>
               <p className="text-xs text-muted-foreground">
-                {filteredJobs.length} of {jobs.length} jobs
+                {filteredJobs.length} of {activeDatabaseTab === 'booked' ? bookedJobsCount : jobs.length} jobs
                 {activeMonthFolder && (
                   <span className="ml-1">
                     • Showing {format(new Date(activeMonthFolder + '-01'), 'MMMM yyyy')}

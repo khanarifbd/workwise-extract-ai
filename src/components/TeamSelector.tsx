@@ -102,18 +102,27 @@ export const TeamSelector = ({ job, currentCategoryId, onSelect, onClose, onDupl
 
     setIsSending(true);
     try {
-      for (const assignment of assignments) {
-        const isSameCategory = assignment.categoryId === currentCategoryId;
-        
-        if (isSameCategory) {
-          // Assign to team in current category
-          onSelect(assignment.teamId);
-        } else if (onDuplicateToCategory) {
-          // Duplicate job to other category and assign team
-          onDuplicateToCategory(job.id, assignment.categoryId, assignment.teamId);
+      // Collect team names for assignments in current category
+      const currentCategoryAssignments = assignments.filter(a => a.categoryId === currentCategoryId);
+      const otherCategoryAssignments = assignments.filter(a => a.categoryId !== currentCategoryId);
+      
+      // For current category: assign team (show team name)
+      if (currentCategoryAssignments.length > 0) {
+        // Use the first selected team for current category
+        const assignment = currentCategoryAssignments[0];
+        onSelect(assignment.teamId);
+      }
+      
+      // For other categories: duplicate job with team assignment
+      for (const assignment of otherCategoryAssignments) {
+        if (onDuplicateToCategory) {
+          // Duplicate job to other category with team name (not team ID)
+          onDuplicateToCategory(job.id, assignment.categoryId, assignment.teamName);
         }
+      }
 
-        // Send WhatsApp notification
+      // Send WhatsApp notifications for all assignments
+      for (const assignment of assignments) {
         const whatsappNumber = getTeamWhatsApp(assignment.teamId);
         try {
           const result = await sendWhatsAppNotification(assignment.teamName, whatsappNumber, job);
@@ -134,10 +143,10 @@ export const TeamSelector = ({ job, currentCategoryId, onSelect, onClose, onDupl
         }
       }
 
-      const categoryNames = assignments.map(a => a.categoryName).join(', ');
+      const teamNames = assignments.map(a => a.teamName).join(', ');
       toast({
         title: 'Teams Assigned',
-        description: `Job #${job.jobNumber} assigned to ${assignments.length} team(s) in: ${categoryNames}`,
+        description: `Job #${job.jobNumber} assigned to: ${teamNames}`,
         duration: 5000,
       });
       onClose();
