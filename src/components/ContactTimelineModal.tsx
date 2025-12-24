@@ -92,20 +92,10 @@ export function ContactTimelineModal({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
         <DialogHeader className="space-y-3">
-          <div className="flex items-center justify-between">
-            <DialogTitle className="flex items-center gap-2">
-              <Phone className="w-5 h-5" />
-              Contact History
-            </DialogTitle>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onClose}
-              className="text-muted-foreground hover:text-foreground"
-            >
-              ← Back to Database
-            </Button>
-          </div>
+          <DialogTitle className="flex items-center gap-2">
+            <Phone className="w-5 h-5" />
+            Contact History
+          </DialogTitle>
           
           {/* Job & Tenant Info Card */}
           <div className="p-4 bg-muted/50 rounded-lg border border-border space-y-3">
@@ -250,11 +240,11 @@ export function ContactTimelineModal({
                 </div>
               )}
 
-              {/* Action Buttons - Separated clearly */}
-              <div className="pt-3 border-t border-border flex gap-3">
+              {/* Action Buttons */}
+              <div className="pt-3 border-t border-border flex gap-2">
                 <Button
-                  variant="ghost"
-                  className="flex-shrink-0"
+                  variant="outline"
+                  size="sm"
                   onClick={() => {
                     setShowAddForm(false);
                     setSelectedOutcome(null);
@@ -266,11 +256,12 @@ export function ContactTimelineModal({
                   Cancel
                 </Button>
                 <Button
+                  size="sm"
                   onClick={handleSubmit}
                   disabled={!selectedOutcome || isSubmitting || (selectedOutcome === 'booked' && !bookedDate)}
                   className="flex-1"
                 >
-                  {isSubmitting ? 'Saving...' : selectedOutcome === 'booked' ? 'Confirm Booking' : 'Save Contact'}
+                  {isSubmitting ? 'Saving...' : selectedOutcome === 'booked' ? 'Confirm Booking' : 'Save'}
                 </Button>
               </div>
             </div>
@@ -372,6 +363,17 @@ export function ContactTimelineModal({
                 </div>
               )}
             </ScrollArea>
+          </div>
+
+          {/* Back to Database Button - Fixed at bottom */}
+          <div className="pt-3 border-t border-border">
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={onClose}
+            >
+              ← Back to Database
+            </Button>
           </div>
         </div>
       </DialogContent>
