@@ -6,9 +6,11 @@ export type ContactOutcome =
   | 'wrong_number'
   | 'tenant_refused'
   | 'spoke_not_booked'
-  | 'referred_nph';
+  | 'referred_nph'
+  | 'booked';
 
 export const CONTACT_OUTCOMES: { value: ContactOutcome; label: string; color: string; icon: string }[] = [
+  { value: 'booked', label: 'BOOKED', color: '#10B981', icon: '📅' },
   { value: 'answered_booked', label: 'Answered & Booked', color: '#10B981', icon: '✅' },
   { value: 'spoke_not_booked', label: 'Spoke - Not Booked', color: '#3B82F6', icon: '💬' },
   { value: 'callback_scheduled', label: 'Callback Scheduled', color: '#06B6D4', icon: '📅' },

@@ -31,6 +31,7 @@ interface ContactTimelineModalProps {
   jobNumber: string;
   tenantName: string;
   phoneNumber: string;
+  onBookJob?: (bookedDate: Date) => void;
 }
 
 export function ContactTimelineModal({
@@ -40,16 +41,23 @@ export function ContactTimelineModal({
   jobNumber,
   tenantName,
   phoneNumber,
+  onBookJob,
 }: ContactTimelineModalProps) {
   const { history, isLoading, addContactAttempt, deleteContactAttempt } = useContactHistory(jobId);
   const [showAddForm, setShowAddForm] = useState(false);
   const [selectedOutcome, setSelectedOutcome] = useState<ContactOutcome | null>(null);
   const [notes, setNotes] = useState('');
   const [callbackDate, setCallbackDate] = useState<Date | undefined>(undefined);
+  const [bookedDate, setBookedDate] = useState<Date | undefined>(undefined);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async () => {
     if (!selectedOutcome) return;
+
+    // For 'booked' outcome, require a booked date
+    if (selectedOutcome === 'booked' && !bookedDate) {
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -60,10 +68,16 @@ export function ContactTimelineModal({
         callbackDate
       );
       
+      // If booked outcome with date, trigger the booking callback
+      if (selectedOutcome === 'booked' && bookedDate && onBookJob) {
+        onBookJob(bookedDate);
+      }
+      
       // Reset form
       setSelectedOutcome(null);
       setNotes('');
       setCallbackDate(undefined);
+      setBookedDate(undefined);
       setShowAddForm(false);
     } finally {
       setIsSubmitting(false);
@@ -84,15 +98,16 @@ export function ContactTimelineModal({
           </DialogTitle>
           <div className="text-sm text-muted-foreground">
             <span className="font-medium">{jobNumber}</span> • {tenantName}
-            {phoneNumber && (
-              <a 
-                href={`tel:${phoneNumber}`} 
-                className="ml-2 text-primary hover:underline"
-              >
-                {phoneNumber}
-              </a>
-            )}
           </div>
+          {/* Large phone number display */}
+          {phoneNumber && (
+            <div className="mt-3 p-4 bg-primary/10 rounded-lg border border-primary/20">
+              <p className="text-xs text-muted-foreground mb-1">Tenant Phone Number</p>
+              <p className="text-3xl font-bold text-primary tracking-wider font-mono">
+                {phoneNumber}
+              </p>
+            </div>
+          )}
         </DialogHeader>
 
         <div className="flex-1 min-h-0">
@@ -165,14 +180,43 @@ export function ContactTimelineModal({
                 </div>
               )}
 
+              {/* Booked Date (for booked outcome) */}
+              {selectedOutcome === 'booked' && (
+                <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg space-y-2">
+                  <span className="text-sm font-medium text-emerald-700 dark:text-emerald-400">Select Booked Date:</span>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className="w-full justify-start">
+                        <CalendarDays className="w-4 h-4 mr-2" />
+                        {bookedDate ? format(bookedDate, 'dd/MM/yyyy') : 'Select start date'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={bookedDate}
+                        onSelect={setBookedDate}
+                        initialFocus
+                        className="pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  {bookedDate && (
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                      Job will be marked as booked for {format(bookedDate, 'dd/MM/yyyy')}
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* Actions */}
               <div className="flex gap-2">
                 <Button
                   onClick={handleSubmit}
-                  disabled={!selectedOutcome || isSubmitting}
+                  disabled={!selectedOutcome || isSubmitting || (selectedOutcome === 'booked' && !bookedDate)}
                   className="flex-1"
                 >
-                  {isSubmitting ? 'Saving...' : 'Save Contact'}
+                  {isSubmitting ? 'Saving...' : selectedOutcome === 'booked' ? 'Confirm Booking' : 'Save Contact'}
                 </Button>
                 <Button
                   variant="ghost"
@@ -181,6 +225,7 @@ export function ContactTimelineModal({
                     setSelectedOutcome(null);
                     setNotes('');
                     setCallbackDate(undefined);
+                    setBookedDate(undefined);
                   }}
                 >
                   Cancel
@@ -280,6 +325,17 @@ export function ContactTimelineModal({
               </div>
             )}
           </ScrollArea>
+        </div>
+        
+        {/* Back to Database Button */}
+        <div className="pt-3 border-t border-border">
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={onClose}
+          >
+            ← Back to Database
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
