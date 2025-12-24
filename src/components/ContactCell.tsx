@@ -15,6 +15,7 @@ interface ContactCellProps {
   bookedDate: Date | null;
   status: string;
   contactHistory: ContactHistory[];
+  onBookJob?: (bookedDate: Date) => void;
 }
 
 export function ContactCell({
@@ -25,6 +26,7 @@ export function ContactCell({
   bookedDate,
   status,
   contactHistory,
+  onBookJob,
 }: ContactCellProps) {
   const [showTimeline, setShowTimeline] = useState(false);
 
@@ -50,17 +52,11 @@ export function ContactCell({
         
         {/* Contact Summary */}
         <div className="flex items-center gap-2">
-          {/* Call Button */}
+          {/* Phone Icon - non-clickable, just decorative */}
           {phoneNumber && (
-            <a href={`tel:${phoneNumber}`}>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-7 w-7 text-primary hover:bg-primary/10"
-              >
-                <Phone className="w-3.5 h-3.5" />
-              </Button>
-            </a>
+            <div className="h-7 w-7 flex items-center justify-center text-muted-foreground">
+              <Phone className="w-3.5 h-3.5" />
+            </div>
           )}
           
           {/* History Button */}
@@ -105,6 +101,7 @@ export function ContactCell({
         jobNumber={jobNumber}
         tenantName={tenantName}
         phoneNumber={phoneNumber}
+        onBookJob={onBookJob}
       />
     </>
   );

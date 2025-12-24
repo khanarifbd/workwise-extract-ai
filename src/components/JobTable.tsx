@@ -8,7 +8,6 @@ import {
   Users, 
   Edit2, 
   Trash2, 
-  Phone,
   MapPin,
   FileText,
   MoreVertical,
@@ -24,9 +23,7 @@ import {
 import { cn } from '@/lib/utils';
 import { TeamSelector } from './TeamSelector';
 import { JobDetailsModal } from './JobDetailsModal';
-import { BookedDateCell } from './BookedDateCell';
 import { InlineDescriptionEditor } from './InlineDescriptionEditor';
-import { StatusProgressColumn } from './StatusProgressColumn';
 import { FanEditor } from './FanEditor';
 import { CostsEditor } from './CostsEditor';
 import { ContactCell } from './ContactCell';
@@ -470,13 +467,11 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                 />
               </th>
               <th className="w-28">Issued</th>
-              <th className="w-28">Booked</th>
               <th className="w-28">Job #</th>
               <th className="w-40">Name / Address</th>
               <th className="w-32">Action</th>
               <th className="min-w-[200px]">Description</th>
               <th className="w-24">Fan</th>
-              <th className="w-28">Status</th>
               <th className="w-32">Team</th>
               <th className="w-32">Costs</th>
               <th className="w-36">Start/End</th>
@@ -536,14 +531,6 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                   <td className="font-mono text-muted-foreground relative z-20">
                     {format(job.dateIssued, 'dd/MM/yy')}
                   </td>
-                  <td onClick={(e) => e.stopPropagation()} className="relative z-20">
-                    <BookedDateCell
-                      bookedDate={job.bookedDate}
-                      bookingNotes={job.bookingNotes || ''}
-                      onDateChange={(date) => handleBookedDateChange(job.id, date)}
-                      onNotesChange={(notes) => onUpdateJob({ ...job, bookingNotes: notes })}
-                    />
-                  </td>
                   <td className="relative z-20">
                     <div className="flex items-center gap-2">
                       <span className="font-mono font-semibold text-primary">
@@ -575,6 +562,7 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                       bookedDate={job.bookedDate}
                       status={job.status}
                       contactHistory={contactHistoryMap[job.id] || []}
+                      onBookJob={(bookedDate) => handleBookedDateChange(job.id, bookedDate)}
                     />
                   </td>
                   <td onClick={(e) => e.stopPropagation()} className="relative z-20">
@@ -642,16 +630,6 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                         </Button>
                       )}
                     </div>
-                  </td>
-                  {/* Merged Status/Progress Column */}
-                  <td onClick={(e) => e.stopPropagation()}>
-                    <StatusProgressColumn
-                      currentStatus={job.status || 'pending'}
-                      progress={job.progress}
-                      progressNotes={job.progressNotes}
-                      isCompleted={isCompleted}
-                      onUpdate={(updates) => handleStatusProgressUpdate(job.id, updates)}
-                    />
                   </td>
                   <td onClick={(e) => e.stopPropagation()}>
                     <div className="relative">
