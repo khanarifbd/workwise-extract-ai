@@ -41,6 +41,50 @@ export type Database = {
         }
         Relationships: []
       }
+      contact_history: {
+        Row: {
+          contact_date: string
+          created_at: string
+          created_by: string | null
+          id: string
+          job_id: string
+          next_action: string | null
+          next_action_date: string | null
+          notes: string | null
+          outcome: string
+        }
+        Insert: {
+          contact_date?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          job_id: string
+          next_action?: string | null
+          next_action_date?: string | null
+          notes?: string | null
+          outcome: string
+        }
+        Update: {
+          contact_date?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          job_id?: string
+          next_action?: string | null
+          next_action_date?: string | null
+          notes?: string | null
+          outcome?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_history_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       geocode_cache: {
         Row: {
           address: string

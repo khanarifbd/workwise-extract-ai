@@ -29,9 +29,11 @@ import { InlineDescriptionEditor } from './InlineDescriptionEditor';
 import { StatusProgressColumn } from './StatusProgressColumn';
 import { FanEditor } from './FanEditor';
 import { CostsEditor } from './CostsEditor';
+import { ContactCell } from './ContactCell';
 import { extractFansWithAI, createLinkedFanJob } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { useTeamSettings } from '@/hooks/useTeamSettings';
+import { useAllContactHistory } from '@/hooks/useContactHistory';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   DropdownMenu,
@@ -83,6 +85,10 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
   const [duplicateActionJob, setDuplicateActionJob] = useState<Job | null>(null);
   const { toast } = useToast();
   const { settings: teamSettings } = useTeamSettings();
+  
+  // Load contact history for all jobs
+  const jobIds = useMemo(() => jobs.map(j => j.id), [jobs]);
+  const { historyMap: contactHistoryMap } = useAllContactHistory(jobIds);
   
   // Build dynamic teams list from settings based on category type
   const teams: Team[] = useMemo(() => {
@@ -466,8 +472,9 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
               <th className="w-28">Issued</th>
               <th className="w-28">Booked</th>
               <th className="w-28">Job #</th>
-              <th className="w-44">Name / Contact</th>
-              <th className="min-w-[220px]">Description</th>
+              <th className="w-40">Name / Address</th>
+              <th className="w-32">Action</th>
+              <th className="min-w-[200px]">Description</th>
               <th className="w-24">Fan</th>
               <th className="w-28">Status</th>
               <th className="w-32">Team</th>
@@ -550,17 +557,25 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                     </div>
                   </td>
                   <td className="relative z-20">
-                    <div className="space-y-1">
-                      <p className="font-medium text-foreground">{job.name}</p>
-                      <div className="flex items-center gap-1.5 text-muted-foreground">
-                        <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
-                        <span className="truncate max-w-[140px]">{job.address}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-muted-foreground">
-                        <Phone className="w-3.5 h-3.5 flex-shrink-0" />
-                        <span>{job.phoneNumber}</span>
+                    <div className="space-y-0.5">
+                      <p className="font-medium text-foreground text-sm">{job.name}</p>
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <MapPin className="w-3 h-3 flex-shrink-0" />
+                        <span className="truncate max-w-[120px]">{job.address}</span>
                       </div>
                     </div>
+                  </td>
+                  {/* Action Column */}
+                  <td onClick={(e) => e.stopPropagation()} className="relative z-20">
+                    <ContactCell
+                      jobId={job.id}
+                      jobNumber={job.jobNumber}
+                      tenantName={job.name}
+                      phoneNumber={job.phoneNumber}
+                      bookedDate={job.bookedDate}
+                      status={job.status}
+                      contactHistory={contactHistoryMap[job.id] || []}
+                    />
                   </td>
                   <td onClick={(e) => e.stopPropagation()} className="relative z-20">
                     <InlineDescriptionEditor
