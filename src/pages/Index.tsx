@@ -12,6 +12,7 @@ import { CategoryTabs } from '@/components/CategoryTabs';
 import { KanbanBoard } from '@/components/KanbanBoard';
 import { CalendarView } from '@/components/CalendarView';
 import { MonthlyFolderTabs } from '@/components/MonthlyFolderTabs';
+import { BookedDateSidebar } from '@/components/BookedDateSidebar';
 import { ViewToggle } from '@/components/ViewToggle';
 import { JobDetailsModal } from '@/components/JobDetailsModal';
 import { DuplicateJobAlert } from '@/components/DuplicateJobAlert';
@@ -53,6 +54,7 @@ const Index = () => {
   const [activeDatabaseTab, setActiveDatabaseTab] = useState<DatabaseTab>('all');
   const [bookedSortOrder, setBookedSortOrder] = useState<BookedSortOrder>('newest');
   const [completedSortOrder, setCompletedSortOrder] = useState<CompletedSortOrder>('newest');
+  const [selectedBookedDate, setSelectedBookedDate] = useState<string | null>(null);
   const [duplicateCheck, setDuplicateCheck] = useState<{
     newJob: Omit<Job, 'id'>;
     existingJob: Job;
@@ -416,6 +418,14 @@ const Index = () => {
       if (activeDatabaseTab === 'booked') {
         // Show only booked jobs that are NOT completed
         if (!job.bookedDate || job.isCompleted || job.progress === 100) return false;
+        
+        // Filter by selected booked date if any
+        if (selectedBookedDate) {
+          const bookedDate = job.bookedDate instanceof Date ? job.bookedDate : parseISO(job.bookedDate as any);
+          if (!isValid(bookedDate)) return false;
+          const jobDateKey = format(bookedDate, 'yyyy-MM-dd');
+          if (jobDateKey !== selectedBookedDate) return false;
+        }
       } else if (activeDatabaseTab === 'completed') {
         // Show only completed jobs
         if (!job.isCompleted && job.progress !== 100) return false;
@@ -529,7 +539,7 @@ const Index = () => {
     }
     
     return result;
-  }, [jobs, filters, isFanCategory, activeMonthFolder, activeDatabaseTab, bookedSortOrder, completedSortOrder]);
+  }, [jobs, filters, isFanCategory, activeMonthFolder, activeDatabaseTab, bookedSortOrder, completedSortOrder, selectedBookedDate]);
 
   // Count booked jobs for badge (exclude completed)
   const bookedJobsCount = useMemo(() => {
@@ -907,37 +917,48 @@ const Index = () => {
             </div>
           </div>
           
-          <div className="flex-1 overflow-auto">
-            {viewType === 'table' ? (
-              <JobTable 
-                jobs={filteredJobs} 
-                onUpdateJob={handleUpdateJob}
-                onDeleteJob={handleDeleteJob}
-                onToggleComplete={handleToggleComplete}
-                onBatchUpdateTeam={handleBatchUpdateTeam}
-                onTransferJob={handleTransferJob}
-                onDuplicateToCategory={handleDuplicateToCategory}
-                fanCategoryId={categories.find(c => c.name.toLowerCase().includes('fan'))?.id}
-                onFanJobCreated={refreshJobs}
-                isFanCategory={isFanCategory}
-                currentCategoryId={activeCategory || undefined}
-                categories={categories.map(c => ({ id: c.id, name: c.name, color: c.color }))}
-              />
-            ) : viewType === 'kanban' ? (
-              <KanbanBoard
-                jobs={filteredJobs}
-                groupBy={kanbanGroupBy}
-                onJobClick={setSelectedJobForModal}
-                onToggleComplete={handleToggleComplete}
-                onMoveJob={handleKanbanMoveJob}
-              />
-            ) : (
-              <CalendarView
-                jobs={filteredJobs}
-                onJobClick={setSelectedJobForModal}
-                onToggleComplete={handleToggleComplete}
+          <div className="flex-1 overflow-hidden flex">
+            {/* Booked Date Sidebar - only show in booked tab */}
+            {activeDatabaseTab === 'booked' && (
+              <BookedDateSidebar
+                jobs={jobs.filter(j => !!j.bookedDate && !j.isCompleted && j.progress !== 100)}
+                selectedDate={selectedBookedDate}
+                onDateSelect={setSelectedBookedDate}
               />
             )}
+            
+            <div className="flex-1 overflow-auto">
+              {viewType === 'table' ? (
+                <JobTable 
+                  jobs={filteredJobs} 
+                  onUpdateJob={handleUpdateJob}
+                  onDeleteJob={handleDeleteJob}
+                  onToggleComplete={handleToggleComplete}
+                  onBatchUpdateTeam={handleBatchUpdateTeam}
+                  onTransferJob={handleTransferJob}
+                  onDuplicateToCategory={handleDuplicateToCategory}
+                  fanCategoryId={categories.find(c => c.name.toLowerCase().includes('fan'))?.id}
+                  onFanJobCreated={refreshJobs}
+                  isFanCategory={isFanCategory}
+                  currentCategoryId={activeCategory || undefined}
+                  categories={categories.map(c => ({ id: c.id, name: c.name, color: c.color }))}
+                />
+              ) : viewType === 'kanban' ? (
+                <KanbanBoard
+                  jobs={filteredJobs}
+                  groupBy={kanbanGroupBy}
+                  onJobClick={setSelectedJobForModal}
+                  onToggleComplete={handleToggleComplete}
+                  onMoveJob={handleKanbanMoveJob}
+                />
+              ) : (
+                <CalendarView
+                  jobs={filteredJobs}
+                  onJobClick={setSelectedJobForModal}
+                  onToggleComplete={handleToggleComplete}
+                />
+              )}
+            </div>
           </div>
         </section>
       </main>
