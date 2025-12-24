@@ -1,5 +1,4 @@
 export type ContactOutcome = 
-  | 'answered_booked'
   | 'no_answer'
   | 'voicemail_left'
   | 'callback_scheduled'
@@ -11,7 +10,6 @@ export type ContactOutcome =
 
 export const CONTACT_OUTCOMES: { value: ContactOutcome; label: string; color: string; icon: string }[] = [
   { value: 'booked', label: 'BOOKED', color: '#10B981', icon: '📅' },
-  { value: 'answered_booked', label: 'Answered & Booked', color: '#10B981', icon: '✅' },
   { value: 'spoke_not_booked', label: 'Spoke - Not Booked', color: '#3B82F6', icon: '💬' },
   { value: 'callback_scheduled', label: 'Callback Scheduled', color: '#06B6D4', icon: '📅' },
   { value: 'voicemail_left', label: 'Voicemail Left', color: '#8B5CF6', icon: '📧' },
@@ -80,7 +78,7 @@ export function determineNextAction(
 
   // Based on last contact outcome
   switch (lastContact.outcome) {
-    case 'answered_booked':
+    case 'booked':
       return 'booked';
     case 'callback_scheduled':
       if (lastContact.nextActionDate && new Date(lastContact.nextActionDate) <= new Date()) {
