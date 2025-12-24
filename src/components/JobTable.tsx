@@ -469,7 +469,6 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
               <th className="w-44">Name / Contact</th>
               <th className="min-w-[220px]">Description</th>
               <th className="w-24">Fan</th>
-              <th className="w-36">SOR Codes</th>
               <th className="w-28">Status</th>
               <th className="w-32">Team</th>
               <th className="w-32">Costs</th>
@@ -626,20 +625,6 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                             </>
                           )}
                         </Button>
-                      )}
-                    </div>
-                  </td>
-                  <td>
-                    <div className="flex flex-wrap gap-1 max-w-[130px]">
-                      {job.workItems.slice(0, 2).map((item, idx) => (
-                        <Badge key={idx} variant="secondary" className="font-mono text-xs px-1.5">
-                          {item.sorCode}
-                        </Badge>
-                      ))}
-                      {job.workItems.length > 2 && (
-                        <Badge variant="outline" className="text-xs px-1.5">
-                          +{job.workItems.length - 2}
-                        </Badge>
                       )}
                     </div>
                   </td>
