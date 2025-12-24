@@ -1,0 +1,111 @@
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Phone, History, Plus } from 'lucide-react';
+import { ContactHistory, determineNextAction, CONTACT_OUTCOMES } from '@/types/contactHistory';
+import { ActionBadge } from './ActionBadge';
+import { ContactTimelineModal } from './ContactTimelineModal';
+import { format } from 'date-fns';
+
+interface ContactCellProps {
+  jobId: string;
+  jobNumber: string;
+  tenantName: string;
+  phoneNumber: string;
+  bookedDate: Date | null;
+  status: string;
+  contactHistory: ContactHistory[];
+}
+
+export function ContactCell({
+  jobId,
+  jobNumber,
+  tenantName,
+  phoneNumber,
+  bookedDate,
+  status,
+  contactHistory,
+}: ContactCellProps) {
+  const [showTimeline, setShowTimeline] = useState(false);
+
+  const nextAction = determineNextAction(contactHistory, { bookedDate, status });
+  const attemptCount = contactHistory.length;
+  
+  // Get last contact info
+  const lastContact = contactHistory.length > 0 
+    ? contactHistory.sort((a, b) => 
+        new Date(b.contactDate).getTime() - new Date(a.contactDate).getTime()
+      )[0] 
+    : null;
+
+  const lastOutcome = lastContact 
+    ? CONTACT_OUTCOMES.find(o => o.value === lastContact.outcome)
+    : null;
+
+  return (
+    <>
+      <div className="flex flex-col gap-1.5">
+        {/* Action Badge */}
+        <ActionBadge action={nextAction} size="sm" />
+        
+        {/* Contact Summary */}
+        <div className="flex items-center gap-2">
+          {/* Call Button */}
+          {phoneNumber && (
+            <a href={`tel:${phoneNumber}`}>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-7 w-7 text-primary hover:bg-primary/10"
+              >
+                <Phone className="w-3.5 h-3.5" />
+              </Button>
+            </a>
+          )}
+          
+          {/* History Button */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-xs"
+            onClick={() => setShowTimeline(true)}
+          >
+            {attemptCount > 0 ? (
+              <>
+                <History className="w-3 h-3 mr-1" />
+                {attemptCount}
+                {lastOutcome && (
+                  <span 
+                    className="ml-1 w-2 h-2 rounded-full"
+                    style={{ backgroundColor: lastOutcome.color }}
+                  />
+                )}
+              </>
+            ) : (
+              <>
+                <Plus className="w-3 h-3 mr-1" />
+                Log Call
+              </>
+            )}
+          </Button>
+        </div>
+
+        {/* Last Contact Info */}
+        {lastContact && (
+          <div className="text-[10px] text-muted-foreground truncate max-w-[120px]">
+            {format(lastContact.contactDate, 'dd/MM')} • {lastOutcome?.label}
+          </div>
+        )}
+      </div>
+
+      <ContactTimelineModal
+        isOpen={showTimeline}
+        onClose={() => setShowTimeline(false)}
+        jobId={jobId}
+        jobNumber={jobNumber}
+        tenantName={tenantName}
+        phoneNumber={phoneNumber}
+      />
+    </>
+  );
+}
