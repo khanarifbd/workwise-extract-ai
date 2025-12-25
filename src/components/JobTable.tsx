@@ -472,7 +472,8 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
               <th className="w-28">Job #</th>
               <th className="w-40">Name / Address</th>
               <th className="w-32">Action</th>
-              <th className="w-44">Assigned / Booked</th>
+              <th className="w-28">Assigned</th>
+              <th className="w-28">Status</th>
               <th className="min-w-[200px]">Description</th>
               <th className="w-24">Fan</th>
               <th className="w-32">Costs</th>
@@ -567,84 +568,52 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                       onBookJob={(bookedDate) => handleBookedDateChange(job.id, bookedDate)}
                     />
                   </td>
-                  {/* Merged Assigned / Booked Column */}
+                  {/* Assigned Column */}
                   <td onClick={(e) => e.stopPropagation()} className="relative z-20">
-                    <div className="flex flex-col gap-1.5">
-                      {/* Team Assignment */}
-                      <div className="relative">
-                        {job.team ? (
-                          <Badge 
-                            className="cursor-pointer text-xs"
-                            style={{ backgroundColor: getTeamColor(job.team), color: 'white' }}
-                            onClick={() => setShowTeamSelector(job.id)}
-                          >
-                            <Users className="w-3.5 h-3.5 mr-1" />
-                            {job.team}
-                          </Badge>
-                        ) : (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-6 text-xs px-2"
-                            onClick={() => setShowTeamSelector(job.id)}
-                          >
-                            <Users className="w-3 h-3 mr-1" />
-                            Assign
-                          </Button>
-                        )}
-                        {showTeamSelector === job.id && (
-                          <TeamSelector
-                            job={job}
-                            currentCategoryId={currentCategoryId}
-                            onSelect={(teamId) => handleTeamSelect(job.id, teamId)}
-                            onClose={() => setShowTeamSelector(null)}
-                            onDuplicateToCategory={(jobId, targetCategoryId, teamId) => {
-                              if (onDuplicateToCategory) {
-                                onDuplicateToCategory(jobId, targetCategoryId, teamId);
-                              }
-                            }}
-                          />
-                        )}
-                      </div>
-                      {/* Booked Status - Show contact outcome if booked, otherwise show booking cell */}
-                      {job.bookedDate ? (
-                        (() => {
-                          const jobContactHistory = contactHistoryMap[job.id] || [];
-                          const lastContact = jobContactHistory.length > 0 
-                            ? [...jobContactHistory].sort((a, b) => 
-                                new Date(b.contactDate).getTime() - new Date(a.contactDate).getTime()
-                              )[0] 
-                            : null;
-                          const lastOutcome = lastContact 
-                            ? CONTACT_OUTCOMES.find(o => o.value === lastContact.outcome)
-                            : null;
-                          
-                          return lastOutcome ? (
-                            <div 
-                              className="flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded"
-                              style={{ 
-                                backgroundColor: lastOutcome.color,
-                                color: '#FFFFFF' 
-                              }}
-                            >
-                              <span>{lastOutcome.icon}</span>
-                              <span className="truncate max-w-[80px]">{lastOutcome.label}</span>
-                            </div>
-                          ) : (
-                            <Badge className="bg-amber-500 text-white text-xs">
-                              📅 {format(job.bookedDate, 'dd/MM/yy')}
-                            </Badge>
-                          );
-                        })()
+                    <div className="relative">
+                      {job.team ? (
+                        <Badge 
+                          className="cursor-pointer text-xs"
+                          style={{ backgroundColor: getTeamColor(job.team), color: 'white' }}
+                          onClick={() => setShowTeamSelector(job.id)}
+                        >
+                          <Users className="w-3.5 h-3.5 mr-1" />
+                          {job.team}
+                        </Badge>
                       ) : (
-                        <BookedDateCell
-                          bookedDate={job.bookedDate}
-                          bookingNotes={job.bookingNotes || ''}
-                          onDateChange={(date) => handleBookedDateChange(job.id, date)}
-                          onNotesChange={(notes) => onUpdateJob({ ...job, bookingNotes: notes })}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-6 text-xs px-2"
+                          onClick={() => setShowTeamSelector(job.id)}
+                        >
+                          <Users className="w-3 h-3 mr-1" />
+                          Assign
+                        </Button>
+                      )}
+                      {showTeamSelector === job.id && (
+                        <TeamSelector
+                          job={job}
+                          currentCategoryId={currentCategoryId}
+                          onSelect={(teamId) => handleTeamSelect(job.id, teamId)}
+                          onClose={() => setShowTeamSelector(null)}
+                          onDuplicateToCategory={(jobId, targetCategoryId, teamId) => {
+                            if (onDuplicateToCategory) {
+                              onDuplicateToCategory(jobId, targetCategoryId, teamId);
+                            }
+                          }}
                         />
                       )}
                     </div>
+                  </td>
+                  {/* Status Column - Booked date or UnBooked */}
+                  <td onClick={(e) => e.stopPropagation()} className="relative z-20">
+                    <BookedDateCell
+                      bookedDate={job.bookedDate}
+                      bookingNotes={job.bookingNotes || ''}
+                      onDateChange={(date) => handleBookedDateChange(job.id, date)}
+                      onNotesChange={(notes) => onUpdateJob({ ...job, bookingNotes: notes })}
+                    />
                   </td>
                   <td onClick={(e) => e.stopPropagation()} className="relative z-20">
                     <InlineDescriptionEditor

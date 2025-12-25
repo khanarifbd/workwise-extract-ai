@@ -48,32 +48,30 @@ export function ContactCell({
   return (
     <>
       <div className="flex flex-col gap-1.5">
-        {/* Show Last Contact Outcome if exists, otherwise show Action Badge */}
+        {/* Show Last Contact Outcome badge if exists, otherwise show Action Badge (CALL NOW, etc.) */}
         {lastOutcome ? (
           <div 
-            className="flex items-center gap-1.5 text-xs font-bold px-2 py-1 rounded"
+            className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1.5 rounded w-fit"
             style={{ 
               backgroundColor: lastOutcome.color,
               color: '#FFFFFF' 
             }}
           >
             <span>{lastOutcome.icon}</span>
-            <span className="truncate max-w-[100px]">{lastOutcome.label}</span>
+            <span>{lastOutcome.label}</span>
           </div>
         ) : (
           <ActionBadge action={nextAction} size="sm" />
         )}
         
-        {/* Contact Summary */}
+        {/* Contact Summary - Phone icon + History/Log button */}
         <div className="flex items-center gap-2">
-          {/* Phone Icon - non-clickable, just decorative */}
           {phoneNumber && (
             <div className="h-7 w-7 flex items-center justify-center text-muted-foreground">
               <Phone className="w-3.5 h-3.5" />
             </div>
           )}
           
-          {/* History Button */}
           <Button
             variant="ghost"
             size="sm"
