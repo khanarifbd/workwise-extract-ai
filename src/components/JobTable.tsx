@@ -27,6 +27,7 @@ import { InlineDescriptionEditor } from './InlineDescriptionEditor';
 import { FanEditor } from './FanEditor';
 import { CostsEditor } from './CostsEditor';
 import { ContactCell } from './ContactCell';
+import { BookedDateCell } from './BookedDateCell';
 import { extractFansWithAI, createLinkedFanJob } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { useTeamSettings } from '@/hooks/useTeamSettings';
@@ -470,6 +471,7 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
               <th className="w-28">Job #</th>
               <th className="w-40">Name / Address</th>
               <th className="w-32">Action</th>
+              <th className="w-28">Booked</th>
               <th className="min-w-[200px]">Description</th>
               <th className="w-24">Fan</th>
               <th className="w-32">Team</th>
@@ -563,6 +565,15 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                       status={job.status}
                       contactHistory={contactHistoryMap[job.id] || []}
                       onBookJob={(bookedDate) => handleBookedDateChange(job.id, bookedDate)}
+                    />
+                  </td>
+                  {/* Booked Column */}
+                  <td onClick={(e) => e.stopPropagation()} className="relative z-20">
+                    <BookedDateCell
+                      bookedDate={job.bookedDate}
+                      bookingNotes={job.bookingNotes || ''}
+                      onDateChange={(date) => handleBookedDateChange(job.id, date)}
+                      onNotesChange={(notes) => onUpdateJob({ ...job, bookingNotes: notes })}
                     />
                   </td>
                   <td onClick={(e) => e.stopPropagation()} className="relative z-20">
