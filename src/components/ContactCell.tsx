@@ -1,11 +1,8 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Phone, History, Plus } from 'lucide-react';
-import { ContactHistory, determineNextAction, CONTACT_OUTCOMES } from '@/types/contactHistory';
-import { ActionBadge } from './ActionBadge';
+import { ContactHistory, determineNextAction, CONTACT_OUTCOMES, NextAction, NEXT_ACTION_BADGES } from '@/types/contactHistory';
 import { ContactTimelineModal } from './ContactTimelineModal';
-import { format } from 'date-fns';
 
 interface ContactCellProps {
   jobId: string;
@@ -16,7 +13,6 @@ interface ContactCellProps {
   status: string;
   contactHistory: ContactHistory[];
   onBookJob?: (bookedDate: Date) => void;
-  showOutcomeOnly?: boolean;
 }
 
 export function ContactCell({
@@ -45,10 +41,13 @@ export function ContactCell({
     ? CONTACT_OUTCOMES.find(o => o.value === lastContact.outcome)
     : null;
 
+  // Get action badge info
+  const actionBadge = NEXT_ACTION_BADGES.find(a => a.value === nextAction);
+
   return (
     <>
       <div className="flex flex-col gap-1.5">
-        {/* Show Last Contact Outcome badge if exists, otherwise show Action Badge (CALL NOW, etc.) */}
+        {/* Show Last Contact Outcome if exists, otherwise show Action Badge */}
         {lastOutcome ? (
           <div 
             className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1.5 rounded w-fit"
@@ -60,9 +59,17 @@ export function ContactCell({
             <span>{lastOutcome.icon}</span>
             <span>{lastOutcome.label}</span>
           </div>
-        ) : (
-          <ActionBadge action={nextAction} size="sm" />
-        )}
+        ) : actionBadge && actionBadge.value !== 'none' ? (
+          <div 
+            className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1.5 rounded w-fit"
+            style={{ 
+              backgroundColor: actionBadge.bgColor,
+              color: actionBadge.color 
+            }}
+          >
+            <span>{actionBadge.label}</span>
+          </div>
+        ) : null}
         
         {/* Contact Summary - Phone icon + History/Log button */}
         <div className="flex items-center gap-2">

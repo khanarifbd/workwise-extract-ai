@@ -32,7 +32,7 @@ import { extractFansWithAI, createLinkedFanJob } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { useTeamSettings } from '@/hooks/useTeamSettings';
 import { useAllContactHistory } from '@/hooks/useContactHistory';
-import { CONTACT_OUTCOMES } from '@/types/contactHistory';
+import { CONTACT_OUTCOMES, determineNextAction, NextAction } from '@/types/contactHistory';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   DropdownMenu,
@@ -497,18 +497,39 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
               const isCompleted = job.status === 'complete' || job.isCompleted || job.progress === 100;
               const isDuplicate = duplicateJobIds.has(job.id);
               
+              // Determine next action for row coloring
+              const jobContactHistory = contactHistoryMap[job.id] || [];
+              const nextAction: NextAction = determineNextAction(jobContactHistory, { bookedDate: job.bookedDate, status: job.status });
+              
+              // Get row background class based on action urgency
+              const getActionRowClass = (): string => {
+                if (isDuplicate) return "bg-red-500/30 dark:bg-red-900/50 border-l-8 border-l-red-600 hover:bg-red-500/40 dark:hover:bg-red-800/60 ring-2 ring-red-500 animate-pulse";
+                if (isCompleted) return "bg-emerald-200/80 dark:bg-emerald-800/60 border-l-4 border-l-emerald-500 hover:bg-emerald-300/80 dark:hover:bg-emerald-700/60 ring-1 ring-emerald-300 dark:ring-emerald-600";
+                
+                switch (nextAction) {
+                  case 'call_now':
+                    return "bg-red-100/80 dark:bg-red-900/40 border-l-4 border-l-red-500 hover:bg-red-200/80 dark:hover:bg-red-900/50";
+                  case 'call_back':
+                    return "bg-orange-100/80 dark:bg-orange-900/40 border-l-4 border-l-orange-500 hover:bg-orange-200/80 dark:hover:bg-orange-900/50";
+                  case 'follow_up':
+                    return "bg-purple-100/80 dark:bg-purple-900/40 border-l-4 border-l-purple-500 hover:bg-purple-200/80 dark:hover:bg-purple-900/50";
+                  case 'await_callback':
+                    return "bg-yellow-100/80 dark:bg-yellow-900/40 border-l-4 border-l-yellow-500 hover:bg-yellow-200/80 dark:hover:bg-yellow-900/50";
+                  case 'booked':
+                    return "bg-emerald-100/80 dark:bg-emerald-900/40 border-l-4 border-l-emerald-500 hover:bg-emerald-200/80 dark:hover:bg-emerald-900/50";
+                  case 'escalate_nph':
+                    return "bg-pink-100/80 dark:bg-pink-900/40 border-l-4 border-l-pink-500 hover:bg-pink-200/80 dark:hover:bg-pink-900/50";
+                  default:
+                    return "hover:bg-muted/30";
+                }
+              };
+              
               return (
                 <tr 
                   key={job.id} 
                   className={cn(
                     "transition-colors cursor-pointer relative",
-                    isDuplicate 
-                      ? "bg-red-500/30 dark:bg-red-900/50 border-l-8 border-l-red-600 hover:bg-red-500/40 dark:hover:bg-red-800/60 ring-2 ring-red-500 animate-pulse" 
-                      : job.bookedDate
-                        ? "bg-amber-400/50 dark:bg-amber-600/40 border-l-4 border-l-amber-500 hover:bg-amber-400/60 dark:hover:bg-amber-600/50 ring-1 ring-amber-400"
-                        : isCompleted 
-                          ? "bg-emerald-200/80 dark:bg-emerald-800/60 border-l-4 border-l-emerald-500 hover:bg-emerald-300/80 dark:hover:bg-emerald-700/60 ring-1 ring-emerald-300 dark:ring-emerald-600" 
-                          : "hover:bg-muted/30",
+                    getActionRowClass(),
                     selectedJobs.has(job.id) && "bg-primary/5"
                   )}
                   onClick={() => isDuplicate ? setDuplicateActionJob(job) : setShowJobDetails(job)}
