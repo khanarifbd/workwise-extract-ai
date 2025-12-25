@@ -12,8 +12,7 @@ import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useOfflineStorage } from '@/hooks/useOfflineStorage';
 import { useToast } from '@/hooks/use-toast';
-import { mapJobToDatabase } from '@/lib/api';
-
+import { useTeamAuth } from '@/hooks/useTeamAuth';
 interface TeamJobDetailProps {
   job: Job;
   teamId: string;
@@ -48,6 +47,7 @@ export const TeamJobDetail = ({
   
   const { addToSyncQueue, saveDraft, getDraft, clearDraft } = useOfflineStorage();
   const { toast } = useToast();
+  const { updateTeamJob } = useTeamAuth();
 
   // Check if job can be marked complete (progress at 100%)
   const canComplete = progress === 100 && status !== 'complete';
@@ -102,38 +102,17 @@ export const TeamJobDetail = ({
   const handleSave = async () => {
     setIsSaving(true);
 
-    const updates: Partial<Job> = {
-      id: job.id,
-      progress,
-      progressNotes: notes,
+    const updates = {
       status,
-      isCompleted: status === 'complete',
-      completionDate: status === 'complete' ? new Date() : null,
+      progress,
+      notes,
+      photos: photos.length > 0 ? photos : undefined,
     };
 
     try {
       if (isOnline) {
-        const dbUpdates = mapJobToDatabase(updates);
-        const { error } = await supabase
-          .from('jobs')
-          .update(dbUpdates)
-          .eq('id', job.id);
-
-        if (error) throw error;
-
-        // Save photos if any
-        if (photos.length > 0) {
-          await supabase.from('team_job_updates').insert({
-            job_id: job.id,
-            team_id: teamId,
-            progress,
-            notes,
-            photos,
-            status,
-            updated_by: teamName,
-            synced_at: new Date().toISOString(),
-          });
-        }
+        // Use secure edge function instead of direct database access
+        await updateTeamJob(job.id, updates);
 
         await clearDraft(job.id, teamName);
         
@@ -212,39 +191,14 @@ export const TeamJobDetail = ({
         await handleSave();
       }
 
-      // Update job status to complete and transfer all team data
-      const completionData = {
-        status: 'complete',
-        is_completed: true,
-        completion_date: new Date().toISOString(),
-        progress: 100,
-        progress_notes: notes,
-      };
-
       if (isOnline) {
-        // Update main job record
-        const { error: jobError } = await supabase
-          .from('jobs')
-          .update(completionData)
-          .eq('id', job.id);
-
-        if (jobError) throw jobError;
-
-        // Record the completion in team_job_updates as final sign-off
-        const { error: updateError } = await supabase
-          .from('team_job_updates')
-          .insert({
-            job_id: job.id,
-            team_id: teamId,
-            progress: 100,
-            notes: notes + '\n\n[JOB COMPLETED BY TEAM]',
-            photos,
-            status: 'complete',
-            updated_by: teamName,
-            synced_at: new Date().toISOString(),
-          });
-
-        if (updateError) console.error('Error recording completion:', updateError);
+        // Use secure edge function for completion
+        await updateTeamJob(job.id, {
+          status: 'complete',
+          progress: 100,
+          notes: notes + '\n\n[JOB COMPLETED BY TEAM]',
+          photos: photos.length > 0 ? photos : undefined,
+        });
 
         await clearDraft(job.id, teamName);
         
@@ -268,7 +222,9 @@ export const TeamJobDetail = ({
           actionType: 'job_complete',
           payload: {
             id: job.id,
-            ...completionData,
+            status: 'complete',
+            progress: 100,
+            notes: notes + '\n\n[JOB COMPLETED BY TEAM]',
             photos,
           },
         });
