@@ -167,7 +167,7 @@ Be precise and extract all relevant information. If a field is not found, use an
   } catch (error) {
     console.error('Error in extract-pdf function:', error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
+      JSON.stringify({ error: 'An error occurred while processing the request' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

@@ -191,7 +191,7 @@ Please confirm receipt and estimated start date.`);
   } catch (error) {
     console.error('Error in send-whatsapp function:', error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
+      JSON.stringify({ error: 'An error occurred while processing the request' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

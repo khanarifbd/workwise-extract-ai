@@ -178,9 +178,8 @@ serve(async (req) => {
     );
   } catch (error: unknown) {
     console.error('Error sending push notification:', error);
-    const message = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
-      JSON.stringify({ error: message }),
+      JSON.stringify({ error: 'An error occurred while processing the request' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
