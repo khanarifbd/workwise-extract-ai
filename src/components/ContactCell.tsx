@@ -29,48 +29,48 @@ export function ContactCell({
 
   const nextAction = determineNextAction(contactHistory, { bookedDate, status });
   const attemptCount = contactHistory.length;
-  
-  // Get last contact info
-  const lastContact = contactHistory.length > 0 
-    ? contactHistory.sort((a, b) => 
-        new Date(b.contactDate).getTime() - new Date(a.contactDate).getTime()
-      )[0] 
+
+  // Get last contact info (do NOT mutate the prop array)
+  const lastContact = contactHistory.length > 0
+    ? [...contactHistory].sort(
+        (a, b) => new Date(b.contactDate).getTime() - new Date(a.contactDate).getTime()
+      )[0]
     : null;
 
-  const lastOutcome = lastContact 
-    ? CONTACT_OUTCOMES.find(o => o.value === lastContact.outcome)
+  const lastOutcome = lastContact
+    ? CONTACT_OUTCOMES.find((o) => o.value === lastContact.outcome)
     : null;
 
   // Get action badge info
-  const actionBadge = NEXT_ACTION_BADGES.find(a => a.value === nextAction);
+  const actionBadge = NEXT_ACTION_BADGES.find((a) => a.value === (nextAction as NextAction));
 
   return (
     <>
       <div className="flex flex-col gap-1.5">
         {/* Show Last Contact Outcome if exists, otherwise show Action Badge */}
         {lastOutcome ? (
-          <div 
+          <div
             className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1.5 rounded w-fit"
-            style={{ 
+            style={{
               backgroundColor: lastOutcome.color,
-              color: '#FFFFFF' 
+              color: '#FFFFFF',
             }}
           >
             <span>{lastOutcome.icon}</span>
             <span>{lastOutcome.label}</span>
           </div>
         ) : actionBadge && actionBadge.value !== 'none' ? (
-          <div 
+          <div
             className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1.5 rounded w-fit"
-            style={{ 
+            style={{
               backgroundColor: actionBadge.bgColor,
-              color: actionBadge.color 
+              color: actionBadge.color,
             }}
           >
             <span>{actionBadge.label}</span>
           </div>
         ) : null}
-        
+
         {/* Contact Summary - Phone icon + History/Log button */}
         <div className="flex items-center gap-2">
           {phoneNumber && (
@@ -78,7 +78,7 @@ export function ContactCell({
               <Phone className="w-3.5 h-3.5" />
             </div>
           )}
-          
+
           <Button
             variant="ghost"
             size="sm"
@@ -113,3 +113,4 @@ export function ContactCell({
     </>
   );
 }
+

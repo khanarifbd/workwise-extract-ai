@@ -69,6 +69,9 @@ export function ContactTimelineModal({
         callbackDate ? 'callback' : undefined,
         callbackDate
       );
+
+      // Notify tables to refresh action badges immediately
+      window.dispatchEvent(new CustomEvent('contact-history-updated', { detail: { jobId } }));
       
       // If booked outcome with date, trigger the booking callback
       if (selectedOutcome === 'booked' && bookedDate && onBookJob) {
