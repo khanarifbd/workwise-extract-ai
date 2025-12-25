@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Job, JobStatus, FanInfo, Team } from '@/types/job';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -87,7 +87,7 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
   
   // Load contact history for all jobs
   const jobIds = useMemo(() => jobs.map(j => j.id), [jobs]);
-  const { historyMap: contactHistoryMap } = useAllContactHistory(jobIds);
+  const { historyMap: contactHistoryMap, refreshAllHistory } = useAllContactHistory(jobIds);
   
   // Build dynamic teams list from settings based on category type
   const teams: Team[] = useMemo(() => {
@@ -103,6 +103,18 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
   
   // Find all duplicate job numbers
   const duplicateJobIds = findDuplicates(jobs);
+
+  // Keep action badges in sync when a contact attempt is logged in the modal
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ jobId?: string }>).detail;
+      if (!detail?.jobId || jobIds.includes(detail.jobId)) {
+        refreshAllHistory();
+      }
+    };
+    window.addEventListener('contact-history-updated', handler as EventListener);
+    return () => window.removeEventListener('contact-history-updated', handler as EventListener);
+  }, [jobIds.join(','), refreshAllHistory]);
 
   const handleTeamSelect = (jobId: string, teamId: string | null) => {
     const job = jobs.find(j => j.id === jobId);

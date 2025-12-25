@@ -144,9 +144,14 @@ export function useAllContactHistory(jobIds: string[]) {
   const [historyMap, setHistoryMap] = useState<Record<string, ContactHistory[]>>({});
   const [isLoading, setIsLoading] = useState(false);
 
+  const jobIdSetKey = jobIds.join(',');
+
   const loadAllHistory = useCallback(async () => {
-    if (!jobIds.length) return;
-    
+    if (!jobIds.length) {
+      setHistoryMap({});
+      return;
+    }
+
     setIsLoading(true);
     try {
       const { data, error } = await supabase
@@ -158,7 +163,7 @@ export function useAllContactHistory(jobIds: string[]) {
       if (error) throw error;
 
       const mapped: Record<string, ContactHistory[]> = {};
-      
+
       (data || []).forEach((row: any) => {
         const entry: ContactHistory = {
           id: row.id,
@@ -171,10 +176,8 @@ export function useAllContactHistory(jobIds: string[]) {
           createdBy: row.created_by,
           createdAt: new Date(row.created_at),
         };
-        
-        if (!mapped[row.job_id]) {
-          mapped[row.job_id] = [];
-        }
+
+        if (!mapped[row.job_id]) mapped[row.job_id] = [];
         mapped[row.job_id].push(entry);
       });
 
@@ -184,11 +187,37 @@ export function useAllContactHistory(jobIds: string[]) {
     } finally {
       setIsLoading(false);
     }
-  }, [jobIds.join(',')]);
+  }, [jobIdSetKey]);
 
   useEffect(() => {
     loadAllHistory();
   }, [loadAllHistory]);
+
+  // Realtime: refresh when any relevant job's contact history changes
+  useEffect(() => {
+    if (!jobIds.length) return;
+
+    const jobIdSet = new Set(jobIds);
+
+    const channel = supabase
+      .channel(`contact_history_multi_${jobIdSetKey}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'contact_history' },
+        (payload) => {
+          const newJobId = (payload as any).new?.job_id as string | undefined;
+          const oldJobId = (payload as any).old?.job_id as string | undefined;
+          if ((newJobId && jobIdSet.has(newJobId)) || (oldJobId && jobIdSet.has(oldJobId))) {
+            loadAllHistory();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [jobIdSetKey, loadAllHistory]);
 
   return {
     historyMap,
