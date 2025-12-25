@@ -31,6 +31,7 @@ interface ContactTimelineModalProps {
   jobNumber: string;
   tenantName: string;
   phoneNumber: string;
+  bookedDate?: Date | null;
   onBookJob?: (bookedDate: Date) => void;
 }
 
@@ -41,6 +42,7 @@ export function ContactTimelineModal({
   jobNumber,
   tenantName,
   phoneNumber,
+  bookedDate: propBookedDate,
   onBookJob,
 }: ContactTimelineModalProps) {
   const { history, isLoading, addContactAttempt, deleteContactAttempt } = useContactHistory(jobId);
@@ -108,14 +110,24 @@ export function ContactTimelineModal({
               <User className="w-5 h-5 text-muted-foreground" />
               <span className="text-xl font-semibold text-foreground">{tenantName}</span>
             </div>
-            {phoneNumber && (
-              <div className="p-3 bg-primary/10 rounded-lg border border-primary/20">
-                <p className="text-xs text-muted-foreground mb-1">Phone Number</p>
-                <p className="text-3xl font-bold text-primary tracking-wider font-mono">
-                  {phoneNumber}
-                </p>
-              </div>
-            )}
+            <div className="flex gap-3">
+              {phoneNumber && (
+                <div className="flex-1 p-3 bg-primary/10 rounded-lg border border-primary/20">
+                  <p className="text-xs text-muted-foreground mb-1">Phone Number</p>
+                  <p className="text-2xl font-bold text-primary tracking-wider font-mono">
+                    {phoneNumber}
+                  </p>
+                </div>
+              )}
+              {propBookedDate && (
+                <div className="p-3 bg-amber-500/10 rounded-lg border border-amber-500/30">
+                  <p className="text-xs text-muted-foreground mb-1">Booked Date</p>
+                  <p className="text-xl font-bold text-amber-600 dark:text-amber-400 font-mono">
+                    {format(propBookedDate, 'dd/MM/yy')}
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         </DialogHeader>
 

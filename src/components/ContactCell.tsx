@@ -16,6 +16,7 @@ interface ContactCellProps {
   status: string;
   contactHistory: ContactHistory[];
   onBookJob?: (bookedDate: Date) => void;
+  showOutcomeOnly?: boolean;
 }
 
 export function ContactCell({
@@ -47,21 +48,20 @@ export function ContactCell({
   return (
     <>
       <div className="flex flex-col gap-1.5">
-        {/* Action Badge */}
-        <ActionBadge action={nextAction} size="sm" />
-        
-        {/* Last Contact Outcome - Most recent selection */}
-        {lastOutcome && (
+        {/* Show Last Contact Outcome if exists, otherwise show Action Badge */}
+        {lastOutcome ? (
           <div 
-            className="flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded"
+            className="flex items-center gap-1.5 text-xs font-bold px-2 py-1 rounded"
             style={{ 
-              backgroundColor: `${lastOutcome.color}20`,
-              color: lastOutcome.color 
+              backgroundColor: lastOutcome.color,
+              color: '#FFFFFF' 
             }}
           >
             <span>{lastOutcome.icon}</span>
-            <span className="truncate max-w-[80px]">{lastOutcome.label}</span>
+            <span className="truncate max-w-[100px]">{lastOutcome.label}</span>
           </div>
+        ) : (
+          <ActionBadge action={nextAction} size="sm" />
         )}
         
         {/* Contact Summary */}
@@ -102,6 +102,7 @@ export function ContactCell({
         jobNumber={jobNumber}
         tenantName={tenantName}
         phoneNumber={phoneNumber}
+        bookedDate={bookedDate}
         onBookJob={onBookJob}
       />
     </>
