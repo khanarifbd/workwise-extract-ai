@@ -50,6 +50,20 @@ export function ContactCell({
         {/* Action Badge */}
         <ActionBadge action={nextAction} size="sm" />
         
+        {/* Last Contact Outcome - Most recent selection */}
+        {lastOutcome && (
+          <div 
+            className="flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded"
+            style={{ 
+              backgroundColor: `${lastOutcome.color}20`,
+              color: lastOutcome.color 
+            }}
+          >
+            <span>{lastOutcome.icon}</span>
+            <span className="truncate max-w-[80px]">{lastOutcome.label}</span>
+          </div>
+        )}
+        
         {/* Contact Summary */}
         <div className="flex items-center gap-2">
           {/* Phone Icon - non-clickable, just decorative */}
@@ -70,12 +84,6 @@ export function ContactCell({
               <>
                 <History className="w-3 h-3 mr-1" />
                 {attemptCount}
-                {lastOutcome && (
-                  <span 
-                    className="ml-1 w-2 h-2 rounded-full"
-                    style={{ backgroundColor: lastOutcome.color }}
-                  />
-                )}
               </>
             ) : (
               <>
@@ -85,13 +93,6 @@ export function ContactCell({
             )}
           </Button>
         </div>
-
-        {/* Last Contact Info */}
-        {lastContact && (
-          <div className="text-[10px] text-muted-foreground truncate max-w-[120px]">
-            {format(lastContact.contactDate, 'dd/MM')} • {lastOutcome?.label}
-          </div>
-        )}
       </div>
 
       <ContactTimelineModal
