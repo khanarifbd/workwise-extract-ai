@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import TeamPortal from "./pages/TeamPortal";
 import TeamQRCode from "./pages/TeamQRCode";
 import AdminAuth from "./pages/AdminAuth";
+import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 import { AdminRoute } from "./components/AdminRoute";
 
@@ -20,6 +21,7 @@ const App = () => (
       <HashRouter>
         <Routes>
           <Route path="/admin" element={<AdminAuth />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/" element={
             <AdminRoute>
               <Index />
