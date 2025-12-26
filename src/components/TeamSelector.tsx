@@ -172,7 +172,8 @@ export const TeamSelector = ({ job, currentCategoryId, onSelect, onClose, onDupl
     return (
       <div 
         ref={ref}
-        className="absolute top-full left-0 mt-2 z-50 bg-popover border border-border rounded-xl shadow-lg p-4 min-w-[280px]"
+        className="absolute top-full left-0 mt-2 z-[100] bg-card border border-border rounded-xl shadow-2xl p-4 min-w-[280px]"
+        style={{ backgroundColor: 'hsl(var(--card))' }}
       >
         <div className="flex items-center justify-center py-4">
           <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
@@ -184,7 +185,8 @@ export const TeamSelector = ({ job, currentCategoryId, onSelect, onClose, onDupl
   return (
     <div 
       ref={ref}
-      className="absolute top-full left-0 mt-2 z-50 bg-popover border border-border rounded-xl shadow-lg min-w-[320px] animate-scale-in"
+      className="absolute top-full left-0 mt-2 z-[100] bg-card border border-border rounded-xl shadow-2xl min-w-[320px] animate-scale-in"
+      style={{ backgroundColor: 'hsl(var(--card))' }}
     >
       {/* Header */}
       <div className="px-3 py-2 border-b border-border flex items-center gap-2">
