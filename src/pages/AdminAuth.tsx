@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { usePasswordBreachCheck } from '@/hooks/usePasswordBreachCheck';
+import { PasswordStrengthMeter } from '@/components/PasswordStrengthMeter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -125,7 +126,7 @@ export default function AdminAuth() {
 
     setIsSubmitting(true);
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/admin`,
+      redirectTo: `${window.location.origin}/#/reset-password`,
     });
     setIsSubmitting(false);
 
@@ -385,10 +386,9 @@ export default function AdminAuth() {
                         disabled={isSubmitting || isCheckingBreach}
                         autoComplete="new-password"
                       />
-                      <p className="text-xs text-muted-foreground">
-                        Must be 8+ characters with uppercase, lowercase, and numbers
-                      </p>
                     </div>
+
+                    <PasswordStrengthMeter password={password} />
 
                     <div className="space-y-2">
                       <Label htmlFor="signup-confirm">Confirm Password</Label>
