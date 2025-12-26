@@ -100,67 +100,71 @@ export const TeamSettingsModal = ({ onClose }: TeamSettingsModalProps) => {
     }
   };
 
-  const TeamMemberCard = ({ setting }: { setting: TeamSetting }) => (
-    <div
-      className={cn(
-        "flex items-center gap-2 p-3 rounded-lg border border-border bg-muted/20",
-        setting.isPaused && "opacity-50 bg-muted/40"
-      )}
-    >
+  const TeamMemberCard = ({ setting }: { setting: TeamSetting }) => {
+    return (
       <div
         className={cn(
-          "w-4 h-4 rounded-full flex-shrink-0",
-          setting.isPaused && "grayscale"
+          "flex items-center gap-2 p-3 rounded-lg border border-border bg-muted/20",
+          setting.isPaused && "opacity-50 bg-muted/40"
         )}
-        style={{ backgroundColor: setting.color || '#888' }}
-      />
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className={cn(
-            "font-medium text-sm block truncate",
-            setting.isPaused && "line-through text-muted-foreground"
-          )}>{setting.teamName}</span>
-          {setting.isPaused && (
-            <span className="text-xs bg-amber-500/20 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 rounded">PAUSED</span>
+      >
+        <div
+          className={cn(
+            "w-4 h-4 rounded-full flex-shrink-0",
+            setting.isPaused && "grayscale"
+          )}
+          style={{ backgroundColor: setting.color || '#888' }}
+        />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className={cn(
+              "font-medium text-sm block truncate",
+              setting.isPaused && "line-through text-muted-foreground"
+            )}>{setting.teamName}</span>
+            {setting.isPaused && (
+              <span className="text-xs bg-amber-500/20 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 rounded">PAUSED</span>
+            )}
+          </div>
+          {setting.whatsappGroup && (
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <Phone className="w-3 h-3" />
+              {setting.whatsappGroup}
+            </span>
           )}
         </div>
-        {setting.whatsappGroup && (
-          <span className="text-xs text-muted-foreground flex items-center gap-1">
-            <Phone className="w-3 h-3" />
-            {setting.whatsappGroup}
-          </span>
-        )}
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => toggleTeamPause(setting.teamId)}
+          className={cn("h-7 w-7 p-0", setting.isPaused ? "text-green-600 hover:text-green-700" : "text-amber-600 hover:text-amber-700")}
+          title={setting.isPaused ? "Resume team" : "Pause team"}
+        >
+          {setting.isPaused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => handleEditTeam(setting)}
+          className="h-7 w-7 p-0"
+        >
+          <Pencil className="w-3.5 h-3.5" />
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="text-destructive hover:text-destructive h-7 w-7 p-0"
+          onClick={() => handleRemoveTeamMember(setting.teamId, setting.teamName)}
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </Button>
       </div>
-      <Button
-        size="sm"
-        variant="ghost"
-        onClick={() => toggleTeamPause(setting.teamId)}
-        className={cn("h-7 w-7 p-0", setting.isPaused ? "text-green-600 hover:text-green-700" : "text-amber-600 hover:text-amber-700")}
-        title={setting.isPaused ? "Resume team" : "Pause team"}
-      >
-        {setting.isPaused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
-      </Button>
-      <Button
-        size="sm"
-        variant="ghost"
-        onClick={() => handleEditTeam(setting)}
-        className="h-7 w-7 p-0"
-      >
-        <Pencil className="w-3.5 h-3.5" />
-      </Button>
-      <Button
-        size="sm"
-        variant="ghost"
-        className="text-destructive hover:text-destructive h-7 w-7 p-0"
-        onClick={() => handleRemoveTeamMember(setting.teamId, setting.teamName)}
-      >
-        <Trash2 className="w-3.5 h-3.5" />
-      </Button>
-    </div>
-  );
+    );
+  };
 
   const CategoryTeamList = ({ categoryId, categoryName, categoryColor }: { categoryId: string; categoryName: string; categoryColor: string }) => {
     const categoryTeams = getTeamsForCategory(categoryId);
+    const globalTeamsForCategory = getGlobalTeams();
+    const allTeamsForCategory = [...categoryTeams, ...globalTeamsForCategory];
     const isExpanded = expandedCategories.has(categoryId);
 
     return (
@@ -173,19 +177,31 @@ export const TeamSettingsModal = ({ onClose }: TeamSettingsModalProps) => {
                 style={{ backgroundColor: categoryColor }}
               />
               <span className="font-medium">{categoryName}</span>
-              <span className="text-xs text-muted-foreground">({categoryTeams.length} members)</span>
+              <span className="text-xs text-muted-foreground">({allTeamsForCategory.length} members)</span>
             </div>
             <ChevronDown className={cn("w-4 h-4 transition-transform", isExpanded && "rotate-180")} />
           </div>
         </CollapsibleTrigger>
         <CollapsibleContent>
           <div className="pl-4 pt-2 space-y-2">
-            {categoryTeams.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-2">No team members for this category</p>
-            ) : (
-              categoryTeams.map((setting) => (
-                <TeamMemberCard key={setting.teamId} setting={setting} />
-              ))
+            {categoryTeams.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground font-medium">Category-specific:</p>
+                {categoryTeams.map((setting) => (
+                  <TeamMemberCard key={setting.teamId} setting={setting} />
+                ))}
+              </div>
+            )}
+            {globalTeamsForCategory.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground font-medium">Global teams:</p>
+                {globalTeamsForCategory.map((setting) => (
+                  <TeamMemberCard key={setting.teamId} setting={setting} />
+                ))}
+              </div>
+            )}
+            {allTeamsForCategory.length === 0 && (
+              <p className="text-sm text-muted-foreground py-2">No team members available</p>
             )}
             <Button
               variant="outline"
