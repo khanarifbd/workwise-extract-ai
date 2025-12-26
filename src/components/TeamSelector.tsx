@@ -183,151 +183,157 @@ export const TeamSelector = ({ job, currentCategoryId, onSelect, onClose, onDupl
   }
 
   return (
-    <div 
-      ref={ref}
-      className="absolute top-full left-0 mt-2 z-[100] bg-card border border-border rounded-xl shadow-2xl min-w-[320px] animate-scale-in"
-      style={{ backgroundColor: 'hsl(var(--card))' }}
+    <div
+      className="fixed inset-0 z-[200] bg-background"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
-      {/* Header */}
-      <div className="px-3 py-2 border-b border-border flex items-center gap-2">
-        {view === 'teams' && (
-          <button 
-            onClick={() => setView('categories')} 
-            className="p-1 hover:bg-muted rounded"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-        )}
-        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-          {view === 'categories' ? 'Select Category' : selectedCategory?.name || 'Teams'}
-        </span>
-      </div>
-
-      <ScrollArea className="h-[320px]">
-        <div className="p-2 space-y-1">
-          {view === 'categories' ? (
-            <>
-              {/* Unassign option */}
-              {job.team && (
-                <button
-                  onClick={handleUnassign}
-                  disabled={isSending}
-                  className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-destructive/10 transition-colors text-left disabled:opacity-50 text-destructive"
-                >
-                  <UserX className="w-4 h-4" />
-                  <span className="flex-1 font-medium text-sm">Unassign Team</span>
-                </button>
-              )}
-
-              {/* Category list */}
-              {categories.map((category) => {
-                const teamsCount = getTeamsForDisplay(category.id).length;
-                const selectedInCategory = assignments.find(a => a.categoryId === category.id);
-                const isCurrent = category.id === currentCategoryId;
-                
-                return (
-                  <button
-                    key={category.id}
-                    onClick={() => handleCategorySelect(category)}
-                    className={cn(
-                      "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted transition-colors text-left",
-                      isCurrent && "ring-2 ring-primary/50"
-                    )}
-                  >
-                    <div 
-                      className="w-3 h-3 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: category.color }}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <span className="font-medium text-sm block">{category.name}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {teamsCount} teams {isCurrent && '(current)'}
-                      </span>
-                    </div>
-                    {selectedInCategory && (
-                      <div className="flex items-center gap-1 text-xs text-primary">
-                        <Check className="w-3 h-3" />
-                        <span className="truncate max-w-[80px]">{selectedInCategory.teamName}</span>
-                      </div>
-                    )}
-                    {!isCurrent && (
-                      <Copy className="w-3.5 h-3.5 text-muted-foreground" />
-                    )}
-                  </button>
-                );
-              })}
-            </>
-          ) : (
-            <>
-              {/* Team list for selected category */}
-              {selectedCategory && getTeamsForDisplay(selectedCategory.id).map((team) => {
-                const isSelected = isTeamSelected(selectedCategory.id, team.teamId);
-                const hasWhatsApp = !!team.whatsappGroup;
-                
-                return (
-                  <button
-                    key={team.teamId}
-                    onClick={() => handleTeamToggle(selectedCategory, team)}
-                    className={cn(
-                      "w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted transition-colors text-left",
-                      isSelected && "bg-primary/10 ring-1 ring-primary/30"
-                    )}
-                  >
-                    <Checkbox checked={isSelected} className="pointer-events-none" />
-                    <div 
-                      className="w-3 h-3 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: team.color || '#888' }}
-                    />
-                    <span className="flex-1 font-medium text-sm truncate">{team.teamName}</span>
-                    {hasWhatsApp && (
-                      <MessageCircle className="w-4 h-4 text-success flex-shrink-0" />
-                    )}
-                  </button>
-                );
-              })}
-              
-              {selectedCategory && getTeamsForDisplay(selectedCategory.id).length === 0 && (
-                <div className="px-3 py-4 text-sm text-muted-foreground text-center">
-                  No team members for this category
-                </div>
-              )}
-            </>
+      <div
+        ref={ref}
+        className="fixed left-1/2 top-1/2 w-[min(520px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-card shadow-2xl animate-scale-in"
+      >
+        {/* Header */}
+        <div className="px-3 py-2 border-b border-border flex items-center gap-2">
+          {view === 'teams' && (
+            <button
+              onClick={() => setView('categories')}
+              className="p-1 hover:bg-muted rounded"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
           )}
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            {view === 'categories' ? 'Select Category' : selectedCategory?.name || 'Teams'}
+          </span>
         </div>
-      </ScrollArea>
 
-      {/* Footer with assignments summary */}
-      {assignments.length > 0 && (
-        <div className="border-t border-border p-3 space-y-2">
-          <div className="text-xs text-muted-foreground">
-            <strong>{assignments.length}</strong> assignment(s) selected:
-          </div>
-          <div className="flex flex-wrap gap-1">
-            {assignments.map((a) => (
-              <span 
-                key={`${a.categoryId}-${a.teamId}`}
-                className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary rounded text-xs"
-              >
-                {a.categoryName}: {a.teamName}
-              </span>
-            ))}
-          </div>
-          <Button 
-            size="sm" 
-            className="w-full" 
-            onClick={handleConfirmAssignments}
-            disabled={isSending}
-          >
-            {isSending ? 'Assigning...' : 'Confirm Assignments'}
-          </Button>
-        </div>
-      )}
+        <ScrollArea className="h-[min(60vh,520px)]">
+          <div className="p-2 space-y-1">
+            {view === 'categories' ? (
+              <>
+                {/* Unassign option */}
+                {job.team && (
+                  <button
+                    onClick={handleUnassign}
+                    disabled={isSending}
+                    className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-destructive/10 transition-colors text-left disabled:opacity-50 text-destructive"
+                  >
+                    <UserX className="w-4 h-4" />
+                    <span className="flex-1 font-medium text-sm">Unassign Team</span>
+                  </button>
+                )}
 
-      {isSending && (
-        <div className="px-2 py-1 text-xs text-muted-foreground text-center border-t border-border">
-          Processing...
-        </div>
-      )}
+                {/* Category list */}
+                {categories.map((category) => {
+                  const teamsCount = getTeamsForDisplay(category.id).length;
+                  const selectedInCategory = assignments.find(a => a.categoryId === category.id);
+                  const isCurrent = category.id === currentCategoryId;
+
+                  return (
+                    <button
+                      key={category.id}
+                      onClick={() => handleCategorySelect(category)}
+                      className={cn(
+                        "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted transition-colors text-left",
+                        isCurrent && "ring-2 ring-primary/50"
+                      )}
+                    >
+                      <div
+                        className="w-3 h-3 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: category.color }}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <span className="font-medium text-sm block">{category.name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {teamsCount} teams {isCurrent && '(current)'}
+                        </span>
+                      </div>
+                      {selectedInCategory && (
+                        <div className="flex items-center gap-1 text-xs text-primary">
+                          <Check className="w-3 h-3" />
+                          <span className="truncate max-w-[160px]">{selectedInCategory.teamName}</span>
+                        </div>
+                      )}
+                      {!isCurrent && (
+                        <Copy className="w-3.5 h-3.5 text-muted-foreground" />
+                      )}
+                    </button>
+                  );
+                })}
+              </>
+            ) : (
+              <>
+                {/* Team list for selected category */}
+                {selectedCategory && getTeamsForDisplay(selectedCategory.id).map((team) => {
+                  const isSelected = isTeamSelected(selectedCategory.id, team.teamId);
+                  const hasWhatsApp = !!team.whatsappGroup;
+
+                  return (
+                    <button
+                      key={team.teamId}
+                      onClick={() => handleTeamToggle(selectedCategory, team)}
+                      className={cn(
+                        "w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted transition-colors text-left",
+                        isSelected && "bg-primary/10 ring-1 ring-primary/30"
+                      )}
+                    >
+                      <Checkbox checked={isSelected} className="pointer-events-none" />
+                      <div
+                        className="w-3 h-3 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: team.color || '#888' }}
+                      />
+                      <span className="flex-1 font-medium text-sm truncate">{team.teamName}</span>
+                      {hasWhatsApp && (
+                        <MessageCircle className="w-4 h-4 text-success flex-shrink-0" />
+                      )}
+                    </button>
+                  );
+                })}
+
+                {selectedCategory && getTeamsForDisplay(selectedCategory.id).length === 0 && (
+                  <div className="px-3 py-4 text-sm text-muted-foreground text-center">
+                    No team members for this category
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </ScrollArea>
+
+        {/* Footer with assignments summary */}
+        {assignments.length > 0 && (
+          <div className="border-t border-border p-3 space-y-2">
+            <div className="text-xs text-muted-foreground">
+              <strong>{assignments.length}</strong> assignment(s) selected:
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {assignments.map((a) => (
+                <span
+                  key={`${a.categoryId}-${a.teamId}`}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary rounded text-xs"
+                >
+                  {a.categoryName}: {a.teamName}
+                </span>
+              ))}
+            </div>
+            <Button
+              size="sm"
+              className="w-full"
+              onClick={handleConfirmAssignments}
+              disabled={isSending}
+            >
+              {isSending ? 'Assigning...' : 'Confirm Assignments'}
+            </Button>
+          </div>
+        )}
+
+        {isSending && (
+          <div className="px-2 py-1 text-xs text-muted-foreground text-center border-t border-border">
+            Processing...
+          </div>
+        )}
+      </div>
     </div>
   );
 };
