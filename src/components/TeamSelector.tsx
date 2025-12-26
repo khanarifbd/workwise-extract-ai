@@ -2,6 +2,7 @@ import { Job, Team } from '@/types/job';
 import { Category } from '@/types/category';
 import { MessageCircle, ExternalLink, UserX, Loader2, ChevronLeft, Check, Copy } from 'lucide-react';
 import { useEffect, useRef, useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { sendWhatsAppNotification, saveNotificationToHistory } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { useTeamSettings, TeamSetting } from '@/hooks/useTeamSettings';
@@ -182,16 +183,18 @@ export const TeamSelector = ({ job, currentCategoryId, onSelect, onClose, onDupl
     );
   }
 
-  return (
+  const content = (
     <div
-      className="fixed inset-0 z-[200] bg-background"
+      className="fixed inset-0 z-[200]"
+      style={{ backgroundColor: 'hsl(var(--background))' }}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div
         ref={ref}
-        className="fixed left-1/2 top-1/2 w-[min(520px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-card shadow-2xl animate-scale-in"
+        className="fixed left-1/2 top-1/2 w-[min(520px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-card text-card-foreground shadow-2xl animate-scale-in"
+        style={{ backgroundColor: 'hsl(var(--card))' }}
       >
         {/* Header */}
         <div className="px-3 py-2 border-b border-border flex items-center gap-2">
@@ -227,7 +230,7 @@ export const TeamSelector = ({ job, currentCategoryId, onSelect, onClose, onDupl
                 {/* Category list */}
                 {categories.map((category) => {
                   const teamsCount = getTeamsForDisplay(category.id).length;
-                  const selectedInCategory = assignments.find(a => a.categoryId === category.id);
+                  const selectedInCategory = assignments.find((a) => a.categoryId === category.id);
                   const isCurrent = category.id === currentCategoryId;
 
                   return (
@@ -235,8 +238,8 @@ export const TeamSelector = ({ job, currentCategoryId, onSelect, onClose, onDupl
                       key={category.id}
                       onClick={() => handleCategorySelect(category)}
                       className={cn(
-                        "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted transition-colors text-left",
-                        isCurrent && "ring-2 ring-primary/50"
+                        'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted transition-colors text-left',
+                        isCurrent && 'ring-2 ring-primary/50'
                       )}
                     >
                       <div
@@ -255,9 +258,7 @@ export const TeamSelector = ({ job, currentCategoryId, onSelect, onClose, onDupl
                           <span className="truncate max-w-[160px]">{selectedInCategory.teamName}</span>
                         </div>
                       )}
-                      {!isCurrent && (
-                        <Copy className="w-3.5 h-3.5 text-muted-foreground" />
-                      )}
+                      {!isCurrent && <Copy className="w-3.5 h-3.5 text-muted-foreground" />}
                     </button>
                   );
                 })}
@@ -265,31 +266,30 @@ export const TeamSelector = ({ job, currentCategoryId, onSelect, onClose, onDupl
             ) : (
               <>
                 {/* Team list for selected category */}
-                {selectedCategory && getTeamsForDisplay(selectedCategory.id).map((team) => {
-                  const isSelected = isTeamSelected(selectedCategory.id, team.teamId);
-                  const hasWhatsApp = !!team.whatsappGroup;
+                {selectedCategory &&
+                  getTeamsForDisplay(selectedCategory.id).map((team) => {
+                    const isSelected = isTeamSelected(selectedCategory.id, team.teamId);
+                    const hasWhatsApp = !!team.whatsappGroup;
 
-                  return (
-                    <button
-                      key={team.teamId}
-                      onClick={() => handleTeamToggle(selectedCategory, team)}
-                      className={cn(
-                        "w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted transition-colors text-left",
-                        isSelected && "bg-primary/10 ring-1 ring-primary/30"
-                      )}
-                    >
-                      <Checkbox checked={isSelected} className="pointer-events-none" />
-                      <div
-                        className="w-3 h-3 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: team.color || '#888' }}
-                      />
-                      <span className="flex-1 font-medium text-sm truncate">{team.teamName}</span>
-                      {hasWhatsApp && (
-                        <MessageCircle className="w-4 h-4 text-success flex-shrink-0" />
-                      )}
-                    </button>
-                  );
-                })}
+                    return (
+                      <button
+                        key={team.teamId}
+                        onClick={() => handleTeamToggle(selectedCategory, team)}
+                        className={cn(
+                          'w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted transition-colors text-left',
+                          isSelected && 'bg-primary/10 ring-1 ring-primary/30'
+                        )}
+                      >
+                        <Checkbox checked={isSelected} className="pointer-events-none" />
+                        <div
+                          className="w-3 h-3 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: team.color || 'hsl(var(--muted-foreground))' }}
+                        />
+                        <span className="flex-1 font-medium text-sm truncate">{team.teamName}</span>
+                        {hasWhatsApp && <MessageCircle className="w-4 h-4 text-success flex-shrink-0" />}
+                      </button>
+                    );
+                  })}
 
                 {selectedCategory && getTeamsForDisplay(selectedCategory.id).length === 0 && (
                   <div className="px-3 py-4 text-sm text-muted-foreground text-center">
@@ -317,12 +317,7 @@ export const TeamSelector = ({ job, currentCategoryId, onSelect, onClose, onDupl
                 </span>
               ))}
             </div>
-            <Button
-              size="sm"
-              className="w-full"
-              onClick={handleConfirmAssignments}
-              disabled={isSending}
-            >
+            <Button size="sm" className="w-full" onClick={handleConfirmAssignments} disabled={isSending}>
               {isSending ? 'Assigning...' : 'Confirm Assignments'}
             </Button>
           </div>
@@ -336,4 +331,6 @@ export const TeamSelector = ({ job, currentCategoryId, onSelect, onClose, onDupl
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(content, document.body) : content;
 };
