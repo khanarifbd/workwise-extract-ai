@@ -1,28 +1,35 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
+import { usePasswordBreachCheck } from '@/hooks/usePasswordBreachCheck';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, AlertCircle, ArrowLeft } from 'lucide-react';
+import { Loader2, AlertCircle, ArrowLeft, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { z } from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 const emailSchema = z.string().email('Please enter a valid email address');
-const passwordSchema = z.string().min(6, 'Password must be at least 6 characters');
+const passwordSchema = z.string()
+  .min(8, 'Password must be at least 8 characters')
+  .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+  .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+  .regex(/[0-9]/, 'Password must contain at least one number');
 
 export default function AdminAuth() {
   const navigate = useNavigate();
   const { isAuthenticated, isAdmin, isLoading, error, signIn, signUp, clearError } = useAdminAuth();
+  const { checkPassword, isChecking: isCheckingBreach } = usePasswordBreachCheck();
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [breachWarning, setBreachWarning] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [signUpSuccess, setSignUpSuccess] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -37,6 +44,7 @@ export default function AdminAuth() {
 
   const validateForm = (isSignUp: boolean): boolean => {
     setValidationError(null);
+    setBreachWarning(null);
     clearError();
 
     try {
@@ -83,6 +91,17 @@ export default function AdminAuth() {
     if (!validateForm(true)) return;
 
     setIsSubmitting(true);
+    setBreachWarning(null);
+
+    // Check if password has been breached
+    const breachResult = await checkPassword(password);
+    
+    if (breachResult.breached) {
+      setBreachWarning(breachResult.message || 'This password has been found in data breaches. Please choose a different password.');
+      setIsSubmitting(false);
+      return;
+    }
+
     const { error } = await signUp(email, password);
     setIsSubmitting(false);
 
@@ -327,6 +346,19 @@ export default function AdminAuth() {
                       </Alert>
                     )}
 
+                    {breachWarning && (
+                      <Alert variant="destructive" className="border-orange-500 bg-orange-50 dark:bg-orange-950/20">
+                        <ShieldAlert className="h-4 w-4 text-orange-600" />
+                        <AlertDescription className="text-orange-800 dark:text-orange-200">
+                          <strong>Password Security Warning:</strong> {breachWarning}
+                          <p className="mt-2 text-sm">
+                            This password was found in known data breaches. Using it puts your account at risk.
+                            Please choose a unique password that you haven't used elsewhere.
+                          </p>
+                        </AlertDescription>
+                      </Alert>
+                    )}
+
                     <div className="space-y-2">
                       <Label htmlFor="signup-email">Email</Label>
                       <Input
@@ -346,10 +378,16 @@ export default function AdminAuth() {
                         id="signup-password"
                         type="password"
                         value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        disabled={isSubmitting}
+                        onChange={(e) => {
+                          setPassword(e.target.value);
+                          setBreachWarning(null);
+                        }}
+                        disabled={isSubmitting || isCheckingBreach}
                         autoComplete="new-password"
                       />
+                      <p className="text-xs text-muted-foreground">
+                        Must be 8+ characters with uppercase, lowercase, and numbers
+                      </p>
                     </div>
 
                     <div className="space-y-2">
@@ -359,21 +397,24 @@ export default function AdminAuth() {
                         type="password"
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
-                        disabled={isSubmitting}
+                        disabled={isSubmitting || isCheckingBreach}
                         autoComplete="new-password"
                       />
                     </div>
                   </CardContent>
 
                   <CardFooter>
-                    <Button type="submit" className="w-full" disabled={isSubmitting}>
-                      {isSubmitting ? (
+                    <Button type="submit" className="w-full" disabled={isSubmitting || isCheckingBreach}>
+                      {isSubmitting || isCheckingBreach ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Creating account...
+                          {isCheckingBreach ? 'Checking password security...' : 'Creating account...'}
                         </>
                       ) : (
-                        'Create Account'
+                        <>
+                          <ShieldCheck className="mr-2 h-4 w-4" />
+                          Create Secure Account
+                        </>
                       )}
                     </Button>
                   </CardFooter>

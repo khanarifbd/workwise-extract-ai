@@ -35,3 +35,6 @@ verify_jwt = true
 
 [functions.parse-costs]
 verify_jwt = true
+
+[functions.check-password-breach]
+verify_jwt = false
