@@ -8,9 +8,9 @@ interface AdminRouteProps {
 }
 
 export const AdminRoute = ({ children }: AdminRouteProps) => {
-  const { isAuthenticated, hasAccess, isLoading } = useAdminAuth();
+  const { isAuthenticated, hasAccess, isLoading, isCheckingRoles } = useAdminAuth();
 
-  if (isLoading) {
+  if (isLoading || isCheckingRoles) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
