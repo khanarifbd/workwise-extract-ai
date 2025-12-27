@@ -23,7 +23,7 @@ const passwordSchema = z.string()
 
 export default function AdminAuth() {
   const navigate = useNavigate();
-  const { isAuthenticated, isAdmin, isViewer, hasAccess, isLoading, error, signIn, signUp, clearError } = useAdminAuth();
+  const { isAuthenticated, isAdmin, isViewer, hasAccess, isLoading, error, signIn, signUp, signOut, clearError } = useAdminAuth();
   const { checkPassword, isChecking: isCheckingBreach } = usePasswordBreachCheck();
   
   const [email, setEmail] = useState('');
@@ -154,12 +154,22 @@ export default function AdminAuth() {
           <CardHeader>
             <CardTitle className="text-destructive">Access Denied</CardTitle>
             <CardDescription>
-              Your account does not have administrator or viewer privileges. Please contact an existing admin to grant you access.
+              Your account does not have administrator or viewer privileges. Please ask an admin to grant you access, or sign out to switch accounts.
             </CardDescription>
           </CardHeader>
-          <CardFooter>
-            <Button variant="outline" onClick={() => navigate('/')} className="w-full">
-              Go Back
+          <CardFooter className="flex flex-col gap-2">
+            <Button
+              variant="default"
+              className="w-full"
+              onClick={async () => {
+                await signOut();
+                navigate('/admin', { replace: true });
+              }}
+            >
+              Sign out &amp; switch account
+            </Button>
+            <Button variant="outline" onClick={() => navigate('/admin', { replace: true })} className="w-full">
+              Go to Login
             </Button>
           </CardFooter>
         </Card>
