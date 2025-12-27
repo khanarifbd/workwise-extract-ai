@@ -23,7 +23,7 @@ const passwordSchema = z.string()
 
 export default function AdminAuth() {
   const navigate = useNavigate();
-  const { isAuthenticated, isAdmin, isViewer, hasAccess, isLoading, error, signIn, signUp, clearError } = useAdminAuth();
+  const { isAuthenticated, isAdmin, isViewer, hasAccess, isLoading, isCheckingRoles, error, signIn, signUp, clearError } = useAdminAuth();
   const { checkPassword, isChecking: isCheckingBreach } = usePasswordBreachCheck();
   
   const [email, setEmail] = useState('');
@@ -138,7 +138,7 @@ export default function AdminAuth() {
     }
   };
 
-  if (isLoading) {
+  if (isLoading || isCheckingRoles) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />

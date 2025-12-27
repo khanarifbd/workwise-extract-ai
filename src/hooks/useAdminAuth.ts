@@ -8,6 +8,7 @@ interface AdminAuthState {
   isAdmin: boolean;
   isViewer: boolean;
   isLoading: boolean;
+  isCheckingRoles: boolean;
   error: string | null;
 }
 
@@ -18,6 +19,7 @@ export const useAdminAuth = () => {
     isAdmin: false,
     isViewer: false,
     isLoading: true,
+    isCheckingRoles: false,
     error: null,
   });
 
@@ -51,6 +53,21 @@ export const useAdminAuth = () => {
     }
   }, []);
 
+  // Check if user has any admin access (admin or viewer)
+  const checkHasAdminAccess = useCallback(async (userId: string): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase.rpc('has_admin_access', { _user_id: userId });
+      if (error) {
+        console.error('Error checking admin access:', error.message);
+        return false;
+      }
+      return data === true;
+    } catch (err) {
+      console.error('Failed to check admin access:', err);
+      return false;
+    }
+  }, []);
+
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -59,6 +76,7 @@ export const useAdminAuth = () => {
           ...prev,
           session,
           user: session?.user ?? null,
+          isCheckingRoles: !!session?.user,
         }));
 
         // Defer role checks with setTimeout to prevent deadlock
@@ -73,6 +91,7 @@ export const useAdminAuth = () => {
               isAdmin,
               isViewer,
               isLoading: false,
+              isCheckingRoles: false,
             }));
           }, 0);
         } else {
@@ -81,6 +100,7 @@ export const useAdminAuth = () => {
             isAdmin: false,
             isViewer: false,
             isLoading: false,
+            isCheckingRoles: false,
           }));
         }
       }
@@ -161,6 +181,7 @@ export const useAdminAuth = () => {
       isAdmin: false,
       isViewer: false,
       isLoading: false,
+      isCheckingRoles: false,
       error: null,
     });
   };
