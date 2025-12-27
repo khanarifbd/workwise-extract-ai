@@ -610,10 +610,13 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                   <td onClick={(e) => e.stopPropagation()} className="relative z-20">
                     <div className="relative">
                       {job.team ? (
-                        <Badge 
-                          className="cursor-pointer text-xs"
+                        <Badge
+                          className={cn('text-xs', !readOnly && 'cursor-pointer')}
                           style={{ backgroundColor: getTeamColor(job.team), color: 'white' }}
-                          onClick={() => setShowTeamSelector(job.id)}
+                          onClick={() => {
+                            if (readOnly) return;
+                            setShowTeamSelector(job.id);
+                          }}
                         >
                           <Users className="w-3.5 h-3.5 mr-1" />
                           {job.team}
@@ -623,13 +626,17 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                           variant="outline"
                           size="sm"
                           className="h-6 text-xs px-2"
-                          onClick={() => setShowTeamSelector(job.id)}
+                          onClick={() => {
+                            if (readOnly) return;
+                            setShowTeamSelector(job.id);
+                          }}
+                          disabled={readOnly}
                         >
                           <Users className="w-3 h-3 mr-1" />
                           Assign
                         </Button>
                       )}
-                      {showTeamSelector === job.id && (
+                      {!readOnly && showTeamSelector === job.id && (
                         <TeamSelector
                           job={job}
                           currentCategoryId={currentCategoryId}

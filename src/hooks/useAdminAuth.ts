@@ -55,10 +55,15 @@ export const useAdminAuth = () => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        // When a session exists, keep loading until role checks complete to avoid
+        // briefly showing "Access Denied" for users who actually have viewer access.
         setState(prev => ({
           ...prev,
           session,
           user: session?.user ?? null,
+          isAdmin: session?.user ? false : false,
+          isViewer: session?.user ? false : false,
+          isLoading: !!session?.user,
         }));
 
         // Defer role checks with setTimeout to prevent deadlock
@@ -92,6 +97,9 @@ export const useAdminAuth = () => {
         ...prev,
         session,
         user: session?.user ?? null,
+        isAdmin: session?.user ? false : prev.isAdmin,
+        isViewer: session?.user ? false : prev.isViewer,
+        isLoading: !!session?.user,
       }));
 
       if (session?.user) {
