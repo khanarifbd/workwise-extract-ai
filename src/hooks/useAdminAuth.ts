@@ -23,50 +23,41 @@ export const useAdminAuth = () => {
     error: null,
   });
 
-  // Check if user has admin role
-  const checkAdminRole = useCallback(async (userId: string): Promise<boolean> => {
+  const checkRole = useCallback(async (userId: string, role: 'admin' | 'viewer'): Promise<boolean> => {
     try {
-      const { data, error } = await supabase.rpc('is_admin', { _user_id: userId });
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('role', role)
+        .maybeSingle();
+
       if (error) {
-        console.error('Error checking admin role:', error.message);
+        console.error('Error checking role:', error.message);
         return false;
       }
-      return data === true;
+
+      return !!data;
     } catch (err) {
-      console.error('Failed to check admin role:', err);
+      console.error('Failed to check role:', err);
       return false;
     }
   }, []);
 
+  // Check if user has admin role
+  const checkAdminRole = useCallback((userId: string) => checkRole(userId, 'admin'), [checkRole]);
+
   // Check if user has viewer role
-  const checkViewerRole = useCallback(async (userId: string): Promise<boolean> => {
-    try {
-      const { data, error } = await supabase.rpc('is_viewer', { _user_id: userId });
-      if (error) {
-        console.error('Error checking viewer role:', error.message);
-        return false;
-      }
-      return data === true;
-    } catch (err) {
-      console.error('Failed to check viewer role:', err);
-      return false;
-    }
-  }, []);
+  const checkViewerRole = useCallback((userId: string) => checkRole(userId, 'viewer'), [checkRole]);
 
   // Check if user has any admin access (admin or viewer)
   const checkHasAdminAccess = useCallback(async (userId: string): Promise<boolean> => {
-    try {
-      const { data, error } = await supabase.rpc('has_admin_access', { _user_id: userId });
-      if (error) {
-        console.error('Error checking admin access:', error.message);
-        return false;
-      }
-      return data === true;
-    } catch (err) {
-      console.error('Failed to check admin access:', err);
-      return false;
-    }
-  }, []);
+    const [isAdmin, isViewer] = await Promise.all([
+      checkAdminRole(userId),
+      checkViewerRole(userId),
+    ]);
+    return isAdmin || isViewer;
+  }, [checkAdminRole, checkViewerRole]);
 
   useEffect(() => {
     // Set up auth state listener FIRST
