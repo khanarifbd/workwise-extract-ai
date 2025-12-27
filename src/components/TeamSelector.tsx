@@ -301,33 +301,43 @@ export const TeamSelector = ({ job, currentCategoryId, onSelect, onClose, onDupl
           </div>
         </ScrollArea>
 
-        {/* Footer with assignments summary */}
-        {assignments.length > 0 && (
-          <div className="border-t border-border p-3 space-y-2">
-            <div className="text-xs text-muted-foreground">
-              <strong>{assignments.length}</strong> assignment(s) selected:
+        {/* Footer with assignments summary and action buttons */}
+        <div className="border-t border-border p-3 space-y-2">
+          {assignments.length > 0 ? (
+            <>
+              <div className="text-xs text-muted-foreground">
+                <strong>{assignments.length}</strong> assignment(s) selected:
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {assignments.map((a) => (
+                  <span
+                    key={`${a.categoryId}-${a.teamId}`}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary rounded text-xs"
+                  >
+                    {a.categoryName}: {a.teamName}
+                  </span>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="text-xs text-muted-foreground text-center">
+              Select a category, then choose a team member
             </div>
-            <div className="flex flex-wrap gap-1">
-              {assignments.map((a) => (
-                <span
-                  key={`${a.categoryId}-${a.teamId}`}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary rounded text-xs"
-                >
-                  {a.categoryName}: {a.teamName}
-                </span>
-              ))}
-            </div>
-            <Button size="sm" className="w-full" onClick={handleConfirmAssignments} disabled={isSending}>
-              {isSending ? 'Assigning...' : 'Confirm Assignments'}
+          )}
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" className="flex-1" onClick={onClose} disabled={isSending}>
+              Cancel
+            </Button>
+            <Button 
+              size="sm" 
+              className="flex-1" 
+              onClick={handleConfirmAssignments} 
+              disabled={isSending || assignments.length === 0}
+            >
+              {isSending ? 'Assigning...' : 'Confirm'}
             </Button>
           </div>
-        )}
-
-        {isSending && (
-          <div className="px-2 py-1 text-xs text-muted-foreground text-center border-t border-border">
-            Processing...
-          </div>
-        )}
+        </div>
       </div>
     </div>
   );
