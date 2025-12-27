@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { usePasswordBreachCheck } from '@/hooks/usePasswordBreachCheck';
@@ -25,7 +25,9 @@ export default function AdminAuth() {
   const navigate = useNavigate();
   const { isAuthenticated, isAdmin, isViewer, hasAccess, isLoading, error, signIn, signUp, signOut, clearError } = useAdminAuth();
   const { checkPassword, isChecking: isCheckingBreach } = usePasswordBreachCheck();
-  
+
+  const forcedSignOutRef = useRef(false);
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -42,6 +44,23 @@ export default function AdminAuth() {
       navigate('/', { replace: true });
     }
   }, [isAuthenticated, hasAccess, isLoading, navigate]);
+
+  // If user is logged in but has no access, force sign-out so /admin can always show the login screen.
+  useEffect(() => {
+    if (isLoading) return;
+    if (!isAuthenticated) return;
+    if (hasAccess) return;
+    if (forcedSignOutRef.current) return;
+
+    forcedSignOutRef.current = true;
+    (async () => {
+      await signOut();
+      toast.message('Signed out', {
+        description: 'This account has no admin/viewer access. Please sign in with a different account.',
+      });
+      navigate('/admin', { replace: true });
+    })();
+  }, [hasAccess, isAuthenticated, isLoading, navigate, signOut]);
 
   const validateForm = (isSignUp: boolean): boolean => {
     setValidationError(null);
