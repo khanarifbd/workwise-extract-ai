@@ -6,6 +6,7 @@ interface AdminAuthState {
   user: User | null;
   session: Session | null;
   isAdmin: boolean;
+  isViewer: boolean;
   isLoading: boolean;
   error: string | null;
 }
@@ -15,6 +16,7 @@ export const useAdminAuth = () => {
     user: null,
     session: null,
     isAdmin: false,
+    isViewer: false,
     isLoading: true,
     error: null,
   });
@@ -34,6 +36,21 @@ export const useAdminAuth = () => {
     }
   }, []);
 
+  // Check if user has viewer role
+  const checkViewerRole = useCallback(async (userId: string): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase.rpc('is_viewer', { _user_id: userId });
+      if (error) {
+        console.error('Error checking viewer role:', error.message);
+        return false;
+      }
+      return data === true;
+    } catch (err) {
+      console.error('Failed to check viewer role:', err);
+      return false;
+    }
+  }, []);
+
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -44,13 +61,17 @@ export const useAdminAuth = () => {
           user: session?.user ?? null,
         }));
 
-        // Defer admin role check with setTimeout to prevent deadlock
+        // Defer role checks with setTimeout to prevent deadlock
         if (session?.user) {
           setTimeout(async () => {
-            const isAdmin = await checkAdminRole(session.user.id);
+            const [isAdmin, isViewer] = await Promise.all([
+              checkAdminRole(session.user.id),
+              checkViewerRole(session.user.id),
+            ]);
             setState(prev => ({
               ...prev,
               isAdmin,
+              isViewer,
               isLoading: false,
             }));
           }, 0);
@@ -58,6 +79,7 @@ export const useAdminAuth = () => {
           setState(prev => ({
             ...prev,
             isAdmin: false,
+            isViewer: false,
             isLoading: false,
           }));
         }
@@ -73,10 +95,14 @@ export const useAdminAuth = () => {
       }));
 
       if (session?.user) {
-        const isAdmin = await checkAdminRole(session.user.id);
+        const [isAdmin, isViewer] = await Promise.all([
+          checkAdminRole(session.user.id),
+          checkViewerRole(session.user.id),
+        ]);
         setState(prev => ({
           ...prev,
           isAdmin,
+          isViewer,
           isLoading: false,
         }));
       } else {
@@ -88,7 +114,7 @@ export const useAdminAuth = () => {
     });
 
     return () => subscription.unsubscribe();
-  }, [checkAdminRole]);
+  }, [checkAdminRole, checkViewerRole]);
 
   const signIn = async (email: string, password: string): Promise<{ error: Error | null }> => {
     setState(prev => ({ ...prev, error: null }));
@@ -133,6 +159,7 @@ export const useAdminAuth = () => {
       user: null,
       session: null,
       isAdmin: false,
+      isViewer: false,
       isLoading: false,
       error: null,
     });
@@ -149,5 +176,9 @@ export const useAdminAuth = () => {
     signOut,
     clearError,
     isAuthenticated: !!state.session,
+    // User has access if they are either admin or viewer
+    hasAccess: state.isAdmin || state.isViewer,
+    // User can edit only if they are a full admin
+    canEdit: state.isAdmin,
   };
 };

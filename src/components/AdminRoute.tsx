@@ -8,7 +8,7 @@ interface AdminRouteProps {
 }
 
 export const AdminRoute = ({ children }: AdminRouteProps) => {
-  const { isAuthenticated, isAdmin, isLoading } = useAdminAuth();
+  const { isAuthenticated, hasAccess, isLoading } = useAdminAuth();
 
   if (isLoading) {
     return (
@@ -22,7 +22,7 @@ export const AdminRoute = ({ children }: AdminRouteProps) => {
     return <Navigate to="/admin" replace />;
   }
 
-  if (!isAdmin) {
+  if (!hasAccess) {
     return <Navigate to="/admin" replace />;
   }
 
