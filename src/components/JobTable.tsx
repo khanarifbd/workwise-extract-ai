@@ -43,9 +43,9 @@ import {
 
 interface JobTableProps {
   jobs: Job[];
-  onUpdateJob: (job: Job) => void;
-  onDeleteJob: (jobId: string) => void;
-  onToggleComplete: (job: Job) => void;
+  onUpdateJob?: (job: Job) => void;
+  onDeleteJob?: (jobId: string) => void;
+  onToggleComplete?: (job: Job) => void;
   onBatchUpdateTeam?: (jobIds: string[], teamName: string | null) => void;
   onTransferJob?: (jobId: string, targetCategoryId: string) => void;
   onDuplicateToCategory?: (jobId: string, targetCategoryId: string, teamId: string) => void;
@@ -54,6 +54,7 @@ interface JobTableProps {
   isFanCategory?: boolean;
   currentCategoryId?: string;
   categories?: { id: string; name: string; color: string }[];
+  readOnly?: boolean;
 }
 
 // Helper to find duplicate job numbers
@@ -72,7 +73,7 @@ const findDuplicates = (jobs: Job[]): Set<string> => {
   return duplicates;
 };
 
-export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onBatchUpdateTeam, onTransferJob, onDuplicateToCategory, fanCategoryId, onFanJobCreated, isFanCategory = false, currentCategoryId, categories = [] }: JobTableProps) => {
+export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onBatchUpdateTeam, onTransferJob, onDuplicateToCategory, fanCategoryId, onFanJobCreated, isFanCategory = false, currentCategoryId, categories = [], readOnly = false }: JobTableProps) => {
   const [showTeamSelector, setShowTeamSelector] = useState<string | null>(null);
   const [showTransferModal, setShowTransferModal] = useState<Job | null>(null);
   const [showJobDetails, setShowJobDetails] = useState<Job | null>(null);
@@ -474,12 +475,14 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
         <table className="data-table">
           <thead>
             <tr>
-              <th className="w-10" onClick={(e) => e.stopPropagation()}>
-                <Checkbox
-                  checked={selectedJobs.size === jobs.length && jobs.length > 0}
-                  onCheckedChange={toggleSelectAll}
-                />
-              </th>
+              {!readOnly && (
+                <th className="w-10" onClick={(e) => e.stopPropagation()}>
+                  <Checkbox
+                    checked={selectedJobs.size === jobs.length && jobs.length > 0}
+                    onCheckedChange={toggleSelectAll}
+                  />
+                </th>
+              )}
               <th className="w-28">Issued</th>
               <th className="w-28">Job #</th>
               <th className="w-40">Name / Address</th>
@@ -491,7 +494,7 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
               <th className="w-32">Costs</th>
               <th className="w-36">Start/End</th>
               <th className="w-20">Files</th>
-              <th className="w-12"></th>
+              {!readOnly && <th className="w-12"></th>}
             </tr>
           </thead>
           <tbody>
@@ -556,13 +559,15 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                       </div>
                     </td>
                   )}
-                  {/* Checkbox Column */}
-                  <td className="text-center relative z-20" onClick={(e) => e.stopPropagation()}>
-                    <Checkbox
-                      checked={selectedJobs.has(job.id)}
-                      onCheckedChange={() => toggleJobSelection(job.id)}
-                    />
-                  </td>
+                  {/* Checkbox Column - only for non-readonly */}
+                  {!readOnly && (
+                    <td className="text-center relative z-20" onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        checked={selectedJobs.has(job.id)}
+                        onCheckedChange={() => toggleJobSelection(job.id)}
+                      />
+                    </td>
+                  )}
                   {/* Issued Column - When job was uploaded */}
                   <td className="font-mono text-muted-foreground relative z-20">
                     {format(job.dateIssued, 'dd/MM/yy')}
@@ -741,52 +746,58 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                       </span>
                     </div>
                   </td>
-                  <td onClick={(e) => e.stopPropagation()}>
-                    <div className="flex items-center gap-1">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-7 w-7">
-                            <MoreVertical className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => setShowJobDetails(job)}>
-                            <Edit2 className="w-4 h-4 mr-2" />
-                            Edit Details
-                          </DropdownMenuItem>
-                          {onTransferJob && categories.length > 1 && (
-                            <DropdownMenuItem onClick={() => setShowTransferModal(job)}>
-                              <ArrowRightLeft className="w-4 h-4 mr-2" />
-                              Transfer to...
+                  {!readOnly && (
+                    <td onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center gap-1">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-7 w-7">
+                              <MoreVertical className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => setShowJobDetails(job)}>
+                              <Edit2 className="w-4 h-4 mr-2" />
+                              Edit Details
                             </DropdownMenuItem>
-                          )}
-                          <DropdownMenuItem 
-                            className="text-destructive"
+                            {onTransferJob && categories.length > 1 && (
+                              <DropdownMenuItem onClick={() => setShowTransferModal(job)}>
+                                <ArrowRightLeft className="w-4 h-4 mr-2" />
+                                Transfer to...
+                              </DropdownMenuItem>
+                            )}
+                            {onDeleteJob && (
+                              <DropdownMenuItem 
+                                className="text-destructive"
+                                onClick={() => {
+                                  if (window.confirm(`Delete job #${job.jobNumber}?`)) {
+                                    onDeleteJob(job.id);
+                                  }
+                                }}
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Delete Job
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                        {onDeleteJob && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
                             onClick={() => {
                               if (window.confirm(`Delete job #${job.jobNumber}?`)) {
                                 onDeleteJob(job.id);
                               }
                             }}
                           >
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Delete Job
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
-                        onClick={() => {
-                          if (window.confirm(`Delete job #${job.jobNumber}?`)) {
-                            onDeleteJob(job.id);
-                          }
-                        }}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </td>
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </td>
+                  )}
                 </tr>
               );
             })}

@@ -23,6 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ChevronDown, ChevronUp, Loader2, Images } from 'lucide-react';
 import { isAfter, isBefore, startOfDay, endOfDay, format, parseISO, isValid } from 'date-fns';
 import { useJobs } from '@/hooks/useJobs';
+import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { useCategories } from '@/hooks/useCategories';
 import { extractPDFWithAI, extractImageWithAI } from '@/lib/api';
 import { extractTextFromPDF } from '@/lib/pdfUtils';
@@ -38,6 +39,7 @@ type BookedSortOrder = 'newest' | 'oldest';
 type CompletedSortOrder = 'newest' | 'oldest';
 
 const Index = () => {
+  const { canEdit } = useAdminAuth();
   const { categories, isLoading: categoriesLoading, addCategory, updateCategory, deleteCategory } = useCategories();
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const { jobs, isLoading: jobsLoading, addJob, editJob, removeJob, toggleComplete, refreshJobs } = useJobs(activeCategory ?? undefined);
@@ -716,14 +718,14 @@ const Index = () => {
       <Header onExport={() => setShowExport(true)} jobCount={jobs.length} />
       
       <main className="flex-1 container mx-auto px-4 py-4 flex flex-col gap-4">
-        {/* Category Tabs */}
+        {/* Category Tabs - hide add/edit for viewers */}
         <CategoryTabs
           categories={categories}
           activeCategory={activeCategory}
           onCategoryChange={setActiveCategory}
-          onAddCategory={addCategory}
-          onUpdateCategory={updateCategory}
-          onDeleteCategory={deleteCategory}
+          onAddCategory={canEdit ? addCategory : undefined}
+          onUpdateCategory={canEdit ? updateCategory : undefined}
+          onDeleteCategory={canEdit ? deleteCategory : undefined}
         />
 
         {/* Compact Stats Row */}
@@ -756,44 +758,46 @@ const Index = () => {
           )}
         </div>
 
-        {/* Collapsible Upload Section */}
-        <section 
-          className="bg-section-upload border border-border rounded-lg overflow-hidden"
-          style={{ maxHeight: uploadExpanded ? '220px' : '48px' }}
-        >
-          <button
-            onClick={() => setUploadExpanded(!uploadExpanded)}
-            className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors"
+        {/* Collapsible Upload Section - only show for admins */}
+        {canEdit && (
+          <section 
+            className="bg-section-upload border border-border rounded-lg overflow-hidden"
+            style={{ maxHeight: uploadExpanded ? '220px' : '48px' }}
           >
-            <span className="text-sm font-medium">Upload Job (PDF or Image)</span>
-            {uploadExpanded ? (
-              <ChevronUp className="w-4 h-4 text-muted-foreground" />
-            ) : (
-              <ChevronDown className="w-4 h-4 text-muted-foreground" />
-            )}
-          </button>
-          {uploadExpanded && (
-            <div className="px-4 pb-4 space-y-3">
-              <FileDropZone 
-                onFileUpload={handleFileUpload} 
-                onMultipleFilesUpload={handleMultipleFilesUpload}
-                isProcessing={isProcessing} 
-                allowMultiple={true}
-              />
-              <div className="flex justify-center">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowBulkUpload(true)}
-                  className="text-xs"
-                >
-                  <Images className="w-3 h-3 mr-1" />
-                  Bulk Image Upload
-                </Button>
+            <button
+              onClick={() => setUploadExpanded(!uploadExpanded)}
+              className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors"
+            >
+              <span className="text-sm font-medium">Upload Job (PDF or Image)</span>
+              {uploadExpanded ? (
+                <ChevronUp className="w-4 h-4 text-muted-foreground" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-muted-foreground" />
+              )}
+            </button>
+            {uploadExpanded && (
+              <div className="px-4 pb-4 space-y-3">
+                <FileDropZone 
+                  onFileUpload={handleFileUpload} 
+                  onMultipleFilesUpload={handleMultipleFilesUpload}
+                  isProcessing={isProcessing} 
+                  allowMultiple={true}
+                />
+                <div className="flex justify-center">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowBulkUpload(true)}
+                    className="text-xs"
+                  >
+                    <Images className="w-3 h-3 mr-1" />
+                    Bulk Image Upload
+                  </Button>
+                </div>
               </div>
-            </div>
-          )}
-        </section>
+            )}
+          </section>
+        )}
 
 
         {/* Monthly Folder Tabs */}
@@ -931,17 +935,18 @@ const Index = () => {
               {viewType === 'table' ? (
                 <JobTable 
                   jobs={filteredJobs} 
-                  onUpdateJob={handleUpdateJob}
-                  onDeleteJob={handleDeleteJob}
-                  onToggleComplete={handleToggleComplete}
-                  onBatchUpdateTeam={handleBatchUpdateTeam}
-                  onTransferJob={handleTransferJob}
-                  onDuplicateToCategory={handleDuplicateToCategory}
+                  onUpdateJob={canEdit ? handleUpdateJob : undefined}
+                  onDeleteJob={canEdit ? handleDeleteJob : undefined}
+                  onToggleComplete={canEdit ? handleToggleComplete : undefined}
+                  onBatchUpdateTeam={canEdit ? handleBatchUpdateTeam : undefined}
+                  onTransferJob={canEdit ? handleTransferJob : undefined}
+                  onDuplicateToCategory={canEdit ? handleDuplicateToCategory : undefined}
                   fanCategoryId={categories.find(c => c.name.toLowerCase().includes('fan'))?.id}
-                  onFanJobCreated={refreshJobs}
+                  onFanJobCreated={canEdit ? refreshJobs : undefined}
                   isFanCategory={isFanCategory}
                   currentCategoryId={activeCategory || undefined}
                   categories={categories.map(c => ({ id: c.id, name: c.name, color: c.color }))}
+                  readOnly={!canEdit}
                 />
               ) : viewType === 'kanban' ? (
                 <KanbanBoard

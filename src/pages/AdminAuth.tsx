@@ -23,7 +23,7 @@ const passwordSchema = z.string()
 
 export default function AdminAuth() {
   const navigate = useNavigate();
-  const { isAuthenticated, isAdmin, isLoading, error, signIn, signUp, clearError } = useAdminAuth();
+  const { isAuthenticated, isAdmin, isViewer, hasAccess, isLoading, error, signIn, signUp, clearError } = useAdminAuth();
   const { checkPassword, isChecking: isCheckingBreach } = usePasswordBreachCheck();
   
   const [email, setEmail] = useState('');
@@ -36,12 +36,12 @@ export default function AdminAuth() {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetEmailSent, setResetEmailSent] = useState(false);
 
-  // Redirect if already authenticated as admin
+  // Redirect if already authenticated with access
   useEffect(() => {
-    if (!isLoading && isAuthenticated && isAdmin) {
+    if (!isLoading && isAuthenticated && hasAccess) {
       navigate('/', { replace: true });
     }
-  }, [isAuthenticated, isAdmin, isLoading, navigate]);
+  }, [isAuthenticated, hasAccess, isLoading, navigate]);
 
   const validateForm = (isSignUp: boolean): boolean => {
     setValidationError(null);
@@ -146,15 +146,15 @@ export default function AdminAuth() {
     );
   }
 
-  // Show message if authenticated but not admin
-  if (isAuthenticated && !isAdmin) {
+  // Show message if authenticated but no access
+  if (isAuthenticated && !hasAccess) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle className="text-destructive">Access Denied</CardTitle>
             <CardDescription>
-              Your account does not have administrator privileges. Please contact an existing admin to grant you access.
+              Your account does not have administrator or viewer privileges. Please contact an existing admin to grant you access.
             </CardDescription>
           </CardHeader>
           <CardFooter>
