@@ -193,7 +193,7 @@ export const TeamSelector = ({ job, currentCategoryId, onSelect, onClose, onDupl
     >
       <div
         ref={ref}
-        className="fixed left-1/2 top-1/2 w-[min(520px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-card text-card-foreground shadow-2xl animate-scale-in"
+        className="fixed left-1/2 top-1/2 w-[min(520px,calc(100vw-2rem))] max-h-[90vh] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-card text-card-foreground shadow-2xl animate-scale-in flex flex-col"
         style={{ backgroundColor: 'hsl(var(--card))' }}
       >
         {/* Header */}
@@ -211,7 +211,7 @@ export const TeamSelector = ({ job, currentCategoryId, onSelect, onClose, onDupl
           </span>
         </div>
 
-        <ScrollArea className="h-[min(60vh,520px)]">
+        <ScrollArea className="flex-1 max-h-[min(50vh,400px)]">
           <div className="p-2 space-y-1">
             {view === 'categories' ? (
               <>
@@ -301,8 +301,8 @@ export const TeamSelector = ({ job, currentCategoryId, onSelect, onClose, onDupl
           </div>
         </ScrollArea>
 
-        {/* Footer with assignments summary and action buttons */}
-        <div className="border-t border-border p-3 space-y-2">
+        {/* Footer with assignments summary and action buttons - always visible */}
+        <div className="border-t border-border p-3 space-y-2 flex-shrink-0 bg-card">
           {assignments.length > 0 ? (
             <>
               <div className="text-xs text-muted-foreground">
