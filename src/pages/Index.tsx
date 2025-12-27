@@ -953,14 +953,14 @@ const Index = () => {
                   jobs={filteredJobs}
                   groupBy={kanbanGroupBy}
                   onJobClick={setSelectedJobForModal}
-                  onToggleComplete={canEdit ? handleToggleComplete : () => {}}
-                  onMoveJob={canEdit ? handleKanbanMoveJob : undefined}
+                  onToggleComplete={handleToggleComplete}
+                  onMoveJob={handleKanbanMoveJob}
                 />
               ) : (
                 <CalendarView
                   jobs={filteredJobs}
                   onJobClick={setSelectedJobForModal}
-                  onToggleComplete={canEdit ? handleToggleComplete : () => {}}
+                  onToggleComplete={handleToggleComplete}
                 />
               )}
             </div>

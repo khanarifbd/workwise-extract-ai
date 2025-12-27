@@ -1,11 +1,10 @@
-import { FileDown, Moon, Sun, Settings, History, KeyRound, QrCode, Users, LogOut, ChevronDown, Shield } from 'lucide-react';
+import { FileDown, Moon, Sun, Settings, History, KeyRound, QrCode, Users, LogOut, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { TeamSettingsModal } from './TeamSettingsModal';
 import { NotificationHistoryModal } from './NotificationHistoryModal';
 import { TeamAccessCodesModal } from './TeamAccessCodesModal';
-import { RoleManagementModal } from './RoleManagementModal';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import logo from '@/assets/logo.png';
 import {
@@ -32,8 +31,7 @@ export const Header = ({ onExport, jobCount }: HeaderProps) => {
   const [showTeamSettings, setShowTeamSettings] = useState(false);
   const [showNotificationHistory, setShowNotificationHistory] = useState(false);
   const [showAccessCodes, setShowAccessCodes] = useState(false);
-  const [showRoleManagement, setShowRoleManagement] = useState(false);
-  const { signOut, user, canEdit } = useAdminAuth();
+  const { signOut, user } = useAdminAuth();
 
   // Apply theme on mount and when isDark changes
   useEffect(() => {
@@ -108,12 +106,6 @@ export const Header = ({ onExport, jobCount }: HeaderProps) => {
                   <Settings className="w-4 h-4" />
                   Team Settings
                 </DropdownMenuItem>
-                {canEdit && (
-                  <DropdownMenuItem onClick={() => setShowRoleManagement(true)} className="flex items-center gap-2 cursor-pointer">
-                    <Shield className="w-4 h-4" />
-                    Role Management
-                  </DropdownMenuItem>
-                )}
               </DropdownMenuContent>
             </DropdownMenu>
             <Button variant="outline" size="icon" className="md:w-auto md:px-4" onClick={onExport}>
@@ -153,10 +145,6 @@ export const Header = ({ onExport, jobCount }: HeaderProps) => {
 
       {showAccessCodes && (
         <TeamAccessCodesModal onClose={() => setShowAccessCodes(false)} />
-      )}
-
-      {showRoleManagement && (
-        <RoleManagementModal onClose={() => setShowRoleManagement(false)} />
       )}
     </header>
   );

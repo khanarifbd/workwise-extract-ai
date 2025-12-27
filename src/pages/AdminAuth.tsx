@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { usePasswordBreachCheck } from '@/hooks/usePasswordBreachCheck';
@@ -23,11 +23,9 @@ const passwordSchema = z.string()
 
 export default function AdminAuth() {
   const navigate = useNavigate();
-  const { isAuthenticated, isAdmin, isViewer, hasAccess, isLoading, error, signIn, signUp, signOut, clearError } = useAdminAuth();
+  const { isAuthenticated, isAdmin, isViewer, hasAccess, isLoading, error, signIn, signUp, clearError } = useAdminAuth();
   const { checkPassword, isChecking: isCheckingBreach } = usePasswordBreachCheck();
-
-  const forcedSignOutRef = useRef(false);
-
+  
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -44,23 +42,6 @@ export default function AdminAuth() {
       navigate('/', { replace: true });
     }
   }, [isAuthenticated, hasAccess, isLoading, navigate]);
-
-  // If user is logged in but has no access, force sign-out so /admin can always show the login screen.
-  useEffect(() => {
-    if (isLoading) return;
-    if (!isAuthenticated) return;
-    if (hasAccess) return;
-    if (forcedSignOutRef.current) return;
-
-    forcedSignOutRef.current = true;
-    (async () => {
-      await signOut();
-      toast.message('Signed out', {
-        description: 'This account has no admin/viewer access. Please sign in with a different account.',
-      });
-      navigate('/admin', { replace: true });
-    })();
-  }, [hasAccess, isAuthenticated, isLoading, navigate, signOut]);
 
   const validateForm = (isSignUp: boolean): boolean => {
     setValidationError(null);
@@ -173,22 +154,12 @@ export default function AdminAuth() {
           <CardHeader>
             <CardTitle className="text-destructive">Access Denied</CardTitle>
             <CardDescription>
-              Your account does not have administrator or viewer privileges. Please ask an admin to grant you access, or sign out to switch accounts.
+              Your account does not have administrator or viewer privileges. Please contact an existing admin to grant you access.
             </CardDescription>
           </CardHeader>
-          <CardFooter className="flex flex-col gap-2">
-            <Button
-              variant="default"
-              className="w-full"
-              onClick={async () => {
-                await signOut();
-                navigate('/admin', { replace: true });
-              }}
-            >
-              Sign out &amp; switch account
-            </Button>
-            <Button variant="outline" onClick={() => navigate('/admin', { replace: true })} className="w-full">
-              Go to Login
+          <CardFooter>
+            <Button variant="outline" onClick={() => navigate('/')} className="w-full">
+              Go Back
             </Button>
           </CardFooter>
         </Card>
