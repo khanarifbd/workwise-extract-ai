@@ -351,6 +351,33 @@ export type Database = {
         }
         Relationships: []
       }
+      team_fcm_tokens: {
+        Row: {
+          created_at: string
+          fcm_token: string
+          id: string
+          platform: string | null
+          team_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          fcm_token: string
+          id?: string
+          platform?: string | null
+          team_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          fcm_token?: string
+          id?: string
+          platform?: string | null
+          team_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       team_job_updates: {
         Row: {
           created_at: string
