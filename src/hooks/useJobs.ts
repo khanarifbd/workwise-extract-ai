@@ -67,10 +67,15 @@ export const useJobs = (categoryId?: string) => {
       const currentJob = jobs.find(j => j.id === id);
       const previousTeam = currentJob?.team;
       const newTeam = updates.team;
+      const previousStatus = currentJob?.status;
+      const newStatus = updates.status;
       
       // Check if team is being assigned or unassigned
       const isNewTeamAssignment = newTeam && newTeam !== previousTeam;
       const isTeamUnassigned = 'team' in updates && !newTeam && previousTeam;
+      
+      // Check if status changed
+      const isStatusChanged = 'status' in updates && newStatus && newStatus !== previousStatus;
       
       const updated = await updateJob(id, updates);
       setJobs(prev => prev.map(j => j.id === id ? updated : j));
@@ -85,6 +90,11 @@ export const useJobs = (categoryId?: string) => {
         sendTeamNotification(previousTeam, { ...updated, team: previousTeam }, 'unassigned');
       }
       
+      // Send push notification if status changed (to the assigned team)
+      if (isStatusChanged && updated.team) {
+        sendTeamNotification(updated.team, updated, 'status_changed', newStatus);
+      }
+      
       return updated;
     } catch (error) {
       console.error('Error updating job:', error);
@@ -92,7 +102,7 @@ export const useJobs = (categoryId?: string) => {
     }
   };
 
-  const sendTeamNotification = async (teamName: string, job: Job, type: 'assigned' | 'unassigned' = 'assigned') => {
+  const sendTeamNotification = async (teamName: string, job: Job, type: 'assigned' | 'unassigned' | 'status_changed' = 'assigned', newStatus?: string) => {
     try {
       console.log(`Sending push notification to team: ${teamName} for job: ${job.jobNumber} (${type})`);
       
@@ -116,10 +126,21 @@ export const useJobs = (categoryId?: string) => {
         return;
       }
 
-      const title = type === 'assigned' ? 'New Job Assigned' : 'Job Unassigned';
-      const body = type === 'assigned' 
-        ? `Job #${job.jobNumber} - ${job.name} has been assigned to your team`
-        : `Job #${job.jobNumber} - ${job.name} has been removed from your team`;
+      let title: string;
+      let body: string;
+      
+      if (type === 'assigned') {
+        title = 'New Job Assigned';
+        body = `Job #${job.jobNumber} - ${job.name} has been assigned to your team`;
+      } else if (type === 'unassigned') {
+        title = 'Job Unassigned';
+        body = `Job #${job.jobNumber} - ${job.name} has been removed from your team`;
+      } else {
+        // status_changed
+        const statusLabel = newStatus?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Updated';
+        title = `Job Status: ${statusLabel}`;
+        body = `Job #${job.jobNumber} - ${job.name} status changed to ${statusLabel}`;
+      }
 
       // Send native push (Android/iOS) via FCM
       const fcmRes = await supabase.functions.invoke('send-fcm-notification', {
