@@ -29,7 +29,7 @@ import { extractPDFWithAI, extractImageWithAI } from '@/lib/api';
 import { extractTextFromPDF } from '@/lib/pdfUtils';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 
 type FileType = 'pdf' | 'image';
 type ViewType = 'table' | 'kanban' | 'calendar';
@@ -652,7 +652,7 @@ const Index = () => {
     toast({ title: 'PDF downloaded!' });
   };
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     const activeCat = categories.find(c => c.id === activeCategory);
     
     let excelData;
@@ -692,11 +692,32 @@ const Index = () => {
       }));
     }
 
-    const worksheet = XLSX.utils.json_to_sheet(excelData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, isFanCategory ? 'Fan Jobs' : 'Jobs');
-
-    XLSX.writeFile(workbook, `${activeCat?.slug || 'jobs'}-${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet(isFanCategory ? 'Fan Jobs' : 'Jobs');
+    
+    // Add headers
+    const headers = Object.keys(excelData[0] || {});
+    worksheet.addRow(headers);
+    
+    // Add data
+    excelData.forEach(row => {
+      worksheet.addRow(Object.values(row));
+    });
+    
+    // Auto-size columns
+    worksheet.columns.forEach(column => {
+      column.width = 15;
+    });
+    
+    // Generate and download
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${activeCat?.slug || 'jobs'}-${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
+    link.click();
+    URL.revokeObjectURL(url);
     toast({ title: 'Excel downloaded!' });
   };
 
