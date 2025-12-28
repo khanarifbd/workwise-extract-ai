@@ -107,20 +107,35 @@ export const useJobs = (categoryId?: string) => {
         return;
       }
 
-      // Send push notification with auth headers
-      await supabase.functions.invoke('send-push-notification', {
+      // Send native push (Android/iOS) via FCM
+      const fcmRes = await supabase.functions.invoke('send-fcm-notification', {
         body: {
           teamId: teamData.team_id,
           title: 'New Job Assigned',
           body: `Job #${job.jobNumber} - ${job.name} has been assigned to your team`,
-          data: { jobId: job.id, jobNumber: job.jobNumber }
+          data: { jobId: job.id, jobNumber: job.jobNumber },
         },
         headers: {
-          Authorization: `Bearer ${session.access_token}`
-        }
+          Authorization: `Bearer ${session.access_token}`,
+        },
       });
+      console.log('FCM send result:', fcmRes);
 
-      console.log('Push notification sent to team:', teamName);
+      // Send web push (PWA) as well (if any subscriptions exist)
+      const webRes = await supabase.functions.invoke('send-push-notification', {
+        body: {
+          teamId: teamData.team_id,
+          title: 'New Job Assigned',
+          body: `Job #${job.jobNumber} - ${job.name} has been assigned to your team`,
+          data: { jobId: job.id, jobNumber: job.jobNumber },
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+      console.log('Web push send result:', webRes);
+
+      console.log('Notifications queued for team:', teamName);
     } catch (error) {
       console.error('Error sending push notification:', error);
       // Don't throw - notification failure shouldn't block job update
