@@ -1,22 +1,30 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
+// IMPORTANT:
+// - When CAP_SERVER_URL is NOT set, the app loads the bundled web build from `dist/` (recommended for Android/iOS builds).
+// - When CAP_SERVER_URL IS set, Capacitor will load that remote URL (useful for dev/hot-reload).
+const serverUrl = process.env.CAP_SERVER_URL;
+
 const config: CapacitorConfig = {
   appId: 'app.workwish.com',
   appName: 'workwise-extract-ai',
   webDir: 'dist',
-  server: {
-    url: 'https://32291fea-ae7a-4244-99d2-54f6e702d4c6.lovableproject.com?forceHideBadge=true',
-    cleartext: true,
-    // Keep external navigations inside the app WebView (instead of opening Chrome)
-    allowNavigation: [
-      '32291fea-ae7a-4244-99d2-54f6e702d4c6.lovableproject.com',
-      'lovable.dev',
-      'www.lovable.dev',
-      'maps.google.com',
-      'www.google.com',
-      'google.com',
-    ],
-  },
+  ...(serverUrl
+    ? {
+        server: {
+          url: serverUrl,
+          cleartext: true,
+          allowNavigation: [
+            '32291fea-ae7a-4244-99d2-54f6e702d4c6.lovableproject.com',
+            'lovable.dev',
+            'www.lovable.dev',
+            'maps.google.com',
+            'www.google.com',
+            'google.com',
+          ],
+        },
+      }
+    : {}),
   plugins: {
     PushNotifications: {
       presentationOptions: ['badge', 'sound', 'alert']
