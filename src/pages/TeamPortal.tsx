@@ -180,90 +180,110 @@ const TeamPortal = () => {
     }
   };
 
-  // Auto-request push notification permission on login (Native only)
-  const pushRequested = useRef(false);
+  // Push notifications (Native Android/iOS)
+  // Note: OS permission prompts cannot be shown "during install" automatically; we request on the first app open,
+  // then bind the token to the team after login.
+  const pushInitRef = useRef(false);
+
+  const saveFcmTokenToTeam = useCallback(
+    async (token: string, teamId: string) => {
+      const platform = Capacitor.getPlatform();
+      console.log('[push] saving token for team', { teamId, platform });
+
+      const { data: existing, error: selectError } = await supabase
+        .from('team_fcm_tokens' as any)
+        .select('id')
+        .eq('team_id', teamId)
+        .eq('fcm_token', token)
+        .maybeSingle();
+
+      if (selectError) console.error('[push] select token error', selectError);
+
+      if (!existing) {
+        const { error: insertError } = await supabase
+          .from('team_fcm_tokens' as any)
+          .insert({ team_id: teamId, fcm_token: token, platform } as any);
+
+        if (insertError) {
+          console.error('[push] insert token error', insertError);
+        } else {
+          console.log('[push] token saved');
+        }
+      }
+    },
+    []
+  );
+
+  // 1) Ask permission + register on first native app open
   useEffect(() => {
-    const requestPushPermission = async () => {
-      if (!Capacitor.isNativePlatform() || !session?.teamId || pushRequested.current) return;
-      pushRequested.current = true;
+    const initPush = async () => {
+      if (!Capacitor.isNativePlatform() || pushInitRef.current) return;
+      pushInitRef.current = true;
 
       try {
-        const permStatus = await PushNotifications.checkPermissions();
-        if (permStatus.receive === 'prompt' || permStatus.receive === 'prompt-with-rationale') {
-          // Request permission
-          const result = await PushNotifications.requestPermissions();
-          if (result.receive === 'granted') {
-            // Set up registration listener before registering
-            await PushNotifications.addListener('registration', async (token: Token) => {
-              console.log('Auto push registration success, token:', token.value);
-              // Save token to database
-              const platform = Capacitor.getPlatform();
-              try {
-                const { data: existing } = await supabase
-                  .from('team_fcm_tokens' as any)
-                  .select('id')
-                  .eq('team_id', session.teamId)
-                  .eq('fcm_token', token.value)
-                  .maybeSingle();
+        console.log('[push] init start');
 
-                if (!existing) {
-                  await supabase
-                    .from('team_fcm_tokens' as any)
-                    .insert({
-                      team_id: session.teamId,
-                      fcm_token: token.value,
-                      platform: platform,
-                    } as any);
-                  console.log('FCM token saved automatically');
-                  toast({
-                    title: 'নোটিফিকেশন সক্রিয়',
-                    description: 'আপনি এখন নতুন জবের নোটিফিকেশন পাবেন',
-                  });
-                }
-              } catch (err) {
-                console.error('Error saving FCM token:', err);
-              }
-            });
+        await PushNotifications.addListener('registration', async (token: Token) => {
+          console.log('[push] registration success', token.value);
+          localStorage.setItem('pending_fcm_token', token.value);
 
-            await PushNotifications.register();
+          // If already logged in, save immediately
+          if (session?.teamId) {
+            await saveFcmTokenToTeam(token.value, session.teamId);
           }
-        } else if (permStatus.receive === 'granted') {
-          // Already granted, just register
-          await PushNotifications.addListener('registration', async (token: Token) => {
-            console.log('Push already granted, token:', token.value);
-            const platform = Capacitor.getPlatform();
-            try {
-              const { data: existing } = await supabase
-                .from('team_fcm_tokens' as any)
-                .select('id')
-                .eq('team_id', session.teamId)
-                .eq('fcm_token', token.value)
-                .maybeSingle();
+        });
 
-              if (!existing) {
-                await supabase
-                  .from('team_fcm_tokens' as any)
-                  .insert({
-                    team_id: session.teamId,
-                    fcm_token: token.value,
-                    platform: platform,
-                  } as any);
-                console.log('FCM token saved on re-login');
-              }
-            } catch (err) {
-              console.error('Error saving FCM token:', err);
-            }
-          });
-          await PushNotifications.register();
+        await PushNotifications.addListener('registrationError', (error) => {
+          console.error('[push] registration error', error);
+        });
+
+        const perm = await PushNotifications.checkPermissions();
+        console.log('[push] permission status', perm);
+
+        if (perm.receive === 'prompt' || perm.receive === 'prompt-with-rationale') {
+          const result = await PushNotifications.requestPermissions();
+          console.log('[push] permission result', result);
+          if (result.receive !== 'granted') return;
         }
-      } catch (error) {
-        console.error('Error requesting push permission:', error);
+
+        if (perm.receive === 'denied') return;
+
+        await PushNotifications.register();
+      } catch (e) {
+        console.error('[push] init error', e);
       }
     };
 
+    initPush();
+
+    return () => {
+      if (Capacitor.isNativePlatform()) {
+        PushNotifications.removeAllListeners().catch(() => undefined);
+      }
+    };
+  }, [session?.teamId, saveFcmTokenToTeam]);
+
+  // 2) After login: bind any pending token to this team
+  useEffect(() => {
+    const bindPendingToken = async () => {
+      if (!Capacitor.isNativePlatform() || !session?.teamId) return;
+      const token = localStorage.getItem('pending_fcm_token');
+      if (!token) return;
+
+      await saveFcmTokenToTeam(token, session.teamId);
+      toast({
+        title: 'নোটিফিকেশন সক্রিয়',
+        description: 'আপনি এখন নতুন জবের নোটিফিকেশন পাবেন',
+      });
+    };
+
+    bindPendingToken();
+  }, [session?.teamId, toast, saveFcmTokenToTeam]);
+
+  // Load jobs when authenticated
+  useEffect(() => {
     if (isAuthenticated && session) {
       loadJobs();
-      requestPushPermission();
     }
   }, [isAuthenticated, session]);
 
