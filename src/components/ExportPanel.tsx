@@ -18,7 +18,7 @@ import {
 import { format } from 'date-fns';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 
 interface ExportPanelProps {
   jobs: Job[];
@@ -219,7 +219,7 @@ export const ExportPanel = ({ jobs, onClose, isFanCategory = false }: ExportPane
     return fanInfo.length > 0 ? `${fanInfo.length}x Fan` : '1x Fan';
   };
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     let excelData;
     
     if (isFanCategory) {
@@ -262,19 +262,33 @@ export const ExportPanel = ({ jobs, onClose, isFanCategory = false }: ExportPane
       }));
     }
 
-    const worksheet = XLSX.utils.json_to_sheet(excelData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, isFanCategory ? 'Fan Jobs' : 'Jobs');
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet(isFanCategory ? 'Fan Jobs' : 'Jobs');
+    
+    // Add headers
+    const headers = Object.keys(excelData[0] || {});
+    worksheet.addRow(headers);
+    
+    // Add data
+    excelData.forEach(row => {
+      worksheet.addRow(Object.values(row));
+    });
     
     // Auto-size columns
-    const maxWidth = 50;
-    const colWidths = Object.keys(excelData[0] || {}).map(key => ({
-      wch: Math.min(maxWidth, Math.max(key.length, 10))
-    }));
-    worksheet['!cols'] = colWidths;
-
+    worksheet.columns.forEach(column => {
+      column.width = 15;
+    });
+    
+    // Generate and download
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
     const filename = isFanCategory ? 'fan-jobs' : 'allsaints-jobs';
-    XLSX.writeFile(workbook, `${filename}-${selectedMonth === 'all' ? 'all' : months[parseInt(selectedMonth)]}-${currentYear}.xlsx`);
+    link.download = `${filename}-${selectedMonth === 'all' ? 'all' : months[parseInt(selectedMonth)]}-${currentYear}.xlsx`;
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   const handlePrint = () => {
