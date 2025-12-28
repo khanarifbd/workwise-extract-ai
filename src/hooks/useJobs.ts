@@ -64,16 +64,25 @@ export const useJobs = (categoryId?: string) => {
 
   const editJob = async (id: string, updates: Partial<Job>) => {
     try {
-      // Check if team is being assigned
       const currentJob = jobs.find(j => j.id === id);
-      const isNewTeamAssignment = updates.team && updates.team !== currentJob?.team;
+      const previousTeam = currentJob?.team;
+      const newTeam = updates.team;
+      
+      // Check if team is being assigned or unassigned
+      const isNewTeamAssignment = newTeam && newTeam !== previousTeam;
+      const isTeamUnassigned = 'team' in updates && !newTeam && previousTeam;
       
       const updated = await updateJob(id, updates);
       setJobs(prev => prev.map(j => j.id === id ? updated : j));
       
       // Send push notification if team was just assigned
-      if (isNewTeamAssignment && updates.team) {
-        sendTeamNotification(updates.team, updated);
+      if (isNewTeamAssignment && newTeam) {
+        sendTeamNotification(newTeam, updated, 'assigned');
+      }
+      
+      // Send push notification if team was unassigned
+      if (isTeamUnassigned && previousTeam) {
+        sendTeamNotification(previousTeam, { ...updated, team: previousTeam }, 'unassigned');
       }
       
       return updated;
@@ -83,9 +92,9 @@ export const useJobs = (categoryId?: string) => {
     }
   };
 
-  const sendTeamNotification = async (teamName: string, job: Job) => {
+  const sendTeamNotification = async (teamName: string, job: Job, type: 'assigned' | 'unassigned' = 'assigned') => {
     try {
-      console.log('Sending push notification to team:', teamName, 'for job:', job.jobNumber);
+      console.log(`Sending push notification to team: ${teamName} for job: ${job.jobNumber} (${type})`);
       
       // Get team_id from team_access_codes
       const { data: teamData } = await supabase
@@ -107,13 +116,18 @@ export const useJobs = (categoryId?: string) => {
         return;
       }
 
+      const title = type === 'assigned' ? 'New Job Assigned' : 'Job Unassigned';
+      const body = type === 'assigned' 
+        ? `Job #${job.jobNumber} - ${job.name} has been assigned to your team`
+        : `Job #${job.jobNumber} - ${job.name} has been removed from your team`;
+
       // Send native push (Android/iOS) via FCM
       const fcmRes = await supabase.functions.invoke('send-fcm-notification', {
         body: {
           teamId: teamData.team_id,
-          title: 'New Job Assigned',
-          body: `Job #${job.jobNumber} - ${job.name} has been assigned to your team`,
-          data: { jobId: job.id, jobNumber: job.jobNumber },
+          title,
+          body,
+          data: { jobId: job.id, jobNumber: job.jobNumber, type },
         },
         headers: {
           Authorization: `Bearer ${session.access_token}`,
@@ -125,9 +139,9 @@ export const useJobs = (categoryId?: string) => {
       const webRes = await supabase.functions.invoke('send-push-notification', {
         body: {
           teamId: teamData.team_id,
-          title: 'New Job Assigned',
-          body: `Job #${job.jobNumber} - ${job.name} has been assigned to your team`,
-          data: { jobId: job.id, jobNumber: job.jobNumber },
+          title,
+          body,
+          data: { jobId: job.id, jobNumber: job.jobNumber, type },
         },
         headers: {
           Authorization: `Bearer ${session.access_token}`,
@@ -135,7 +149,7 @@ export const useJobs = (categoryId?: string) => {
       });
       console.log('Web push send result:', webRes);
 
-      console.log('Notifications queued for team:', teamName);
+      console.log(`Notifications queued for team: ${teamName} (${type})`);
     } catch (error) {
       console.error('Error sending push notification:', error);
       // Don't throw - notification failure shouldn't block job update
