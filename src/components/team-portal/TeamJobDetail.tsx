@@ -278,28 +278,45 @@ export const TeamJobDetail = ({
       const uploadedUrls: string[] = [];
 
       for (const file of Array.from(files)) {
-        const fileName = `${teamId}/${job.id}/${Date.now()}-${file.name}`;
+        // Generate unique filename - handle camera files that may have generic names
+        const timestamp = Date.now();
+        const randomId = Math.random().toString(36).substring(2, 8);
+        const extension = file.name?.split('.').pop() || 'jpg';
+        const fileName = `${teamId}/${job.id}/${timestamp}-${randomId}.${extension}`;
         
-        if (isOnline) {
-          const { data, error } = await supabase.storage
-            .from('job-attachments')
-            .upload(fileName, file);
-
-          if (error) throw error;
-
-          const { data: urlData } = supabase.storage
-            .from('job-attachments')
-            .getPublicUrl(data.path);
-
-          uploadedUrls.push(urlData.publicUrl);
-        } else {
-          // Store as base64 for offline
+        // First convert to base64 for immediate preview
+        const base64 = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
-          const base64 = await new Promise<string>((resolve) => {
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.readAsDataURL(file);
-          });
-          uploadedUrls.push(base64);
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        
+        // Add to preview immediately
+        uploadedUrls.push(base64);
+        
+        // If online, also upload to storage in background
+        if (isOnline) {
+          try {
+            const { data, error } = await supabase.storage
+              .from('job-attachments')
+              .upload(fileName, file);
+
+            if (!error && data) {
+              const { data: urlData } = supabase.storage
+                .from('job-attachments')
+                .getPublicUrl(data.path);
+              
+              // Replace base64 with actual URL in the array
+              const index = uploadedUrls.indexOf(base64);
+              if (index > -1) {
+                uploadedUrls[index] = urlData.publicUrl;
+              }
+            }
+          } catch (uploadError) {
+            console.error('Storage upload error, keeping base64:', uploadError);
+            // Keep base64 if upload fails
+          }
         }
       }
 
@@ -319,6 +336,8 @@ export const TeamJobDetail = ({
       });
     } finally {
       setUploadingPhotos(false);
+      // Reset input to allow re-selecting same file
+      e.target.value = '';
     }
   };
 
