@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useTeamAuth } from '@/hooks/useTeamAuth';
 import { useOfflineStorage } from '@/hooks/useOfflineStorage';
 import { TeamLoginForm } from '@/components/team-portal/TeamLoginForm';
@@ -11,6 +12,7 @@ import { mapDatabaseJobToJob } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 
 const TeamPortal = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { 
     session, 
     isAuthenticated, 
@@ -28,6 +30,68 @@ const TeamPortal = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const { toast } = useToast();
 
+  // Handle deep link from notification
+  const handleDeepLink = useCallback((loadedJobs: Job[]) => {
+    const jobIdFromUrl = searchParams.get('job');
+    const actionFromUrl = searchParams.get('action');
+    
+    if (jobIdFromUrl && loadedJobs.length > 0) {
+      const targetJob = loadedJobs.find(j => j.id === jobIdFromUrl);
+      if (targetJob) {
+        setSelectedJob(targetJob);
+        // Clear URL params after handling
+        setSearchParams({});
+        
+        if (actionFromUrl === 'submit') {
+          toast({
+            title: 'জব খোলা হয়েছে',
+            description: `জব #${targetJob.jobNumber} - এখানে আপনার কাজ সাবমিট করুন`,
+          });
+        }
+      }
+    }
+  }, [searchParams, setSearchParams, toast]);
+
+  // Listen for messages from service worker
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'NOTIFICATION_CLICK') {
+        const jobId = event.data.jobId;
+        if (jobId && jobs.length > 0) {
+          const targetJob = jobs.find(j => j.id === jobId);
+          if (targetJob) {
+            setSelectedJob(targetJob);
+            toast({
+              title: 'জব খোলা হয়েছে',
+              description: `জব #${targetJob.jobNumber}`,
+            });
+          }
+        }
+      }
+    };
+
+    navigator.serviceWorker?.addEventListener('message', handleMessage);
+    return () => {
+      navigator.serviceWorker?.removeEventListener('message', handleMessage);
+    };
+  }, [jobs, toast]);
+
+  // Check for pending job from Capacitor notification
+  useEffect(() => {
+    const pendingJobId = sessionStorage.getItem('pendingJobId');
+    if (pendingJobId && jobs.length > 0) {
+      const targetJob = jobs.find(j => j.id === pendingJobId);
+      if (targetJob) {
+        setSelectedJob(targetJob);
+        sessionStorage.removeItem('pendingJobId');
+        toast({
+          title: 'জব খোলা হয়েছে',
+          description: `জব #${targetJob.jobNumber} - এখানে আপনার কাজ সাবমিট করুন`,
+        });
+      }
+    }
+  }, [jobs, toast]);
+
   // Load jobs for the authenticated team using secure edge function
   const loadJobs = async () => {
     if (!session?.teamName) return;
@@ -42,10 +106,14 @@ const TeamPortal = () => {
         
         // Cache for offline use
         await cacheJobs(mappedJobs);
+        
+        // Handle deep link after jobs are loaded
+        handleDeepLink(mappedJobs);
       } else {
         // Load from cache
         const cachedJobs = await getCachedJobs(session.teamName);
         setJobs(cachedJobs);
+        handleDeepLink(cachedJobs);
         toast({
           title: 'Offline Mode',
           description: 'Showing cached jobs. Changes will sync when online.',
@@ -57,6 +125,7 @@ const TeamPortal = () => {
       const cachedJobs = await getCachedJobs(session.teamName);
       if (cachedJobs.length > 0) {
         setJobs(cachedJobs);
+        handleDeepLink(cachedJobs);
         toast({
           title: 'Connection Issue',
           description: 'Showing cached jobs.',
