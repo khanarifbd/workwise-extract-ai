@@ -10,6 +10,8 @@ const config: CapacitorConfig = {
     // Keep external navigations inside the app WebView (instead of opening Chrome)
     allowNavigation: [
       '32291fea-ae7a-4244-99d2-54f6e702d4c6.lovableproject.com',
+      'lovable.dev',
+      'www.lovable.dev',
       'maps.google.com',
       'www.google.com',
       'google.com',
