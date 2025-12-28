@@ -5,9 +5,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { RefreshCw, LogOut, MapPin, ChevronRight, ChevronDown, Briefcase, Loader2, Bell, BellOff, Calendar, Phone } from 'lucide-react';
+import { RefreshCw, LogOut, MapPin, ChevronRight, ChevronDown, Briefcase, Loader2, Bell, BellOff, Calendar, Phone, Smartphone } from 'lucide-react';
 import { format } from 'date-fns';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { useCapacitorPush } from '@/hooks/useCapacitorPush';
 
 interface TeamJobListProps {
   jobs: Job[];
@@ -28,7 +29,12 @@ export const TeamJobList = ({
   onRefresh,
   onLogout,
 }: TeamJobListProps) => {
-  const { isSupported, isSubscribed, isLoading: pushLoading, subscribe, unsubscribe } = usePushNotifications(teamId);
+  // Web push notifications (PWA)
+  const { isSupported: webPushSupported, isSubscribed: webPushSubscribed, isLoading: webPushLoading, subscribe: webSubscribe, unsubscribe: webUnsubscribe } = usePushNotifications(teamId);
+  
+  // Native push notifications (Capacitor - Android/iOS)
+  const { isSupported: nativePushSupported, isRegistered: nativePushRegistered, isLoading: nativePushLoading, register: nativeRegister, unregister: nativeUnregister } = useCapacitorPush(teamId);
+  
   const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set());
 
   const getStatusColor = (status: string) => {
@@ -70,16 +76,34 @@ export const TeamJobList = ({
               </p>
             </div>
             <div className="flex gap-1 sm:gap-2 flex-shrink-0">
-              {isSupported && (
+              {/* Native Push (Capacitor - Android/iOS) */}
+              {nativePushSupported && (
                 <Button
                   variant="secondary"
                   size="icon"
                   className="h-9 w-9 sm:h-10 sm:w-10"
-                  onClick={() => isSubscribed ? unsubscribe() : subscribe()}
-                  disabled={pushLoading}
-                  title={isSubscribed ? 'Disable notifications' : 'Enable notifications'}
+                  onClick={() => nativePushRegistered ? nativeUnregister() : nativeRegister()}
+                  disabled={nativePushLoading}
+                  title={nativePushRegistered ? 'Disable push notifications' : 'Enable push notifications'}
                 >
-                  {isSubscribed ? (
+                  {nativePushRegistered ? (
+                    <Smartphone className="h-4 w-4 text-green-600" />
+                  ) : (
+                    <Smartphone className="h-4 w-4" />
+                  )}
+                </Button>
+              )}
+              {/* Web Push (PWA - Browser) */}
+              {webPushSupported && !nativePushSupported && (
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="h-9 w-9 sm:h-10 sm:w-10"
+                  onClick={() => webPushSubscribed ? webUnsubscribe() : webSubscribe()}
+                  disabled={webPushLoading}
+                  title={webPushSubscribed ? 'Disable notifications' : 'Enable notifications'}
+                >
+                  {webPushSubscribed ? (
                     <Bell className="h-4 w-4" />
                   ) : (
                     <BellOff className="h-4 w-4" />
