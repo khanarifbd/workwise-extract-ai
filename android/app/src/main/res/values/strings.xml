@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">workwise-extract-ai</string>
+    <string name="title_activity_main">workwise-extract-ai</string>
+    <string name="package_name">app.workwish.com</string>
+    <string name="custom_url_scheme">app.workwish.com</string>
+</resources>
