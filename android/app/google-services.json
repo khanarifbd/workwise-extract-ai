@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "446631568546",
+    "project_id": "workwish-196a9",
+    "storage_bucket": "workwish-196a9.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:446631568546:android:72dc93b888c682238923fb",
+        "android_client_info": {
+          "package_name": "app.workwish.com"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA3EtPwo3_Hb1hdDlv7yv5ZyPg34REL4J8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
