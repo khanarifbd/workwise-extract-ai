@@ -302,7 +302,10 @@ export const TeamSelector = ({ job, currentCategoryId, onSelect, onClose, onDupl
         </ScrollArea>
 
         {/* Footer with assignments summary and action buttons - always visible */}
-        <div className="border-t border-border p-3 space-y-2 flex-shrink-0 bg-card">
+        <div 
+          className="border-t border-border p-3 space-y-2 flex-shrink-0"
+          style={{ backgroundColor: 'hsl(var(--card))' }}
+        >
           {assignments.length > 0 ? (
             <>
               <div className="text-xs text-muted-foreground">
@@ -324,7 +327,7 @@ export const TeamSelector = ({ job, currentCategoryId, onSelect, onClose, onDupl
               Select a category, then choose a team member
             </div>
           )}
-          <div className="flex gap-2">
+          <div className="flex gap-2 pt-2">
             <Button size="sm" variant="outline" className="flex-1" onClick={onClose} disabled={isSending}>
               Cancel
             </Button>
