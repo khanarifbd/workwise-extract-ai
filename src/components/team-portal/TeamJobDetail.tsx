@@ -621,7 +621,7 @@ export const TeamJobDetail = ({
                 <CardTitle className="text-sm sm:text-base flex items-center justify-between">
                   <span className="flex items-center gap-2">
                     <Camera className="h-4 w-4" />
-                    ছবি {photos.length > 0 && `(${photos.length})`}
+                    Photos {photos.length > 0 && `(${photos.length})`}
                   </span>
                   <ChevronDown className={`h-4 w-4 transition-transform ${expandedSections.photos ? 'rotate-180' : ''}`} />
                 </CardTitle>
@@ -646,7 +646,7 @@ export const TeamJobDetail = ({
                       <>
                         <Camera className="h-5 w-5 text-muted-foreground mb-1" />
                         <span className="text-xs text-muted-foreground">
-                          ছবি তুলুন বা আপলোড করুন
+                          Take or upload photos
                         </span>
                       </>
                     )}
@@ -689,7 +689,7 @@ export const TeamJobDetail = ({
                 <CardTitle className="text-sm sm:text-base flex items-center justify-between">
                   <span className="flex items-center gap-2">
                     <FileText className="h-4 w-4" />
-                    ডকুমেন্ট {documents.length > 0 && `(${documents.length})`}
+                    Documents {documents.length > 0 && `(${documents.length})`}
                   </span>
                   <ChevronDown className={`h-4 w-4 transition-transform ${expandedSections.documents ? 'rotate-180' : ''}`} />
                 </CardTitle>

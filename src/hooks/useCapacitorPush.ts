@@ -64,7 +64,7 @@ export const useCapacitorPush = (teamId: string | null) => {
     // On registration error
     await PushNotifications.addListener('registrationError', (error) => {
       console.error('Push registration error:', error);
-      toast.error('পুশ নোটিফিকেশন রেজিস্ট্রেশন ব্যর্থ হয়েছে');
+      toast.error('Push notification registration failed');
     });
 
     // On push notification received
@@ -134,7 +134,7 @@ export const useCapacitorPush = (teamId: string | null) => {
 
   const register = useCallback(async () => {
     if (!isNative) {
-      toast.error('পুশ নোটিফিকেশন শুধুমাত্র মোবাইল অ্যাপে কাজ করে');
+      toast.error('Push notifications only work on mobile app');
       return false;
     }
 
@@ -147,15 +147,15 @@ export const useCapacitorPush = (teamId: string | null) => {
       if (permStatus.receive === 'granted') {
         // Register with FCM/APNs
         await PushNotifications.register();
-        toast.success('পুশ নোটিফিকেশন সক্রিয় করা হয়েছে');
+        toast.success('Push notifications enabled');
         return true;
       } else {
-        toast.error('পুশ নোটিফিকেশন অনুমতি প্রত্যাখ্যান করা হয়েছে');
+        toast.error('Push notification permission denied');
         return false;
       }
     } catch (error) {
       console.error('Error registering push notifications:', error);
-      toast.error('পুশ নোটিফিকেশন রেজিস্ট্রেশনে সমস্যা হয়েছে');
+      toast.error('Push notification registration error');
       return false;
     } finally {
       setState(prev => ({ ...prev, isLoading: false }));
@@ -181,11 +181,11 @@ export const useCapacitorPush = (teamId: string | null) => {
         token: null 
       }));
       
-      toast.success('পুশ নোটিফিকেশন নিষ্ক্রিয় করা হয়েছে');
+      toast.success('Push notifications disabled');
       return true;
     } catch (error) {
       console.error('Error unregistering push notifications:', error);
-      toast.error('পুশ নোটিফিকেশন নিষ্ক্রিয় করতে সমস্যা হয়েছে');
+      toast.error('Failed to disable push notifications');
       return false;
     } finally {
       setState(prev => ({ ...prev, isLoading: false }));
