@@ -23,8 +23,13 @@
       // Apply theme immediately to prevent flash
       (function() {
         const stored = localStorage.getItem('theme');
-        if (stored === 'dark' || (!stored && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+
+        // Default to dark unless the user explicitly chose light
+        const shouldUseDark = stored !== 'light';
+
+        if (shouldUseDark) {
           document.documentElement.classList.add('dark');
+          if (!stored) localStorage.setItem('theme', 'dark');
         }
       })();
     </script>
