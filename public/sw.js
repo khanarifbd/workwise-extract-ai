@@ -39,8 +39,8 @@ self.addEventListener('push', (event) => {
     vibrate: [200, 100, 200],
     requireInteraction: true,
     actions: [
-      { action: 'view', title: 'View Jobs' },
-      { action: 'dismiss', title: 'Dismiss' },
+      { action: 'view', title: 'জব দেখুন' },
+      { action: 'dismiss', title: 'বাতিল' },
     ],
   };
 
@@ -58,18 +58,35 @@ self.addEventListener('notificationclick', (event) => {
     return;
   }
 
-  // Open or focus the team portal
+  // Get job data from notification
+  const notificationData = event.notification.data || {};
+  const jobId = notificationData.jobId;
+  const teamId = notificationData.teamId;
+
+  // Build the target URL
+  let targetUrl = '/team';
+  if (jobId) {
+    targetUrl = `/team?job=${jobId}`;
+  }
+
+  // Open or focus the team portal with specific job
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       // Try to find an existing window
       for (const client of clientList) {
         if (client.url.includes('/team') && 'focus' in client) {
+          // Navigate to the specific job
+          client.postMessage({
+            type: 'NOTIFICATION_CLICK',
+            jobId: jobId,
+            teamId: teamId,
+          });
           return client.focus();
         }
       }
       // Open new window if none found
       if (clients.openWindow) {
-        return clients.openWindow('/team');
+        return clients.openWindow(targetUrl);
       }
     })
   );

@@ -78,10 +78,13 @@ export const useCapacitorPush = (teamId: string | null) => {
     // On push notification action performed
     await PushNotifications.addListener('pushNotificationActionPerformed', (action: ActionPerformed) => {
       console.log('Push notification action performed:', action);
-      // Handle notification tap - navigate to relevant page
+      // Handle notification tap - navigate to relevant job page
       const data = action.notification.data;
       if (data?.jobId) {
-        window.location.href = `/team?job=${data.jobId}`;
+        // Store job ID to open after navigation
+        sessionStorage.setItem('pendingJobId', data.jobId);
+        // Navigate to team portal with job parameter
+        window.location.href = `/team?job=${data.jobId}&action=submit`;
       }
     });
   };
