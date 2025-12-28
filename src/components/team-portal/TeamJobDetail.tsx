@@ -649,27 +649,51 @@ export const TeamJobDetail = ({
             <CollapsibleContent>
               <CardContent className="pt-0">
                 <div className="space-y-3">
-                  <label className="flex flex-col items-center justify-center w-full h-20 border-2 border-dashed rounded-lg cursor-pointer bg-muted/50 hover:bg-muted transition-colors">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      capture="environment"
-                      className="hidden"
-                      onChange={handlePhotoUpload}
-                      disabled={uploadingPhotos}
-                    />
-                    {uploadingPhotos ? (
-                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                    ) : (
-                      <>
-                        <Camera className="h-5 w-5 text-muted-foreground mb-1" />
-                        <span className="text-xs text-muted-foreground">
-                          Take or upload photos
-                        </span>
-                      </>
-                    )}
-                  </label>
+                  <div className="flex gap-2">
+                    {/* Camera capture button */}
+                    <label className="flex-1 flex flex-col items-center justify-center h-20 border-2 border-dashed rounded-lg cursor-pointer bg-muted/50 hover:bg-muted transition-colors">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        className="hidden"
+                        onChange={handlePhotoUpload}
+                        disabled={uploadingPhotos}
+                      />
+                      {uploadingPhotos ? (
+                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                      ) : (
+                        <>
+                          <Camera className="h-5 w-5 text-muted-foreground mb-1" />
+                          <span className="text-xs text-muted-foreground">
+                            Take Photo
+                          </span>
+                        </>
+                      )}
+                    </label>
+                    
+                    {/* Gallery upload button */}
+                    <label className="flex-1 flex flex-col items-center justify-center h-20 border-2 border-dashed rounded-lg cursor-pointer bg-muted/50 hover:bg-muted transition-colors">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                        onChange={handlePhotoUpload}
+                        disabled={uploadingPhotos}
+                      />
+                      {uploadingPhotos ? (
+                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                      ) : (
+                        <>
+                          <Image className="h-5 w-5 text-muted-foreground mb-1" />
+                          <span className="text-xs text-muted-foreground">
+                            Gallery
+                          </span>
+                        </>
+                      )}
+                    </label>
+                  </div>
 
                   {photos.length > 0 && (
                     <div className="grid grid-cols-4 gap-2">

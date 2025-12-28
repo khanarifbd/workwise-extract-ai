@@ -272,8 +272,8 @@ const TeamPortal = () => {
 
       await saveFcmTokenToTeam(token, session.teamId);
       toast({
-        title: 'নোটিফিকেশন সক্রিয়',
-        description: 'আপনি এখন নতুন জবের নোটিফিকেশন পাবেন',
+        title: 'Notifications Enabled',
+        description: 'You will now receive notifications for new jobs',
       });
     };
 
