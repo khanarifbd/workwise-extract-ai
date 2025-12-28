@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTeamAuth } from '@/hooks/useTeamAuth';
 import { useOfflineStorage } from '@/hooks/useOfflineStorage';
@@ -10,6 +10,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Job } from '@/types/job';
 import { mapDatabaseJobToJob } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
+import { Capacitor } from '@capacitor/core';
+import { PushNotifications, Token } from '@capacitor/push-notifications';
 
 const TeamPortal = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -178,10 +180,90 @@ const TeamPortal = () => {
     }
   };
 
-  // Load jobs when authenticated
+  // Auto-request push notification permission on login (Native only)
+  const pushRequested = useRef(false);
   useEffect(() => {
+    const requestPushPermission = async () => {
+      if (!Capacitor.isNativePlatform() || !session?.teamId || pushRequested.current) return;
+      pushRequested.current = true;
+
+      try {
+        const permStatus = await PushNotifications.checkPermissions();
+        if (permStatus.receive === 'prompt' || permStatus.receive === 'prompt-with-rationale') {
+          // Request permission
+          const result = await PushNotifications.requestPermissions();
+          if (result.receive === 'granted') {
+            // Set up registration listener before registering
+            await PushNotifications.addListener('registration', async (token: Token) => {
+              console.log('Auto push registration success, token:', token.value);
+              // Save token to database
+              const platform = Capacitor.getPlatform();
+              try {
+                const { data: existing } = await supabase
+                  .from('team_fcm_tokens' as any)
+                  .select('id')
+                  .eq('team_id', session.teamId)
+                  .eq('fcm_token', token.value)
+                  .maybeSingle();
+
+                if (!existing) {
+                  await supabase
+                    .from('team_fcm_tokens' as any)
+                    .insert({
+                      team_id: session.teamId,
+                      fcm_token: token.value,
+                      platform: platform,
+                    } as any);
+                  console.log('FCM token saved automatically');
+                  toast({
+                    title: 'নোটিফিকেশন সক্রিয়',
+                    description: 'আপনি এখন নতুন জবের নোটিফিকেশন পাবেন',
+                  });
+                }
+              } catch (err) {
+                console.error('Error saving FCM token:', err);
+              }
+            });
+
+            await PushNotifications.register();
+          }
+        } else if (permStatus.receive === 'granted') {
+          // Already granted, just register
+          await PushNotifications.addListener('registration', async (token: Token) => {
+            console.log('Push already granted, token:', token.value);
+            const platform = Capacitor.getPlatform();
+            try {
+              const { data: existing } = await supabase
+                .from('team_fcm_tokens' as any)
+                .select('id')
+                .eq('team_id', session.teamId)
+                .eq('fcm_token', token.value)
+                .maybeSingle();
+
+              if (!existing) {
+                await supabase
+                  .from('team_fcm_tokens' as any)
+                  .insert({
+                    team_id: session.teamId,
+                    fcm_token: token.value,
+                    platform: platform,
+                  } as any);
+                console.log('FCM token saved on re-login');
+              }
+            } catch (err) {
+              console.error('Error saving FCM token:', err);
+            }
+          });
+          await PushNotifications.register();
+        }
+      } catch (error) {
+        console.error('Error requesting push permission:', error);
+      }
+    };
+
     if (isAuthenticated && session) {
       loadJobs();
+      requestPushPermission();
     }
   }, [isAuthenticated, session]);
 
