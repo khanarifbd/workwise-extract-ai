@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ArrowLeft, MapPin, Phone, Calendar, Save, Camera, Upload, Loader2, CheckCircle2, Clock, FileText, ChevronDown, CheckSquare, AlertCircle } from 'lucide-react';
+import { ArrowLeft, MapPin, Phone, Calendar, Save, Camera, Upload, Loader2, CheckCircle2, Clock, FileText, ChevronDown, CheckSquare, AlertCircle, File, X, Image } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useOfflineStorage } from '@/hooks/useOfflineStorage';
@@ -37,12 +37,15 @@ export const TeamJobDetail = ({
   const [isCompleting, setIsCompleting] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  const [uploadingFiles, setUploadingFiles] = useState(false);
   const [photos, setPhotos] = useState<string[]>([]);
+  const [documents, setDocuments] = useState<{ name: string; url: string; type: string }[]>([]);
   const [expandedSections, setExpandedSections] = useState({
     details: true,
     workItems: false,
     status: true,
     photos: false,
+    documents: false,
   });
   
   const { addToSyncQueue, saveDraft, getDraft, clearDraft } = useOfflineStorage();
@@ -60,9 +63,10 @@ export const TeamJobDetail = ({
         notes,
         status,
         photos,
+        documents,
       });
     }
-  }, [hasUnsavedChanges, progress, notes, status, photos, job.id, teamName, saveDraft]);
+  }, [hasUnsavedChanges, progress, notes, status, photos, documents, job.id, teamName, saveDraft]);
 
   // Load draft on mount
   useEffect(() => {
@@ -73,6 +77,7 @@ export const TeamJobDetail = ({
         setNotes(draft.data.notes ?? job.progressNotes ?? '');
         setStatus(draft.data.status ?? job.status);
         setPhotos(draft.data.photos ?? []);
+        setDocuments(draft.data.documents ?? []);
         setHasUnsavedChanges(true);
         toast({
           title: 'Draft Restored',
@@ -95,9 +100,10 @@ export const TeamJobDetail = ({
       progress !== job.progress ||
       notes !== (job.progressNotes || '') ||
       status !== job.status ||
-      photos.length > 0;
+      photos.length > 0 ||
+      documents.length > 0;
     setHasUnsavedChanges(changed);
-  }, [progress, notes, status, photos, job]);
+  }, [progress, notes, status, photos, documents, job]);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -107,6 +113,7 @@ export const TeamJobDetail = ({
       progress,
       notes,
       photos: photos.length > 0 ? photos : undefined,
+      documents: documents.length > 0 ? documents : undefined,
     };
 
     try {
@@ -137,13 +144,14 @@ export const TeamJobDetail = ({
           payload: updates,
         });
 
-        if (photos.length > 0) {
+        if (photos.length > 0 || documents.length > 0) {
           await addToSyncQueue({
             teamId,
-            actionType: 'photo_upload',
+            actionType: 'file_upload',
             payload: {
               jobId: job.id,
               photos,
+              documents,
               notes,
             },
           });
@@ -167,6 +175,7 @@ export const TeamJobDetail = ({
 
       setHasUnsavedChanges(false);
       setPhotos([]);
+      setDocuments([]);
     } catch (error) {
       console.error('Save error:', error);
       toast({
@@ -311,6 +320,84 @@ export const TeamJobDetail = ({
     } finally {
       setUploadingPhotos(false);
     }
+  };
+
+  // Handle file/document upload
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setUploadingFiles(true);
+
+    try {
+      const uploadedDocs: { name: string; url: string; type: string }[] = [];
+
+      for (const file of Array.from(files)) {
+        const fileName = `${teamId}/${job.id}/docs/${Date.now()}-${file.name}`;
+        
+        if (isOnline) {
+          const { data, error } = await supabase.storage
+            .from('job-attachments')
+            .upload(fileName, file);
+
+          if (error) throw error;
+
+          const { data: urlData } = supabase.storage
+            .from('job-attachments')
+            .getPublicUrl(data.path);
+
+          uploadedDocs.push({
+            name: file.name,
+            url: urlData.publicUrl,
+            type: file.type,
+          });
+        } else {
+          // Store as base64 for offline
+          const reader = new FileReader();
+          const base64 = await new Promise<string>((resolve) => {
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(file);
+          });
+          uploadedDocs.push({
+            name: file.name,
+            url: base64,
+            type: file.type,
+          });
+        }
+      }
+
+      setDocuments(prev => [...prev, ...uploadedDocs]);
+      setHasUnsavedChanges(true);
+
+      toast({
+        title: 'ফাইল যোগ হয়েছে',
+        description: `${uploadedDocs.length} টি ফাইল আপলোডের জন্য প্রস্তুত`,
+      });
+    } catch (error) {
+      console.error('File upload error:', error);
+      toast({
+        title: 'আপলোড ব্যর্থ',
+        description: 'ফাইল প্রসেস করতে সমস্যা হয়েছে',
+        variant: 'destructive',
+      });
+    } finally {
+      setUploadingFiles(false);
+    }
+  };
+
+  const removeDocument = (index: number) => {
+    setDocuments(prev => prev.filter((_, i) => i !== index));
+    setHasUnsavedChanges(true);
+  };
+
+  const removePhoto = (index: number) => {
+    setPhotos(prev => prev.filter((_, i) => i !== index));
+    setHasUnsavedChanges(true);
+  };
+
+  const getFileIcon = (type: string) => {
+    if (type.startsWith('image/')) return <Image className="h-4 w-4" />;
+    return <File className="h-4 w-4" />;
   };
 
   const getStatusColor = (s: string) => {
@@ -534,7 +621,7 @@ export const TeamJobDetail = ({
                 <CardTitle className="text-sm sm:text-base flex items-center justify-between">
                   <span className="flex items-center gap-2">
                     <Camera className="h-4 w-4" />
-                    Photos {photos.length > 0 && `(${photos.length})`}
+                    ছবি {photos.length > 0 && `(${photos.length})`}
                   </span>
                   <ChevronDown className={`h-4 w-4 transition-transform ${expandedSections.photos ? 'rotate-180' : ''}`} />
                 </CardTitle>
@@ -557,9 +644,9 @@ export const TeamJobDetail = ({
                       <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                     ) : (
                       <>
-                        <Upload className="h-5 w-5 text-muted-foreground mb-1" />
+                        <Camera className="h-5 w-5 text-muted-foreground mb-1" />
                         <span className="text-xs text-muted-foreground">
-                          Tap to take or upload photos
+                          ছবি তুলুন বা আপলোড করুন
                         </span>
                       </>
                     )}
@@ -568,12 +655,83 @@ export const TeamJobDetail = ({
                   {photos.length > 0 && (
                     <div className="grid grid-cols-4 gap-2">
                       {photos.map((photo, index) => (
-                        <div key={index} className="aspect-square rounded-lg overflow-hidden bg-muted">
+                        <div key={index} className="relative aspect-square rounded-lg overflow-hidden bg-muted group">
                           <img
                             src={photo}
                             alt={`Upload ${index + 1}`}
                             className="w-full h-full object-cover"
                           />
+                          <button
+                            type="button"
+                            onClick={() => removePhoto(index)}
+                            className="absolute top-1 right-1 p-1 bg-destructive rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <X className="h-3 w-3 text-destructive-foreground" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+
+        {/* Document Upload - Collapsible */}
+        <Collapsible open={expandedSections.documents}>
+          <Card>
+            <CollapsibleTrigger asChild>
+              <CardHeader 
+                className="pb-2 cursor-pointer hover:bg-muted/50 transition-colors"
+                onClick={() => toggleSection('documents')}
+              >
+                <CardTitle className="text-sm sm:text-base flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    ডকুমেন্ট {documents.length > 0 && `(${documents.length})`}
+                  </span>
+                  <ChevronDown className={`h-4 w-4 transition-transform ${expandedSections.documents ? 'rotate-180' : ''}`} />
+                </CardTitle>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="pt-0">
+                <div className="space-y-3">
+                  <label className="flex flex-col items-center justify-center w-full h-20 border-2 border-dashed rounded-lg cursor-pointer bg-muted/50 hover:bg-muted transition-colors">
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.jpg,.jpeg,.png,.gif"
+                      multiple
+                      className="hidden"
+                      onChange={handleFileUpload}
+                      disabled={uploadingFiles}
+                    />
+                    {uploadingFiles ? (
+                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    ) : (
+                      <>
+                        <Upload className="h-5 w-5 text-muted-foreground mb-1" />
+                        <span className="text-xs text-muted-foreground text-center px-2">
+                          PDF, Word, Excel বা অন্য ফাইল আপলোড করুন
+                        </span>
+                      </>
+                    )}
+                  </label>
+
+                  {documents.length > 0 && (
+                    <div className="space-y-2">
+                      {documents.map((doc, index) => (
+                        <div key={index} className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg group">
+                          {getFileIcon(doc.type)}
+                          <span className="flex-1 text-xs sm:text-sm truncate">{doc.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => removeDocument(index)}
+                            className="p-1 hover:bg-destructive/20 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <X className="h-4 w-4 text-destructive" />
+                          </button>
                         </div>
                       ))}
                     </div>
