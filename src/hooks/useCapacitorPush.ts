@@ -92,29 +92,35 @@ export const useCapacitorPush = (teamId: string | null) => {
 
   const saveTokenToDatabase = async (token: string, teamId: string) => {
     try {
-      // Check if token already exists for this team
-      const { data: existing } = await supabase
-        .from('team_fcm_tokens')
+      const platform = Capacitor.getPlatform();
+      
+      // Check if token already exists for this team using raw SQL via RPC or direct query
+      const { data: existing, error: selectError } = await supabase
+        .from('team_fcm_tokens' as any)
         .select('id')
         .eq('team_id', teamId)
         .eq('fcm_token', token)
         .maybeSingle();
 
+      if (selectError) {
+        console.error('Error checking existing token:', selectError);
+      }
+
       if (existing) {
         // Update existing record
         await supabase
-          .from('team_fcm_tokens')
+          .from('team_fcm_tokens' as any)
           .update({ updated_at: new Date().toISOString() })
-          .eq('id', existing.id);
+          .eq('id', (existing as any).id);
       } else {
         // Insert new record
         await supabase
-          .from('team_fcm_tokens')
+          .from('team_fcm_tokens' as any)
           .insert({
             team_id: teamId,
             fcm_token: token,
-            platform: Capacitor.getPlatform(),
-          });
+            platform: platform,
+          } as any);
       }
       
       console.log('FCM token saved to database');
@@ -161,7 +167,7 @@ export const useCapacitorPush = (teamId: string | null) => {
     try {
       // Remove token from database
       await supabase
-        .from('team_fcm_tokens')
+        .from('team_fcm_tokens' as any)
         .delete()
         .eq('team_id', teamId)
         .eq('fcm_token', state.token);
