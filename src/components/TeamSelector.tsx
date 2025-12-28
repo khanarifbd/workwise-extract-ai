@@ -185,15 +185,15 @@ export const TeamSelector = ({ job, currentCategoryId, onSelect, onClose, onDupl
 
   const content = (
     <div
-      className="fixed inset-0 z-[200]"
-      style={{ backgroundColor: 'hsl(var(--background))' }}
+      className="fixed inset-0 z-[200] flex items-center justify-center"
+      style={{ backgroundColor: 'rgba(0, 0, 0, 0.6)' }}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div
         ref={ref}
-        className="fixed left-1/2 top-1/2 w-[min(520px,calc(100vw-2rem))] max-h-[90vh] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-card text-card-foreground shadow-2xl animate-scale-in flex flex-col"
+        className="w-[min(520px,calc(100vw-2rem))] max-h-[90vh] rounded-xl border border-border text-card-foreground shadow-2xl animate-scale-in flex flex-col overflow-hidden"
         style={{ backgroundColor: 'hsl(var(--card))' }}
       >
         {/* Header */}
