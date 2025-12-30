@@ -304,6 +304,13 @@ export const AttachmentUpload = ({ jobId, attachments, onAttachmentsChange }: At
                     alt={attachment.name}
                     className="w-full h-full object-cover"
                   />
+                ) : attachment.type === 'video' ? (
+                  <video
+                    src={getDisplayUrl(attachment)}
+                    className="w-full h-full object-cover"
+                    controls
+                    preload="metadata"
+                  />
                 ) : (
                   <CategoryIcon category={activeCategory} />
                 )}

@@ -59,7 +59,7 @@ export const JobDetailsModal = ({ job, onClose, onUpdate }: JobDetailsModalProps
     onClose();
   };
 
-  const updateWorkItem = (index: number, field: keyof WorkItem, value: string | number) => {
+  const updateWorkItem = (index: number, field: keyof WorkItem, value: string | number | boolean) => {
     const newWorkItems = [...editedJob.workItems];
     newWorkItems[index] = { ...newWorkItems[index], [field]: value };
     setEditedJob({ ...editedJob, workItems: newWorkItems });
@@ -70,7 +70,7 @@ export const JobDetailsModal = ({ job, onClose, onUpdate }: JobDetailsModalProps
       ...editedJob,
       workItems: [
         ...editedJob.workItems,
-        { id: crypto.randomUUID(), description: '', sorCode: '', qty: 1, cost: 0 }
+        { id: crypto.randomUUID(), description: '', sorCode: '', qty: 1, cost: 0, isConfirmed: true }
       ]
     });
   };
@@ -82,7 +82,7 @@ export const JobDetailsModal = ({ job, onClose, onUpdate }: JobDetailsModalProps
     });
   };
 
-  const updateAdditionalWork = (index: number, field: keyof WorkItem, value: string | number) => {
+  const updateAdditionalWork = (index: number, field: keyof WorkItem, value: string | number | boolean) => {
     const newAdditionalWorks = [...editedJob.additionalWorks];
     newAdditionalWorks[index] = { ...newAdditionalWorks[index], [field]: value };
     setEditedJob({ ...editedJob, additionalWorks: newAdditionalWorks });
@@ -93,7 +93,7 @@ export const JobDetailsModal = ({ job, onClose, onUpdate }: JobDetailsModalProps
       ...editedJob,
       additionalWorks: [
         ...editedJob.additionalWorks,
-        { id: crypto.randomUUID(), description: '', sorCode: '', qty: 1, cost: 0 }
+        { id: crypto.randomUUID(), description: '', sorCode: '', qty: 1, cost: 0, isConfirmed: true }
       ]
     });
   };
@@ -116,7 +116,10 @@ export const JobDetailsModal = ({ job, onClose, onUpdate }: JobDetailsModalProps
   };
 
   const getTotalCost = (items: WorkItem[]) => {
-    return items.reduce((sum, item) => sum + (item.qty * item.cost), 0);
+    // Only count confirmed items in the total
+    return items
+      .filter(item => item.isConfirmed !== false)
+      .reduce((sum, item) => sum + (item.qty * item.cost), 0);
   };
 
   const handleSORSearch = (term: string, index: number, isAdditional: boolean = false) => {

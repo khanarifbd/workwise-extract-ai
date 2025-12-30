@@ -4,6 +4,9 @@ export interface WorkItem {
   sorCode: string;
   qty: number;
   cost: number;
+  isConfirmed?: boolean; // Defaults to true - item included in works list
+  hasModification?: boolean; // When true, shows variation field
+  variation?: string; // Modification/variation notes
 }
 
 export type JobStatus = 

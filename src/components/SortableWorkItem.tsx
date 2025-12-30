@@ -4,7 +4,9 @@ import { CSS } from '@dnd-kit/utilities';
 import { WorkItem } from '@/types/job';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Trash2, GripVertical, Search, AlertCircle, ChevronDown, ChevronUp, Crown, Check } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Textarea } from '@/components/ui/textarea';
+import { Trash2, GripVertical, Search, AlertCircle, ChevronDown, ChevronUp, Crown, Check, Edit } from 'lucide-react';
 import { SORCode, getSORCodeDetails, searchSORCodes } from '@/data/sorCodes';
 import { cn } from '@/lib/utils';
 
@@ -20,7 +22,7 @@ interface SortableWorkItemProps {
   item: WorkItem;
   index: number;
   isAdditional: boolean;
-  updateFn: (index: number, field: keyof WorkItem, value: string | number) => void;
+  updateFn: (index: number, field: keyof WorkItem, value: string | number | boolean) => void;
   removeFn: (index: number) => void;
   onSORSearch: (term: string, index: number, isAdditional: boolean) => void;
   sorSearchIndex: number | null;
@@ -157,11 +159,18 @@ export const SortableWorkItem = ({
   // Get current SOR details for display
   const currentSORDetails = item.sorCode ? getSORCodeDetails(item.sorCode) : null;
 
+  // Default isConfirmed to true if not set
+  const isConfirmed = item.isConfirmed !== false;
+  const hasModification = item.hasModification === true;
+
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className="flex gap-2 items-start p-3 bg-muted/30 rounded-lg"
+      className={cn(
+        "flex gap-2 items-start p-3 rounded-lg transition-colors",
+        isConfirmed ? "bg-muted/30" : "bg-muted/10 border border-dashed border-muted-foreground/30"
+      )}
     >
       <button
         className="mt-2 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground"
@@ -170,7 +179,45 @@ export const SortableWorkItem = ({
       >
         <GripVertical className="w-4 h-4" />
       </button>
-      <div className="flex-1 space-y-2">
+      
+      {/* Confirmation Checkbox */}
+      <div className="flex flex-col gap-1 pt-2">
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id={`confirm-${item.id}`}
+            checked={isConfirmed}
+            onCheckedChange={(checked) => updateFn(index, 'isConfirmed' as keyof WorkItem, checked === true)}
+          />
+          <label 
+            htmlFor={`confirm-${item.id}`} 
+            className={cn(
+              "text-xs cursor-pointer",
+              isConfirmed ? "text-primary font-medium" : "text-muted-foreground line-through"
+            )}
+          >
+            {isConfirmed ? "Included" : "Excluded"}
+          </label>
+        </div>
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id={`modify-${item.id}`}
+            checked={hasModification}
+            onCheckedChange={(checked) => updateFn(index, 'hasModification' as keyof WorkItem, checked === true)}
+          />
+          <label 
+            htmlFor={`modify-${item.id}`} 
+            className={cn(
+              "text-xs cursor-pointer flex items-center gap-1",
+              hasModification ? "text-amber-600 font-medium" : "text-muted-foreground"
+            )}
+          >
+            <Edit className="w-3 h-3" />
+            Modify
+          </label>
+        </div>
+      </div>
+
+      <div className={cn("flex-1 space-y-2", !isConfirmed && "opacity-50")}>
         <div className="flex gap-2">
           <Input
             placeholder="Description"
@@ -183,6 +230,7 @@ export const SortableWorkItem = ({
               }
             }}
             className="text-sm flex-1"
+            disabled={!isConfirmed}
           />
           {/* Manual cost toggle for custom descriptions */}
           {!item.sorCode && item.description && (
@@ -192,11 +240,27 @@ export const SortableWorkItem = ({
               size="sm"
               className="text-xs text-muted-foreground"
               onClick={() => setShowManualCost(!showManualCost)}
+              disabled={!isConfirmed}
             >
               £ Cost
             </Button>
           )}
         </div>
+
+        {/* Modification/Variation field */}
+        {hasModification && (
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-md p-2">
+            <label className="text-xs font-medium text-amber-700 mb-1 block">
+              Variation / Modification Notes
+            </label>
+            <Textarea
+              placeholder="Enter variation details..."
+              value={item.variation || ''}
+              onChange={(e) => updateFn(index, 'variation' as keyof WorkItem, e.target.value)}
+              className="text-sm min-h-[60px] bg-background"
+            />
+          </div>
+        )}
 
         {/* SOR Code Display with Cost */}
         {currentSORDetails && (
@@ -228,6 +292,7 @@ export const SortableWorkItem = ({
                   "w-28 font-mono text-xs",
                   codeNotFound && item.sorCode.length >= 4 && "border-amber-500"
                 )}
+                disabled={!isConfirmed}
               />
               <Button
                 type="button"
@@ -235,6 +300,7 @@ export const SortableWorkItem = ({
                 size="icon"
                 className="h-9 w-9"
                 onClick={() => onToggleSearch(index)}
+                disabled={!isConfirmed}
               >
                 <Search className="w-3 h-3" />
               </Button>
@@ -320,6 +386,7 @@ export const SortableWorkItem = ({
             value={item.qty}
             onChange={(e) => updateFn(index, 'qty', parseInt(e.target.value) || 0)}
             className="w-16 text-sm"
+            disabled={!isConfirmed}
           />
           <div className="relative">
             <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">£</span>
@@ -332,6 +399,7 @@ export const SortableWorkItem = ({
                 "w-24 text-sm pl-6",
                 currentSORDetails && "bg-primary/5"
               )}
+              disabled={!isConfirmed}
             />
           </div>
         </div>
@@ -344,7 +412,7 @@ export const SortableWorkItem = ({
         )}
 
         {/* Total line cost display */}
-        {item.qty > 0 && item.cost > 0 && (
+        {item.qty > 0 && item.cost > 0 && isConfirmed && (
           <div className="text-xs text-right text-muted-foreground">
             Line total: <span className="font-semibold text-foreground">£{(item.qty * item.cost).toLocaleString()}</span>
           </div>
