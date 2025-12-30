@@ -4,12 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { 
   X, 
   Save, 
   Wand2, 
   Plus,
-  Calendar
+  Calendar,
+  ChevronDown
 } from 'lucide-react';
 import { AIWorkConverter } from './AIWorkConverter';
 import { AttachmentUpload } from './AttachmentUpload';
@@ -46,6 +48,8 @@ export const JobDetailsModal = ({ job, onClose, onUpdate }: JobDetailsModalProps
   const [sorSearchTerm, setSorSearchTerm] = useState('');
   const [sorSearchResults, setSorSearchResults] = useState<SORCode[]>([]);
   const [isAdditionalSearch, setIsAdditionalSearch] = useState(false);
+  const [worksExpanded, setWorksExpanded] = useState(false);
+  const [additionalExpanded, setAdditionalExpanded] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -314,132 +318,150 @@ export const JobDetailsModal = ({ job, onClose, onUpdate }: JobDetailsModalProps
             </TabsContent>
 
             <TabsContent value="works" className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-medium text-sm">Works List</h3>
-                  <p className="text-xs text-muted-foreground">
-                    Total: £{getTotalCost(editedJob.workItems).toLocaleString()} • Drag to reorder
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={() => setShowAIConverter(true)}>
-                    <Wand2 className="w-3 h-3 mr-1" />
-                    AI Convert
-                  </Button>
-                  <Button size="sm" onClick={addWorkItem}>
-                    <Plus className="w-3 h-3 mr-1" />
-                    Add
-                  </Button>
-                </div>
-              </div>
-
-              {showAIConverter && (
-                <AIWorkConverter
-                  onConvert={handleAIConvert}
-                  onClose={() => setShowAIConverter(false)}
-                />
-              )}
-
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={(e) => handleDragEnd(e, false)}
-              >
-                <SortableContext
-                  items={editedJob.workItems.map(item => item.id)}
-                  strategy={verticalListSortingStrategy}
-                >
-                  <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                    {editedJob.workItems.map((item, index) => (
-                      <SortableWorkItem
-                        key={item.id}
-                        item={item}
-                        index={index}
-                        isAdditional={false}
-                        updateFn={updateWorkItem}
-                        removeFn={removeWorkItem}
-                        onSORSearch={handleSORSearch}
-                        sorSearchIndex={!isAdditionalSearch ? sorSearchIndex : null}
-                        sorSearchResults={sorSearchResults}
-                        onSelectSOR={selectSORCode}
-                        onToggleSearch={(idx) => {
-                          setSorSearchIndex(sorSearchIndex === idx && !isAdditionalSearch ? null : idx);
-                          setIsAdditionalSearch(false);
-                          setSorSearchTerm('');
-                        }}
-                      />
-                    ))}
+              <Collapsible open={worksExpanded} onOpenChange={setWorksExpanded}>
+                <div className="flex items-center justify-between">
+                  <CollapsibleTrigger asChild>
+                    <button className="flex items-center gap-2 hover:bg-muted/50 p-2 rounded-lg transition-colors">
+                      <ChevronDown className={`w-4 h-4 transition-transform ${worksExpanded ? 'rotate-180' : ''}`} />
+                      <div className="text-left">
+                        <h3 className="font-medium text-sm">Works List ({editedJob.workItems.length})</h3>
+                        <p className="text-xs text-muted-foreground">
+                          Total: £{getTotalCost(editedJob.workItems).toLocaleString()} • Click to {worksExpanded ? 'collapse' : 'expand'}
+                        </p>
+                      </div>
+                    </button>
+                  </CollapsibleTrigger>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setShowAIConverter(true)}>
+                      <Wand2 className="w-3 h-3 mr-1" />
+                      AI Convert
+                    </Button>
+                    <Button size="sm" onClick={() => { addWorkItem(); setWorksExpanded(true); }}>
+                      <Plus className="w-3 h-3 mr-1" />
+                      Add
+                    </Button>
                   </div>
-                </SortableContext>
-              </DndContext>
+                </div>
+
+                {showAIConverter && (
+                  <AIWorkConverter
+                    onConvert={handleAIConvert}
+                    onClose={() => setShowAIConverter(false)}
+                  />
+                )}
+
+                <CollapsibleContent>
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={(e) => handleDragEnd(e, false)}
+                  >
+                    <SortableContext
+                      items={editedJob.workItems.map(item => item.id)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      <div className="space-y-2 max-h-[400px] overflow-y-auto mt-3">
+                        {editedJob.workItems.map((item, index) => (
+                          <SortableWorkItem
+                            key={item.id}
+                            item={item}
+                            index={index}
+                            isAdditional={false}
+                            updateFn={updateWorkItem}
+                            removeFn={removeWorkItem}
+                            onSORSearch={handleSORSearch}
+                            sorSearchIndex={!isAdditionalSearch ? sorSearchIndex : null}
+                            sorSearchResults={sorSearchResults}
+                            onSelectSOR={selectSORCode}
+                            onToggleSearch={(idx) => {
+                              setSorSearchIndex(sorSearchIndex === idx && !isAdditionalSearch ? null : idx);
+                              setIsAdditionalSearch(false);
+                              setSorSearchTerm('');
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </SortableContext>
+                  </DndContext>
+                </CollapsibleContent>
+              </Collapsible>
             </TabsContent>
 
             <TabsContent value="additional" className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-medium text-sm">Additional Works (Variations)</h3>
-                  <p className="text-xs text-muted-foreground">
-                    Total: £{getTotalCost(editedJob.additionalWorks).toLocaleString()} • Drag to reorder
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={() => setShowAdditionalAI(true)}>
-                    <Wand2 className="w-3 h-3 mr-1" />
-                    AI Convert
-                  </Button>
-                  <Button size="sm" onClick={addAdditionalWork}>
-                    <Plus className="w-3 h-3 mr-1" />
-                    Add
-                  </Button>
-                </div>
-              </div>
-
-              {showAdditionalAI && (
-                <AIWorkConverter
-                  onConvert={handleAdditionalAIConvert}
-                  onClose={() => setShowAdditionalAI(false)}
-                />
-              )}
-
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={(e) => handleDragEnd(e, true)}
-              >
-                <SortableContext
-                  items={editedJob.additionalWorks.map(item => item.id)}
-                  strategy={verticalListSortingStrategy}
-                >
-                  <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                    {editedJob.additionalWorks.length === 0 ? (
-                      <div className="text-center py-8 text-muted-foreground">
-                        <p className="text-sm">No additional works added yet</p>
-                        <p className="text-xs">Use the AI converter or add items manually</p>
+              <Collapsible open={additionalExpanded} onOpenChange={setAdditionalExpanded}>
+                <div className="flex items-center justify-between">
+                  <CollapsibleTrigger asChild>
+                    <button className="flex items-center gap-2 hover:bg-muted/50 p-2 rounded-lg transition-colors">
+                      <ChevronDown className={`w-4 h-4 transition-transform ${additionalExpanded ? 'rotate-180' : ''}`} />
+                      <div className="text-left">
+                        <h3 className="font-medium text-sm">Additional Works ({editedJob.additionalWorks.length})</h3>
+                        <p className="text-xs text-muted-foreground">
+                          Total: £{getTotalCost(editedJob.additionalWorks).toLocaleString()} • Click to {additionalExpanded ? 'collapse' : 'expand'}
+                        </p>
                       </div>
-                    ) : (
-                      editedJob.additionalWorks.map((item, index) => (
-                        <SortableWorkItem
-                          key={item.id}
-                          item={item}
-                          index={index}
-                          isAdditional={true}
-                          updateFn={updateAdditionalWork}
-                          removeFn={removeAdditionalWork}
-                          onSORSearch={handleSORSearch}
-                          sorSearchIndex={isAdditionalSearch ? sorSearchIndex : null}
-                          sorSearchResults={sorSearchResults}
-                          onSelectSOR={selectSORCode}
-                          onToggleSearch={(idx) => {
-                            setSorSearchIndex(sorSearchIndex === idx && isAdditionalSearch ? null : idx);
-                            setIsAdditionalSearch(true);
-                            setSorSearchTerm('');
-                          }}
-                        />
-                      ))
-                    )}
+                    </button>
+                  </CollapsibleTrigger>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setShowAdditionalAI(true)}>
+                      <Wand2 className="w-3 h-3 mr-1" />
+                      AI Convert
+                    </Button>
+                    <Button size="sm" onClick={() => { addAdditionalWork(); setAdditionalExpanded(true); }}>
+                      <Plus className="w-3 h-3 mr-1" />
+                      Add
+                    </Button>
                   </div>
-                </SortableContext>
-              </DndContext>
+                </div>
+
+                {showAdditionalAI && (
+                  <AIWorkConverter
+                    onConvert={handleAdditionalAIConvert}
+                    onClose={() => setShowAdditionalAI(false)}
+                  />
+                )}
+
+                <CollapsibleContent>
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={(e) => handleDragEnd(e, true)}
+                  >
+                    <SortableContext
+                      items={editedJob.additionalWorks.map(item => item.id)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      <div className="space-y-2 max-h-[400px] overflow-y-auto mt-3">
+                        {editedJob.additionalWorks.length === 0 ? (
+                          <div className="text-center py-8 text-muted-foreground">
+                            <p className="text-sm">No additional works added yet</p>
+                            <p className="text-xs">Use the AI converter or add items manually</p>
+                          </div>
+                        ) : (
+                          editedJob.additionalWorks.map((item, index) => (
+                            <SortableWorkItem
+                              key={item.id}
+                              item={item}
+                              index={index}
+                              isAdditional={true}
+                              updateFn={updateAdditionalWork}
+                              removeFn={removeAdditionalWork}
+                              onSORSearch={handleSORSearch}
+                              sorSearchIndex={isAdditionalSearch ? sorSearchIndex : null}
+                              sorSearchResults={sorSearchResults}
+                              onSelectSOR={selectSORCode}
+                              onToggleSearch={(idx) => {
+                                setSorSearchIndex(sorSearchIndex === idx && isAdditionalSearch ? null : idx);
+                                setIsAdditionalSearch(true);
+                                setSorSearchTerm('');
+                              }}
+                            />
+                          ))
+                        )}
+                      </div>
+                    </SortableContext>
+                  </DndContext>
+                </CollapsibleContent>
+              </Collapsible>
             </TabsContent>
 
             <TabsContent value="attachments" className="space-y-4">

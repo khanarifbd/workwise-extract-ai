@@ -109,12 +109,12 @@ export const TeamDiary: React.FC<TeamDiaryProps> = ({ teamId, teamName }) => {
     if (!selectedDate) return;
 
     try {
-      const { error } = await supabase.from('team_availability').insert({
+      const { data, error } = await supabase.from('team_availability').insert({
         team_id: teamId,
         unavailable_date: selectedDate,
         reason: reason || null,
         created_by: teamName,
-      });
+      }).select().single();
 
       if (error) {
         if (error.code === '23505') {
@@ -125,7 +125,16 @@ export const TeamDiary: React.FC<TeamDiaryProps> = ({ teamId, teamName }) => {
         } else {
           throw error;
         }
-      } else {
+      } else if (data) {
+        // Immediately update local state to reflect the change
+        setUnavailableDays(prev => [...prev, {
+          id: data.id,
+          teamId: data.team_id,
+          unavailableDate: data.unavailable_date,
+          reason: data.reason,
+          createdAt: data.created_at,
+        }]);
+        
         toast({
           title: 'Day marked as unavailable',
           description: `${format(new Date(selectedDate), 'dd MMM yyyy')} is now blocked`,
@@ -152,6 +161,9 @@ export const TeamDiary: React.FC<TeamDiaryProps> = ({ teamId, teamName }) => {
 
       if (error) throw error;
 
+      // Immediately update local state to reflect the change
+      setUnavailableDays(prev => prev.filter(day => day.unavailableDate !== dateStr));
+      
       toast({
         title: 'Day marked as available',
         description: `${format(new Date(dateStr), 'dd MMM yyyy')} is now available`,
