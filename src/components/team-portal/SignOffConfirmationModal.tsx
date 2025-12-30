@@ -1,4 +1,5 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import React from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -34,13 +35,13 @@ interface SignOffConfirmationModalProps {
   summary: SignOffSummary;
 }
 
-export const SignOffConfirmationModal = ({
+export const SignOffConfirmationModal: React.FC<SignOffConfirmationModalProps> = ({
   isOpen,
   onClose,
   onConfirm,
   isSubmitting,
   summary,
-}: SignOffConfirmationModalProps) => {
+}) => {
   const hasAnyData = 
     summary.photosCount > 0 || 
     summary.videosCount > 0 || 
@@ -56,6 +57,9 @@ export const SignOffConfirmationModal = ({
             <CheckCircle2 className="h-5 w-5 text-success" />
             Sign-Off Confirmation
           </DialogTitle>
+          <DialogDescription>
+            Review the data that will be transferred to the admin dashboard.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
