@@ -11,6 +11,12 @@ interface WorkItemUpdate {
   variation?: string;
 }
 
+interface DocumentUpload {
+  name: string;
+  url: string;
+  type: string;
+}
+
 interface UpdateJobRequest {
   teamId: string;
   teamName: string;
@@ -21,9 +27,21 @@ interface UpdateJobRequest {
     notes?: string;
     photos?: string[];
     videos?: string[];
-    documents?: { name: string; url: string; type: string }[];
+    documents?: DocumentUpload[];
     workItemUpdates?: Record<string, WorkItemUpdate>;
+    isCompletion?: boolean; // Flag to indicate this is a job completion/sign-off
   };
+}
+
+interface Attachment {
+  id: string;
+  name: string;
+  type: 'image' | 'video' | 'document';
+  url: string;
+  path?: string;
+  uploadedAt: string;
+  uploadedBy?: string;
+  category?: string; // 'team-photo', 'team-video', 'team-document'
 }
 
 Deno.serve(async (req) => {
@@ -134,7 +152,7 @@ Deno.serve(async (req) => {
     // Verify the job belongs to this team
     const { data: job, error: jobError } = await supabase
       .from("jobs")
-      .select("id, team")
+      .select("id, team, work_items, attachments")
       .eq("id", jobId)
       .maybeSingle();
 
@@ -156,30 +174,31 @@ Deno.serve(async (req) => {
 
     // Build update object for jobs table
     const jobUpdates: Record<string, unknown> = {};
-    if (updates.status) jobUpdates.status = updates.status;
-    if (updates.progress !== undefined) jobUpdates.progress = updates.progress;
-    if (updates.notes) jobUpdates.progress_notes = updates.notes;
+    const timestamp = new Date().toISOString();
+    
+    if (updates.status) {
+      jobUpdates.status = updates.status;
+      // If status is 'complete', also set is_completed and completion_date
+      if (updates.status === 'complete') {
+        jobUpdates.is_completed = true;
+        jobUpdates.completion_date = timestamp;
+      }
+    }
+    
+    if (updates.progress !== undefined) {
+      jobUpdates.progress = updates.progress;
+    }
+    
+    if (updates.notes) {
+      jobUpdates.progress_notes = updates.notes;
+    }
 
     // Handle work item updates - merge with existing work items
+    let updatedWorkItems: Array<Record<string, unknown>> = [];
     if (updates.workItemUpdates && Object.keys(updates.workItemUpdates).length > 0) {
-      // Fetch current work_items from job
-      const { data: currentJob, error: fetchError } = await supabase
-        .from("jobs")
-        .select("work_items")
-        .eq("id", jobId)
-        .single();
-
-      if (fetchError) {
-        console.error("Failed to fetch job work items:", fetchError.message);
-        return new Response(
-          JSON.stringify({ error: "Failed to fetch job work items" }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      // Merge updates into work items
-      const workItems = (currentJob?.work_items as Array<Record<string, unknown>>) || [];
-      const updatedWorkItems = workItems.map((item) => {
+      // Use the work_items from the job we already fetched
+      const workItems = (job.work_items as Array<Record<string, unknown>>) || [];
+      updatedWorkItems = workItems.map((item) => {
         const itemId = item.id as string;
         const itemUpdate = updates.workItemUpdates?.[itemId];
         if (itemUpdate) {
@@ -188,6 +207,9 @@ Deno.serve(async (req) => {
             isConfirmed: itemUpdate.isConfirmed ?? item.isConfirmed,
             hasModification: itemUpdate.hasModification ?? item.hasModification,
             variation: itemUpdate.variation ?? item.variation,
+            // Add metadata for tracking
+            lastUpdatedBy: teamName,
+            lastUpdatedAt: timestamp,
           };
         }
         return item;
@@ -195,6 +217,98 @@ Deno.serve(async (req) => {
 
       jobUpdates.work_items = updatedWorkItems;
       console.log(`Updated ${Object.keys(updates.workItemUpdates).length} work items for job ${jobId}`);
+    }
+
+    // Handle attachments - merge photos, videos, documents into the attachments array
+    const existingAttachments = (job.attachments as Attachment[]) || [];
+    const newAttachments: Attachment[] = [];
+    
+    // Process photos
+    if (updates.photos && updates.photos.length > 0) {
+      console.log(`Processing ${updates.photos.length} photos for job ${jobId}`);
+      updates.photos.forEach((photoUrl, index) => {
+        // Skip base64 images (they should have been uploaded to storage first)
+        if (photoUrl.startsWith('data:')) {
+          console.log(`Skipping base64 photo ${index + 1}`);
+          return;
+        }
+        
+        const photoId = `photo-${teamName}-${Date.now()}-${index}`;
+        newAttachments.push({
+          id: photoId,
+          name: `Team Photo ${index + 1}`,
+          type: 'image',
+          url: photoUrl,
+          uploadedAt: timestamp,
+          uploadedBy: teamName,
+          category: 'team-photo',
+        });
+      });
+    }
+
+    // Process videos
+    if (updates.videos && updates.videos.length > 0) {
+      console.log(`Processing ${updates.videos.length} videos for job ${jobId}`);
+      updates.videos.forEach((videoUrl, index) => {
+        // Skip base64 videos
+        if (videoUrl.startsWith('data:')) {
+          console.log(`Skipping base64 video ${index + 1}`);
+          return;
+        }
+        
+        const videoId = `video-${teamName}-${Date.now()}-${index}`;
+        newAttachments.push({
+          id: videoId,
+          name: `Team Video ${index + 1}`,
+          type: 'video',
+          url: videoUrl,
+          uploadedAt: timestamp,
+          uploadedBy: teamName,
+          category: 'team-video',
+        });
+      });
+    }
+
+    // Process documents
+    if (updates.documents && updates.documents.length > 0) {
+      console.log(`Processing ${updates.documents.length} documents for job ${jobId}`);
+      updates.documents.forEach((doc, index) => {
+        // Skip base64 documents
+        if (doc.url.startsWith('data:')) {
+          console.log(`Skipping base64 document ${index + 1}`);
+          return;
+        }
+        
+        const docId = `doc-${teamName}-${Date.now()}-${index}`;
+        newAttachments.push({
+          id: docId,
+          name: doc.name,
+          type: 'document',
+          url: doc.url,
+          uploadedAt: timestamp,
+          uploadedBy: teamName,
+          category: 'team-document',
+        });
+      });
+    }
+
+    // Merge new attachments with existing ones (avoid duplicates by URL)
+    if (newAttachments.length > 0) {
+      const existingUrls = new Set(existingAttachments.map(a => a.url));
+      const uniqueNewAttachments = newAttachments.filter(a => !existingUrls.has(a.url));
+      
+      if (uniqueNewAttachments.length > 0) {
+        jobUpdates.attachments = [...existingAttachments, ...uniqueNewAttachments];
+        console.log(`Added ${uniqueNewAttachments.length} new attachments to job ${jobId}`);
+      }
+    }
+
+    // If this is a job completion, add a completion record note
+    if (updates.isCompletion || updates.status === 'complete') {
+      const completionNote = `\n\n--- JOB SIGN-OFF ---\nCompleted by: ${teamName}\nDate: ${new Date(timestamp).toLocaleString()}\nWork Items Reviewed: ${updatedWorkItems.length || (job.work_items as Array<unknown>)?.length || 0}\nPhotos: ${updates.photos?.filter(p => !p.startsWith('data:'))?.length || 0}\nVideos: ${updates.videos?.filter(v => !v.startsWith('data:'))?.length || 0}\nDocuments: ${updates.documents?.filter(d => !d.url.startsWith('data:'))?.length || 0}`;
+      
+      jobUpdates.progress_notes = (updates.notes || '') + completionNote;
+      console.log(`Job ${jobId} signed off by team ${teamName}`);
     }
 
     // Update the job
@@ -213,7 +327,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Record the update in team_job_updates
+    // Record the update in team_job_updates for audit trail
     const { error: recordError } = await supabase
       .from("team_job_updates")
       .insert({
@@ -222,7 +336,7 @@ Deno.serve(async (req) => {
         status: updates.status || null,
         progress: updates.progress || null,
         notes: updates.notes || null,
-        photos: updates.photos || null,
+        photos: updates.photos?.filter(p => !p.startsWith('data:')) || null,
         updated_by: teamName,
       });
 
@@ -231,10 +345,20 @@ Deno.serve(async (req) => {
       // Don't fail the request, just log the error
     }
 
-    console.log(`Job ${jobId} updated by team ${teamName}`);
+    console.log(`Job ${jobId} updated successfully by team ${teamName}`);
 
     return new Response(
-      JSON.stringify({ success: true }),
+      JSON.stringify({ 
+        success: true,
+        message: updates.isCompletion ? 'Job signed off and all data transferred' : 'Job updated successfully',
+        summary: {
+          workItemsUpdated: updates.workItemUpdates ? Object.keys(updates.workItemUpdates).length : 0,
+          photosAdded: newAttachments.filter(a => a.type === 'image').length,
+          videosAdded: newAttachments.filter(a => a.type === 'video').length,
+          documentsAdded: newAttachments.filter(a => a.type === 'document').length,
+          isComplete: updates.status === 'complete',
+        }
+      }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
