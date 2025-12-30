@@ -7,7 +7,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ArrowLeft, MapPin, Phone, Calendar, Save, Camera, Upload, Loader2, CheckCircle2, Clock, FileText, ChevronDown, CheckSquare, AlertCircle, File, X, Image, Video } from 'lucide-react';
+import { ArrowLeft, MapPin, Phone, Calendar, Save, Camera, Upload, Loader2, CheckCircle2, Clock, FileText, ChevronDown, CheckSquare, AlertCircle, File, X, Image, Video, Square, CheckSquare2, Edit3 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useOfflineStorage } from '@/hooks/useOfflineStorage';
@@ -42,6 +44,7 @@ export const TeamJobDetail = ({
   const [videos, setVideos] = useState<string[]>([]);
   const [photos, setPhotos] = useState<string[]>([]);
   const [documents, setDocuments] = useState<{ name: string; url: string; type: string }[]>([]);
+  const [workItemUpdates, setWorkItemUpdates] = useState<Record<string, { isConfirmed?: boolean; hasModification?: boolean; variation?: string }>>({});
   const [expandedSections, setExpandedSections] = useState({
     details: false,
     workItems: false,
@@ -107,9 +110,33 @@ export const TeamJobDetail = ({
       status !== job.status ||
       photos.length > 0 ||
       videos.length > 0 ||
-      documents.length > 0;
+      documents.length > 0 ||
+      Object.keys(workItemUpdates).length > 0;
     setHasUnsavedChanges(changed);
-  }, [progress, notes, status, photos, videos, documents, job]);
+  }, [progress, notes, status, photos, videos, documents, workItemUpdates, job]);
+
+  // Get work item with team updates applied
+  const getWorkItemWithUpdates = (item: WorkItem) => {
+    const updates = workItemUpdates[item.id];
+    if (!updates) return item;
+    return {
+      ...item,
+      isConfirmed: updates.isConfirmed ?? item.isConfirmed ?? true,
+      hasModification: updates.hasModification ?? item.hasModification ?? false,
+      variation: updates.variation ?? item.variation ?? '',
+    };
+  };
+
+  // Update work item
+  const updateWorkItem = (itemId: string, field: 'isConfirmed' | 'hasModification' | 'variation', value: boolean | string) => {
+    setWorkItemUpdates(prev => ({
+      ...prev,
+      [itemId]: {
+        ...prev[itemId],
+        [field]: value,
+      },
+    }));
+  };
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -121,6 +148,7 @@ export const TeamJobDetail = ({
       photos: photos.length > 0 ? photos : undefined,
       videos: videos.length > 0 ? videos : undefined,
       documents: documents.length > 0 ? documents : undefined,
+      workItemUpdates: Object.keys(workItemUpdates).length > 0 ? workItemUpdates : undefined,
     };
 
     try {
@@ -616,20 +644,65 @@ export const TeamJobDetail = ({
               </CollapsibleTrigger>
               <CollapsibleContent>
                 <CardContent className="pt-0">
-                  <div className="space-y-2">
-                    {job.workItems.map((item: WorkItem, index: number) => (
-                      <div key={item.id || index} className="flex items-start gap-2 text-xs sm:text-sm p-2 bg-muted/50 rounded">
-                        <CheckCircle2 className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-foreground">{item.description}</p>
-                          {item.sorCode && (
-                            <p className="text-xs text-muted-foreground font-mono mt-0.5">
-                              SOR: {item.sorCode} × {item.qty}
-                            </p>
-                          )}
+                  <div className="space-y-3">
+                    {job.workItems.map((item: WorkItem, index: number) => {
+                      const updatedItem = getWorkItemWithUpdates(item);
+                      const isConfirmed = updatedItem.isConfirmed ?? true;
+                      const hasModification = updatedItem.hasModification ?? false;
+                      
+                      return (
+                        <div key={item.id || index} className={`p-3 rounded-lg border ${!isConfirmed ? 'bg-muted/30 border-dashed opacity-60' : 'bg-muted/50'}`}>
+                          <div className="flex items-start gap-3">
+                            {/* Confirmed checkbox */}
+                            <div className="flex flex-col items-center gap-1 pt-0.5">
+                              <Checkbox
+                                checked={isConfirmed}
+                                onCheckedChange={(checked) => updateWorkItem(item.id, 'isConfirmed', !!checked)}
+                                className="h-5 w-5"
+                              />
+                              <span className="text-[10px] text-muted-foreground">Done</span>
+                            </div>
+                            
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-sm ${!isConfirmed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
+                                {item.description}
+                              </p>
+                              {item.sorCode && (
+                                <p className="text-xs text-muted-foreground font-mono mt-0.5">
+                                  SOR: {item.sorCode} × {item.qty}
+                                </p>
+                              )}
+                              
+                              {/* Modification checkbox */}
+                              <div className="flex items-center gap-2 mt-2">
+                                <Checkbox
+                                  checked={hasModification}
+                                  onCheckedChange={(checked) => updateWorkItem(item.id, 'hasModification', !!checked)}
+                                  id={`mod-${item.id}`}
+                                  className="h-4 w-4"
+                                />
+                                <label htmlFor={`mod-${item.id}`} className="text-xs text-muted-foreground flex items-center gap-1 cursor-pointer">
+                                  <Edit3 className="h-3 w-3" />
+                                  Modification/Variation
+                                </label>
+                              </div>
+                              
+                              {/* Variation field */}
+                              {hasModification && (
+                                <div className="mt-2">
+                                  <Input
+                                    placeholder="Describe the modification or variation..."
+                                    value={updatedItem.variation || ''}
+                                    onChange={(e) => updateWorkItem(item.id, 'variation', e.target.value)}
+                                    className="text-sm h-9"
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </CardContent>
               </CollapsibleContent>
