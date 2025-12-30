@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, isBefore, startOfDay } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isToday, isBefore, startOfDay } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
-import { ChevronLeft, ChevronRight, Calendar, X, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, X, Check, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -87,13 +87,12 @@ export const TeamDiary: React.FC<TeamDiaryProps> = ({ teamId, teamName }) => {
     };
   }, [teamId]);
 
-  const isDateUnavailable = (dateStr: string) => {
-    return unavailableDays.some(day => day.unavailableDate === dateStr);
+  const getUnavailableDay = (dateStr: string) => {
+    return unavailableDays.find(day => day.unavailableDate === dateStr);
   };
 
-  const getReasonForDate = (dateStr: string) => {
-    const day = unavailableDays.find(d => d.unavailableDate === dateStr);
-    return day?.reason || null;
+  const isDateUnavailable = (dateStr: string) => {
+    return !!getUnavailableDay(dateStr);
   };
 
   const handleDateClick = (date: Date) => {
@@ -102,13 +101,8 @@ export const TeamDiary: React.FC<TeamDiaryProps> = ({ teamId, teamName }) => {
     
     if (isPast) return;
     
-    if (isDateUnavailable(dateStr)) {
-      // Remove unavailable day
-      handleRemoveUnavailable(dateStr);
-    } else {
-      setSelectedDate(dateStr);
-      setReason('');
-    }
+    setSelectedDate(dateStr);
+    setReason('');
   };
 
   const handleAddUnavailable = async () => {
@@ -162,6 +156,7 @@ export const TeamDiary: React.FC<TeamDiaryProps> = ({ teamId, teamName }) => {
         title: 'Day marked as available',
         description: `${format(new Date(dateStr), 'dd MMM yyyy')} is now available`,
       });
+      setSelectedDate(null);
     } catch (error) {
       console.error('Error removing unavailable day:', error);
       toast({
@@ -170,6 +165,9 @@ export const TeamDiary: React.FC<TeamDiaryProps> = ({ teamId, teamName }) => {
       });
     }
   };
+
+  const selectedUnavailableDay = selectedDate ? getUnavailableDay(selectedDate) : null;
+  const isSelectedUnavailable = !!selectedUnavailableDay;
 
   return (
     <div className="bg-card rounded-lg border p-4">
@@ -226,7 +224,7 @@ export const TeamDiary: React.FC<TeamDiaryProps> = ({ teamId, teamName }) => {
           const dateStr = format(day, 'yyyy-MM-dd');
           const isUnavailable = isDateUnavailable(dateStr);
           const isPast = isBefore(startOfDay(day), startOfDay(new Date()));
-          const reasonText = getReasonForDate(dateStr);
+          const unavailableDay = getUnavailableDay(dateStr);
 
           return (
             <button
@@ -234,16 +232,14 @@ export const TeamDiary: React.FC<TeamDiaryProps> = ({ teamId, teamName }) => {
               onClick={() => handleDateClick(day)}
               disabled={isPast}
               className={cn(
-                "h-10 rounded-lg text-sm font-medium transition-colors relative",
+                "h-10 rounded-lg text-sm font-medium transition-all relative",
                 "flex items-center justify-center",
                 isPast && "opacity-40 cursor-not-allowed",
-                !isPast && !isUnavailable && "hover:bg-green-100 dark:hover:bg-green-900/30 cursor-pointer",
-                !isPast && isUnavailable && "hover:bg-red-200 dark:hover:bg-red-900/50 cursor-pointer",
-                isToday(day) && "ring-2 ring-primary",
-                isUnavailable ? "bg-red-500 text-white" : "bg-green-100 dark:bg-green-900/20",
-                selectedDate === dateStr && "ring-2 ring-blue-500"
+                !isPast && !isUnavailable && "hover:bg-green-200 dark:hover:bg-green-900/50 cursor-pointer bg-green-100 dark:bg-green-900/20",
+                !isPast && isUnavailable && "hover:bg-red-400 dark:hover:bg-red-800 cursor-pointer bg-red-500 text-white",
+                isToday(day) && "ring-2 ring-primary ring-offset-1",
+                selectedDate === dateStr && "ring-2 ring-blue-500 ring-offset-1 scale-110 z-10"
               )}
-              title={reasonText || (isUnavailable ? 'Click to mark available' : 'Click to mark unavailable')}
             >
               {format(day, 'd')}
               {isUnavailable && (
@@ -254,27 +250,91 @@ export const TeamDiary: React.FC<TeamDiaryProps> = ({ teamId, teamName }) => {
         })}
       </div>
 
-      {/* Add Unavailable Form */}
+      {/* Status Panel - Shows when a date is selected */}
       {selectedDate && (
-        <div className="mt-4 p-3 bg-muted rounded-lg">
-          <p className="text-sm font-medium mb-2">
-            Mark {format(new Date(selectedDate), 'dd MMM yyyy')} as unavailable
-          </p>
-          <Input
-            placeholder="Reason (optional)"
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            className="mb-2"
-          />
-          <div className="flex gap-2">
-            <Button size="sm" onClick={handleAddUnavailable}>
-              <Plus className="h-4 w-4 mr-1" />
-              Confirm
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => setSelectedDate(null)}>
-              Cancel
+        <div className={cn(
+          "mt-4 p-4 rounded-lg border-2 transition-all",
+          isSelectedUnavailable 
+            ? "bg-red-50 dark:bg-red-950/30 border-red-300 dark:border-red-800" 
+            : "bg-green-50 dark:bg-green-950/30 border-green-300 dark:border-green-800"
+        )}>
+          {/* Current Status Header */}
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              {isSelectedUnavailable ? (
+                <div className="flex items-center gap-2 text-red-700 dark:text-red-400">
+                  <X className="h-5 w-5" />
+                  <span className="font-semibold">UNAVAILABLE</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
+                  <Check className="h-5 w-5" />
+                  <span className="font-semibold">AVAILABLE</span>
+                </div>
+              )}
+            </div>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => setSelectedDate(null)}
+              className="h-8 w-8 p-0"
+            >
+              <X className="h-4 w-4" />
             </Button>
           </div>
+
+          {/* Date Display */}
+          <p className="text-lg font-medium mb-3">
+            {format(new Date(selectedDate), 'EEEE, dd MMMM yyyy')}
+          </p>
+
+          {/* Show Reason if Unavailable */}
+          {isSelectedUnavailable && selectedUnavailableDay?.reason && (
+            <div className="mb-3 p-2 bg-red-100 dark:bg-red-900/40 rounded flex items-start gap-2">
+              <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
+              <div>
+                <span className="text-xs font-medium text-red-700 dark:text-red-400">Reason:</span>
+                <p className="text-sm text-red-800 dark:text-red-300">{selectedUnavailableDay.reason}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Action Section */}
+          {isSelectedUnavailable ? (
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                This day is currently blocked. Tap below to make it available for work.
+              </p>
+              <Button 
+                onClick={() => handleRemoveUnavailable(selectedDate)}
+                className="w-full bg-green-600 hover:bg-green-700 text-white"
+                size="lg"
+              >
+                <Check className="h-4 w-4 mr-2" />
+                Make Available
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                This day is currently available. Add a reason and tap below to block it.
+              </p>
+              <Input
+                placeholder="Reason for unavailability (optional)"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                className="bg-white dark:bg-background"
+              />
+              <Button 
+                onClick={handleAddUnavailable}
+                className="w-full bg-red-600 hover:bg-red-700 text-white"
+                size="lg"
+              >
+                <X className="h-4 w-4 mr-2" />
+                Mark Unavailable
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
@@ -288,18 +348,22 @@ export const TeamDiary: React.FC<TeamDiaryProps> = ({ teamId, teamName }) => {
             .map((day) => (
               <div
                 key={day.id}
-                className="flex items-center justify-between py-1 text-sm"
+                className="flex items-center justify-between py-2 px-2 text-sm border-b last:border-0 hover:bg-muted/50 rounded cursor-pointer"
+                onClick={() => setSelectedDate(day.unavailableDate)}
               >
-                <span>{format(new Date(day.unavailableDate), 'EEE, dd MMM yyyy')}</span>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-red-500" />
+                  <span className="font-medium">{format(new Date(day.unavailableDate), 'EEE, dd MMM')}</span>
+                </div>
                 {day.reason && (
-                  <span className="text-muted-foreground text-xs truncate max-w-[100px]">
+                  <span className="text-muted-foreground text-xs truncate max-w-[120px] italic">
                     {day.reason}
                   </span>
                 )}
               </div>
             ))}
           {unavailableDays.filter(day => !isBefore(new Date(day.unavailableDate), startOfDay(new Date()))).length === 0 && (
-            <p className="text-sm text-muted-foreground">No upcoming unavailable days</p>
+            <p className="text-sm text-muted-foreground py-2">No upcoming unavailable days</p>
           )}
         </ScrollArea>
       </div>
