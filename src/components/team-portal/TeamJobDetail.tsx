@@ -43,9 +43,9 @@ export const TeamJobDetail = ({
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState(false);
   const [uploadingVideos, setUploadingVideos] = useState(false);
-  const [videos, setVideos] = useState<string[]>([]);
-  const [photos, setPhotos] = useState<string[]>([]);
-  const [documents, setDocuments] = useState<{ name: string; url: string; type: string }[]>([]);
+  const [newVideos, setVideos] = useState<string[]>([]);
+  const [newPhotos, setPhotos] = useState<string[]>([]);
+  const [newDocuments, setDocuments] = useState<{ name: string; url: string; type: string }[]>([]);
   const [workItemUpdates, setWorkItemUpdates] = useState<Record<string, { isConfirmed?: boolean; hasModification?: boolean; variation?: string }>>({});
   const [expandedSections, setExpandedSections] = useState({
     details: false,
@@ -55,6 +55,20 @@ export const TeamJobDetail = ({
     videos: false,
     documents: false,
   });
+
+  // Extract existing saved attachments from job
+  const existingPhotos = (job.attachments || []).filter(a => a.type === 'image').map(a => a.url);
+  const existingVideos = (job.attachments || []).filter(a => a.type === 'video').map(a => a.url);
+  const existingDocuments = (job.attachments || []).filter(a => a.type === 'document').map(a => ({
+    name: a.name,
+    url: a.url,
+    type: 'application/octet-stream'
+  }));
+
+  // Combined arrays for display
+  const allPhotos = [...existingPhotos, ...newPhotos];
+  const allVideos = [...existingVideos, ...newVideos];
+  const allDocuments = [...existingDocuments, ...newDocuments];
   
   const { addToSyncQueue, saveDraft, getDraft, clearDraft } = useOfflineStorage();
   const { toast } = useToast();
@@ -70,12 +84,12 @@ export const TeamJobDetail = ({
         progress,
         notes,
         status,
-        photos,
-        videos,
-        documents,
+        photos: newPhotos,
+        videos: newVideos,
+        documents: newDocuments,
       });
     }
-  }, [hasUnsavedChanges, progress, notes, status, photos, videos, documents, job.id, teamName, saveDraft]);
+  }, [hasUnsavedChanges, progress, notes, status, newPhotos, newVideos, newDocuments, job.id, teamName, saveDraft]);
 
   // Load draft on mount
   useEffect(() => {
@@ -110,12 +124,12 @@ export const TeamJobDetail = ({
       progress !== job.progress ||
       notes !== (job.progressNotes || '') ||
       status !== job.status ||
-      photos.length > 0 ||
-      videos.length > 0 ||
-      documents.length > 0 ||
+      newPhotos.length > 0 ||
+      newVideos.length > 0 ||
+      newDocuments.length > 0 ||
       Object.keys(workItemUpdates).length > 0;
     setHasUnsavedChanges(changed);
-  }, [progress, notes, status, photos, videos, documents, workItemUpdates, job]);
+  }, [progress, notes, status, newPhotos, newVideos, newDocuments, workItemUpdates, job]);
 
   // Get work item with team updates applied
   const getWorkItemWithUpdates = (item: WorkItem) => {
@@ -143,10 +157,10 @@ export const TeamJobDetail = ({
   const handleSave = async () => {
     setIsSaving(true);
 
-    // Filter out base64 data - only include actual uploaded URLs
-    const uploadedPhotos = photos.filter(p => !p.startsWith('data:'));
-    const uploadedVideos = videos.filter(v => !v.startsWith('data:'));
-    const uploadedDocs = documents.filter(d => !d.url.startsWith('data:'));
+    // Filter out base64 data - only include actual uploaded URLs from NEW uploads
+    const uploadedPhotos = newPhotos.filter(p => !p.startsWith('data:'));
+    const uploadedVideos = newVideos.filter(v => !v.startsWith('data:'));
+    const uploadedDocs = newDocuments.filter(d => !d.url.startsWith('data:'));
 
     const updates = {
       status,
@@ -258,9 +272,9 @@ export const TeamJobDetail = ({
         status: 'complete' as const,
         progress: 100,
         notes: notes,
-        photos: photos.filter(p => !p.startsWith('data:')), // Only include uploaded URLs, not base64
-        videos: videos.filter(v => !v.startsWith('data:')),
-        documents: documents.filter(d => !d.url.startsWith('data:')),
+        photos: newPhotos.filter(p => !p.startsWith('data:')), // Only include uploaded URLs, not base64
+        videos: newVideos.filter(v => !v.startsWith('data:')),
+        documents: newDocuments.filter(d => !d.url.startsWith('data:')),
         workItemUpdates: Object.keys(workItemUpdates).length > 0 ? workItemUpdates : undefined,
         isCompletion: true, // Flag to indicate this is a sign-off
       };
@@ -823,7 +837,7 @@ export const TeamJobDetail = ({
                 <CardTitle className="text-sm sm:text-base flex items-center justify-between">
                   <span className="flex items-center gap-2">
                     <Camera className="h-4 w-4" />
-                    Photos {photos.length > 0 && `(${photos.length})`}
+                    Photos {allPhotos.length > 0 && `(${allPhotos.length})`}
                   </span>
                   <ChevronDown className={`h-4 w-4 transition-transform ${expandedSections.photos ? 'rotate-180' : ''}`} />
                 </CardTitle>
@@ -878,24 +892,35 @@ export const TeamJobDetail = ({
                     </label>
                   </div>
 
-                  {photos.length > 0 && (
+                  {allPhotos.length > 0 && (
                     <div className="grid grid-cols-4 gap-2">
-                      {photos.map((photo, index) => (
-                        <div key={index} className="relative aspect-square rounded-lg overflow-hidden bg-muted group">
-                          <img
-                            src={photo}
-                            alt={`Upload ${index + 1}`}
-                            className="w-full h-full object-cover"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removePhoto(index)}
-                            className="absolute top-1 right-1 p-1 bg-destructive rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <X className="h-3 w-3 text-destructive-foreground" />
-                          </button>
-                        </div>
-                      ))}
+                      {allPhotos.map((photo, index) => {
+                        const isExisting = index < existingPhotos.length;
+                        const newIndex = index - existingPhotos.length;
+                        return (
+                          <div key={index} className="relative aspect-square rounded-lg overflow-hidden bg-muted group">
+                            <img
+                              src={photo}
+                              alt={`${isExisting ? 'Saved' : 'New'} photo ${index + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                            {isExisting && (
+                              <div className="absolute bottom-0 left-0 right-0 bg-success/80 text-success-foreground text-[10px] text-center py-0.5">
+                                Saved
+                              </div>
+                            )}
+                            {!isExisting && (
+                              <button
+                                type="button"
+                                onClick={() => removePhoto(newIndex)}
+                                className="absolute top-1 right-1 p-1 bg-destructive rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                              >
+                                <X className="h-3 w-3 text-destructive-foreground" />
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -915,7 +940,7 @@ export const TeamJobDetail = ({
                 <CardTitle className="text-sm sm:text-base flex items-center justify-between">
                   <span className="flex items-center gap-2">
                     <Video className="h-4 w-4" />
-                    Videos {videos.length > 0 && `(${videos.length})`}
+                    Videos {allVideos.length > 0 && `(${allVideos.length})`}
                   </span>
                   <ChevronDown className={`h-4 w-4 transition-transform ${expandedSections.videos ? 'rotate-180' : ''}`} />
                 </CardTitle>
@@ -970,24 +995,35 @@ export const TeamJobDetail = ({
                     </label>
                   </div>
 
-                  {videos.length > 0 && (
+                  {allVideos.length > 0 && (
                     <div className="grid grid-cols-2 gap-2">
-                      {videos.map((video, index) => (
-                        <div key={index} className="relative aspect-video rounded-lg overflow-hidden bg-muted group">
-                          <video
-                            src={video}
-                            className="w-full h-full object-cover"
-                            controls
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removeVideo(index)}
-                            className="absolute top-1 right-1 p-1 bg-destructive rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <X className="h-3 w-3 text-destructive-foreground" />
-                          </button>
-                        </div>
-                      ))}
+                      {allVideos.map((video, index) => {
+                        const isExisting = index < existingVideos.length;
+                        const newIndex = index - existingVideos.length;
+                        return (
+                          <div key={index} className="relative aspect-video rounded-lg overflow-hidden bg-muted group">
+                            <video
+                              src={video}
+                              className="w-full h-full object-cover"
+                              controls
+                            />
+                            {isExisting && (
+                              <div className="absolute bottom-0 left-0 right-0 bg-success/80 text-success-foreground text-[10px] text-center py-0.5">
+                                Saved
+                              </div>
+                            )}
+                            {!isExisting && (
+                              <button
+                                type="button"
+                                onClick={() => removeVideo(newIndex)}
+                                className="absolute top-1 right-1 p-1 bg-destructive rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                              >
+                                <X className="h-3 w-3 text-destructive-foreground" />
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -1007,7 +1043,7 @@ export const TeamJobDetail = ({
                 <CardTitle className="text-sm sm:text-base flex items-center justify-between">
                   <span className="flex items-center gap-2">
                     <FileText className="h-4 w-4" />
-                    Documents {documents.length > 0 && `(${documents.length})`}
+                    Documents {allDocuments.length > 0 && `(${allDocuments.length})`}
                   </span>
                   <ChevronDown className={`h-4 w-4 transition-transform ${expandedSections.documents ? 'rotate-180' : ''}`} />
                 </CardTitle>
@@ -1037,21 +1073,30 @@ export const TeamJobDetail = ({
                     )}
                   </label>
 
-                  {documents.length > 0 && (
+                  {allDocuments.length > 0 && (
                     <div className="space-y-2">
-                      {documents.map((doc, index) => (
-                        <div key={index} className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg group">
-                          {getFileIcon(doc.type)}
-                          <span className="flex-1 text-xs sm:text-sm truncate">{doc.name}</span>
-                          <button
-                            type="button"
-                            onClick={() => removeDocument(index)}
-                            className="p-1 hover:bg-destructive/20 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <X className="h-4 w-4 text-destructive" />
-                          </button>
-                        </div>
-                      ))}
+                      {allDocuments.map((doc, index) => {
+                        const isExisting = index < existingDocuments.length;
+                        const newIndex = index - existingDocuments.length;
+                        return (
+                          <div key={index} className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg group">
+                            {getFileIcon(doc.type)}
+                            <span className="flex-1 text-xs sm:text-sm truncate">{doc.name}</span>
+                            {isExisting && (
+                              <Badge variant="secondary" className="text-[10px]">Saved</Badge>
+                            )}
+                            {!isExisting && (
+                              <button
+                                type="button"
+                                onClick={() => removeDocument(newIndex)}
+                                className="p-1 hover:bg-destructive/20 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                              >
+                                <X className="h-4 w-4 text-destructive" />
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -1126,9 +1171,9 @@ export const TeamJobDetail = ({
         summary={{
           jobNumber: job.jobNumber,
           jobName: job.name,
-          photosCount: photos.filter(p => !p.startsWith('data:')).length,
-          videosCount: videos.filter(v => !v.startsWith('data:')).length,
-          documentsCount: documents.filter(d => !d.url.startsWith('data:')).length,
+          photosCount: newPhotos.filter(p => !p.startsWith('data:')).length + existingPhotos.length,
+          videosCount: newVideos.filter(v => !v.startsWith('data:')).length + existingVideos.length,
+          documentsCount: newDocuments.filter(d => !d.url.startsWith('data:')).length + existingDocuments.length,
           workItemsTotal: job.workItems.length,
           workItemsCompleted: job.workItems.filter(item => {
             const update = workItemUpdates[item.id];
