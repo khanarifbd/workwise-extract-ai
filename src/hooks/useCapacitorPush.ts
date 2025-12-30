@@ -1,13 +1,11 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
-import { PushNotifications, Token, PushNotificationSchema, ActionPerformed } from '@capacitor/push-notifications';
-import { supabase } from '@/integrations/supabase/client';
+import { FirebaseMessaging } from '@capacitor-firebase/messaging';
 import { toast } from 'sonner';
 
 interface PushState {
   isSupported: boolean;
   isRegistered: boolean;
-  token: string | null;
   isLoading: boolean;
 }
 
@@ -15,7 +13,6 @@ export const useCapacitorPush = (teamId: string | null) => {
   const [state, setState] = useState<PushState>({
     isSupported: false,
     isRegistered: false,
-    token: null,
     isLoading: false,
   });
 
@@ -25,7 +22,7 @@ export const useCapacitorPush = (teamId: string | null) => {
   useEffect(() => {
     setState(prev => ({ ...prev, isSupported: isNative }));
     
-    if (isNative && teamId) {
+    if (isNative) {
       checkPermissions();
       addListeners();
     }
@@ -35,14 +32,21 @@ export const useCapacitorPush = (teamId: string | null) => {
         removeListeners();
       }
     };
-  }, [isNative, teamId]);
+  }, [isNative]);
+
+  // Subscribe to team topic when teamId changes
+  useEffect(() => {
+    if (isNative && teamId && state.isRegistered) {
+      subscribeToTeamTopic(teamId);
+    }
+  }, [isNative, teamId, state.isRegistered]);
 
   const checkPermissions = async () => {
     try {
-      const permStatus = await PushNotifications.checkPermissions();
+      const result = await FirebaseMessaging.checkPermissions();
       setState(prev => ({ 
         ...prev, 
-        isRegistered: permStatus.receive === 'granted' 
+        isRegistered: result.receive === 'granted' 
       }));
     } catch (error) {
       console.error('Error checking push permissions:', error);
@@ -50,85 +54,54 @@ export const useCapacitorPush = (teamId: string | null) => {
   };
 
   const addListeners = async () => {
-    // On registration success
-    await PushNotifications.addListener('registration', async (token: Token) => {
-      console.log('Push registration success, token:', token.value);
-      setState(prev => ({ ...prev, token: token.value, isRegistered: true }));
-      
-      // Save token to database
-      if (teamId) {
-        await saveTokenToDatabase(token.value, teamId);
-      }
+    // On token received (FCM token, not APNs)
+    await FirebaseMessaging.addListener('tokenReceived', (event) => {
+      console.log('FCM token received:', event.token);
     });
 
-    // On registration error
-    await PushNotifications.addListener('registrationError', (error) => {
-      console.error('Push registration error:', error);
-      toast.error('Push notification registration failed');
-    });
-
-    // On push notification received
-    await PushNotifications.addListener('pushNotificationReceived', (notification: PushNotificationSchema) => {
-      console.log('Push notification received:', notification);
-      toast.info(notification.title || 'New Notification', {
-        description: notification.body,
+    // On notification received in foreground
+    await FirebaseMessaging.addListener('notificationReceived', (event) => {
+      console.log('Notification received:', event.notification);
+      toast.info(event.notification.title || 'New Notification', {
+        description: event.notification.body,
       });
     });
 
-    // On push notification action performed
-    await PushNotifications.addListener('pushNotificationActionPerformed', (action: ActionPerformed) => {
-      console.log('Push notification action performed:', action);
-      // Handle notification tap - navigate to relevant job page
-      const data = action.notification.data;
+    // On notification action performed (tap)
+    await FirebaseMessaging.addListener('notificationActionPerformed', (event) => {
+      console.log('Notification action performed:', event);
+      const data = event.notification.data as Record<string, string> | undefined;
       if (data?.jobId) {
-        // Store job ID to open after navigation
         sessionStorage.setItem('pendingJobId', data.jobId);
-        // Navigate to team portal with job parameter
         window.location.href = `/team?job=${data.jobId}&action=submit`;
       }
     });
   };
 
   const removeListeners = async () => {
-    await PushNotifications.removeAllListeners();
+    await FirebaseMessaging.removeAllListeners();
   };
 
-  const saveTokenToDatabase = async (token: string, teamId: string) => {
+  const subscribeToTeamTopic = async (teamId: string) => {
     try {
-      const platform = Capacitor.getPlatform();
+      // Create a safe topic name (FCM topics can only contain alphanumeric, underscore, hyphen)
+      const topicName = `team_${teamId.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
       
-      // Check if token already exists for this team using raw SQL via RPC or direct query
-      const { data: existing, error: selectError } = await supabase
-        .from('team_fcm_tokens' as any)
-        .select('id')
-        .eq('team_id', teamId)
-        .eq('fcm_token', token)
-        .maybeSingle();
-
-      if (selectError) {
-        console.error('Error checking existing token:', selectError);
-      }
-
-      if (existing) {
-        // Update existing record
-        await supabase
-          .from('team_fcm_tokens' as any)
-          .update({ updated_at: new Date().toISOString() })
-          .eq('id', (existing as any).id);
-      } else {
-        // Insert new record
-        await supabase
-          .from('team_fcm_tokens' as any)
-          .insert({
-            team_id: teamId,
-            fcm_token: token,
-            platform: platform,
-          } as any);
-      }
-      
-      console.log('FCM token saved to database');
+      await FirebaseMessaging.subscribeToTopic({ topic: topicName });
+      console.log(`Subscribed to topic: ${topicName}`);
     } catch (error) {
-      console.error('Error saving FCM token:', error);
+      console.error('Error subscribing to topic:', error);
+    }
+  };
+
+  const unsubscribeFromTeamTopic = async (teamId: string) => {
+    try {
+      const topicName = `team_${teamId.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+      
+      await FirebaseMessaging.unsubscribeFromTopic({ topic: topicName });
+      console.log(`Unsubscribed from topic: ${topicName}`);
+    } catch (error) {
+      console.error('Error unsubscribing from topic:', error);
     }
   };
 
@@ -142,11 +115,20 @@ export const useCapacitorPush = (teamId: string | null) => {
 
     try {
       // Request permission
-      const permStatus = await PushNotifications.requestPermissions();
+      const permResult = await FirebaseMessaging.requestPermissions();
 
-      if (permStatus.receive === 'granted') {
-        // Register with FCM/APNs
-        await PushNotifications.register();
+      if (permResult.receive === 'granted') {
+        // Get FCM token (this triggers APNs->FCM token conversion on iOS)
+        const tokenResult = await FirebaseMessaging.getToken();
+        console.log('FCM Token:', tokenResult.token);
+
+        setState(prev => ({ ...prev, isRegistered: true }));
+
+        // Subscribe to team topic if teamId is available
+        if (teamId) {
+          await subscribeToTeamTopic(teamId);
+        }
+
         toast.success('Push notifications enabled');
         return true;
       } else {
@@ -160,25 +142,20 @@ export const useCapacitorPush = (teamId: string | null) => {
     } finally {
       setState(prev => ({ ...prev, isLoading: false }));
     }
-  }, [isNative]);
+  }, [isNative, teamId]);
 
   const unregister = useCallback(async () => {
-    if (!isNative || !state.token || !teamId) return false;
+    if (!isNative || !teamId) return false;
 
     setState(prev => ({ ...prev, isLoading: true }));
 
     try {
-      // Remove token from database
-      await supabase
-        .from('team_fcm_tokens' as any)
-        .delete()
-        .eq('team_id', teamId)
-        .eq('fcm_token', state.token);
+      // Unsubscribe from team topic
+      await unsubscribeFromTeamTopic(teamId);
 
       setState(prev => ({ 
         ...prev, 
-        isRegistered: false, 
-        token: null 
+        isRegistered: false,
       }));
       
       toast.success('Push notifications disabled');
@@ -190,7 +167,7 @@ export const useCapacitorPush = (teamId: string | null) => {
     } finally {
       setState(prev => ({ ...prev, isLoading: false }));
     }
-  }, [isNative, state.token, teamId]);
+  }, [isNative, teamId]);
 
   return {
     isSupported: state.isSupported,

@@ -114,122 +114,78 @@ serve(async (req) => {
     // Get access token for FCM v1 API
     const accessToken = await getAccessToken(serviceAccount);
 
-    // Get Supabase client
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    // Create safe topic name (same logic as client side)
+    const topicName = `team_${teamId.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
     
-    const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    console.log(`Sending notification to topic: ${topicName}`);
 
-    // Fetch tokens for the team
-    const { data: tokens, error: fetchError } = await supabase
-      .from("team_fcm_tokens")
-      .select("fcm_token, platform")
-      .eq("team_id", teamId);
+    // Send notification to topic using FCM v1 API
+    const message = {
+      message: {
+        topic: topicName,
+        notification: {
+          title,
+          body,
+        },
+        android: {
+          priority: "high",
+          notification: {
+            sound: "default",
+            channel_id: "job_notifications",
+          },
+        },
+        apns: {
+          headers: {
+            "apns-priority": "10",
+          },
+          payload: {
+            aps: {
+              sound: "default",
+              badge: 1,
+            },
+          },
+        },
+        data: data || {},
+      },
+    };
 
-    if (fetchError) {
-      console.error("Error fetching tokens:", fetchError);
-      throw new Error("Failed to fetch tokens");
-    }
+    const response = await fetch(
+      `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(message),
+      }
+    );
 
-    if (!tokens || tokens.length === 0) {
-      console.log(`No tokens found for team ${teamId}`);
+    if (response.ok) {
+      const result = await response.json();
+      console.log(`FCM topic notification success:`, result.name);
+
       return new Response(
-        JSON.stringify({ success: true, sent: 0, message: "No tokens found for team" }),
+        JSON.stringify({
+          success: true,
+          messageId: result.name,
+          topic: topicName,
+        }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    } else {
+      const errorText = await response.text();
+      console.error(`FCM topic notification error:`, errorText);
+      
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: errorText,
+          topic: topicName,
+        }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
-
-    console.log(`Sending notification to ${tokens.length} devices for team ${teamId}`);
-
-    let successCount = 0;
-    let failCount = 0;
-    const invalidTokens: string[] = [];
-
-    // Send notification to each token using FCM v1 API
-    for (const { fcm_token, platform } of tokens) {
-      try {
-        const message = {
-          message: {
-            token: fcm_token,
-            notification: {
-              title,
-              body,
-            },
-            android: {
-              priority: "high",
-              notification: {
-                sound: "default",
-                channel_id: "job_notifications",
-              },
-            },
-            apns: {
-              headers: {
-                "apns-priority": "10",
-              },
-              payload: {
-                aps: {
-                  sound: "default",
-                  badge: 1,
-                },
-              },
-            },
-            data: data || {},
-          },
-        };
-
-        const response = await fetch(
-          `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${accessToken}`,
-            },
-            body: JSON.stringify(message),
-          }
-        );
-
-        if (response.ok) {
-          const result = await response.json();
-          console.log(`FCM success for ${platform}:`, result.name);
-          successCount++;
-        } else {
-          const errorText = await response.text();
-          console.error(`FCM error for ${platform}:`, errorText);
-          failCount++;
-          
-          // Check if token is invalid and should be removed
-          if (errorText.includes("UNREGISTERED") || errorText.includes("INVALID_ARGUMENT")) {
-            invalidTokens.push(fcm_token);
-          }
-        }
-      } catch (error) {
-        console.error(`Error sending to token:`, error);
-        failCount++;
-      }
-    }
-
-    // Clean up invalid tokens
-    if (invalidTokens.length > 0) {
-      console.log(`Removing ${invalidTokens.length} invalid tokens`);
-      await supabase
-        .from("team_fcm_tokens")
-        .delete()
-        .in("fcm_token", invalidTokens);
-    }
-
-    console.log(`Notification complete: ${successCount} sent, ${failCount} failed`);
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        sent: successCount,
-        failed: failCount,
-        removed: invalidTokens.length,
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
   } catch (error) {
     console.error("Error in send-fcm-notification:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
