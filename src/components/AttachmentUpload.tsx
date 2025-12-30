@@ -34,41 +34,15 @@ const getAttachmentType = (category: MediaCategory): 'image' | 'video' | 'docume
   return 'document';
 };
 
-// Cache for signed URLs to avoid regenerating them
-const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
-
-// Generate signed URL for an attachment
-const getSignedUrl = async (path: string): Promise<string | null> => {
-  // Check cache first
-  const cached = signedUrlCache.get(path);
-  if (cached && cached.expiresAt > Date.now()) {
-    return cached.url;
-  }
-
-  try {
-    const { data, error } = await supabase.storage
-      .from('job-attachments')
-      .createSignedUrl(path, 3600); // 1 hour expiry
-
-    if (error) {
-      console.error('Error creating signed URL:', error);
-      return null;
-    }
-
-    // Cache the URL with expiry (refresh 5 mins before actual expiry)
-    signedUrlCache.set(path, {
-      url: data.signedUrl,
-      expiresAt: Date.now() + (55 * 60 * 1000) // 55 minutes
-    });
-
-    return data.signedUrl;
-  } catch (error) {
-    console.error('Error getting signed URL:', error);
-    return null;
-  }
+// Get public URL for an attachment (bucket is public)
+const getPublicUrl = (path: string): string => {
+  const { data } = supabase.storage
+    .from('job-attachments')
+    .getPublicUrl(path);
+  return data.publicUrl;
 };
 
-// Extract path from old public URL format
+// Extract path from URL format
 const extractPathFromUrl = (url: string): string | null => {
   const match = url.match(/\/job-attachments\/(.+)$/);
   return match ? match[1] : null;
@@ -77,7 +51,7 @@ const extractPathFromUrl = (url: string): string | null => {
 export const AttachmentUpload = ({ jobId, attachments, onAttachmentsChange }: AttachmentUploadProps) => {
   const [isUploading, setIsUploading] = useState(false);
   const [activeCategory, setActiveCategory] = useState<MediaCategory>('images');
-  const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
+  const [displayUrls, setDisplayUrls] = useState<Record<string, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -87,30 +61,28 @@ export const AttachmentUpload = ({ jobId, attachments, onAttachmentsChange }: At
     documents: attachments.filter(a => a.type === 'document'),
   };
 
-  // Generate signed URLs for all attachments
+  // Generate public URLs for all attachments
   useEffect(() => {
-    const loadSignedUrls = async () => {
-      const urlPromises = attachments.map(async (attachment) => {
-        // Use path if available, otherwise extract from URL
-        const path = attachment.path || extractPathFromUrl(attachment.url);
-        if (!path) return { id: attachment.id, url: attachment.url };
-
-        const signedUrl = await getSignedUrl(path);
-        return { id: attachment.id, url: signedUrl || attachment.url };
-      });
-
-      const results = await Promise.all(urlPromises);
+    const loadDisplayUrls = () => {
       const urlMap: Record<string, string> = {};
-      results.forEach(r => { urlMap[r.id] = r.url; });
-      setSignedUrls(urlMap);
+      attachments.forEach((attachment) => {
+        // Use path if available to get public URL, otherwise use stored URL
+        const path = attachment.path || extractPathFromUrl(attachment.url);
+        if (path) {
+          urlMap[attachment.id] = getPublicUrl(path);
+        } else {
+          urlMap[attachment.id] = attachment.url;
+        }
+      });
+      setDisplayUrls(urlMap);
     };
 
     if (attachments.length > 0) {
-      loadSignedUrls();
+      loadDisplayUrls();
     }
   }, [attachments]);
 
-  const uploadToStorage = async (file: File, category: MediaCategory): Promise<{ path: string; signedUrl: string } | null> => {
+  const uploadToStorage = async (file: File, category: MediaCategory): Promise<{ path: string; publicUrl: string } | null> => {
     const fileExt = file.name.split('.').pop();
     const filePath = `${jobId}/${category}/${crypto.randomUUID()}.${fileExt}`;
     
@@ -123,13 +95,9 @@ export const AttachmentUpload = ({ jobId, attachments, onAttachmentsChange }: At
       return null;
     }
 
-    // Generate signed URL for immediate display
-    const signedUrl = await getSignedUrl(data.path);
-    if (!signedUrl) {
-      return null;
-    }
-
-    return { path: data.path, signedUrl };
+    // Get public URL for immediate display
+    const publicUrl = getPublicUrl(data.path);
+    return { path: data.path, publicUrl };
   };
 
   const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -166,22 +134,22 @@ export const AttachmentUpload = ({ jobId, attachments, onAttachmentsChange }: At
           id: crypto.randomUUID(),
           name: file.name,
           type: getAttachmentType(category),
-          url: result.signedUrl, // Store signed URL for immediate use
-          path: result.path, // Store path for future signed URL generation
+          url: result.publicUrl, // Store public URL
+          path: result.path, // Store path for future use
           uploadedAt: new Date(),
         };
         
         newAttachments.push(attachment);
         
-        // Update signed URLs cache
-        setSignedUrls(prev => ({ ...prev, [attachment.id]: result.signedUrl }));
+        // Update display URLs
+        setDisplayUrls(prev => ({ ...prev, [attachment.id]: result.publicUrl }));
       }
 
       if (newAttachments.length > 0) {
         onAttachmentsChange([...attachments, ...newAttachments]);
         toast({
           title: "Files uploaded",
-          description: `${newAttachments.length} file(s) uploaded securely.`,
+          description: `${newAttachments.length} file(s) uploaded successfully.`,
         });
       }
     } catch (error) {
@@ -205,7 +173,6 @@ export const AttachmentUpload = ({ jobId, attachments, onAttachmentsChange }: At
       const path = attachment.path || extractPathFromUrl(attachment.url);
       if (path) {
         await supabase.storage.from('job-attachments').remove([path]);
-        signedUrlCache.delete(path);
       }
     } catch (error) {
       console.error('Error deleting from storage:', error);
@@ -224,9 +191,9 @@ export const AttachmentUpload = ({ jobId, attachments, onAttachmentsChange }: At
     return <FileText className="w-4 h-4" />;
   };
 
-  // Get display URL for an attachment (signed URL if available)
+  // Get display URL for an attachment
   const getDisplayUrl = (attachment: Attachment): string => {
-    return signedUrls[attachment.id] || attachment.url;
+    return displayUrls[attachment.id] || attachment.url;
   };
 
   return (
