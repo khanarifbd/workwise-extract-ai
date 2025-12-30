@@ -669,12 +669,19 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                   </td>
                   {/* Status Column - Booked date or UnBooked */}
                   <td onClick={(e) => e.stopPropagation()} className="relative z-20">
-                    <BookedDateCell
-                      bookedDate={job.bookedDate}
-                      bookingNotes={job.bookingNotes || ''}
-                      onDateChange={(date) => handleBookedDateChange(job.id, date)}
-                      onNotesChange={(notes) => onUpdateJob({ ...job, bookingNotes: notes })}
-                    />
+                    {(() => {
+                      const teamSetting = teamSettings.find(t => t.teamName === job.team);
+                      return (
+                        <BookedDateCell
+                          bookedDate={job.bookedDate}
+                          bookingNotes={job.bookingNotes || ''}
+                          teamId={teamSetting?.teamId}
+                          teamName={job.team}
+                          onDateChange={(date) => handleBookedDateChange(job.id, date)}
+                          onNotesChange={(notes) => onUpdateJob({ ...job, bookingNotes: notes })}
+                        />
+                      );
+                    })()}
                   </td>
                   <td onClick={(e) => e.stopPropagation()} className="relative z-20">
                     <InlineDescriptionEditor
