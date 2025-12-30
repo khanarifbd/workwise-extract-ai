@@ -303,12 +303,52 @@ Deno.serve(async (req) => {
       }
     }
 
-    // If this is a job completion, add a completion record note
+    // Calculate sign-off stats
+    const photosCount = updates.photos?.filter(p => !p.startsWith('data:'))?.length || 0;
+    const videosCount = updates.videos?.filter(v => !v.startsWith('data:'))?.length || 0;
+    const documentsCount = updates.documents?.filter(d => !d.url.startsWith('data:'))?.length || 0;
+    const workItemsModified = updates.workItemUpdates 
+      ? Object.values(updates.workItemUpdates).filter(u => u.hasModification).length 
+      : 0;
+    const workItemsTotal = updatedWorkItems.length || (job.work_items as Array<unknown>)?.length || 0;
+
+    // If this is a job completion, add a completion record note and create admin notification
     if (updates.isCompletion || updates.status === 'complete') {
-      const completionNote = `\n\n--- JOB SIGN-OFF ---\nCompleted by: ${teamName}\nDate: ${new Date(timestamp).toLocaleString()}\nWork Items Reviewed: ${updatedWorkItems.length || (job.work_items as Array<unknown>)?.length || 0}\nPhotos: ${updates.photos?.filter(p => !p.startsWith('data:'))?.length || 0}\nVideos: ${updates.videos?.filter(v => !v.startsWith('data:'))?.length || 0}\nDocuments: ${updates.documents?.filter(d => !d.url.startsWith('data:'))?.length || 0}`;
+      const completionNote = `\n\n--- JOB SIGN-OFF ---\nCompleted by: ${teamName}\nDate: ${new Date(timestamp).toLocaleString()}\nWork Items Reviewed: ${workItemsTotal}\nPhotos: ${photosCount}\nVideos: ${videosCount}\nDocuments: ${documentsCount}`;
       
       jobUpdates.progress_notes = (updates.notes || '') + completionNote;
       console.log(`Job ${jobId} signed off by team ${teamName}`);
+
+      // Get job details for notification
+      const { data: jobDetails } = await supabase
+        .from("jobs")
+        .select("job_number, name")
+        .eq("id", jobId)
+        .single();
+
+      // Create sign-off notification for admin
+      const { error: notifError } = await supabase
+        .from("team_sign_off_notifications")
+        .insert({
+          job_id: jobId,
+          job_number: jobDetails?.job_number || 'Unknown',
+          job_name: jobDetails?.name || 'Unknown',
+          team_id: teamId,
+          team_name: teamName,
+          photos_count: photosCount,
+          videos_count: videosCount,
+          documents_count: documentsCount,
+          work_items_modified: workItemsModified,
+          work_items_total: workItemsTotal,
+          progress_notes: updates.notes || null,
+        });
+
+      if (notifError) {
+        console.error("Failed to create sign-off notification:", notifError.message);
+        // Don't fail the request, just log
+      } else {
+        console.log(`Sign-off notification created for admin - job ${jobId}`);
+      }
     }
 
     // Update the job

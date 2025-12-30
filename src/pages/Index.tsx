@@ -736,7 +736,16 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <Header onExport={() => setShowExport(true)} jobCount={jobs.length} />
+      <Header 
+        onExport={() => setShowExport(true)} 
+        jobCount={jobs.length}
+        onJobClick={(jobId) => {
+          const job = jobs.find(j => j.id === jobId);
+          if (job) {
+            setSelectedJobForModal(job);
+          }
+        }}
+      />
       
       <main className="flex-1 container mx-auto px-4 py-4 flex flex-col gap-4">
         {/* Category Tabs - hide add/edit for viewers */}
