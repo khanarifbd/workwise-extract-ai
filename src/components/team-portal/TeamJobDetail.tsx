@@ -60,8 +60,8 @@ export const TeamJobDetail = ({
   const { toast } = useToast();
   const { updateTeamJob } = useTeamAuth();
 
-  // Check if job can be marked complete (progress at 100%)
-  const canComplete = progress === 100 && status !== 'complete';
+  // Check if job is not already complete
+  const canSignOff = status !== 'complete' && !job.isCompleted;
 
   // Auto-save draft
   const autoSaveDraft = useCallback(async () => {
@@ -240,7 +240,7 @@ export const TeamJobDetail = ({
 
   // Handle job completion/sign-off with full data transfer
   const handleCompleteJob = async () => {
-    if (!canComplete) return;
+    if (!canSignOff) return;
     
     setIsCompleting(true);
 
@@ -343,8 +343,6 @@ export const TeamJobDetail = ({
     setUploadingPhotos(true);
 
     try {
-      const uploadedUrls: string[] = [];
-
       for (const file of Array.from(files)) {
         // Generate unique filename - handle camera files that may have generic names
         const timestamp = Date.now();
@@ -360,10 +358,10 @@ export const TeamJobDetail = ({
           reader.readAsDataURL(file);
         });
         
-        // Add to preview immediately
-        uploadedUrls.push(base64);
+        // Add base64 to preview immediately
+        setPhotos(prev => [...prev, base64]);
         
-        // If online, also upload to storage in background
+        // If online, upload to storage and replace base64 with URL
         if (isOnline) {
           try {
             const { data, error } = await supabase.storage
@@ -375,25 +373,20 @@ export const TeamJobDetail = ({
                 .from('job-attachments')
                 .getPublicUrl(data.path);
               
-              // Replace base64 with actual URL in the array
-              const index = uploadedUrls.indexOf(base64);
-              if (index > -1) {
-                uploadedUrls[index] = urlData.publicUrl;
-              }
+              // Replace base64 with actual URL
+              setPhotos(prev => prev.map(p => p === base64 ? urlData.publicUrl : p));
             }
           } catch (uploadError) {
             console.error('Storage upload error, keeping base64:', uploadError);
-            // Keep base64 if upload fails
           }
         }
       }
 
-      setPhotos(prev => [...prev, ...uploadedUrls]);
       setHasUnsavedChanges(true);
 
       toast({
         title: 'Photos Added',
-        description: `${uploadedUrls.length} photo(s) ready to upload.`,
+        description: `${Array.from(files).length} photo(s) uploaded.`,
       });
     } catch (error) {
       console.error('Upload error:', error);
@@ -1064,16 +1057,16 @@ export const TeamJobDetail = ({
           </Card>
         </Collapsible>
 
-        {/* Complete Job Button - Shows when progress is 100% */}
-        {canComplete && (
+        {/* Complete Job Button - Always visible when job not complete */}
+        {canSignOff && (
           <Card className="border-2 border-success bg-success/10">
             <CardContent className="p-4">
               <div className="flex items-start gap-3">
                 <CheckSquare className="h-6 w-6 text-success flex-shrink-0 mt-0.5" />
                 <div className="flex-1">
-                  <h3 className="font-semibold text-sm sm:text-base text-success">Ready to Complete</h3>
+                  <h3 className="font-semibold text-sm sm:text-base text-success">Sign Off Job</h3>
                   <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                    All tasks are done. Mark this job as complete to transfer all notes, photos, and documentation to admin.
+                    Mark this job as complete to transfer all notes, photos, and documentation to admin.
                   </p>
                   <Button 
                     onClick={() => setShowSignOffModal(true)}
@@ -1087,16 +1080,6 @@ export const TeamJobDetail = ({
               </div>
             </CardContent>
           </Card>
-        )}
-
-        {/* Hint for completing */}
-        {progress < 100 && !job.isCompleted && (
-          <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
-            <AlertCircle className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-            <p className="text-xs text-muted-foreground">
-              Set progress to 100% to complete this job and transfer data to admin.
-            </p>
-          </div>
         )}
       </div>
 

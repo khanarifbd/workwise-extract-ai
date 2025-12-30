@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Bell, CheckCircle2, Image, Video, FileText, Wrench, X, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -27,14 +27,56 @@ interface SignOffNotificationBellProps {
   onJobClick?: (jobId: string) => void;
 }
 
+// Create audio context for notification sound
+const playNotificationSound = () => {
+  try {
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    oscillator.frequency.value = 800;
+    oscillator.type = 'sine';
+    
+    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+    
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.3);
+    
+    // Play second tone for "ding-dong" effect
+    setTimeout(() => {
+      const oscillator2 = audioContext.createOscillator();
+      const gainNode2 = audioContext.createGain();
+      
+      oscillator2.connect(gainNode2);
+      gainNode2.connect(audioContext.destination);
+      
+      oscillator2.frequency.value = 600;
+      oscillator2.type = 'sine';
+      
+      gainNode2.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode2.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
+      
+      oscillator2.start(audioContext.currentTime);
+      oscillator2.stop(audioContext.currentTime + 0.4);
+    }, 150);
+  } catch (error) {
+    console.log('Could not play notification sound:', error);
+  }
+};
+
 export const SignOffNotificationBell = ({ onJobClick }: SignOffNotificationBellProps) => {
   const [notifications, setNotifications] = useState<SignOffNotification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const lastNotificationCount = useRef<number>(0);
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = async (playSound = false) => {
     try {
       const { data, error } = await supabase
         .from('team_sign_off_notifications')
@@ -43,7 +85,16 @@ export const SignOffNotificationBell = ({ onJobClick }: SignOffNotificationBellP
         .limit(20);
 
       if (error) throw error;
-      setNotifications((data as SignOffNotification[]) || []);
+      
+      const newNotifications = (data as SignOffNotification[]) || [];
+      
+      // Play sound if new notification arrived (after initial load)
+      if (playSound && newNotifications.length > lastNotificationCount.current) {
+        playNotificationSound();
+      }
+      
+      lastNotificationCount.current = newNotifications.length;
+      setNotifications(newNotifications);
     } catch (error) {
       console.error('Failed to fetch sign-off notifications:', error);
     } finally {
@@ -52,7 +103,7 @@ export const SignOffNotificationBell = ({ onJobClick }: SignOffNotificationBellP
   };
 
   useEffect(() => {
-    fetchNotifications();
+    fetchNotifications(false);
 
     // Subscribe to new notifications
     const channel = supabase
@@ -65,7 +116,7 @@ export const SignOffNotificationBell = ({ onJobClick }: SignOffNotificationBellP
           table: 'team_sign_off_notifications',
         },
         () => {
-          fetchNotifications();
+          fetchNotifications(true); // Play sound on new notification
         }
       )
       .subscribe();
