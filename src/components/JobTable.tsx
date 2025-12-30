@@ -31,6 +31,7 @@ import { BookedDateCell } from './BookedDateCell';
 import { extractFansWithAI, createLinkedFanJob } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { useTeamSettings } from '@/hooks/useTeamSettings';
+import { useTeamAvailability } from '@/hooks/useTeamAvailability';
 import { useAllContactHistory } from '@/hooks/useContactHistory';
 import { CONTACT_OUTCOMES, determineNextAction, NextAction } from '@/types/contactHistory';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -85,6 +86,7 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
   const [duplicateActionJob, setDuplicateActionJob] = useState<Job | null>(null);
   const { toast } = useToast();
   const { settings: teamSettings } = useTeamSettings();
+  const { hasAvailabilityConflict } = useTeamAvailability();
   
   // Load contact history for all jobs
   const jobIds = useMemo(() => jobs.map(j => j.id), [jobs]);
@@ -609,26 +611,47 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                   {/* Assigned Column */}
                   <td onClick={(e) => e.stopPropagation()} className="relative z-20">
                     <div className="relative">
-                      {job.team ? (
-                        <Badge 
-                          className="cursor-pointer text-xs"
-                          style={{ backgroundColor: getTeamColor(job.team), color: 'white' }}
-                          onClick={() => setShowTeamSelector(job.id)}
-                        >
-                          <Users className="w-3.5 h-3.5 mr-1" />
-                          {job.team}
-                        </Badge>
-                      ) : (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-6 text-xs px-2"
-                          onClick={() => setShowTeamSelector(job.id)}
-                        >
-                          <Users className="w-3 h-3 mr-1" />
-                          Assign
-                        </Button>
-                      )}
+                      {(() => {
+                        const teamId = teamSettings.find(t => t.teamName === job.team)?.teamId;
+                        const bookedDateStr = job.bookedDate instanceof Date 
+                          ? job.bookedDate.toISOString() 
+                          : job.bookedDate;
+                        const hasConflict = hasAvailabilityConflict(teamId, bookedDateStr);
+                        
+                        return (
+                          <>
+                            {job.team ? (
+                              <div className="flex items-center gap-1">
+                                {hasConflict && (
+                                  <AlertTriangle className="w-4 h-4 text-red-500 animate-pulse flex-shrink-0" />
+                                )}
+                                <Badge 
+                                  className={cn(
+                                    "cursor-pointer text-xs",
+                                    hasConflict && "animate-pulse ring-2 ring-red-500"
+                                  )}
+                                  style={{ backgroundColor: getTeamColor(job.team), color: 'white' }}
+                                  onClick={() => setShowTeamSelector(job.id)}
+                                  title={hasConflict ? 'Team unavailable on booked date!' : undefined}
+                                >
+                                  <Users className="w-3.5 h-3.5 mr-1" />
+                                  {job.team}
+                                </Badge>
+                              </div>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-6 text-xs px-2"
+                                onClick={() => setShowTeamSelector(job.id)}
+                              >
+                                <Users className="w-3 h-3 mr-1" />
+                                Assign
+                              </Button>
+                            )}
+                          </>
+                        );
+                      })()}
                       {showTeamSelector === job.id && (
                         <TeamSelector
                           job={job}

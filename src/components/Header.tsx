@@ -1,10 +1,11 @@
-import { FileDown, Moon, Sun, Settings, History, KeyRound, QrCode, Users, LogOut, ChevronDown } from 'lucide-react';
+import { FileDown, Moon, Sun, Settings, History, KeyRound, QrCode, Users, LogOut, ChevronDown, CalendarDays } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { TeamSettingsModal } from './TeamSettingsModal';
 import { NotificationHistoryModal } from './NotificationHistoryModal';
 import { TeamAccessCodesModal } from './TeamAccessCodesModal';
+import { TeamAvailabilityModal } from './TeamAvailabilityModal';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import logo from '@/assets/logo.png';
 import {
@@ -31,6 +32,7 @@ export const Header = ({ onExport, jobCount }: HeaderProps) => {
   const [showTeamSettings, setShowTeamSettings] = useState(false);
   const [showNotificationHistory, setShowNotificationHistory] = useState(false);
   const [showAccessCodes, setShowAccessCodes] = useState(false);
+  const [showAvailability, setShowAvailability] = useState(false);
   const { signOut, user } = useAdminAuth();
 
   // Apply theme on mount and when isDark changes
@@ -98,6 +100,10 @@ export const Header = ({ onExport, jobCount }: HeaderProps) => {
                   <History className="w-4 h-4" />
                   Notifications
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowAvailability(true)} className="flex items-center gap-2 cursor-pointer">
+                  <CalendarDays className="w-4 h-4" />
+                  Team Availability
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setShowAccessCodes(true)} className="flex items-center gap-2 cursor-pointer">
                   <KeyRound className="w-4 h-4" />
                   Access Codes
@@ -146,6 +152,11 @@ export const Header = ({ onExport, jobCount }: HeaderProps) => {
       {showAccessCodes && (
         <TeamAccessCodesModal onClose={() => setShowAccessCodes(false)} />
       )}
+
+      <TeamAvailabilityModal 
+        open={showAvailability} 
+        onOpenChange={setShowAvailability} 
+      />
     </header>
   );
 };
