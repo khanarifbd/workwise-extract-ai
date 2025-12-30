@@ -159,6 +159,14 @@ export const TeamJobDetail = ({
     };
 
     try {
+      if (isOnline && (uploadingPhotos || uploadingFiles || uploadingVideos)) {
+        toast({
+          title: 'Please wait',
+          description: 'Your uploads are still processing. Save will be available once uploads finish.',
+        });
+        return;
+      }
+
       if (isOnline) {
         // Use secure edge function - transfers data to main job record
         await updateTeamJob(job.id, updates);
@@ -488,25 +496,24 @@ export const TeamJobDetail = ({
     setUploadingVideos(true);
 
     try {
-      const uploadedUrls: string[] = [];
-
       for (const file of Array.from(files)) {
         const timestamp = Date.now();
         const randomId = Math.random().toString(36).substring(2, 8);
         const extension = file.name?.split('.').pop() || 'mp4';
         const fileName = `${teamId}/${job.id}/videos/${timestamp}-${randomId}.${extension}`;
-        
-        // First convert to base64 for immediate preview
+
+        // Convert to base64 for immediate preview
         const base64 = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
           reader.onloadend = () => resolve(reader.result as string);
           reader.onerror = reject;
           reader.readAsDataURL(file);
         });
-        
-        uploadedUrls.push(base64);
-        
-        // If online, also upload to storage
+
+        // Add preview immediately
+        setVideos(prev => [...prev, base64]);
+
+        // If online, upload and replace base64 with URL
         if (isOnline) {
           try {
             const { data, error } = await supabase.storage
@@ -517,11 +524,8 @@ export const TeamJobDetail = ({
               const { data: urlData } = supabase.storage
                 .from('job-attachments')
                 .getPublicUrl(data.path);
-              
-              const index = uploadedUrls.indexOf(base64);
-              if (index > -1) {
-                uploadedUrls[index] = urlData.publicUrl;
-              }
+
+              setVideos(prev => prev.map(v => v === base64 ? urlData.publicUrl : v));
             }
           } catch (uploadError) {
             console.error('Storage upload error, keeping base64:', uploadError);
@@ -529,12 +533,11 @@ export const TeamJobDetail = ({
         }
       }
 
-      setVideos(prev => [...prev, ...uploadedUrls]);
       setHasUnsavedChanges(true);
 
       toast({
         title: 'Videos Added',
-        description: `${uploadedUrls.length} video(s) ready to upload.`,
+        description: `${Array.from(files).length} video(s) uploaded.`,
       });
     } catch (error) {
       console.error('Video upload error:', error);
@@ -1088,13 +1091,18 @@ export const TeamJobDetail = ({
         <div className="fixed bottom-0 left-0 right-0 p-3 sm:p-4 bg-background border-t shadow-lg safe-area-bottom">
           <Button
             onClick={handleSave}
-            disabled={isSaving}
+            disabled={isSaving || uploadingPhotos || uploadingFiles || uploadingVideos}
             className="w-full h-11 sm:h-12 text-base sm:text-lg"
           >
             {isSaving ? (
               <>
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                 Saving...
+              </>
+            ) : uploadingPhotos || uploadingFiles || uploadingVideos ? (
+              <>
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                Uploading...
               </>
             ) : (
               <>
