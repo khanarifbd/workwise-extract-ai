@@ -6,6 +6,7 @@ import { TeamSettingsModal } from './TeamSettingsModal';
 import { NotificationHistoryModal } from './NotificationHistoryModal';
 import { TeamAccessCodesModal } from './TeamAccessCodesModal';
 import { TeamAvailabilityModal } from './TeamAvailabilityModal';
+import { SignOffNotificationBell } from './SignOffNotificationBell';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import logo from '@/assets/logo.png';
 import {
@@ -18,9 +19,10 @@ import {
 interface HeaderProps {
   onExport: () => void;
   jobCount: number;
+  onJobClick?: (jobId: string) => void;
 }
 
-export const Header = ({ onExport, jobCount }: HeaderProps) => {
+export const Header = ({ onExport, jobCount, onJobClick }: HeaderProps) => {
   const [isDark, setIsDark] = useState(() => {
     // Initialize from localStorage or system preference
     const stored = localStorage.getItem('theme');
@@ -114,6 +116,7 @@ export const Header = ({ onExport, jobCount }: HeaderProps) => {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            <SignOffNotificationBell onJobClick={onJobClick} />
             <Button variant="outline" size="icon" className="md:w-auto md:px-4" onClick={onExport}>
               <FileDown className="w-4 h-4 md:mr-2" />
               <span className="hidden md:inline">Export</span>
