@@ -84,120 +84,6 @@ async function getAccessToken(serviceAccount: any): Promise<string> {
   return tokenData.access_token;
 }
 
-// Function to create APNs JWT token
-async function createApnsJwt(keyId: string, teamId: string, privateKey: string): Promise<string> {
-  const header = {
-    alg: "ES256",
-    kid: keyId,
-  };
-
-  const now = Math.floor(Date.now() / 1000);
-  const claims = {
-    iss: teamId,
-    iat: now,
-  };
-
-  const base64url = (data: string) => {
-    return btoa(data).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  };
-
-  const headerB64 = base64url(JSON.stringify(header));
-  const claimsB64 = base64url(JSON.stringify(claims));
-  const signatureInput = `${headerB64}.${claimsB64}`;
-
-  // Parse the private key
-  const pemContents = privateKey
-    .replace(/-----BEGIN PRIVATE KEY-----/, '')
-    .replace(/-----END PRIVATE KEY-----/, '')
-    .replace(/\s/g, '');
-  
-  const binaryKey = Uint8Array.from(atob(pemContents), c => c.charCodeAt(0));
-
-  const cryptoKey = await crypto.subtle.importKey(
-    "pkcs8",
-    binaryKey,
-    {
-      name: "ECDSA",
-      namedCurve: "P-256",
-    },
-    false,
-    ["sign"]
-  );
-
-  const encoder = new TextEncoder();
-  const signature = await crypto.subtle.sign(
-    {
-      name: "ECDSA",
-      hash: "SHA-256",
-    },
-    cryptoKey,
-    encoder.encode(signatureInput)
-  );
-
-  // Convert DER signature to raw format (r || s)
-  const signatureArray = new Uint8Array(signature);
-  const signatureB64 = base64url(String.fromCharCode(...signatureArray));
-  
-  return `${signatureInput}.${signatureB64}`;
-}
-
-// Send APNs notification directly
-async function sendApnsNotification(
-  deviceToken: string,
-  title: string,
-  body: string,
-  data: Record<string, string>,
-  apnsKeyId: string,
-  apnsTeamId: string,
-  apnsPrivateKey: string,
-  bundleId: string
-): Promise<{ success: boolean; error?: string }> {
-  try {
-    const jwt = await createApnsJwt(apnsKeyId, apnsTeamId, apnsPrivateKey);
-    
-    const payload = {
-      aps: {
-        alert: {
-          title,
-          body,
-        },
-        sound: "default",
-        badge: 1,
-        "mutable-content": 1,
-      },
-      ...data,
-    };
-
-    // Use production APNs server
-    const apnsUrl = `https://api.push.apple.com/3/device/${deviceToken}`;
-
-    const response = await fetch(apnsUrl, {
-      method: "POST",
-      headers: {
-        "Authorization": `bearer ${jwt}`,
-        "apns-topic": bundleId,
-        "apns-push-type": "alert",
-        "apns-priority": "10",
-        "apns-expiration": "0",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-
-    if (response.ok) {
-      console.log("APNs notification sent successfully");
-      return { success: true };
-    } else {
-      const errorText = await response.text();
-      console.error("APNs error:", response.status, errorText);
-      return { success: false, error: `${response.status}: ${errorText}` };
-    }
-  } catch (error) {
-    console.error("APNs send error:", error);
-    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
-  }
-}
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -212,6 +98,21 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    const FIREBASE_SERVICE_ACCOUNT = Deno.env.get("FIREBASE_SERVICE_ACCOUNT");
+    if (!FIREBASE_SERVICE_ACCOUNT) {
+      console.error("FIREBASE_SERVICE_ACCOUNT not configured");
+      return new Response(
+        JSON.stringify({ error: "Push notification service not configured" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const serviceAccount = JSON.parse(FIREBASE_SERVICE_ACCOUNT);
+    const projectId = serviceAccount.project_id;
+
+    // Get access token for FCM v1 API
+    const accessToken = await getAccessToken(serviceAccount);
 
     // Get Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -245,113 +146,63 @@ serve(async (req) => {
     let failCount = 0;
     const invalidTokens: string[] = [];
 
-    // APNs configuration
-    const APNS_KEY_ID = Deno.env.get("APNS_KEY_ID");
-    const APNS_TEAM_ID = Deno.env.get("APNS_TEAM_ID");
-    const APNS_PRIVATE_KEY = Deno.env.get("APNS_PRIVATE_KEY");
-    const BUNDLE_ID = "app.workwish.com";
-
-    // FCM configuration
-    const FIREBASE_SERVICE_ACCOUNT = Deno.env.get("FIREBASE_SERVICE_ACCOUNT");
-    let fcmAccessToken: string | null = null;
-    let fcmProjectId: string | null = null;
-
-    // Prepare FCM if configured
-    if (FIREBASE_SERVICE_ACCOUNT) {
-      try {
-        const serviceAccount = JSON.parse(FIREBASE_SERVICE_ACCOUNT);
-        fcmProjectId = serviceAccount.project_id;
-        fcmAccessToken = await getAccessToken(serviceAccount);
-        console.log("FCM access token obtained");
-      } catch (e) {
-        console.error("Failed to initialize FCM:", e);
-      }
-    }
-
-    // Check if APNs is configured
-    const apnsConfigured = APNS_KEY_ID && APNS_TEAM_ID && APNS_PRIVATE_KEY;
-    if (apnsConfigured) {
-      console.log("APNs is configured, will use direct APNs for iOS");
-    } else {
-      console.log("APNs not configured, will use FCM for all platforms");
-    }
-
-    // Send notification to each token
+    // Send notification to each token using FCM v1 API
     for (const { fcm_token, platform } of tokens) {
       try {
-        // For iOS with APNs configured, use APNs directly
-        if (platform === "ios" && apnsConfigured) {
-          console.log("Sending APNs notification to iOS device");
-          const result = await sendApnsNotification(
-            fcm_token,
-            title,
-            body,
-            data || {},
-            APNS_KEY_ID!,
-            APNS_TEAM_ID!,
-            APNS_PRIVATE_KEY!,
-            BUNDLE_ID
-          );
-          
-          if (result.success) {
-            successCount++;
-          } else {
-            console.error("APNs failed:", result.error);
-            failCount++;
-            // Check for invalid token errors
-            if (result.error?.includes("BadDeviceToken") || result.error?.includes("Unregistered")) {
-              invalidTokens.push(fcm_token);
-            }
-          }
-        } 
-        // For Android or iOS without APNs, use FCM
-        else if (fcmAccessToken && fcmProjectId) {
-          const message = {
-            message: {
-              token: fcm_token,
+        const message = {
+          message: {
+            token: fcm_token,
+            notification: {
+              title,
+              body,
+            },
+            android: {
+              priority: "high",
               notification: {
-                title,
-                body,
+                sound: "default",
+                channel_id: "job_notifications",
               },
-              android: {
-                priority: "high",
-                notification: {
+            },
+            apns: {
+              headers: {
+                "apns-priority": "10",
+              },
+              payload: {
+                aps: {
                   sound: "default",
-                  channel_id: "job_notifications",
+                  badge: 1,
                 },
               },
-              data: data || {},
             },
-          };
+            data: data || {},
+          },
+        };
 
-          const response = await fetch(
-            `https://fcm.googleapis.com/v1/projects/${fcmProjectId}/messages:send`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${fcmAccessToken}`,
-              },
-              body: JSON.stringify(message),
-            }
-          );
-
-          if (response.ok) {
-            const result = await response.json();
-            console.log(`FCM success for ${platform}:`, result.name);
-            successCount++;
-          } else {
-            const errorText = await response.text();
-            console.error(`FCM error for ${platform}:`, errorText);
-            failCount++;
-            
-            if (errorText.includes("UNREGISTERED") || errorText.includes("INVALID_ARGUMENT")) {
-              invalidTokens.push(fcm_token);
-            }
+        const response = await fetch(
+          `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify(message),
           }
+        );
+
+        if (response.ok) {
+          const result = await response.json();
+          console.log(`FCM success for ${platform}:`, result.name);
+          successCount++;
         } else {
-          console.log(`No push service configured for platform: ${platform}`);
+          const errorText = await response.text();
+          console.error(`FCM error for ${platform}:`, errorText);
           failCount++;
+          
+          // Check if token is invalid and should be removed
+          if (errorText.includes("UNREGISTERED") || errorText.includes("INVALID_ARGUMENT")) {
+            invalidTokens.push(fcm_token);
+          }
         }
       } catch (error) {
         console.error(`Error sending to token:`, error);
