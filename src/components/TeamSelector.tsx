@@ -39,7 +39,7 @@ export const TeamSelector = ({ job, currentCategoryId, onSelect, onClose, onDupl
   const { toast } = useToast();
   const { settings, isLoading, getTeamsForCategory, getGlobalTeams } = useTeamSettings();
   const { categories, isLoading: categoriesLoading } = useCategories();
-  const { isTeamUnavailable, getUnavailableReason } = useTeamAvailability();
+  const { isTeamUnavailableByName, getUnavailableReasonByName } = useTeamAvailability();
 
   // Get the booked date from the job for availability checking
   const bookedDateStr = job.bookedDate 
@@ -78,9 +78,9 @@ export const TeamSelector = ({ job, currentCategoryId, onSelect, onClose, onDupl
   };
 
   const handleTeamToggle = (category: Category, team: TeamSetting) => {
-    // Check if team is unavailable on the booked date
-    if (bookedDateStr && isTeamUnavailable(team.teamId, bookedDateStr)) {
-      const reason = getUnavailableReason(team.teamId, bookedDateStr);
+    // Check if team is unavailable on the booked date using team name
+    if (bookedDateStr && isTeamUnavailableByName(team.teamName, bookedDateStr)) {
+      const reason = getUnavailableReasonByName(team.teamName, bookedDateStr);
       toast({
         title: 'Team Unavailable',
         description: `${team.teamName} is not available on ${format(new Date(bookedDateStr), 'dd MMM yyyy')}${reason ? `: ${reason}` : ''}. Please choose another team or date.`,
@@ -291,8 +291,8 @@ export const TeamSelector = ({ job, currentCategoryId, onSelect, onClose, onDupl
                   getTeamsForDisplay(selectedCategory.id).map((team) => {
                     const isSelected = isTeamSelected(selectedCategory.id, team.teamId);
                     const hasWhatsApp = !!team.whatsappGroup;
-                    const isUnavailable = bookedDateStr && isTeamUnavailable(team.teamId, bookedDateStr);
-                    const unavailableReason = bookedDateStr ? getUnavailableReason(team.teamId, bookedDateStr) : null;
+                    const isUnavailable = bookedDateStr && isTeamUnavailableByName(team.teamName, bookedDateStr);
+                    const unavailableReason = bookedDateStr ? getUnavailableReasonByName(team.teamName, bookedDateStr) : null;
 
                     return (
                       <button

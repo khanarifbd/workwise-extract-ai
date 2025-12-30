@@ -612,11 +612,11 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                   <td onClick={(e) => e.stopPropagation()} className="relative z-20">
                     <div className="relative">
                       {(() => {
-                        const teamId = teamSettings.find(t => t.teamName === job.team)?.teamId;
                         const bookedDateStr = job.bookedDate instanceof Date 
                           ? job.bookedDate.toISOString() 
                           : job.bookedDate;
-                        const hasConflict = hasAvailabilityConflict(teamId, bookedDateStr);
+                        // Use team name directly - hasAvailabilityConflict now supports name lookup
+                        const hasConflict = hasAvailabilityConflict(job.team, bookedDateStr);
                         
                         return (
                           <>
@@ -669,19 +669,13 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                   </td>
                   {/* Status Column - Booked date or UnBooked */}
                   <td onClick={(e) => e.stopPropagation()} className="relative z-20">
-                    {(() => {
-                      const teamSetting = teamSettings.find(t => t.teamName === job.team);
-                      return (
-                        <BookedDateCell
-                          bookedDate={job.bookedDate}
-                          bookingNotes={job.bookingNotes || ''}
-                          teamId={teamSetting?.teamId}
-                          teamName={job.team}
-                          onDateChange={(date) => handleBookedDateChange(job.id, date)}
-                          onNotesChange={(notes) => onUpdateJob({ ...job, bookingNotes: notes })}
-                        />
-                      );
-                    })()}
+                    <BookedDateCell
+                      bookedDate={job.bookedDate}
+                      bookingNotes={job.bookingNotes || ''}
+                      teamName={job.team}
+                      onDateChange={(date) => handleBookedDateChange(job.id, date)}
+                      onNotesChange={(notes) => onUpdateJob({ ...job, bookingNotes: notes })}
+                    />
                   </td>
                   <td onClick={(e) => e.stopPropagation()} className="relative z-20">
                     <InlineDescriptionEditor
