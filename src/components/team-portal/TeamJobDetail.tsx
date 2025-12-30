@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ArrowLeft, MapPin, Phone, Calendar, Save, Camera, Upload, Loader2, CheckCircle2, Clock, FileText, ChevronDown, CheckSquare, AlertCircle, File, X, Image } from 'lucide-react';
+import { ArrowLeft, MapPin, Phone, Calendar, Save, Camera, Upload, Loader2, CheckCircle2, Clock, FileText, ChevronDown, CheckSquare, AlertCircle, File, X, Image, Video } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useOfflineStorage } from '@/hooks/useOfflineStorage';
@@ -38,13 +38,16 @@ export const TeamJobDetail = ({
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState(false);
+  const [uploadingVideos, setUploadingVideos] = useState(false);
+  const [videos, setVideos] = useState<string[]>([]);
   const [photos, setPhotos] = useState<string[]>([]);
   const [documents, setDocuments] = useState<{ name: string; url: string; type: string }[]>([]);
   const [expandedSections, setExpandedSections] = useState({
-    details: true,
+    details: false,
     workItems: false,
-    status: true,
+    status: false,
     photos: false,
+    videos: false,
     documents: false,
   });
   
@@ -63,10 +66,11 @@ export const TeamJobDetail = ({
         notes,
         status,
         photos,
+        videos,
         documents,
       });
     }
-  }, [hasUnsavedChanges, progress, notes, status, photos, documents, job.id, teamName, saveDraft]);
+  }, [hasUnsavedChanges, progress, notes, status, photos, videos, documents, job.id, teamName, saveDraft]);
 
   // Load draft on mount
   useEffect(() => {
@@ -77,6 +81,7 @@ export const TeamJobDetail = ({
         setNotes(draft.data.notes ?? job.progressNotes ?? '');
         setStatus(draft.data.status ?? job.status);
         setPhotos(draft.data.photos ?? []);
+        setVideos(draft.data.videos ?? []);
         setDocuments(draft.data.documents ?? []);
         setHasUnsavedChanges(true);
         toast({
@@ -101,9 +106,10 @@ export const TeamJobDetail = ({
       notes !== (job.progressNotes || '') ||
       status !== job.status ||
       photos.length > 0 ||
+      videos.length > 0 ||
       documents.length > 0;
     setHasUnsavedChanges(changed);
-  }, [progress, notes, status, photos, documents, job]);
+  }, [progress, notes, status, photos, videos, documents, job]);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -113,6 +119,7 @@ export const TeamJobDetail = ({
       progress,
       notes,
       photos: photos.length > 0 ? photos : undefined,
+      videos: videos.length > 0 ? videos : undefined,
       documents: documents.length > 0 ? documents : undefined,
     };
 
@@ -144,13 +151,14 @@ export const TeamJobDetail = ({
           payload: updates,
         });
 
-        if (photos.length > 0 || documents.length > 0) {
+        if (photos.length > 0 || videos.length > 0 || documents.length > 0) {
           await addToSyncQueue({
             teamId,
             actionType: 'file_upload',
             payload: {
               jobId: job.id,
               photos,
+              videos,
               documents,
               notes,
             },
@@ -175,6 +183,7 @@ export const TeamJobDetail = ({
 
       setHasUnsavedChanges(false);
       setPhotos([]);
+      setVideos([]);
       setDocuments([]);
     } catch (error) {
       console.error('Save error:', error);
@@ -207,6 +216,7 @@ export const TeamJobDetail = ({
           progress: 100,
           notes: notes + '\n\n[JOB COMPLETED BY TEAM]',
           photos: photos.length > 0 ? photos : undefined,
+          videos: videos.length > 0 ? videos : undefined,
         });
 
         await clearDraft(job.id, teamName);
@@ -235,6 +245,7 @@ export const TeamJobDetail = ({
             progress: 100,
             notes: notes + '\n\n[JOB COMPLETED BY TEAM]',
             photos,
+            videos,
           },
         });
 
@@ -255,6 +266,7 @@ export const TeamJobDetail = ({
       }
 
       setPhotos([]);
+      setVideos([]);
       setHasUnsavedChanges(false);
     } catch (error) {
       console.error('Completion error:', error);
@@ -389,14 +401,14 @@ export const TeamJobDetail = ({
       setHasUnsavedChanges(true);
 
       toast({
-        title: 'ফাইল যোগ হয়েছে',
-        description: `${uploadedDocs.length} টি ফাইল আপলোডের জন্য প্রস্তুত`,
+        title: 'Files Added',
+        description: `${uploadedDocs.length} file(s) ready to upload.`,
       });
     } catch (error) {
       console.error('File upload error:', error);
       toast({
-        title: 'আপলোড ব্যর্থ',
-        description: 'ফাইল প্রসেস করতে সমস্যা হয়েছে',
+        title: 'Upload Failed',
+        description: 'Failed to process files.',
         variant: 'destructive',
       });
     } finally {
@@ -412,6 +424,80 @@ export const TeamJobDetail = ({
   const removePhoto = (index: number) => {
     setPhotos(prev => prev.filter((_, i) => i !== index));
     setHasUnsavedChanges(true);
+  };
+
+  const removeVideo = (index: number) => {
+    setVideos(prev => prev.filter((_, i) => i !== index));
+    setHasUnsavedChanges(true);
+  };
+
+  // Handle video upload
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setUploadingVideos(true);
+
+    try {
+      const uploadedUrls: string[] = [];
+
+      for (const file of Array.from(files)) {
+        const timestamp = Date.now();
+        const randomId = Math.random().toString(36).substring(2, 8);
+        const extension = file.name?.split('.').pop() || 'mp4';
+        const fileName = `${teamId}/${job.id}/videos/${timestamp}-${randomId}.${extension}`;
+        
+        // First convert to base64 for immediate preview
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        
+        uploadedUrls.push(base64);
+        
+        // If online, also upload to storage
+        if (isOnline) {
+          try {
+            const { data, error } = await supabase.storage
+              .from('job-attachments')
+              .upload(fileName, file);
+
+            if (!error && data) {
+              const { data: urlData } = supabase.storage
+                .from('job-attachments')
+                .getPublicUrl(data.path);
+              
+              const index = uploadedUrls.indexOf(base64);
+              if (index > -1) {
+                uploadedUrls[index] = urlData.publicUrl;
+              }
+            }
+          } catch (uploadError) {
+            console.error('Storage upload error, keeping base64:', uploadError);
+          }
+        }
+      }
+
+      setVideos(prev => [...prev, ...uploadedUrls]);
+      setHasUnsavedChanges(true);
+
+      toast({
+        title: 'Videos Added',
+        description: `${uploadedUrls.length} video(s) ready to upload.`,
+      });
+    } catch (error) {
+      console.error('Video upload error:', error);
+      toast({
+        title: 'Upload Failed',
+        description: 'Failed to process videos.',
+        variant: 'destructive',
+      });
+    } finally {
+      setUploadingVideos(false);
+      e.target.value = '';
+    }
   };
 
   const getFileIcon = (type: string) => {
@@ -721,6 +807,98 @@ export const TeamJobDetail = ({
           </Card>
         </Collapsible>
 
+        {/* Video Upload - Collapsible */}
+        <Collapsible open={expandedSections.videos}>
+          <Card>
+            <CollapsibleTrigger asChild>
+              <CardHeader 
+                className="pb-2 cursor-pointer hover:bg-muted/50 transition-colors"
+                onClick={() => toggleSection('videos')}
+              >
+                <CardTitle className="text-sm sm:text-base flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <Video className="h-4 w-4" />
+                    Videos {videos.length > 0 && `(${videos.length})`}
+                  </span>
+                  <ChevronDown className={`h-4 w-4 transition-transform ${expandedSections.videos ? 'rotate-180' : ''}`} />
+                </CardTitle>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="pt-0">
+                <div className="space-y-3">
+                  <div className="flex gap-2">
+                    {/* Record video button */}
+                    <label className="flex-1 flex flex-col items-center justify-center h-20 border-2 border-dashed rounded-lg cursor-pointer bg-muted/50 hover:bg-muted transition-colors">
+                      <input
+                        type="file"
+                        accept="video/*"
+                        capture="environment"
+                        className="hidden"
+                        onChange={handleVideoUpload}
+                        disabled={uploadingVideos}
+                      />
+                      {uploadingVideos ? (
+                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                      ) : (
+                        <>
+                          <Video className="h-5 w-5 text-muted-foreground mb-1" />
+                          <span className="text-xs text-muted-foreground">
+                            Record Video
+                          </span>
+                        </>
+                      )}
+                    </label>
+                    
+                    {/* Upload video button */}
+                    <label className="flex-1 flex flex-col items-center justify-center h-20 border-2 border-dashed rounded-lg cursor-pointer bg-muted/50 hover:bg-muted transition-colors">
+                      <input
+                        type="file"
+                        accept="video/*"
+                        multiple
+                        className="hidden"
+                        onChange={handleVideoUpload}
+                        disabled={uploadingVideos}
+                      />
+                      {uploadingVideos ? (
+                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                      ) : (
+                        <>
+                          <Upload className="h-5 w-5 text-muted-foreground mb-1" />
+                          <span className="text-xs text-muted-foreground">
+                            Upload Video
+                          </span>
+                        </>
+                      )}
+                    </label>
+                  </div>
+
+                  {videos.length > 0 && (
+                    <div className="grid grid-cols-2 gap-2">
+                      {videos.map((video, index) => (
+                        <div key={index} className="relative aspect-video rounded-lg overflow-hidden bg-muted group">
+                          <video
+                            src={video}
+                            className="w-full h-full object-cover"
+                            controls
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeVideo(index)}
+                            className="absolute top-1 right-1 p-1 bg-destructive rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <X className="h-3 w-3 text-destructive-foreground" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+
         {/* Document Upload - Collapsible */}
         <Collapsible open={expandedSections.documents}>
           <Card>
@@ -756,7 +934,7 @@ export const TeamJobDetail = ({
                       <>
                         <Upload className="h-5 w-5 text-muted-foreground mb-1" />
                         <span className="text-xs text-muted-foreground text-center px-2">
-                          PDF, Word, Excel বা অন্য ফাইল আপলোড করুন
+                          Upload PDF, Word, Excel or other files
                         </span>
                       </>
                     )}
