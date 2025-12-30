@@ -1,6 +1,8 @@
 import UIKit
 import Capacitor
 import UserNotifications
+import FirebaseCore
+import FirebaseMessaging
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -8,8 +10,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        // Configure Firebase
+        FirebaseApp.configure()
+        
+        // Set messaging delegate
+        Messaging.messaging().delegate = self
+        
         // Register for push notifications
         UNUserNotificationCenter.current().delegate = self
+        
         return true
     }
 
@@ -51,7 +60,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     // MARK: - Push Notification Registration
     
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
-        // Pass device token to Capacitor Push Notifications plugin
+        // Pass device token to Firebase Messaging
+        Messaging.messaging().apnsToken = deviceToken
+        
+        // Also pass to Capacitor
         NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: deviceToken)
     }
 
@@ -76,5 +88,23 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         // Let Capacitor handle the notification response
         NotificationCenter.default.post(name: Notification.Name("pushNotificationActionPerformed"), object: response)
         completionHandler()
+    }
+}
+
+// MARK: - MessagingDelegate
+
+extension AppDelegate: MessagingDelegate {
+    
+    func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
+        print("Firebase FCM token: \(fcmToken ?? "nil")")
+        
+        // Notify Capacitor Firebase Messaging plugin about the token
+        if let token = fcmToken {
+            NotificationCenter.default.post(
+                name: Notification.Name("FCMTokenReceived"),
+                object: nil,
+                userInfo: ["token": token]
+            )
+        }
     }
 }
