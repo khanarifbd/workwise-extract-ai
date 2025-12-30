@@ -1,16 +1,19 @@
 import { Job, Team } from '@/types/job';
 import { Category } from '@/types/category';
-import { MessageCircle, ExternalLink, UserX, Loader2, ChevronLeft, Check, Copy } from 'lucide-react';
+import { MessageCircle, ExternalLink, UserX, Loader2, ChevronLeft, Check, Copy, AlertTriangle } from 'lucide-react';
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import { format } from 'date-fns';
 import { sendWhatsAppNotification, saveNotificationToHistory } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { useTeamSettings, TeamSetting } from '@/hooks/useTeamSettings';
 import { useCategories } from '@/hooks/useCategories';
+import { useTeamAvailability } from '@/hooks/useTeamAvailability';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 interface TeamAssignment {
   categoryId: string;
@@ -36,6 +39,12 @@ export const TeamSelector = ({ job, currentCategoryId, onSelect, onClose, onDupl
   const { toast } = useToast();
   const { settings, isLoading, getTeamsForCategory, getGlobalTeams } = useTeamSettings();
   const { categories, isLoading: categoriesLoading } = useCategories();
+  const { isTeamUnavailable, getUnavailableReason } = useTeamAvailability();
+
+  // Get the booked date from the job for availability checking
+  const bookedDateStr = job.bookedDate 
+    ? (job.bookedDate instanceof Date ? format(job.bookedDate, 'yyyy-MM-dd') : String(job.bookedDate).split('T')[0])
+    : null;
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -69,6 +78,18 @@ export const TeamSelector = ({ job, currentCategoryId, onSelect, onClose, onDupl
   };
 
   const handleTeamToggle = (category: Category, team: TeamSetting) => {
+    // Check if team is unavailable on the booked date
+    if (bookedDateStr && isTeamUnavailable(team.teamId, bookedDateStr)) {
+      const reason = getUnavailableReason(team.teamId, bookedDateStr);
+      toast({
+        title: 'Team Unavailable',
+        description: `${team.teamName} is not available on ${format(new Date(bookedDateStr), 'dd MMM yyyy')}${reason ? `: ${reason}` : ''}. Please choose another team or date.`,
+        variant: 'destructive',
+        duration: 5000,
+      });
+      return;
+    }
+
     const existingIndex = assignments.findIndex(
       a => a.categoryId === category.id && a.teamId === team.teamId
     );
@@ -270,14 +291,18 @@ export const TeamSelector = ({ job, currentCategoryId, onSelect, onClose, onDupl
                   getTeamsForDisplay(selectedCategory.id).map((team) => {
                     const isSelected = isTeamSelected(selectedCategory.id, team.teamId);
                     const hasWhatsApp = !!team.whatsappGroup;
+                    const isUnavailable = bookedDateStr && isTeamUnavailable(team.teamId, bookedDateStr);
+                    const unavailableReason = bookedDateStr ? getUnavailableReason(team.teamId, bookedDateStr) : null;
 
                     return (
                       <button
                         key={team.teamId}
                         onClick={() => handleTeamToggle(selectedCategory, team)}
                         className={cn(
-                          'w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted transition-colors text-left',
-                          isSelected && 'bg-primary/10 ring-1 ring-primary/30'
+                          'w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-left',
+                          isSelected && 'bg-primary/10 ring-1 ring-primary/30',
+                          isUnavailable && 'opacity-60 bg-red-50 dark:bg-red-950/20',
+                          !isUnavailable && 'hover:bg-muted'
                         )}
                       >
                         <Checkbox checked={isSelected} className="pointer-events-none" />
@@ -285,8 +310,27 @@ export const TeamSelector = ({ job, currentCategoryId, onSelect, onClose, onDupl
                           className="w-3 h-3 rounded-full flex-shrink-0"
                           style={{ backgroundColor: team.color || 'hsl(var(--muted-foreground))' }}
                         />
-                        <span className="flex-1 font-medium text-sm truncate">{team.teamName}</span>
+                        <div className="flex-1 min-w-0">
+                          <span className={cn(
+                            "font-medium text-sm truncate block",
+                            isUnavailable && "text-red-600 dark:text-red-400"
+                          )}>
+                            {team.teamName}
+                          </span>
+                          {isUnavailable && (
+                            <span className="text-xs text-red-500 flex items-center gap-1">
+                              <AlertTriangle className="w-3 h-3" />
+                              Unavailable {bookedDateStr && `on ${format(new Date(bookedDateStr), 'dd MMM')}`}
+                              {unavailableReason && ` - ${unavailableReason}`}
+                            </span>
+                          )}
+                        </div>
                         {hasWhatsApp && <MessageCircle className="w-4 h-4 text-success flex-shrink-0" />}
+                        {isUnavailable && (
+                          <Badge variant="destructive" className="text-xs px-1.5">
+                            Busy
+                          </Badge>
+                        )}
                       </button>
                     );
                   })}

@@ -5,10 +5,12 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { RefreshCw, LogOut, MapPin, ChevronRight, ChevronDown, Briefcase, Loader2, Bell, BellOff, Calendar, Phone, Smartphone } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { RefreshCw, LogOut, MapPin, ChevronRight, ChevronDown, Briefcase, Loader2, Bell, BellOff, Calendar, Phone, Smartphone, CalendarDays } from 'lucide-react';
 import { format } from 'date-fns';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useCapacitorPush } from '@/hooks/useCapacitorPush';
+import { TeamDiary } from './TeamDiary';
 
 interface TeamJobListProps {
   jobs: Job[];
@@ -33,9 +35,10 @@ export const TeamJobList = ({
   const { isSupported: webPushSupported, isSubscribed: webPushSubscribed, isLoading: webPushLoading, subscribe: webSubscribe, unsubscribe: webUnsubscribe } = usePushNotifications(teamId);
   
   // Native push notifications (Capacitor - Android/iOS)
-  const { isSupported: nativePushSupported, isRegistered: nativePushRegistered, isLoading: nativePushLoading, register: nativeRegister, unregister: nativeUnregister } = useCapacitorPush(teamId);
+const { isSupported: nativePushSupported, isRegistered: nativePushRegistered, isLoading: nativePushLoading, register: nativeRegister, unregister: nativeUnregister } = useCapacitorPush(teamId);
   
   const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set());
+  const [activeTab, setActiveTab] = useState<'jobs' | 'diary'>('jobs');
 
   const getStatusColor = (status: string) => {
     const option = JOB_STATUS_OPTIONS.find(o => o.value === status);
@@ -132,23 +135,49 @@ export const TeamJobList = ({
         </div>
       </div>
 
-      {/* Job List - Mobile optimized */}
-      <div className="p-3 sm:p-4 space-y-3">
-        {isLoading && jobs.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
-            <p className="text-muted-foreground">Loading jobs...</p>
-          </div>
-        ) : jobs.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12">
-            <Briefcase className="h-12 w-12 text-muted-foreground/50 mb-4" />
-            <p className="text-lg font-medium text-muted-foreground">No jobs assigned</p>
-            <p className="text-sm text-muted-foreground/80 text-center px-4">
-              Jobs assigned to your team will appear here
-            </p>
-          </div>
-        ) : (
-          <>
+      {/* Tabs for Jobs and Diary */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'jobs' | 'diary')} className="w-full">
+        <div className="border-b border-border bg-background sticky top-[68px] z-[5]">
+          <TabsList className="w-full justify-start rounded-none h-auto p-0 bg-transparent">
+            <TabsTrigger 
+              value="jobs" 
+              className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-3"
+            >
+              <Briefcase className="h-4 w-4 mr-2" />
+              Jobs ({activeJobs.length})
+            </TabsTrigger>
+            <TabsTrigger 
+              value="diary" 
+              className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-3"
+            >
+              <CalendarDays className="h-4 w-4 mr-2" />
+              My Diary
+            </TabsTrigger>
+          </TabsList>
+        </div>
+
+        <TabsContent value="diary" className="p-3 sm:p-4 mt-0">
+          <TeamDiary teamId={teamId} teamName={teamName} />
+        </TabsContent>
+
+        <TabsContent value="jobs" className="mt-0">
+          {/* Job List - Mobile optimized */}
+          <div className="p-3 sm:p-4 space-y-3">
+            {isLoading && jobs.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+                <p className="text-muted-foreground">Loading jobs...</p>
+              </div>
+            ) : jobs.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12">
+                <Briefcase className="h-12 w-12 text-muted-foreground/50 mb-4" />
+                <p className="text-lg font-medium text-muted-foreground">No jobs assigned</p>
+                <p className="text-sm text-muted-foreground/80 text-center px-4">
+                  Jobs assigned to your team will appear here
+                </p>
+              </div>
+            ) : (
+              <>
             {/* Active Jobs - Distinct styling */}
             {activeJobs.length > 0 && (
               <div className="space-y-3">
@@ -354,7 +383,9 @@ export const TeamJobList = ({
             )}
           </>
         )}
-      </div>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

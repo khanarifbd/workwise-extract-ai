@@ -351,6 +351,33 @@ export type Database = {
         }
         Relationships: []
       }
+      team_availability: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          reason: string | null
+          team_id: string
+          unavailable_date: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          reason?: string | null
+          team_id: string
+          unavailable_date: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          reason?: string | null
+          team_id?: string
+          unavailable_date?: string
+        }
+        Relationships: []
+      }
       team_fcm_tokens: {
         Row: {
           created_at: string
