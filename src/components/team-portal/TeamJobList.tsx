@@ -67,10 +67,10 @@ const { isSupported: nativePushSupported, isRegistered: nativePushRegistered, is
   const completedJobs = jobs.filter(j => j.isCompleted);
 
   return (
-    <div className="pb-20 min-h-screen">
-      {/* Header - Mobile optimized */}
-      <div className="bg-primary text-primary-foreground sticky top-0 z-10 shadow-md safe-area-top">
-        <div className="px-4 py-4">
+    <div className="pb-20 min-h-screen safe-area-bottom">
+      {/* Header - Mobile optimized with iOS safe area */}
+      <div className="bg-primary text-primary-foreground sticky top-0 z-10 shadow-md safe-area-top safe-area-left safe-area-right">
+        <div className="px-4 py-3 sm:py-4">
           <div className="flex items-center justify-between">
             <div className="min-w-0 flex-1">
               <h1 className="text-lg sm:text-xl font-bold truncate">Team {teamName}</h1>
@@ -137,7 +137,7 @@ const { isSupported: nativePushSupported, isRegistered: nativePushRegistered, is
 
       {/* Tabs for Jobs and Diary */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'jobs' | 'diary')} className="w-full">
-        <div className="border-b border-border bg-background sticky top-[68px] z-[5]">
+        <div className="border-b border-border bg-background sticky top-[calc(68px+env(safe-area-inset-top,0px))] z-[5] safe-area-left safe-area-right">
           <TabsList className="w-full justify-start rounded-none h-auto p-0 bg-transparent">
             <TabsTrigger 
               value="jobs" 

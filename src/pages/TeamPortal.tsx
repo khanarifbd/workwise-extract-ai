@@ -321,7 +321,7 @@ const TeamPortal = () => {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center safe-area-all">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
@@ -333,7 +333,7 @@ const TeamPortal = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <OfflineIndicator 
+      <OfflineIndicator
         isOnline={isOnline} 
         pendingSyncCount={pendingSyncCount}
         isSyncing={isSyncing}
