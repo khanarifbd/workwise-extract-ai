@@ -16,6 +16,7 @@ import {
 import { AIWorkConverter } from './AIWorkConverter';
 import { AttachmentUpload } from './AttachmentUpload';
 import { SortableWorkItem } from './SortableWorkItem';
+import { TeamUpdatesSection } from './TeamUpdatesSection';
 import { searchSORCodes, SORCode } from '@/data/sorCodes';
 import {
   DndContext,
@@ -229,6 +230,7 @@ export const JobDetailsModal = ({ job, onClose, onUpdate }: JobDetailsModalProps
               <TabsTrigger value="works" className="text-xs">Works & SOR</TabsTrigger>
               <TabsTrigger value="additional" className="text-xs">Additional</TabsTrigger>
               <TabsTrigger value="attachments" className="text-xs">Attachments</TabsTrigger>
+              <TabsTrigger value="team" className="text-xs">Team Updates</TabsTrigger>
             </TabsList>
 
             <TabsContent value="details" className="space-y-4">
@@ -469,6 +471,14 @@ export const JobDetailsModal = ({ job, onClose, onUpdate }: JobDetailsModalProps
                 jobId={editedJob.id}
                 attachments={editedJob.attachments}
                 onAttachmentsChange={(attachments) => setEditedJob({ ...editedJob, attachments })}
+              />
+            </TabsContent>
+
+            <TabsContent value="team" className="space-y-4">
+              <TeamUpdatesSection
+                jobId={editedJob.id}
+                attachments={editedJob.attachments}
+                workItems={editedJob.workItems}
               />
             </TabsContent>
           </Tabs>
