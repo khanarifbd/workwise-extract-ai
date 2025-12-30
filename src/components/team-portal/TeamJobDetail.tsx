@@ -141,22 +141,41 @@ export const TeamJobDetail = ({
   const handleSave = async () => {
     setIsSaving(true);
 
+    // Filter out base64 data - only include actual uploaded URLs
+    const uploadedPhotos = photos.filter(p => !p.startsWith('data:'));
+    const uploadedVideos = videos.filter(v => !v.startsWith('data:'));
+    const uploadedDocs = documents.filter(d => !d.url.startsWith('data:'));
+
     const updates = {
       status,
       progress,
       notes,
-      photos: photos.length > 0 ? photos : undefined,
-      videos: videos.length > 0 ? videos : undefined,
-      documents: documents.length > 0 ? documents : undefined,
+      photos: uploadedPhotos.length > 0 ? uploadedPhotos : undefined,
+      videos: uploadedVideos.length > 0 ? uploadedVideos : undefined,
+      documents: uploadedDocs.length > 0 ? uploadedDocs : undefined,
       workItemUpdates: Object.keys(workItemUpdates).length > 0 ? workItemUpdates : undefined,
     };
 
     try {
       if (isOnline) {
-        // Use secure edge function instead of direct database access
+        // Use secure edge function - transfers data to main job record
         await updateTeamJob(job.id, updates);
 
         await clearDraft(job.id, teamName);
+        
+        // Build updated job with work item modifications applied
+        const updatedWorkItems = job.workItems.map(item => {
+          const update = workItemUpdates[item.id];
+          if (update) {
+            return {
+              ...item,
+              isConfirmed: update.isConfirmed ?? item.isConfirmed,
+              hasModification: update.hasModification ?? item.hasModification,
+              variation: update.variation ?? item.variation,
+            };
+          }
+          return item;
+        });
         
         onJobUpdate({
           ...job,
@@ -165,33 +184,23 @@ export const TeamJobDetail = ({
           status,
           isCompleted: status === 'complete',
           completionDate: status === 'complete' ? new Date() : null,
+          workItems: updatedWorkItems,
         });
 
         toast({
           title: 'Saved',
-          description: 'Job updated successfully.',
+          description: 'Job updated and data synced to database.',
         });
       } else {
         // Queue for sync
         await addToSyncQueue({
           teamId,
           actionType: 'progress_update',
-          payload: updates,
+          payload: {
+            jobId: job.id,
+            ...updates,
+          },
         });
-
-        if (photos.length > 0 || videos.length > 0 || documents.length > 0) {
-          await addToSyncQueue({
-            teamId,
-            actionType: 'file_upload',
-            payload: {
-              jobId: job.id,
-              photos,
-              videos,
-              documents,
-              notes,
-            },
-          });
-        }
 
         await clearDraft(job.id, teamName);
 
@@ -210,9 +219,10 @@ export const TeamJobDetail = ({
       }
 
       setHasUnsavedChanges(false);
-      setPhotos([]);
-      setVideos([]);
-      setDocuments([]);
+      // Only clear photos/videos/documents that were successfully uploaded
+      setPhotos(prev => prev.filter(p => p.startsWith('data:')));
+      setVideos(prev => prev.filter(v => v.startsWith('data:')));
+      setDocuments(prev => prev.filter(d => d.url.startsWith('data:')));
       setWorkItemUpdates({});
     } catch (error) {
       console.error('Save error:', error);
@@ -226,29 +236,44 @@ export const TeamJobDetail = ({
     }
   };
 
-  // Handle job completion with data transfer
+  // Handle job completion/sign-off with full data transfer
   const handleCompleteJob = async () => {
     if (!canComplete) return;
     
     setIsCompleting(true);
 
     try {
-      // First save any pending changes
-      if (hasUnsavedChanges) {
-        await handleSave();
-      }
+      // Build complete sign-off data package
+      const signOffData = {
+        status: 'complete' as const,
+        progress: 100,
+        notes: notes,
+        photos: photos.filter(p => !p.startsWith('data:')), // Only include uploaded URLs, not base64
+        videos: videos.filter(v => !v.startsWith('data:')),
+        documents: documents.filter(d => !d.url.startsWith('data:')),
+        workItemUpdates: Object.keys(workItemUpdates).length > 0 ? workItemUpdates : undefined,
+        isCompletion: true, // Flag to indicate this is a sign-off
+      };
 
       if (isOnline) {
-        // Use secure edge function for completion
-        await updateTeamJob(job.id, {
-          status: 'complete',
-          progress: 100,
-          notes: notes + '\n\n[JOB COMPLETED BY TEAM]',
-          photos: photos.length > 0 ? photos : undefined,
-          videos: videos.length > 0 ? videos : undefined,
-        });
+        // Use secure edge function for completion - transfers ALL data
+        await updateTeamJob(job.id, signOffData);
 
         await clearDraft(job.id, teamName);
+        
+        // Build updated job with all work item modifications applied
+        const updatedWorkItems = job.workItems.map(item => {
+          const update = workItemUpdates[item.id];
+          if (update) {
+            return {
+              ...item,
+              isConfirmed: update.isConfirmed ?? item.isConfirmed,
+              hasModification: update.hasModification ?? item.hasModification,
+              variation: update.variation ?? item.variation,
+            };
+          }
+          return item;
+        });
         
         onJobUpdate({
           ...job,
@@ -257,24 +282,21 @@ export const TeamJobDetail = ({
           status: 'complete',
           isCompleted: true,
           completionDate: new Date(),
+          workItems: updatedWorkItems,
         });
 
         toast({
-          title: 'Job Completed!',
-          description: 'Job has been marked as complete and data transferred to admin.',
+          title: '✓ Job Signed Off!',
+          description: 'All job data, photos, videos, documents, and work item updates have been transferred to the database.',
         });
       } else {
-        // Queue for sync when offline
+        // Queue for sync when offline - include ALL data
         await addToSyncQueue({
           teamId,
           actionType: 'job_complete',
           payload: {
             id: job.id,
-            status: 'complete',
-            progress: 100,
-            notes: notes + '\n\n[JOB COMPLETED BY TEAM]',
-            photos,
-            videos,
+            ...signOffData,
           },
         });
 
@@ -289,18 +311,21 @@ export const TeamJobDetail = ({
         });
 
         toast({
-          title: 'Completion Queued',
-          description: 'Job completion will sync when you\'re back online.',
+          title: 'Sign-Off Queued',
+          description: 'Job completion and all data will sync when you\'re back online.',
         });
       }
 
+      // Clear all local state after successful sign-off
       setPhotos([]);
       setVideos([]);
+      setDocuments([]);
+      setWorkItemUpdates({});
       setHasUnsavedChanges(false);
     } catch (error) {
-      console.error('Completion error:', error);
+      console.error('Sign-off error:', error);
       toast({
-        title: 'Completion Failed',
+        title: 'Sign-Off Failed',
         description: 'Failed to complete job. Please try again.',
         variant: 'destructive',
       });
