@@ -15,6 +15,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useOfflineStorage } from '@/hooks/useOfflineStorage';
 import { useToast } from '@/hooks/use-toast';
 import { useTeamAuth } from '@/hooks/useTeamAuth';
+import { SignOffConfirmationModal } from './SignOffConfirmationModal';
 interface TeamJobDetailProps {
   job: Job;
   teamId: string;
@@ -37,6 +38,7 @@ export const TeamJobDetail = ({
   const [status, setStatus] = useState<JobStatus>(job.status);
   const [isSaving, setIsSaving] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
+  const [showSignOffModal, setShowSignOffModal] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState(false);
@@ -1074,21 +1076,12 @@ export const TeamJobDetail = ({
                     All tasks are done. Mark this job as complete to transfer all notes, photos, and documentation to admin.
                   </p>
                   <Button 
-                    onClick={handleCompleteJob}
+                    onClick={() => setShowSignOffModal(true)}
                     disabled={isCompleting}
                     className="w-full mt-3 bg-success hover:bg-success/90 text-success-foreground"
                   >
-                    {isCompleting ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Completing...
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle2 className="mr-2 h-4 w-4" />
-                        Complete & Sign Off Job
-                      </>
-                    )}
+                    <CheckCircle2 className="mr-2 h-4 w-4" />
+                    Complete & Sign Off Job
                   </Button>
                 </div>
               </div>
@@ -1129,6 +1122,32 @@ export const TeamJobDetail = ({
           </Button>
         </div>
       )}
+
+      {/* Sign-Off Confirmation Modal */}
+      <SignOffConfirmationModal
+        isOpen={showSignOffModal}
+        onClose={() => setShowSignOffModal(false)}
+        onConfirm={() => {
+          setShowSignOffModal(false);
+          handleCompleteJob();
+        }}
+        isSubmitting={isCompleting}
+        summary={{
+          jobNumber: job.jobNumber,
+          jobName: job.name,
+          photosCount: photos.filter(p => !p.startsWith('data:')).length,
+          videosCount: videos.filter(v => !v.startsWith('data:')).length,
+          documentsCount: documents.filter(d => !d.url.startsWith('data:')).length,
+          workItemsTotal: job.workItems.length,
+          workItemsCompleted: job.workItems.filter(item => {
+            const update = workItemUpdates[item.id];
+            return (update?.isConfirmed ?? item.isConfirmed) !== false;
+          }).length,
+          workItemsModified: Object.values(workItemUpdates).filter(u => u.hasModification).length + 
+            job.workItems.filter(item => !workItemUpdates[item.id] && item.hasModification).length,
+          progressNotes: notes,
+        }}
+      />
     </div>
   );
 };
