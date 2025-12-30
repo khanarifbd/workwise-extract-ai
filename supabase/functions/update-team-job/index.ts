@@ -5,6 +5,12 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+interface WorkItemUpdate {
+  isConfirmed?: boolean;
+  hasModification?: boolean;
+  variation?: string;
+}
+
 interface UpdateJobRequest {
   teamId: string;
   teamName: string;
@@ -14,6 +20,9 @@ interface UpdateJobRequest {
     progress?: number;
     notes?: string;
     photos?: string[];
+    videos?: string[];
+    documents?: { name: string; url: string; type: string }[];
+    workItemUpdates?: Record<string, WorkItemUpdate>;
   };
 }
 
@@ -150,6 +159,43 @@ Deno.serve(async (req) => {
     if (updates.status) jobUpdates.status = updates.status;
     if (updates.progress !== undefined) jobUpdates.progress = updates.progress;
     if (updates.notes) jobUpdates.progress_notes = updates.notes;
+
+    // Handle work item updates - merge with existing work items
+    if (updates.workItemUpdates && Object.keys(updates.workItemUpdates).length > 0) {
+      // Fetch current work_items from job
+      const { data: currentJob, error: fetchError } = await supabase
+        .from("jobs")
+        .select("work_items")
+        .eq("id", jobId)
+        .single();
+
+      if (fetchError) {
+        console.error("Failed to fetch job work items:", fetchError.message);
+        return new Response(
+          JSON.stringify({ error: "Failed to fetch job work items" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Merge updates into work items
+      const workItems = (currentJob?.work_items as Array<Record<string, unknown>>) || [];
+      const updatedWorkItems = workItems.map((item) => {
+        const itemId = item.id as string;
+        const itemUpdate = updates.workItemUpdates?.[itemId];
+        if (itemUpdate) {
+          return {
+            ...item,
+            isConfirmed: itemUpdate.isConfirmed ?? item.isConfirmed,
+            hasModification: itemUpdate.hasModification ?? item.hasModification,
+            variation: itemUpdate.variation ?? item.variation,
+          };
+        }
+        return item;
+      });
+
+      jobUpdates.work_items = updatedWorkItems;
+      console.log(`Updated ${Object.keys(updates.workItemUpdates).length} work items for job ${jobId}`);
+    }
 
     // Update the job
     if (Object.keys(jobUpdates).length > 0) {

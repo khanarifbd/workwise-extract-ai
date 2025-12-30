@@ -114,7 +114,15 @@ export const useTeamAuth = () => {
   // Function to update job through edge function
   const updateTeamJob = useCallback(async (
     jobId: string, 
-    updates: { status?: string; progress?: number; notes?: string; photos?: string[]; videos?: string[]; documents?: { name: string; url: string; type: string }[] }
+    updates: { 
+      status?: string; 
+      progress?: number; 
+      notes?: string; 
+      photos?: string[]; 
+      videos?: string[]; 
+      documents?: { name: string; url: string; type: string }[];
+      workItemUpdates?: Record<string, { isConfirmed?: boolean; hasModification?: boolean; variation?: string }>;
+    }
   ) => {
     if (!session) {
       throw new Error('Not authenticated');

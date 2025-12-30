@@ -213,6 +213,7 @@ export const TeamJobDetail = ({
       setPhotos([]);
       setVideos([]);
       setDocuments([]);
+      setWorkItemUpdates({});
     } catch (error) {
       console.error('Save error:', error);
       toast({
