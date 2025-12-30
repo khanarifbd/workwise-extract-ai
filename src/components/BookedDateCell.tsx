@@ -16,20 +16,19 @@ import { useToast } from '@/hooks/use-toast';
 interface BookedDateCellProps {
   bookedDate: Date | null;
   bookingNotes: string;
-  teamId?: string | null;
   teamName?: string | null;
   onDateChange: (date: Date | null) => void;
   onNotesChange: (notes: string) => void;
 }
 
-export const BookedDateCell = ({ bookedDate, bookingNotes, teamId, teamName, onDateChange, onNotesChange }: BookedDateCellProps) => {
+export const BookedDateCell = ({ bookedDate, bookingNotes, teamName, onDateChange, onNotesChange }: BookedDateCellProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
   const [notesValue, setNotesValue] = useState(bookingNotes || '');
   const [pendingDate, setPendingDate] = useState<Date | null>(null);
   
-  const { isTeamUnavailable, getUnavailableReason } = useTeamAvailability();
+  const { isTeamUnavailableByName, getUnavailableReasonByName, getTeamIdByName } = useTeamAvailability();
   const { toast } = useToast();
 
   const handleSetBooked = () => {
@@ -47,13 +46,13 @@ export const BookedDateCell = ({ bookedDate, bookingNotes, teamId, teamName, onD
     e.preventDefault();
     e.stopPropagation();
     if (pendingDate) {
-      // Check if team is unavailable on this date
+      // Check if team is unavailable on this date using team name
       const dateStr = format(pendingDate, 'yyyy-MM-dd');
-      if (teamId && isTeamUnavailable(teamId, dateStr)) {
-        const reason = getUnavailableReason(teamId, dateStr);
+      if (teamName && isTeamUnavailableByName(teamName, dateStr)) {
+        const reason = getUnavailableReasonByName(teamName, dateStr);
         toast({
           title: 'Team Unavailable',
-          description: `${teamName || 'Assigned team'} is not available on ${format(pendingDate, 'dd MMM yyyy')}${reason ? `: ${reason}` : ''}. Please choose another date or reassign the team.`,
+          description: `${teamName} is not available on ${format(pendingDate, 'dd MMM yyyy')}${reason ? `: ${reason}` : ''}. Please choose another date or reassign the team.`,
           variant: 'destructive',
           duration: 5000,
         });
@@ -218,10 +217,10 @@ export const BookedDateCell = ({ bookedDate, bookingNotes, teamId, teamName, onD
         ) : (
           <div className="space-y-2">
             <label className="text-xs font-medium text-muted-foreground block">Select Booked Date</label>
-            {teamId && (
+            {teamName && (
               <div className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
                 <AlertTriangle className="w-3 h-3 text-amber-500" />
-                <span>Red dates are unavailable for {teamName || 'team'}</span>
+                <span>Red dates are unavailable for {teamName}</span>
               </div>
             )}
             <Calendar
@@ -230,8 +229,8 @@ export const BookedDateCell = ({ bookedDate, bookingNotes, teamId, teamName, onD
               onSelect={handleDateSelect}
               initialFocus
               className="p-0 pointer-events-auto"
-              modifiers={teamId ? {
-                unavailable: (date) => isTeamUnavailable(teamId, format(date, 'yyyy-MM-dd'))
+              modifiers={teamName ? {
+                unavailable: (date) => isTeamUnavailableByName(teamName, format(date, 'yyyy-MM-dd'))
               } : {}}
               modifiersStyles={{
                 unavailable: { 
@@ -243,11 +242,11 @@ export const BookedDateCell = ({ bookedDate, bookingNotes, teamId, teamName, onD
             />
             {pendingDate && (
               <>
-                {teamId && isTeamUnavailable(teamId, format(pendingDate, 'yyyy-MM-dd')) ? (
+                {teamName && isTeamUnavailableByName(teamName, format(pendingDate, 'yyyy-MM-dd')) ? (
                   <div className="bg-red-50 dark:bg-red-900/30 rounded-md p-2 text-center">
                     <p className="text-xs text-red-700 dark:text-red-400 flex items-center justify-center gap-1">
                       <AlertTriangle className="w-3 h-3" />
-                      {teamName || 'Team'} unavailable: {getUnavailableReason(teamId, format(pendingDate, 'yyyy-MM-dd')) || 'No reason provided'}
+                      {teamName} unavailable: {getUnavailableReasonByName(teamName, format(pendingDate, 'yyyy-MM-dd')) || 'No reason provided'}
                     </p>
                   </div>
                 ) : (
@@ -264,10 +263,10 @@ export const BookedDateCell = ({ bookedDate, bookingNotes, teamId, teamName, onD
                 type="button"
                 size="sm"
                 onClick={handleConfirmBooking}
-                disabled={!pendingDate || (teamId && pendingDate && isTeamUnavailable(teamId, format(pendingDate, 'yyyy-MM-dd')))}
+                disabled={!pendingDate || (teamName && pendingDate && isTeamUnavailableByName(teamName, format(pendingDate, 'yyyy-MM-dd')))}
                 className={cn(
                   "flex-1 pointer-events-auto",
-                  teamId && pendingDate && isTeamUnavailable(teamId, format(pendingDate, 'yyyy-MM-dd'))
+                  teamName && pendingDate && isTeamUnavailableByName(teamName, format(pendingDate, 'yyyy-MM-dd'))
                     ? "bg-muted text-muted-foreground cursor-not-allowed"
                     : "bg-amber-500 hover:bg-amber-600 text-white"
                 )}

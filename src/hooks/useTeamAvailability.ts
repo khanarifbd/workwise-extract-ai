@@ -5,14 +5,20 @@ import { useToast } from './use-toast';
 export interface TeamUnavailableDay {
   id: string;
   teamId: string;
-  unavailableDate: string; // YYYY-MM-DD format
+  unavailableDate: string;
   reason: string | null;
   createdAt: string;
   createdBy: string | null;
 }
 
+interface TeamAccessCode {
+  teamId: string;
+  teamName: string;
+}
+
 export const useTeamAvailability = () => {
   const [unavailableDays, setUnavailableDays] = useState<TeamUnavailableDay[]>([]);
+  const [teamAccessCodes, setTeamAccessCodes] = useState<TeamAccessCode[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
@@ -21,7 +27,7 @@ export const useTeamAvailability = () => {
       const { data, error } = await supabase
         .from('team_availability')
         .select('*')
-        .order('unavailable_date');
+        .order('unavailable_date', { ascending: true });
 
       if (error) throw error;
 
@@ -36,16 +42,38 @@ export const useTeamAvailability = () => {
         }))
       );
     } catch (error) {
-      console.error('Error loading team availability:', error);
+      console.error('Error loading availability:', error);
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  // Real-time subscription
+  // Load team access codes for name-to-id mapping
+  const loadTeamAccessCodes = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('team_access_codes')
+        .select('team_id, team_name')
+        .eq('is_active', true);
+
+      if (error) throw error;
+
+      setTeamAccessCodes(
+        (data || []).map((row: any) => ({
+          teamId: row.team_id,
+          teamName: row.team_name,
+        }))
+      );
+    } catch (error) {
+      console.error('Error loading team access codes:', error);
+    }
+  }, []);
+
   useEffect(() => {
     loadAvailability();
+    loadTeamAccessCodes();
 
+    // Subscribe to realtime changes
     const channel = supabase
       .channel('team-availability-changes')
       .on(
@@ -55,8 +83,7 @@ export const useTeamAvailability = () => {
           schema: 'public',
           table: 'team_availability',
         },
-        (payload) => {
-          console.log('Team availability changed:', payload);
+        () => {
           loadAvailability();
         }
       )
@@ -65,48 +92,63 @@ export const useTeamAvailability = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [loadAvailability]);
+  }, [loadAvailability, loadTeamAccessCodes]);
 
-  const addUnavailableDay = async (
-    teamId: string,
-    date: string,
-    reason?: string,
-    createdBy?: string
-  ) => {
+  // Helper to get team_id from team_access_codes by team name
+  const getTeamIdByName = useCallback((teamName: string | null | undefined): string | null => {
+    if (!teamName) return null;
+    const normalizedName = teamName.toLowerCase().trim();
+    const accessCode = teamAccessCodes.find(tc => 
+      tc.teamName.toLowerCase().trim() === normalizedName
+    );
+    return accessCode?.teamId || null;
+  }, [teamAccessCodes]);
+
+  const addUnavailableDay = async (teamId: string, date: string, reason?: string, createdBy?: string): Promise<boolean> => {
     try {
-      const { error } = await supabase.from('team_availability').insert({
-        team_id: teamId,
-        unavailable_date: date,
-        reason: reason || null,
-        created_by: createdBy || null,
-      });
-
-      if (error) {
-        if (error.code === '23505') {
-          toast({
-            title: 'Day already marked unavailable',
-            variant: 'destructive',
-          });
-          return false;
-        }
-        throw error;
+      // Check if already exists
+      const existing = unavailableDays.find(
+        d => d.teamId === teamId && d.unavailableDate === date
+      );
+      if (existing) {
+        toast({
+          title: 'Already unavailable',
+          description: 'This date is already marked as unavailable.',
+          variant: 'destructive',
+        });
+        return false;
       }
 
+      const { error } = await supabase
+        .from('team_availability')
+        .insert({
+          team_id: teamId,
+          unavailable_date: date,
+          reason: reason || null,
+          created_by: createdBy || null,
+        });
+
+      if (error) throw error;
+
       toast({
-        title: 'Day marked as unavailable',
+        title: 'Day marked unavailable',
+        description: `${date} has been marked as unavailable.`,
       });
+
+      await loadAvailability();
       return true;
     } catch (error) {
       console.error('Error adding unavailable day:', error);
       toast({
-        title: 'Failed to mark day unavailable',
+        title: 'Error',
+        description: 'Failed to mark day as unavailable.',
         variant: 'destructive',
       });
       return false;
     }
   };
 
-  const removeUnavailableDay = async (teamId: string, date: string) => {
+  const removeUnavailableDay = async (teamId: string, date: string): Promise<boolean> => {
     try {
       const { error } = await supabase
         .from('team_availability')
@@ -117,67 +159,89 @@ export const useTeamAvailability = () => {
       if (error) throw error;
 
       toast({
-        title: 'Day marked as available',
+        title: 'Day now available',
+        description: `${date} is now available.`,
       });
+
+      await loadAvailability();
       return true;
     } catch (error) {
       console.error('Error removing unavailable day:', error);
       toast({
-        title: 'Failed to update availability',
+        title: 'Error',
+        description: 'Failed to mark day as available.',
         variant: 'destructive',
       });
       return false;
     }
   };
 
-  // Check if a team is unavailable on a specific date
-  const isTeamUnavailable = useCallback(
-    (teamId: string, date: string): boolean => {
-      return unavailableDays.some(
-        (day) => day.teamId === teamId && day.unavailableDate === date
-      );
-    },
-    [unavailableDays]
-  );
+  // Check by teamId (from team_access_codes format like "team_indika")
+  const isTeamUnavailable = useCallback((teamId: string, date: string): boolean => {
+    return unavailableDays.some(
+      d => d.teamId === teamId && d.unavailableDate === date
+    );
+  }, [unavailableDays]);
 
-  // Get all unavailable dates for a team
-  const getTeamUnavailableDates = useCallback(
-    (teamId: string): TeamUnavailableDay[] => {
-      return unavailableDays.filter((day) => day.teamId === teamId);
-    },
-    [unavailableDays]
-  );
+  // Check by team name (maps to team_access_codes team_id)
+  const isTeamUnavailableByName = useCallback((teamName: string | null | undefined, date: string): boolean => {
+    if (!teamName || !date) return false;
+    const teamId = getTeamIdByName(teamName);
+    if (!teamId) return false;
+    return isTeamUnavailable(teamId, date);
+  }, [getTeamIdByName, isTeamUnavailable]);
 
-  // Get unavailable reason for a specific date
-  const getUnavailableReason = useCallback(
-    (teamId: string, date: string): string | null => {
-      const day = unavailableDays.find(
-        (d) => d.teamId === teamId && d.unavailableDate === date
-      );
-      return day?.reason || null;
-    },
-    [unavailableDays]
-  );
+  const getTeamUnavailableDates = useCallback((teamId: string): TeamUnavailableDay[] => {
+    return unavailableDays.filter(d => d.teamId === teamId);
+  }, [unavailableDays]);
 
-  // Check if any assigned job has a conflict (team unavailable on booked date)
-  const hasAvailabilityConflict = useCallback(
-    (teamId: string | null | undefined, bookedDate: string | null | undefined): boolean => {
-      if (!teamId || !bookedDate) return false;
-      const dateStr = bookedDate.split('T')[0]; // Convert to YYYY-MM-DD
-      return isTeamUnavailable(teamId, dateStr);
-    },
-    [isTeamUnavailable]
-  );
+  const getUnavailableReason = useCallback((teamId: string, date: string): string | null => {
+    const day = unavailableDays.find(
+      d => d.teamId === teamId && d.unavailableDate === date
+    );
+    return day?.reason || null;
+  }, [unavailableDays]);
+
+  // Get reason by team name
+  const getUnavailableReasonByName = useCallback((teamName: string | null | undefined, date: string): string | null => {
+    if (!teamName || !date) return null;
+    const teamId = getTeamIdByName(teamName);
+    if (!teamId) return null;
+    return getUnavailableReason(teamId, date);
+  }, [getTeamIdByName, getUnavailableReason]);
+
+  // Check for availability conflict - now supports both teamId and teamName
+  const hasAvailabilityConflict = useCallback((
+    teamIdOrName: string | null | undefined, 
+    bookedDate: string | null | undefined
+  ): boolean => {
+    if (!teamIdOrName || !bookedDate) return false;
+    
+    // Extract date part (handle ISO strings)
+    const dateStr = bookedDate.split('T')[0];
+    
+    // First try direct teamId match
+    if (isTeamUnavailable(teamIdOrName, dateStr)) {
+      return true;
+    }
+    
+    // Then try by team name
+    return isTeamUnavailableByName(teamIdOrName, dateStr);
+  }, [isTeamUnavailable, isTeamUnavailableByName]);
 
   return {
     unavailableDays,
+    teamAccessCodes,
     isLoading,
     addUnavailableDay,
     removeUnavailableDay,
     isTeamUnavailable,
+    isTeamUnavailableByName,
     getTeamUnavailableDates,
     getUnavailableReason,
+    getUnavailableReasonByName,
     hasAvailabilityConflict,
+    getTeamIdByName,
     refreshAvailability: loadAvailability,
   };
 };
