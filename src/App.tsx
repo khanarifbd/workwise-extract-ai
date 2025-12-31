@@ -6,7 +6,6 @@ import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Capacitor } from "@capacitor/core";
 import Index from "./pages/Index";
 import TeamPortal from "./pages/TeamPortal";
-import TeamQRCode from "./pages/TeamQRCode";
 import AdminAuth from "./pages/AdminAuth";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
@@ -42,7 +41,6 @@ const App = () => (
                 </AdminRoute>
               } />
               <Route path="/team" element={<TeamPortal />} />
-              <Route path="/team-qr" element={<TeamQRCode />} />
               <Route path="*" element={<NotFound />} />
             </>
           )}

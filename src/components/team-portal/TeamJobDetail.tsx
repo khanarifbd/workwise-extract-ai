@@ -1074,24 +1074,73 @@ export const TeamJobDetail = ({
                   </label>
 
                   {allDocuments.length > 0 && (
-                    <div className="space-y-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                       {allDocuments.map((doc, index) => {
                         const isExisting = index < existingDocuments.length;
                         const newIndex = index - existingDocuments.length;
+                        const isPdf = doc.type?.includes('pdf') || doc.name?.toLowerCase().endsWith('.pdf');
+                        const isWord = doc.type?.includes('word') || doc.name?.toLowerCase().match(/\.(doc|docx)$/);
+                        const isExcel = doc.type?.includes('excel') || doc.type?.includes('spreadsheet') || doc.name?.toLowerCase().match(/\.(xls|xlsx)$/);
+                        const isImage = doc.type?.startsWith('image/') || doc.name?.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp)$/);
+                        
                         return (
-                          <div key={index} className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg group">
-                            {getFileIcon(doc.type)}
-                            <span className="flex-1 text-xs sm:text-sm truncate">{doc.name}</span>
-                            {isExisting && (
-                              <Badge variant="secondary" className="text-[10px]">Saved</Badge>
-                            )}
+                          <div key={index} className="relative group">
+                            <a 
+                              href={doc.url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="block p-3 bg-muted/50 rounded-lg border border-border hover:border-primary/50 hover:bg-muted transition-all"
+                            >
+                              {/* Thumbnail preview */}
+                              <div className="flex items-center justify-center h-16 mb-2 rounded bg-background/50">
+                                {isImage ? (
+                                  <img 
+                                    src={doc.url} 
+                                    alt={doc.name} 
+                                    className="h-full w-full object-contain rounded"
+                                  />
+                                ) : isPdf ? (
+                                  <div className="flex flex-col items-center">
+                                    <FileText className="h-8 w-8 text-red-500" />
+                                    <span className="text-[10px] text-red-500 font-medium mt-1">PDF</span>
+                                  </div>
+                                ) : isWord ? (
+                                  <div className="flex flex-col items-center">
+                                    <FileText className="h-8 w-8 text-blue-500" />
+                                    <span className="text-[10px] text-blue-500 font-medium mt-1">WORD</span>
+                                  </div>
+                                ) : isExcel ? (
+                                  <div className="flex flex-col items-center">
+                                    <FileText className="h-8 w-8 text-green-500" />
+                                    <span className="text-[10px] text-green-500 font-medium mt-1">EXCEL</span>
+                                  </div>
+                                ) : (
+                                  <div className="flex flex-col items-center">
+                                    <File className="h-8 w-8 text-muted-foreground" />
+                                    <span className="text-[10px] text-muted-foreground font-medium mt-1">FILE</span>
+                                  </div>
+                                )}
+                              </div>
+                              
+                              {/* File name */}
+                              <p className="text-xs truncate text-center text-foreground">{doc.name}</p>
+                              
+                              {/* Saved badge */}
+                              {isExisting && (
+                                <div className="absolute top-1 left-1">
+                                  <Badge variant="secondary" className="text-[8px] px-1 py-0">Saved</Badge>
+                                </div>
+                              )}
+                            </a>
+                            
+                            {/* Remove button for new uploads */}
                             {!isExisting && (
                               <button
                                 type="button"
                                 onClick={() => removeDocument(newIndex)}
-                                className="p-1 hover:bg-destructive/20 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                                className="absolute top-1 right-1 p-1 bg-destructive rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                               >
-                                <X className="h-4 w-4 text-destructive" />
+                                <X className="h-3 w-3 text-destructive-foreground" />
                               </button>
                             )}
                           </div>
