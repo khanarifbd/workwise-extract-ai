@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Plus, KeyRound, Trash2, RefreshCw, Check, XCircle } from 'lucide-react';
+import { X, Plus, KeyRound, Trash2, RefreshCw, Check, XCircle, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -16,6 +16,8 @@ export const TeamAccessCodesModal = ({ onClose }: TeamAccessCodesModalProps) => 
   const [newTeamName, setNewTeamName] = useState('');
   const [newAccessCode, setNewAccessCode] = useState('');
   const [isAdding, setIsAdding] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingCode, setEditingCode] = useState('');
 
   const handleAdd = async () => {
     if (!newTeamName.trim() || !newAccessCode.trim()) return;
@@ -37,6 +39,24 @@ export const TeamAccessCodesModal = ({ onClose }: TeamAccessCodesModalProps) => 
     if (confirm(`Delete access code for ${teamName}?`)) {
       await deleteCode(id);
     }
+  };
+
+  const handleStartEdit = (id: string, currentCode: string) => {
+    setEditingId(id);
+    setEditingCode(currentCode);
+  };
+
+  const handleSaveEdit = async (id: string) => {
+    if (editingCode.trim()) {
+      await updateCode(id, { accessCode: editingCode.trim() });
+    }
+    setEditingId(null);
+    setEditingCode('');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditingCode('');
   };
 
   return (
@@ -125,9 +145,44 @@ export const TeamAccessCodesModal = ({ onClose }: TeamAccessCodesModalProps) => 
                         )}
                         <span className="font-medium truncate">{code.teamName}</span>
                       </div>
-                      <code className="px-3 py-1 bg-muted rounded font-mono text-sm tracking-wider">
-                        {code.accessCode}
-                      </code>
+                      
+                      {editingId === code.id ? (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={editingCode}
+                            onChange={(e) => setEditingCode(e.target.value.toUpperCase())}
+                            className="w-28 h-8 font-mono text-sm tracking-wider uppercase"
+                            maxLength={8}
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleSaveEdit(code.id);
+                              if (e.key === 'Escape') handleCancelEdit();
+                            }}
+                          />
+                          <Button size="sm" variant="ghost" className="h-8 px-2" onClick={() => handleSaveEdit(code.id)}>
+                            <Check className="w-4 h-4 text-green-500" />
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-8 px-2" onClick={handleCancelEdit}>
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1">
+                          <code className="px-3 py-1 bg-muted rounded font-mono text-sm tracking-wider">
+                            {code.accessCode}
+                          </code>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => handleStartEdit(code.id, code.accessCode)}
+                            title="Edit access code"
+                          >
+                            <Pencil className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      )}
+                      
                       <div className="flex items-center gap-3">
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-muted-foreground">Active</span>

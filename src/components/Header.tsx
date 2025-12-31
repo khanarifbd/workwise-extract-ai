@@ -1,4 +1,4 @@
-import { FileDown, Moon, Sun, Settings, History, KeyRound, QrCode, Users, LogOut, ChevronDown, CalendarDays } from 'lucide-react';
+import { FileDown, Moon, Sun, Settings, History, KeyRound, Users, LogOut, ChevronDown, CalendarDays } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
@@ -90,12 +90,6 @@ export const Header = ({ onExport, jobCount, onJobClick }: HeaderProps) => {
                   <Link to="/team" className="flex items-center gap-2 cursor-pointer">
                     <Users className="w-4 h-4" />
                     Team Portal
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/team-qr" className="flex items-center gap-2 cursor-pointer">
-                    <QrCode className="w-4 h-4" />
-                    QR Code
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setShowNotificationHistory(true)} className="flex items-center gap-2 cursor-pointer">
