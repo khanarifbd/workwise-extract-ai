@@ -30,7 +30,7 @@ const config: CapacitorConfig = {
       presentationOptions: ['badge', 'sound', 'alert']
     },
     StatusBar: {
-      backgroundColor: '#EA580C',
+      backgroundColor: '#F97316',
       style: 'LIGHT'
     }
   }
