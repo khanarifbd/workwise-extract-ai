@@ -109,6 +109,26 @@ export const TeamDiary: React.FC<TeamDiaryProps> = ({ teamId, teamName }) => {
     if (!selectedDate) return;
 
     try {
+      // First check if already exists in database (fresh check)
+      const { data: existingData } = await supabase
+        .from('team_availability')
+        .select('id')
+        .eq('team_id', teamId)
+        .eq('unavailable_date', selectedDate)
+        .maybeSingle();
+
+      if (existingData) {
+        toast({
+          title: 'Day already marked unavailable',
+          variant: 'destructive',
+        });
+        // Refresh local state to sync with server
+        await loadUnavailableDays();
+        setSelectedDate(null);
+        setReason('');
+        return;
+      }
+
       // Insert without select to avoid RLS issues on team portal (not authenticated as Supabase user)
       const { error } = await supabase.from('team_availability').insert({
         team_id: teamId,
@@ -123,12 +143,14 @@ export const TeamDiary: React.FC<TeamDiaryProps> = ({ teamId, teamName }) => {
             title: 'Day already marked unavailable',
             variant: 'destructive',
           });
+          // Refresh local state to sync with server
+          await loadUnavailableDays();
         } else {
           console.error('Insert error:', error);
           throw error;
         }
       } else {
-        // Optimistically update local state with a temporary id
+        // Immediately update local state
         const tempId = crypto.randomUUID();
         setUnavailableDays(prev => [...prev, {
           id: tempId,
@@ -142,9 +164,6 @@ export const TeamDiary: React.FC<TeamDiaryProps> = ({ teamId, teamName }) => {
           title: 'Day marked as unavailable',
           description: `${format(new Date(selectedDate), 'dd MMM yyyy')} is now blocked`,
         });
-        
-        // Reload to get real data from server
-        loadUnavailableDays();
       }
       setSelectedDate(null);
       setReason('');
