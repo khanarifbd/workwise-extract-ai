@@ -39,7 +39,7 @@ const TeamPortal = () => {
         try {
           // Dynamic import for native-only plugin
           const { StatusBar, Style } = await import('@capacitor/status-bar');
-          await StatusBar.setBackgroundColor({ color: '#EA580C' });
+          await StatusBar.setBackgroundColor({ color: '#F97316' });
           await StatusBar.setStyle({ style: Style.Light });
         } catch (error) {
           console.error('Error setting status bar:', error);
