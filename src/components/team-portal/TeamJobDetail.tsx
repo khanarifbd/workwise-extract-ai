@@ -7,7 +7,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ArrowLeft, MapPin, Phone, Calendar, Save, Camera, Upload, Loader2, CheckCircle2, Clock, FileText, ChevronDown, CheckSquare, AlertCircle, File, X, Image, Video, Square, CheckSquare2, Edit3 } from 'lucide-react';
+import { ArrowLeft, MapPin, Phone, Calendar, Save, Camera, Upload, Loader2, CheckCircle2, Clock, FileText, ChevronDown, CheckSquare, AlertCircle, File, X, Image, Video, Square, CheckSquare2, Edit3, Check } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { format } from 'date-fns';
@@ -43,6 +44,11 @@ export const TeamJobDetail = ({
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState(false);
   const [uploadingVideos, setUploadingVideos] = useState(false);
+  
+  // Upload progress tracking
+  const [photoUploadProgress, setPhotoUploadProgress] = useState<Record<string, number>>({});
+  const [videoUploadProgress, setVideoUploadProgress] = useState<Record<string, number>>({});
+  const [fileUploadProgress, setFileUploadProgress] = useState<Record<string, number>>({});
   const [newVideos, setVideos] = useState<string[]>([]);
   const [newPhotos, setPhotos] = useState<string[]>([]);
   const [newDocuments, setDocuments] = useState<{ name: string; url: string; type: string }[]>([]);
@@ -371,6 +377,7 @@ export const TeamJobDetail = ({
         const randomId = Math.random().toString(36).substring(2, 8);
         const extension = file.name?.split('.').pop() || 'jpg';
         const fileName = `${teamId}/${job.id}/${timestamp}-${randomId}.${extension}`;
+        const fileKey = `photo-${timestamp}-${randomId}`;
         
         // First convert to base64 for immediate preview
         const base64 = await new Promise<string>((resolve, reject) => {
@@ -380,27 +387,66 @@ export const TeamJobDetail = ({
           reader.readAsDataURL(file);
         });
         
-        // Add base64 to preview immediately
+        // Add base64 to preview immediately with 0% progress
         setPhotos(prev => [...prev, base64]);
+        setPhotoUploadProgress(prev => ({ ...prev, [base64]: 0 }));
         
         // If online, upload to storage and replace base64 with URL
         if (isOnline) {
           try {
+            // Simulate progress updates
+            const progressInterval = setInterval(() => {
+              setPhotoUploadProgress(prev => ({
+                ...prev,
+                [base64]: Math.min((prev[base64] || 0) + 15, 90)
+              }));
+            }, 200);
+
             const { data, error } = await supabase.storage
               .from('job-attachments')
               .upload(fileName, file);
+
+            clearInterval(progressInterval);
 
             if (!error && data) {
               const { data: urlData } = supabase.storage
                 .from('job-attachments')
                 .getPublicUrl(data.path);
               
-              // Replace base64 with actual URL
-              setPhotos(prev => prev.map(p => p === base64 ? urlData.publicUrl : p));
+              // Set to 100% and replace base64 with actual URL
+              setPhotoUploadProgress(prev => ({ ...prev, [base64]: 100 }));
+              
+              setTimeout(() => {
+                setPhotos(prev => prev.map(p => p === base64 ? urlData.publicUrl : p));
+                setPhotoUploadProgress(prev => {
+                  const newProgress = { ...prev };
+                  delete newProgress[base64];
+                  return newProgress;
+                });
+              }, 500);
+            } else {
+              // Upload failed, remove progress
+              setPhotoUploadProgress(prev => {
+                const newProgress = { ...prev };
+                delete newProgress[base64];
+                return newProgress;
+              });
             }
           } catch (uploadError) {
             console.error('Storage upload error, keeping base64:', uploadError);
+            setPhotoUploadProgress(prev => {
+              const newProgress = { ...prev };
+              delete newProgress[base64];
+              return newProgress;
+            });
           }
+        } else {
+          // Offline - just mark as complete
+          setPhotoUploadProgress(prev => {
+            const newProgress = { ...prev };
+            delete newProgress[base64];
+            return newProgress;
+          });
         }
       }
 
@@ -432,48 +478,79 @@ export const TeamJobDetail = ({
     setUploadingFiles(true);
 
     try {
-      const uploadedDocs: { name: string; url: string; type: string }[] = [];
-
       for (const file of Array.from(files)) {
-        const fileName = `${teamId}/${job.id}/docs/${Date.now()}-${file.name}`;
+        const timestamp = Date.now();
+        const randomId = Math.random().toString(36).substring(2, 8);
+        const fileName = `${teamId}/${job.id}/docs/${timestamp}-${file.name}`;
+        const fileKey = `file-${timestamp}-${randomId}`;
+        
+        // First convert to base64 for preview
+        const base64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(file);
+        });
+        
+        // Add to documents with progress tracking
+        const tempDoc = { name: file.name, url: base64, type: file.type };
+        setDocuments(prev => [...prev, tempDoc]);
+        setFileUploadProgress(prev => ({ ...prev, [base64]: 0 }));
         
         if (isOnline) {
+          // Simulate progress updates
+          const progressInterval = setInterval(() => {
+            setFileUploadProgress(prev => ({
+              ...prev,
+              [base64]: Math.min((prev[base64] || 0) + 15, 90)
+            }));
+          }, 200);
+
           const { data, error } = await supabase.storage
             .from('job-attachments')
             .upload(fileName, file);
 
-          if (error) throw error;
+          clearInterval(progressInterval);
 
-          const { data: urlData } = supabase.storage
-            .from('job-attachments')
-            .getPublicUrl(data.path);
+          if (!error && data) {
+            const { data: urlData } = supabase.storage
+              .from('job-attachments')
+              .getPublicUrl(data.path);
 
-          uploadedDocs.push({
-            name: file.name,
-            url: urlData.publicUrl,
-            type: file.type,
-          });
+            // Set to 100% and update URL
+            setFileUploadProgress(prev => ({ ...prev, [base64]: 100 }));
+            
+            setTimeout(() => {
+              setDocuments(prev => prev.map(d => 
+                d.url === base64 ? { ...d, url: urlData.publicUrl } : d
+              ));
+              setFileUploadProgress(prev => {
+                const newProgress = { ...prev };
+                delete newProgress[base64];
+                return newProgress;
+              });
+            }, 500);
+          } else {
+            setFileUploadProgress(prev => {
+              const newProgress = { ...prev };
+              delete newProgress[base64];
+              return newProgress;
+            });
+          }
         } else {
-          // Store as base64 for offline
-          const reader = new FileReader();
-          const base64 = await new Promise<string>((resolve) => {
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.readAsDataURL(file);
-          });
-          uploadedDocs.push({
-            name: file.name,
-            url: base64,
-            type: file.type,
+          // Offline - mark as complete
+          setFileUploadProgress(prev => {
+            const newProgress = { ...prev };
+            delete newProgress[base64];
+            return newProgress;
           });
         }
       }
 
-      setDocuments(prev => [...prev, ...uploadedDocs]);
       setHasUnsavedChanges(true);
 
       toast({
         title: 'Files Added',
-        description: `${uploadedDocs.length} file(s) ready to upload.`,
+        description: `${Array.from(files).length} file(s) ready to upload.`,
       });
     } catch (error) {
       console.error('File upload error:', error);
@@ -484,6 +561,7 @@ export const TeamJobDetail = ({
       });
     } finally {
       setUploadingFiles(false);
+      e.target.value = '';
     }
   };
 
@@ -524,26 +602,65 @@ export const TeamJobDetail = ({
           reader.readAsDataURL(file);
         });
 
-        // Add preview immediately
+        // Add preview immediately with progress
         setVideos(prev => [...prev, base64]);
+        setVideoUploadProgress(prev => ({ ...prev, [base64]: 0 }));
 
         // If online, upload and replace base64 with URL
         if (isOnline) {
           try {
+            // Simulate progress updates
+            const progressInterval = setInterval(() => {
+              setVideoUploadProgress(prev => ({
+                ...prev,
+                [base64]: Math.min((prev[base64] || 0) + 10, 90)
+              }));
+            }, 300);
+
             const { data, error } = await supabase.storage
               .from('job-attachments')
               .upload(fileName, file);
+
+            clearInterval(progressInterval);
 
             if (!error && data) {
               const { data: urlData } = supabase.storage
                 .from('job-attachments')
                 .getPublicUrl(data.path);
 
-              setVideos(prev => prev.map(v => v === base64 ? urlData.publicUrl : v));
+              // Set to 100% and update URL
+              setVideoUploadProgress(prev => ({ ...prev, [base64]: 100 }));
+
+              setTimeout(() => {
+                setVideos(prev => prev.map(v => v === base64 ? urlData.publicUrl : v));
+                setVideoUploadProgress(prev => {
+                  const newProgress = { ...prev };
+                  delete newProgress[base64];
+                  return newProgress;
+                });
+              }, 500);
+            } else {
+              setVideoUploadProgress(prev => {
+                const newProgress = { ...prev };
+                delete newProgress[base64];
+                return newProgress;
+              });
             }
           } catch (uploadError) {
             console.error('Storage upload error, keeping base64:', uploadError);
+            setVideoUploadProgress(prev => {
+              const newProgress = { ...prev };
+              delete newProgress[base64];
+              return newProgress;
+            });
           }
+        } else {
+          // Offline - mark as complete
+          setVideoUploadProgress(prev => {
+            const newProgress = { ...prev };
+            delete newProgress[base64];
+            return newProgress;
+          });
         }
       }
 
@@ -565,6 +682,7 @@ export const TeamJobDetail = ({
       e.target.value = '';
     }
   };
+
 
   const getFileIcon = (type: string) => {
     if (type.startsWith('image/')) return <Image className="h-4 w-4" />;
@@ -897,19 +1015,37 @@ export const TeamJobDetail = ({
                       {allPhotos.map((photo, index) => {
                         const isExisting = index < existingPhotos.length;
                         const newIndex = index - existingPhotos.length;
+                        const uploadProgress = photoUploadProgress[photo];
+                        const isUploading = uploadProgress !== undefined && uploadProgress < 100;
+                        const isComplete = uploadProgress === 100;
+                        
                         return (
                           <div key={index} className="relative aspect-square rounded-lg overflow-hidden bg-muted group">
                             <img
                               src={photo}
                               alt={`${isExisting ? 'Saved' : 'New'} photo ${index + 1}`}
-                              className="w-full h-full object-cover"
+                              className={`w-full h-full object-cover ${isUploading ? 'opacity-60' : ''}`}
                             />
+                            {/* Upload progress overlay */}
+                            {isUploading && (
+                              <div className="absolute inset-0 bg-background/70 flex flex-col items-center justify-center p-2">
+                                <Loader2 className="h-4 w-4 animate-spin text-primary mb-1" />
+                                <Progress value={uploadProgress} className="w-full h-1.5" />
+                                <span className="text-[10px] text-muted-foreground mt-1">{uploadProgress}%</span>
+                              </div>
+                            )}
+                            {/* Complete checkmark */}
+                            {isComplete && (
+                              <div className="absolute inset-0 bg-success/20 flex items-center justify-center">
+                                <Check className="h-6 w-6 text-success" />
+                              </div>
+                            )}
                             {isExisting && (
                               <div className="absolute bottom-0 left-0 right-0 bg-success/80 text-success-foreground text-[10px] text-center py-0.5">
                                 Saved
                               </div>
                             )}
-                            {!isExisting && (
+                            {!isExisting && !isUploading && (
                               <button
                                 type="button"
                                 onClick={() => removePhoto(newIndex)}
@@ -1000,19 +1136,37 @@ export const TeamJobDetail = ({
                       {allVideos.map((video, index) => {
                         const isExisting = index < existingVideos.length;
                         const newIndex = index - existingVideos.length;
+                        const uploadProgress = videoUploadProgress[video];
+                        const isUploading = uploadProgress !== undefined && uploadProgress < 100;
+                        const isComplete = uploadProgress === 100;
+                        
                         return (
                           <div key={index} className="relative aspect-video rounded-lg overflow-hidden bg-muted group">
                             <video
                               src={video}
-                              className="w-full h-full object-cover"
-                              controls
+                              className={`w-full h-full object-cover ${isUploading ? 'opacity-60' : ''}`}
+                              controls={!isUploading}
                             />
+                            {/* Upload progress overlay */}
+                            {isUploading && (
+                              <div className="absolute inset-0 bg-background/70 flex flex-col items-center justify-center p-3">
+                                <Loader2 className="h-5 w-5 animate-spin text-primary mb-2" />
+                                <Progress value={uploadProgress} className="w-full h-2" />
+                                <span className="text-xs text-muted-foreground mt-1">{uploadProgress}%</span>
+                              </div>
+                            )}
+                            {/* Complete checkmark */}
+                            {isComplete && (
+                              <div className="absolute inset-0 bg-success/20 flex items-center justify-center pointer-events-none">
+                                <Check className="h-8 w-8 text-success" />
+                              </div>
+                            )}
                             {isExisting && (
                               <div className="absolute bottom-0 left-0 right-0 bg-success/80 text-success-foreground text-[10px] text-center py-0.5">
                                 Saved
                               </div>
                             )}
-                            {!isExisting && (
+                            {!isExisting && !isUploading && (
                               <button
                                 type="button"
                                 onClick={() => removeVideo(newIndex)}
@@ -1083,17 +1237,21 @@ export const TeamJobDetail = ({
                         const isExcel = doc.type?.includes('excel') || doc.type?.includes('spreadsheet') || doc.name?.toLowerCase().match(/\.(xls|xlsx)$/);
                         const isImage = doc.type?.startsWith('image/') || doc.name?.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp)$/);
                         
+                        const uploadProgress = fileUploadProgress[doc.url];
+                        const isUploading = uploadProgress !== undefined && uploadProgress < 100;
+                        const isComplete = uploadProgress === 100;
+                        
                         return (
                           <div key={index} className="relative group">
                             <a 
-                              href={doc.url} 
+                              href={!isUploading ? doc.url : undefined} 
                               target="_blank" 
                               rel="noopener noreferrer"
-                              className="block p-3 bg-muted/50 rounded-lg border border-border hover:border-primary/50 hover:bg-muted transition-all"
+                              className={`block p-3 bg-muted/50 rounded-lg border border-border hover:border-primary/50 hover:bg-muted transition-all ${isUploading ? 'pointer-events-none' : ''}`}
                             >
                               {/* Thumbnail preview */}
-                              <div className="flex items-center justify-center h-16 mb-2 rounded bg-background/50">
-                                {isImage ? (
+                              <div className={`flex items-center justify-center h-16 mb-2 rounded bg-background/50 ${isUploading ? 'opacity-60' : ''}`}>
+                                {isImage && !doc.url.startsWith('data:') ? (
                                   <img 
                                     src={doc.url} 
                                     alt={doc.name} 
@@ -1122,6 +1280,22 @@ export const TeamJobDetail = ({
                                 )}
                               </div>
                               
+                              {/* Upload progress */}
+                              {isUploading && (
+                                <div className="absolute inset-0 bg-background/80 rounded-lg flex flex-col items-center justify-center p-3">
+                                  <Loader2 className="h-5 w-5 animate-spin text-primary mb-2" />
+                                  <Progress value={uploadProgress} className="w-full h-2" />
+                                  <span className="text-xs text-muted-foreground mt-1">{uploadProgress}%</span>
+                                </div>
+                              )}
+                              
+                              {/* Complete checkmark overlay */}
+                              {isComplete && (
+                                <div className="absolute inset-0 bg-success/20 rounded-lg flex items-center justify-center pointer-events-none">
+                                  <Check className="h-8 w-8 text-success" />
+                                </div>
+                              )}
+                              
                               {/* File name */}
                               <p className="text-xs truncate text-center text-foreground">{doc.name}</p>
                               
@@ -1134,7 +1308,7 @@ export const TeamJobDetail = ({
                             </a>
                             
                             {/* Remove button for new uploads */}
-                            {!isExisting && (
+                            {!isExisting && !isUploading && (
                               <button
                                 type="button"
                                 onClick={() => removeDocument(newIndex)}
