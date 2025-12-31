@@ -51,42 +51,42 @@ export const SignOffConfirmationModal: React.FC<SignOffConfirmationModalProps> =
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md mx-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-lg">
-            <CheckCircle2 className="h-5 w-5 text-success" />
+      <DialogContent className="w-[95vw] max-w-md mx-auto p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="space-y-1">
+          <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <CheckCircle2 className="h-5 w-5 text-success flex-shrink-0" />
             Sign-Off Confirmation
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs sm:text-sm">
             Review the data that will be transferred to the admin dashboard.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <div className="space-y-3 sm:space-y-4 py-3 sm:py-4">
           {/* Job Info */}
           <div className="bg-muted/50 rounded-lg p-3">
-            <p className="text-sm font-medium">{summary.jobName}</p>
-            <p className="text-xs text-muted-foreground font-mono">{summary.jobNumber}</p>
+            <p className="text-sm font-medium break-words">{summary.jobName}</p>
+            <p className="text-xs text-muted-foreground font-mono break-all">{summary.jobNumber}</p>
           </div>
 
           {/* Summary Items */}
-          <div className="space-y-3">
-            <h4 className="text-sm font-medium text-muted-foreground">Data to be transferred:</h4>
+          <div className="space-y-2 sm:space-y-3">
+            <h4 className="text-xs sm:text-sm font-medium text-muted-foreground">Data to be transferred:</h4>
             
             <div className="grid gap-2">
               {/* Work Items */}
-              <div className="flex items-center justify-between p-2 bg-muted/30 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <Wrench className="h-4 w-4 text-primary" />
+              <div className="flex items-center justify-between p-2 bg-muted/30 rounded-lg gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Wrench className="h-4 w-4 text-primary flex-shrink-0" />
                   <span className="text-sm">Work Items</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className="text-xs">
+                <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+                  <Badge variant="secondary" className="text-xs whitespace-nowrap">
                     <Check className="h-3 w-3 mr-1" />
                     {summary.workItemsCompleted}/{summary.workItemsTotal}
                   </Badge>
                   {summary.workItemsModified > 0 && (
-                    <Badge variant="outline" className="text-xs text-amber-600 border-amber-600">
+                    <Badge variant="outline" className="text-xs text-amber-600 border-amber-600 whitespace-nowrap hidden sm:inline-flex">
                       {summary.workItemsModified} modified
                     </Badge>
                   )}
@@ -96,10 +96,10 @@ export const SignOffConfirmationModal: React.FC<SignOffConfirmationModalProps> =
               {/* Photos */}
               <div className="flex items-center justify-between p-2 bg-muted/30 rounded-lg">
                 <div className="flex items-center gap-2">
-                  <Image className="h-4 w-4 text-blue-500" />
+                  <Image className="h-4 w-4 text-blue-500 flex-shrink-0" />
                   <span className="text-sm">Photos</span>
                 </div>
-                <Badge variant={summary.photosCount > 0 ? "default" : "secondary"} className="text-xs">
+                <Badge variant={summary.photosCount > 0 ? "default" : "secondary"} className="text-xs flex-shrink-0">
                   {summary.photosCount}
                 </Badge>
               </div>
@@ -107,10 +107,10 @@ export const SignOffConfirmationModal: React.FC<SignOffConfirmationModalProps> =
               {/* Videos */}
               <div className="flex items-center justify-between p-2 bg-muted/30 rounded-lg">
                 <div className="flex items-center gap-2">
-                  <Video className="h-4 w-4 text-purple-500" />
+                  <Video className="h-4 w-4 text-purple-500 flex-shrink-0" />
                   <span className="text-sm">Videos</span>
                 </div>
-                <Badge variant={summary.videosCount > 0 ? "default" : "secondary"} className="text-xs">
+                <Badge variant={summary.videosCount > 0 ? "default" : "secondary"} className="text-xs flex-shrink-0">
                   {summary.videosCount}
                 </Badge>
               </div>
@@ -118,10 +118,10 @@ export const SignOffConfirmationModal: React.FC<SignOffConfirmationModalProps> =
               {/* Documents */}
               <div className="flex items-center justify-between p-2 bg-muted/30 rounded-lg">
                 <div className="flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-orange-500" />
+                  <FileText className="h-4 w-4 text-orange-500 flex-shrink-0" />
                   <span className="text-sm">Documents</span>
                 </div>
-                <Badge variant={summary.documentsCount > 0 ? "default" : "secondary"} className="text-xs">
+                <Badge variant={summary.documentsCount > 0 ? "default" : "secondary"} className="text-xs flex-shrink-0">
                   {summary.documentsCount}
                 </Badge>
               </div>
@@ -130,7 +130,7 @@ export const SignOffConfirmationModal: React.FC<SignOffConfirmationModalProps> =
               {summary.progressNotes.trim().length > 0 && (
                 <div className="p-2 bg-muted/30 rounded-lg">
                   <p className="text-xs text-muted-foreground mb-1">Progress Notes:</p>
-                  <p className="text-sm line-clamp-2">{summary.progressNotes}</p>
+                  <p className="text-sm line-clamp-3 break-words">{summary.progressNotes}</p>
                 </div>
               )}
             </div>
@@ -148,20 +148,20 @@ export const SignOffConfirmationModal: React.FC<SignOffConfirmationModalProps> =
           )}
 
           {/* Confirmation Text */}
-          <p className="text-xs text-muted-foreground text-center">
+          <p className="text-xs text-muted-foreground text-center px-2">
             This will mark the job as complete and transfer all data to the admin database.
           </p>
         </div>
 
-        <DialogFooter className="flex gap-2">
-          <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
+        <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 pt-2">
+          <Button variant="outline" onClick={onClose} disabled={isSubmitting} className="w-full sm:w-auto">
             <X className="h-4 w-4 mr-1" />
             Cancel
           </Button>
           <Button 
             onClick={onConfirm} 
             disabled={isSubmitting}
-            className="bg-success hover:bg-success/90 text-success-foreground"
+            className="w-full sm:w-auto bg-success hover:bg-success/90 text-success-foreground"
           >
             {isSubmitting ? (
               <>
