@@ -7,7 +7,7 @@ const serverUrl = process.env.CAP_SERVER_URL;
 
 const config: CapacitorConfig = {
   appId: 'app.workwish.com',
-  appName: 'workwise-extract-ai',
+  appName: 'Work Wish',
   webDir: 'dist',
   ...(serverUrl
     ? {
