@@ -12,6 +12,7 @@ import { mapDatabaseJobToJob } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { Capacitor } from '@capacitor/core';
 import { PushNotifications, Token } from '@capacitor/push-notifications';
+import { StatusBar, Style } from '@capacitor/status-bar';
 
 const TeamPortal = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -31,6 +32,21 @@ const TeamPortal = () => {
   const [isLoadingJobs, setIsLoadingJobs] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const { toast } = useToast();
+
+  // Set status bar color on native platforms
+  useEffect(() => {
+    const configureStatusBar = async () => {
+      if (Capacitor.isNativePlatform()) {
+        try {
+          await StatusBar.setBackgroundColor({ color: '#EA580C' });
+          await StatusBar.setStyle({ style: Style.Light });
+        } catch (error) {
+          console.error('Error setting status bar:', error);
+        }
+      }
+    };
+    configureStatusBar();
+  }, []);
 
   // Handle deep link from notification
   const handleDeepLink = useCallback((loadedJobs: Job[]) => {
