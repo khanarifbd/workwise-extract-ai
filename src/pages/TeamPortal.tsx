@@ -12,7 +12,6 @@ import { mapDatabaseJobToJob } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { Capacitor } from '@capacitor/core';
 import { PushNotifications, Token } from '@capacitor/push-notifications';
-import { StatusBar, Style } from '@capacitor/status-bar';
 
 const TeamPortal = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -38,6 +37,8 @@ const TeamPortal = () => {
     const configureStatusBar = async () => {
       if (Capacitor.isNativePlatform()) {
         try {
+          // Dynamic import for native-only plugin
+          const { StatusBar, Style } = await import('@capacitor/status-bar');
           await StatusBar.setBackgroundColor({ color: '#EA580C' });
           await StatusBar.setStyle({ style: Style.Light });
         } catch (error) {
