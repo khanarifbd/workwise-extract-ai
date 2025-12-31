@@ -72,6 +72,16 @@ Deno.serve(async (req) => {
 
     const { teamId, teamName, jobId, updates } = body;
 
+    // Log incoming request details for debugging
+    console.log(`[update-team-job] Request received for job: ${jobId}`);
+    console.log(`[update-team-job] Team: ${teamName} (${teamId})`);
+    console.log(`[update-team-job] Photos count: ${updates?.photos?.length ?? 0}`);
+    console.log(`[update-team-job] Videos count: ${updates?.videos?.length ?? 0}`);
+    console.log(`[update-team-job] Documents count: ${updates?.documents?.length ?? 0}`);
+    if (updates?.photos && updates.photos.length > 0) {
+      console.log(`[update-team-job] Photo URLs:`, updates.photos.map((p: string) => p.startsWith('data:') ? 'base64' : p.substring(0, 100)));
+    }
+
     // Validate input
     if (!teamId || !teamName || !jobId) {
       return new Response(
