@@ -207,10 +207,10 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
     }
   };
 
-  const handleBookedDateChange = (jobId: string, bookedDate: Date | null) => {
+  const handleBookedDateChange = (jobId: string, bookedDate: Date | null, isFlexible: boolean = false) => {
     const job = jobs.find(j => j.id === jobId);
     if (job) {
-      onUpdateJob({ ...job, bookedDate });
+      onUpdateJob({ ...job, bookedDate, isFlexibleBooking: isFlexible });
     }
   };
 
@@ -605,7 +605,7 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                       bookedDate={job.bookedDate}
                       status={job.status}
                       contactHistory={contactHistoryMap[job.id] || []}
-                      onBookJob={(bookedDate) => handleBookedDateChange(job.id, bookedDate)}
+                      onBookJob={(bookedDate, isFlexible) => handleBookedDateChange(job.id, bookedDate, isFlexible)}
                     />
                   </td>
                   {/* Assigned Column */}
@@ -673,6 +673,7 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                       bookedDate={job.bookedDate}
                       bookingNotes={job.bookingNotes || ''}
                       teamName={job.team}
+                      isFlexible={job.isFlexibleBooking}
                       onDateChange={(date) => handleBookedDateChange(job.id, date)}
                       onNotesChange={(notes) => onUpdateJob({ ...job, bookingNotes: notes })}
                     />

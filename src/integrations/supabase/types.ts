@@ -134,6 +134,7 @@ export type Database = {
           fan_info: Json | null
           id: string
           is_completed: boolean | null
+          is_flexible_booking: boolean
           job_number: string
           linked_fan_job_id: string | null
           name: string
@@ -162,6 +163,7 @@ export type Database = {
           fan_info?: Json | null
           id?: string
           is_completed?: boolean | null
+          is_flexible_booking?: boolean
           job_number: string
           linked_fan_job_id?: string | null
           name: string
@@ -190,6 +192,7 @@ export type Database = {
           fan_info?: Json | null
           id?: string
           is_completed?: boolean | null
+          is_flexible_booking?: boolean
           job_number?: string
           linked_fan_job_id?: string | null
           name?: string

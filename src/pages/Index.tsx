@@ -108,6 +108,7 @@ const Index = () => {
         isCompleted: false,
         dateIssued: new Date(),
         bookedDate: extractedData.bookedDate || null,
+        isFlexibleBooking: false,
         bookingNotes: '',
         startDate: null,
         completionDate: null,

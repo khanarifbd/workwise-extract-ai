@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { format } from 'date-fns';
-import { CalendarCheck, CalendarX, StickyNote, Check, AlertTriangle } from 'lucide-react';
+import { CalendarCheck, CalendarX, StickyNote, Check, AlertTriangle, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
@@ -17,11 +17,12 @@ interface BookedDateCellProps {
   bookedDate: Date | null;
   bookingNotes: string;
   teamName?: string | null;
+  isFlexible?: boolean;
   onDateChange: (date: Date | null) => void;
   onNotesChange: (notes: string) => void;
 }
 
-export const BookedDateCell = ({ bookedDate, bookingNotes, teamName, onDateChange, onNotesChange }: BookedDateCellProps) => {
+export const BookedDateCell = ({ bookedDate, bookingNotes, teamName, isFlexible, onDateChange, onNotesChange }: BookedDateCellProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
@@ -113,6 +114,7 @@ export const BookedDateCell = ({ bookedDate, bookingNotes, teamName, onDateChang
               <CalendarCheck className="w-3 h-3" />
               <span>{format(bookedDate, 'dd/MM/yy')}</span>
               <span className="font-bold uppercase">BOOKED</span>
+              {isFlexible && <Star className="w-3 h-3 fill-amber-100 text-amber-100" />}
               {hasNotes && <StickyNote className="w-3 h-3 ml-0.5 text-amber-100" />}
             </>
           ) : (
