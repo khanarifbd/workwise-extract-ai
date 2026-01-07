@@ -84,7 +84,7 @@ export const useTeamAccessCodes = () => {
     }
   };
 
-  const updateCode = async (id: string, updates: { accessCode?: string; isActive?: boolean }) => {
+  const updateCode = async (id: string, updates: { accessCode?: string; isActive?: boolean; teamName?: string }) => {
     try {
       const updateData: any = {};
       if (updates.accessCode !== undefined) {
@@ -92,6 +92,10 @@ export const useTeamAccessCodes = () => {
       }
       if (updates.isActive !== undefined) {
         updateData.is_active = updates.isActive;
+      }
+      if (updates.teamName !== undefined) {
+        updateData.team_name = updates.teamName;
+        updateData.team_id = `team_${updates.teamName.toLowerCase().replace(/\s+/g, '_')}`;
       }
 
       const { error } = await supabase

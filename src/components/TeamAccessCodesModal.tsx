@@ -18,6 +18,8 @@ export const TeamAccessCodesModal = ({ onClose }: TeamAccessCodesModalProps) => 
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingCode, setEditingCode] = useState('');
+  const [editingNameId, setEditingNameId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState('');
 
   const handleAdd = async () => {
     if (!newTeamName.trim() || !newAccessCode.trim()) return;
@@ -57,6 +59,24 @@ export const TeamAccessCodesModal = ({ onClose }: TeamAccessCodesModalProps) => 
   const handleCancelEdit = () => {
     setEditingId(null);
     setEditingCode('');
+  };
+
+  const handleStartEditName = (id: string, currentName: string) => {
+    setEditingNameId(id);
+    setEditingName(currentName);
+  };
+
+  const handleSaveEditName = async (id: string) => {
+    if (editingName.trim()) {
+      await updateCode(id, { teamName: editingName.trim() });
+    }
+    setEditingNameId(null);
+    setEditingName('');
+  };
+
+  const handleCancelEditName = () => {
+    setEditingNameId(null);
+    setEditingName('');
   };
 
   return (
@@ -143,7 +163,39 @@ export const TeamAccessCodesModal = ({ onClose }: TeamAccessCodesModalProps) => 
                         ) : (
                           <XCircle className="w-4 h-4 text-destructive flex-shrink-0" />
                         )}
-                        <span className="font-medium truncate">{code.teamName}</span>
+                        {editingNameId === code.id ? (
+                          <div className="flex items-center gap-1 flex-1">
+                            <Input
+                              value={editingName}
+                              onChange={(e) => setEditingName(e.target.value)}
+                              className="h-8 text-sm flex-1"
+                              autoFocus
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleSaveEditName(code.id);
+                                if (e.key === 'Escape') handleCancelEditName();
+                              }}
+                            />
+                            <Button size="sm" variant="ghost" className="h-8 px-2" onClick={() => handleSaveEditName(code.id)}>
+                              <Check className="w-4 h-4 text-green-500" />
+                            </Button>
+                            <Button size="sm" variant="ghost" className="h-8 px-2" onClick={handleCancelEditName}>
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1 min-w-0">
+                            <span className="font-medium truncate">{code.teamName}</span>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 flex-shrink-0"
+                              onClick={() => handleStartEditName(code.id, code.teamName)}
+                              title="Edit team name"
+                            >
+                              <Pencil className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        )}
                       </div>
                       
                       {editingId === code.id ? (
