@@ -16,6 +16,48 @@ interface TeamSession {
   expiresAt: string;
 }
 
+// Rate limiting configuration
+interface RateLimitEntry {
+  count: number;
+  resetAt: number;
+}
+
+const rateLimitStore = new Map<string, RateLimitEntry>();
+const RATE_LIMIT_MAX_REQUESTS = 5; // 5 attempts
+const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+
+function getClientIP(req: Request): string {
+  return (
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    req.headers.get("x-real-ip") ||
+    req.headers.get("cf-connecting-ip") ||
+    "unknown"
+  );
+}
+
+function checkRateLimit(ip: string): { allowed: boolean; remaining: number; resetAt: number } {
+  const now = Date.now();
+  let entry = rateLimitStore.get(ip);
+  
+  // Clean up old entries
+  for (const [key, e] of rateLimitStore.entries()) {
+    if (e.resetAt < now) rateLimitStore.delete(key);
+  }
+  
+  if (!entry || entry.resetAt < now) {
+    entry = { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS };
+    rateLimitStore.set(ip, entry);
+    return { allowed: true, remaining: RATE_LIMIT_MAX_REQUESTS - 1, resetAt: entry.resetAt };
+  }
+  
+  if (entry.count >= RATE_LIMIT_MAX_REQUESTS) {
+    return { allowed: false, remaining: 0, resetAt: entry.resetAt };
+  }
+  
+  entry.count++;
+  return { allowed: true, remaining: RATE_LIMIT_MAX_REQUESTS - entry.count, resetAt: entry.resetAt };
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -23,6 +65,29 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Rate limiting check
+    const clientIP = getClientIP(req);
+    const rateLimit = checkRateLimit(clientIP);
+    
+    if (!rateLimit.allowed) {
+      const retryAfter = Math.ceil((rateLimit.resetAt - Date.now()) / 1000);
+      console.log(`Rate limit exceeded for IP: ${clientIP}`);
+      return new Response(
+        JSON.stringify({ 
+          error: "Too many login attempts. Please try again later.",
+          retryAfterSeconds: retryAfter 
+        }),
+        { 
+          status: 429, 
+          headers: { 
+            ...corsHeaders, 
+            "Content-Type": "application/json",
+            "Retry-After": String(retryAfter)
+          } 
+        }
+      );
+    }
+
     // Only allow POST
     if (req.method !== "POST") {
       return new Response(
@@ -92,6 +157,7 @@ Deno.serve(async (req) => {
 
     if (!data || !data.is_active) {
       // Don't reveal whether code exists but is inactive
+      console.log(`Invalid login attempt from IP: ${clientIP}`);
       return new Response(
         JSON.stringify({ error: "Invalid access code" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -109,11 +175,18 @@ Deno.serve(async (req) => {
       expiresAt: expiresAt.toISOString(),
     };
 
-    console.log(`Team validated: ${data.team_name} (${data.team_id})`);
+    console.log(`Team validated: ${data.team_name} (${data.team_id}) from IP: ${clientIP}`);
 
     return new Response(
       JSON.stringify({ success: true, session }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { 
+        status: 200, 
+        headers: { 
+          ...corsHeaders, 
+          "Content-Type": "application/json",
+          "X-RateLimit-Remaining": String(rateLimit.remaining)
+        } 
+      }
     );
   } catch (error) {
     console.error("Unexpected error:", error);
