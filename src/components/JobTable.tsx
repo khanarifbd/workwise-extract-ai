@@ -701,6 +701,22 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                               Linked
                             </Badge>
                           )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-5 px-1.5 text-xs text-muted-foreground hover:text-primary"
+                            onClick={() => handleScanForFans(job.id)}
+                            disabled={scanningFanJobId === job.id}
+                          >
+                            {scanningFanJobId === job.id ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <>
+                                <Wand2 className="w-3 h-3 mr-0.5" />
+                                Re-scan
+                              </>
+                            )}
+                          </Button>
                         </>
                       ) : wasScannedNoFans(job.fanInfo) ? (
                         <div className="flex flex-col gap-1">
