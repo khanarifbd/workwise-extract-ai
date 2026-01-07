@@ -80,8 +80,8 @@ export const TeamAccessCodesModal = ({ onClose }: TeamAccessCodesModalProps) => 
   };
 
   return (
-    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col animate-scale-in">
+    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-start justify-center p-4 overflow-y-auto">
+      <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-3xl h-[min(90vh,44rem)] flex flex-col animate-scale-in">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30 flex-shrink-0">
           <div className="flex items-center gap-3">
@@ -104,7 +104,7 @@ export const TeamAccessCodesModal = ({ onClose }: TeamAccessCodesModalProps) => 
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
           {isLoading ? (
             <div className="text-center text-muted-foreground py-8">Loading...</div>
           ) : (
