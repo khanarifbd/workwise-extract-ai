@@ -6,10 +6,12 @@ export type ContactOutcome =
   | 'tenant_refused'
   | 'spoke_not_booked'
   | 'referred_nph'
-  | 'booked';
+  | 'booked'
+  | 'booked_flexible';
 
 export const CONTACT_OUTCOMES: { value: ContactOutcome; label: string; color: string; icon: string }[] = [
   { value: 'booked', label: 'BOOKED', color: '#10B981', icon: '📅' },
+  { value: 'booked_flexible', label: 'BOOKED FLEXIBLE', color: '#059669', icon: '📅⭐' },
   { value: 'spoke_not_booked', label: 'Spoke - Not Booked', color: '#3B82F6', icon: '💬' },
   { value: 'callback_scheduled', label: 'Callback Scheduled', color: '#06B6D4', icon: '📅' },
   { value: 'voicemail_left', label: 'Voicemail Left', color: '#8B5CF6', icon: '📧' },
@@ -38,6 +40,7 @@ export type NextAction =
   | 'follow_up'
   | 'escalate_nph'
   | 'booked'
+  | 'booked_flexible'
   | 'none';
 
 export const NEXT_ACTION_BADGES: { value: NextAction; label: string; color: string; bgColor: string }[] = [
@@ -47,6 +50,7 @@ export const NEXT_ACTION_BADGES: { value: NextAction; label: string; color: stri
   { value: 'follow_up', label: 'FOLLOW UP', color: '#FFFFFF', bgColor: '#8B5CF6' },
   { value: 'escalate_nph', label: 'REFER NPH', color: '#FFFFFF', bgColor: '#EC4899' },
   { value: 'booked', label: 'BOOKED ✓', color: '#FFFFFF', bgColor: '#10B981' },
+  { value: 'booked_flexible', label: 'BOOKED ⭐', color: '#FFFFFF', bgColor: '#059669' },
   { value: 'none', label: '', color: '', bgColor: '' },
 ];
 
@@ -79,6 +83,7 @@ export function determineNextAction(
   // Based on last contact outcome
   switch (lastContact.outcome) {
     case 'booked':
+    case 'booked_flexible':
       return 'booked';
     case 'callback_scheduled':
       if (lastContact.nextActionDate && new Date(lastContact.nextActionDate) <= new Date()) {

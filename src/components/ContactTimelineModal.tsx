@@ -56,8 +56,8 @@ export function ContactTimelineModal({
   const handleSubmit = async () => {
     if (!selectedOutcome) return;
 
-    // For 'booked' outcome, require a booked date
-    if (selectedOutcome === 'booked' && !bookedDate) {
+    // For 'booked' or 'booked_flexible' outcome, require a booked date
+    if ((selectedOutcome === 'booked' || selectedOutcome === 'booked_flexible') && !bookedDate) {
       return;
     }
 
@@ -73,8 +73,8 @@ export function ContactTimelineModal({
       // Notify tables to refresh action badges immediately
       window.dispatchEvent(new CustomEvent('contact-history-updated', { detail: { jobId } }));
       
-      // If booked outcome with date, trigger the booking callback
-      if (selectedOutcome === 'booked' && bookedDate && onBookJob) {
+      // If booked or booked_flexible outcome with date, trigger the booking callback
+      if ((selectedOutcome === 'booked' || selectedOutcome === 'booked_flexible') && bookedDate && onBookJob) {
         onBookJob(bookedDate);
       }
       
@@ -222,11 +222,16 @@ export function ContactTimelineModal({
               )}
 
               {/* Section: Booked Date */}
-              {selectedOutcome === 'booked' && (
+              {(selectedOutcome === 'booked' || selectedOutcome === 'booked_flexible') && (
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-emerald-500" />
                     <span className="text-sm font-semibold text-foreground">Select Start Date</span>
+                    {selectedOutcome === 'booked_flexible' && (
+                      <span className="text-xs bg-amber-500/20 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full">
+                        ⭐ Flexible
+                      </span>
+                    )}
                   </div>
                   <div className="pl-4 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg space-y-2">
                     <Popover>
@@ -248,7 +253,7 @@ export function ContactTimelineModal({
                     </Popover>
                     {bookedDate && (
                       <p className="text-xs text-emerald-600 dark:text-emerald-400">
-                        Job will be marked as booked for {format(bookedDate, 'dd/MM/yyyy')}
+                        Job will be marked as booked{selectedOutcome === 'booked_flexible' ? ' (flexible)' : ''} for {format(bookedDate, 'dd/MM/yyyy')}
                       </p>
                     )}
                   </div>
@@ -273,10 +278,10 @@ export function ContactTimelineModal({
                 <Button
                   size="sm"
                   onClick={handleSubmit}
-                  disabled={!selectedOutcome || isSubmitting || (selectedOutcome === 'booked' && !bookedDate)}
+                  disabled={!selectedOutcome || isSubmitting || ((selectedOutcome === 'booked' || selectedOutcome === 'booked_flexible') && !bookedDate)}
                   className="flex-1"
                 >
-                  {isSubmitting ? 'Saving...' : selectedOutcome === 'booked' ? 'Confirm Booking' : 'Save'}
+                  {isSubmitting ? 'Saving...' : (selectedOutcome === 'booked' || selectedOutcome === 'booked_flexible') ? 'Confirm Booking' : 'Save'}
                 </Button>
               </div>
             </div>
