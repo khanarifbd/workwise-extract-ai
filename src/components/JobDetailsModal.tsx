@@ -10,9 +10,12 @@ import {
   Save, 
   Wand2, 
   Plus,
-  Calendar,
+  Calendar as CalendarIcon,
   ChevronDown
 } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { cn } from '@/lib/utils';
 import { AIWorkConverter } from './AIWorkConverter';
 import { AttachmentUpload } from './AttachmentUpload';
 import { SortableWorkItem } from './SortableWorkItem';
@@ -273,7 +276,7 @@ export const JobDetailsModal = ({ job, onClose, onUpdate }: JobDetailsModalProps
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="text-xs font-medium mb-1 flex items-center gap-1">
-                    <Calendar className="w-3 h-3" />
+                    <CalendarIcon className="w-3 h-3" />
                     Booked Date
                   </label>
                   <Input
@@ -285,19 +288,38 @@ export const JobDetailsModal = ({ job, onClose, onUpdate }: JobDetailsModalProps
                 </div>
                 <div>
                   <label className="text-xs font-medium mb-1 flex items-center gap-1">
-                    <Calendar className="w-3 h-3" />
+                    <CalendarIcon className="w-3 h-3" />
                     Start Date
                   </label>
-                  <Input
-                    type="date"
-                    value={formatDateForInput(editedJob.startDate)}
-                    onChange={(e) => handleDateChange('startDate', e.target.value)}
-                    className="text-sm"
-                  />
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal text-sm",
+                          !editedJob.startDate && "text-muted-foreground",
+                        )}
+                      >
+                        <CalendarIcon className="w-4 h-4 mr-2" />
+                        {editedJob.startDate ? format(editedJob.startDate, 'dd/MM/yyyy') : 'Select start date'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={editedJob.startDate ?? undefined}
+                        onSelect={(date) =>
+                          handleDateChange('startDate', date ? format(date, 'yyyy-MM-dd') : '')
+                        }
+                        initialFocus
+                        className="p-3 pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
                 <div>
                   <label className="text-xs font-medium mb-1 flex items-center gap-1">
-                    <Calendar className="w-3 h-3" />
+                    <CalendarIcon className="w-3 h-3" />
                     Completion Date
                   </label>
                   <Input
