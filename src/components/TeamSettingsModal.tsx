@@ -78,12 +78,14 @@ export const TeamSettingsModal = ({ onClose }: TeamSettingsModalProps) => {
     if (!newTeamName.trim() || !showAddTeam) return;
     setIsAddingTeam(true);
     try {
+      // Always add as a global team (categoryId: null) so they appear in Global Teams list
+      // This ensures members added from categories are also visible globally
       await addTeamMember({
         name: newTeamName.trim(),
         color: newTeamColor,
         whatsappGroup: newTeamWhatsapp || null,
         type: 'dm', // Default type
-        categoryId: showAddTeam === 'global' ? null : showAddTeam,
+        categoryId: null, // Always global so they show in Global Teams list
       });
       setNewTeamName('');
       setNewTeamColor('#3B82F6');
@@ -188,29 +190,28 @@ export const TeamSettingsModal = ({ onClose }: TeamSettingsModalProps) => {
         </CollapsibleTrigger>
         <CollapsibleContent>
           <div className="pl-4 pt-2 space-y-2">
-            <ScrollArea className="max-h-[200px]">
-              <div className="space-y-2 pr-2">
-                {categoryTeams.length > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-xs text-muted-foreground font-medium">Category-specific:</p>
-                    {categoryTeams.map((setting) => (
-                      <TeamMemberCard key={setting.teamId} setting={setting} />
-                    ))}
-                  </div>
-                )}
-                {globalTeamsForCategory.length > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-xs text-muted-foreground font-medium">Global teams (available in all categories):</p>
-                    {globalTeamsForCategory.map((setting) => (
-                      <TeamMemberCard key={setting.teamId} setting={setting} />
-                    ))}
-                  </div>
-                )}
-                {allTeamsForCategory.length === 0 && (
-                  <p className="text-sm text-muted-foreground py-2">No team members available</p>
-                )}
-              </div>
-            </ScrollArea>
+            {/* Show ALL members without scroll restriction */}
+            <div className="space-y-2">
+              {categoryTeams.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground font-medium">Category-specific:</p>
+                  {categoryTeams.map((setting) => (
+                    <TeamMemberCard key={setting.teamId} setting={setting} />
+                  ))}
+                </div>
+              )}
+              {globalTeamsForCategory.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground font-medium">Global teams (available in all categories):</p>
+                  {globalTeamsForCategory.map((setting) => (
+                    <TeamMemberCard key={setting.teamId} setting={setting} />
+                  ))}
+                </div>
+              )}
+              {allTeamsForCategory.length === 0 && (
+                <p className="text-sm text-muted-foreground py-2">No team members available</p>
+              )}
+            </div>
             <Button
               variant="outline"
               size="sm"
@@ -259,26 +260,25 @@ export const TeamSettingsModal = ({ onClose }: TeamSettingsModalProps) => {
 
                 <TabsContent value="categories" className="space-y-3">
                   <p className="text-sm text-muted-foreground mb-4">
-                    Assign team members to specific categories. Click a category to expand and manage its team.
+                    All team members are global and available across all categories. Click a category to view its team.
                   </p>
-                  <ScrollArea className="h-[400px]">
-                    <div className="grid gap-3 md:grid-cols-2 pr-2">
-                      {categories.map((category) => (
-                        <CategoryTeamList
-                          key={category.id}
-                          categoryId={category.id}
-                          categoryName={category.name}
-                          categoryColor={category.color}
-                        />
-                      ))}
-                    </div>
-                  </ScrollArea>
+                  {/* No scroll constraint - show all categories and let dialog scroll */}
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {categories.map((category) => (
+                      <CategoryTeamList
+                        key={category.id}
+                        categoryId={category.id}
+                        categoryName={category.name}
+                        categoryColor={category.color}
+                      />
+                    ))}
+                  </div>
                 </TabsContent>
 
                 <TabsContent value="global" className="space-y-3">
                   <div className="flex items-center justify-between mb-4">
                     <p className="text-sm text-muted-foreground">
-                      Global teams are available across all categories.
+                      All team members are available across all categories.
                     </p>
                     <Button
                       variant="outline"
@@ -287,22 +287,21 @@ export const TeamSettingsModal = ({ onClose }: TeamSettingsModalProps) => {
                       className="h-8 gap-1"
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      Add Global Team
+                      Add Team Member
                     </Button>
                   </div>
-                  <ScrollArea className="h-[400px]">
-                    <div className="space-y-2 pr-2">
-                      {globalTeams.length === 0 ? (
-                        <p className="text-sm text-muted-foreground py-4 text-center">
-                          No global team members. Add teams to specific categories instead.
-                        </p>
-                      ) : (
-                        globalTeams.map((setting) => (
-                          <TeamMemberCard key={setting.teamId} setting={setting} />
-                        ))
-                      )}
-                    </div>
-                  </ScrollArea>
+                  {/* No scroll constraint - show all members and let dialog scroll */}
+                  <div className="space-y-2">
+                    {globalTeams.length === 0 ? (
+                      <p className="text-sm text-muted-foreground py-4 text-center">
+                        No team members yet. Click "Add Team Member" to add your first team member.
+                      </p>
+                    ) : (
+                      globalTeams.map((setting) => (
+                        <TeamMemberCard key={setting.teamId} setting={setting} />
+                      ))
+                    )}
+                  </div>
                 </TabsContent>
               </Tabs>
             )}
