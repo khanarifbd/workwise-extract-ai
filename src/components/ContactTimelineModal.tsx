@@ -95,7 +95,7 @@ export function ContactTimelineModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
+      <DialogContent className="max-w-lg max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader className="space-y-3">
           <DialogTitle className="flex items-center gap-2">
             <Phone className="w-5 h-5" />
@@ -134,7 +134,8 @@ export function ContactTimelineModal({
           </div>
         </DialogHeader>
 
-        <div className="flex-1 min-h-0 space-y-4">
+        <ScrollArea className="flex-1 min-h-0">
+        <div className="space-y-4 pr-2">
           {/* Add Contact Button */}
           {!showAddForm && (
             <Button
@@ -385,8 +386,11 @@ export function ContactTimelineModal({
             </ScrollArea>
           </div>
 
+        </div>
+        </ScrollArea>
+
           {/* Back to Database Button - Fixed at bottom */}
-          <div className="pt-3 border-t border-border">
+          <div className="pt-3 border-t border-border flex-shrink-0">
             <Button
               variant="outline"
               className="w-full"
@@ -395,7 +399,6 @@ export function ContactTimelineModal({
               ← Back to Database
             </Button>
           </div>
-        </div>
       </DialogContent>
     </Dialog>
   );
