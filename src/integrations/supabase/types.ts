@@ -632,6 +632,7 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_valid_team_id: { Args: { _team_id: string }; Returns: boolean }
       is_viewer: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
