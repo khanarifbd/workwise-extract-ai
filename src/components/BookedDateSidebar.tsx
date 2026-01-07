@@ -5,11 +5,13 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Calendar, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { DailyBookingReportButton } from './DailyBookingReportButton';
 
 interface BookedDateSidebarProps {
   jobs: Job[];
   selectedDate: string | null;
   onDateSelect: (dateKey: string | null) => void;
+  isFanCategory?: boolean;
 }
 
 interface DateGroup {
@@ -20,7 +22,7 @@ interface DateGroup {
   isSpecial?: 'today' | 'tomorrow' | 'thisWeek';
 }
 
-export const BookedDateSidebar = ({ jobs, selectedDate, onDateSelect }: BookedDateSidebarProps) => {
+export const BookedDateSidebar = ({ jobs, selectedDate, onDateSelect, isFanCategory = false }: BookedDateSidebarProps) => {
   const dateGroups = useMemo(() => {
     const groups = new Map<string, { date: Date; count: number }>();
     
@@ -146,6 +148,17 @@ export const BookedDateSidebar = ({ jobs, selectedDate, onDateSelect }: BookedDa
               </Badge>
             </button>
           ))}
+          
+          {/* Daily Report Button - only show when a specific date is selected */}
+          {selectedDate && (
+            <div className="mt-3 pt-3 border-t border-border">
+              <DailyBookingReportButton 
+                jobs={jobs} 
+                selectedDate={selectedDate} 
+                isFanCategory={isFanCategory} 
+              />
+            </div>
+          )}
         </div>
       </ScrollArea>
     </div>

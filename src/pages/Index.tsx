@@ -959,6 +959,7 @@ const Index = () => {
                 jobs={jobs.filter(j => !!j.bookedDate && !j.isCompleted && j.progress !== 100)}
                 selectedDate={selectedBookedDate}
                 onDateSelect={setSelectedBookedDate}
+                isFanCategory={isFanCategory}
               />
             )}
             
