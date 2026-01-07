@@ -240,7 +240,9 @@ export function ContactTimelineModal({
                       mode="single"
                       selected={bookedDate}
                       onSelect={setBookedDate}
-                      className="pointer-events-auto rounded-md border bg-background"
+                      className={cn(
+                        "p-3 pointer-events-auto rounded-md border bg-background",
+                      )}
                     />
                     {bookedDate && (
                       <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">

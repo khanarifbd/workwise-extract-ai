@@ -248,9 +248,9 @@ export const TeamSettingsModal = ({ onClose }: TeamSettingsModalProps) => {
           </div>
         </DialogHeader>
 
-        {/* Content - Scrollable */}
-        <ScrollArea className="flex-1 min-h-0">
-          <div className="p-5">
+        {/* Content - Native scroll (prevents last row being hidden + works better on mobile) */}
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+          <div className="p-5 pb-24">
             {isLoading || categoriesLoading ? (
               <div className="text-center text-muted-foreground py-8">Loading...</div>
             ) : (
@@ -312,7 +312,7 @@ export const TeamSettingsModal = ({ onClose }: TeamSettingsModalProps) => {
               Enter phone numbers in international format without '+' (e.g. 447123456789 for UK)
             </p>
           </div>
-        </ScrollArea>
+        </div>
 
         {/* Footer */}
         <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-border bg-muted/30 flex-shrink-0">
