@@ -44,6 +44,39 @@ interface Attachment {
   category?: string; // 'team-photo', 'team-video', 'team-document'
 }
 
+// Rate limiting configuration
+interface RateLimitEntry {
+  count: number;
+  resetAt: number;
+}
+
+const rateLimitStore = new Map<string, RateLimitEntry>();
+const RATE_LIMIT_MAX_REQUESTS = 50; // 50 updates per team per hour
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+
+function checkRateLimit(teamId: string): { allowed: boolean; remaining: number; resetAt: number } {
+  const now = Date.now();
+  let entry = rateLimitStore.get(teamId);
+  
+  // Clean up old entries
+  for (const [key, e] of rateLimitStore.entries()) {
+    if (e.resetAt < now) rateLimitStore.delete(key);
+  }
+  
+  if (!entry || entry.resetAt < now) {
+    entry = { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS };
+    rateLimitStore.set(teamId, entry);
+    return { allowed: true, remaining: RATE_LIMIT_MAX_REQUESTS - 1, resetAt: entry.resetAt };
+  }
+  
+  if (entry.count >= RATE_LIMIT_MAX_REQUESTS) {
+    return { allowed: false, remaining: 0, resetAt: entry.resetAt };
+  }
+  
+  entry.count++;
+  return { allowed: true, remaining: RATE_LIMIT_MAX_REQUESTS - entry.count, resetAt: entry.resetAt };
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -72,7 +105,31 @@ Deno.serve(async (req) => {
 
     const { teamId, teamName, jobId, updates } = body;
 
-    // Log incoming request details for debugging
+    // Rate limiting check (per team) - check early after parsing body
+    if (teamId) {
+      const rateLimit = checkRateLimit(teamId);
+      
+      if (!rateLimit.allowed) {
+        const retryAfter = Math.ceil((rateLimit.resetAt - Date.now()) / 1000);
+        console.log(`Rate limit exceeded for team: ${teamId}`);
+        return new Response(
+          JSON.stringify({ 
+            error: "Too many requests. Please try again later.",
+            retryAfterSeconds: retryAfter 
+          }),
+          { 
+            status: 429, 
+            headers: { 
+              ...corsHeaders, 
+              "Content-Type": "application/json",
+              "Retry-After": String(retryAfter)
+            } 
+          }
+        );
+      }
+    }
+
+   
     console.log(`[update-team-job] Request received for job: ${jobId}`);
     console.log(`[update-team-job] Team: ${teamName} (${teamId})`);
     console.log(`[update-team-job] Photos count: ${updates?.photos?.length ?? 0}`);
