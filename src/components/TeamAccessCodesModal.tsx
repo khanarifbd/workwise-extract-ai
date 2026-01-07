@@ -145,65 +145,65 @@ export const TeamAccessCodesModal = ({ onClose }: TeamAccessCodesModalProps) => 
               )}
 
               {/* Codes List */}
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {codes.length === 0 ? (
-                  <p className="text-center text-muted-foreground py-8">No access codes configured</p>
+                  <p className="text-center text-muted-foreground py-6 text-sm">No access codes configured</p>
                 ) : (
                   codes.map((code) => (
                     <div
                       key={code.id}
                       className={cn(
-                        "flex items-center gap-4 p-3 rounded-lg border",
+                        "flex items-center gap-3 px-2.5 py-2 rounded-md border",
                         code.isActive ? "border-border bg-muted/20" : "border-destructive/30 bg-destructive/5"
                       )}
                     >
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 flex-1 min-w-0">
                         {code.isActive ? (
-                          <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
+                          <Check className="w-3 h-3 text-green-500 flex-shrink-0" />
                         ) : (
-                          <XCircle className="w-4 h-4 text-destructive flex-shrink-0" />
+                          <XCircle className="w-3 h-3 text-destructive flex-shrink-0" />
                         )}
                         {editingNameId === code.id ? (
                           <div className="flex items-center gap-1 flex-1">
                             <Input
                               value={editingName}
                               onChange={(e) => setEditingName(e.target.value)}
-                              className="h-8 text-sm flex-1"
+                              className="h-6 text-xs flex-1"
                               autoFocus
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter') handleSaveEditName(code.id);
                                 if (e.key === 'Escape') handleCancelEditName();
                               }}
                             />
-                            <Button size="sm" variant="ghost" className="h-8 px-2" onClick={() => handleSaveEditName(code.id)}>
-                              <Check className="w-4 h-4 text-green-500" />
+                            <Button size="sm" variant="ghost" className="h-6 px-1.5" onClick={() => handleSaveEditName(code.id)}>
+                              <Check className="w-3 h-3 text-green-500" />
                             </Button>
-                            <Button size="sm" variant="ghost" className="h-8 px-2" onClick={handleCancelEditName}>
-                              <X className="w-4 h-4" />
+                            <Button size="sm" variant="ghost" className="h-6 px-1.5" onClick={handleCancelEditName}>
+                              <X className="w-3 h-3" />
                             </Button>
                           </div>
                         ) : (
                           <div className="flex items-center gap-1 min-w-0">
-                            <span className="font-medium truncate">{code.teamName}</span>
+                            <span className="text-sm font-medium truncate">{code.teamName}</span>
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-6 w-6 flex-shrink-0"
+                              className="h-5 w-5 flex-shrink-0"
                               onClick={() => handleStartEditName(code.id, code.teamName)}
                               title="Edit team name"
                             >
-                              <Pencil className="w-3 h-3" />
+                              <Pencil className="w-2.5 h-2.5" />
                             </Button>
                           </div>
                         )}
                       </div>
                       
                       {editingId === code.id ? (
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1">
                           <Input
                             value={editingCode}
                             onChange={(e) => setEditingCode(e.target.value.toUpperCase())}
-                            className="w-28 h-8 font-mono text-sm tracking-wider uppercase"
+                            className="w-24 h-6 font-mono text-xs tracking-wider uppercase"
                             maxLength={8}
                             autoFocus
                             onKeyDown={(e) => {
@@ -211,45 +211,46 @@ export const TeamAccessCodesModal = ({ onClose }: TeamAccessCodesModalProps) => 
                               if (e.key === 'Escape') handleCancelEdit();
                             }}
                           />
-                          <Button size="sm" variant="ghost" className="h-8 px-2" onClick={() => handleSaveEdit(code.id)}>
-                            <Check className="w-4 h-4 text-green-500" />
+                          <Button size="sm" variant="ghost" className="h-6 px-1.5" onClick={() => handleSaveEdit(code.id)}>
+                            <Check className="w-3 h-3 text-green-500" />
                           </Button>
-                          <Button size="sm" variant="ghost" className="h-8 px-2" onClick={handleCancelEdit}>
-                            <X className="w-4 h-4" />
+                          <Button size="sm" variant="ghost" className="h-6 px-1.5" onClick={handleCancelEdit}>
+                            <X className="w-3 h-3" />
                           </Button>
                         </div>
                       ) : (
                         <div className="flex items-center gap-1">
-                          <code className="px-3 py-1 bg-muted rounded font-mono text-sm tracking-wider">
+                          <code className="px-2 py-0.5 bg-muted rounded text-xs font-mono tracking-wider">
                             {code.accessCode}
                           </code>
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8"
+                            className="h-6 w-6"
                             onClick={() => handleStartEdit(code.id, code.accessCode)}
                             title="Edit access code"
                           >
-                            <Pencil className="w-3 h-3" />
+                            <Pencil className="w-2.5 h-2.5" />
                           </Button>
                         </div>
                       )}
                       
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground">Active</span>
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] text-muted-foreground">Active</span>
                           <Switch
                             checked={code.isActive}
                             onCheckedChange={() => handleToggleActive(code.id, code.isActive)}
+                            className="scale-75"
                           />
                         </div>
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                          className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10"
                           onClick={() => handleDelete(code.id, code.teamName)}
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-3 h-3" />
                         </Button>
                       </div>
                     </div>
