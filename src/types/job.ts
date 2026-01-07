@@ -65,6 +65,7 @@ export interface Job {
   isCompleted: boolean;
   dateIssued: Date;
   bookedDate: Date | null;
+  isFlexibleBooking: boolean;
   bookingNotes: string;
   startDate: Date | null;
   completionDate: Date | null;

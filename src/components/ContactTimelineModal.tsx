@@ -32,7 +32,7 @@ interface ContactTimelineModalProps {
   tenantName: string;
   phoneNumber: string;
   bookedDate?: Date | null;
-  onBookJob?: (bookedDate: Date) => void;
+  onBookJob?: (bookedDate: Date, isFlexible: boolean) => void;
 }
 
 export function ContactTimelineModal({
@@ -75,7 +75,7 @@ export function ContactTimelineModal({
       
       // If booked or booked_flexible outcome with date, trigger the booking callback
       if ((selectedOutcome === 'booked' || selectedOutcome === 'booked_flexible') && bookedDate && onBookJob) {
-        onBookJob(bookedDate);
+        onBookJob(bookedDate, selectedOutcome === 'booked_flexible');
       }
       
       // Reset form

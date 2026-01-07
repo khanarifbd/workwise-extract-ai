@@ -264,6 +264,7 @@ export const mapDatabaseJobToJob = (dbJob: any): Job => ({
   isCompleted: dbJob.is_completed || false,
   dateIssued: dbJob.date_issued ? new Date(dbJob.date_issued) : new Date(),
   bookedDate: dbJob.booked_date ? new Date(dbJob.booked_date) : null,
+  isFlexibleBooking: dbJob.is_flexible_booking || false,
   bookingNotes: dbJob.booking_notes || '',
   startDate: dbJob.start_date ? new Date(dbJob.start_date) : null,
   completionDate: dbJob.completion_date ? new Date(dbJob.completion_date) : null,
@@ -291,6 +292,7 @@ export const mapJobToDatabase = (job: Partial<Job>): any => {
   if (job.isCompleted !== undefined) dbJob.is_completed = job.isCompleted;
   if (job.dateIssued !== undefined) dbJob.date_issued = job.dateIssued;
   if (job.bookedDate !== undefined) dbJob.booked_date = job.bookedDate;
+  if (job.isFlexibleBooking !== undefined) dbJob.is_flexible_booking = job.isFlexibleBooking;
   if (job.bookingNotes !== undefined) dbJob.booking_notes = job.bookingNotes;
   if (job.startDate !== undefined) dbJob.start_date = job.startDate;
   if (job.completionDate !== undefined) dbJob.completion_date = job.completionDate;
@@ -328,6 +330,7 @@ export const createLinkedFanJob = async (
     isCompleted: false,
     dateIssued: new Date(),
     bookedDate: null,
+    isFlexibleBooking: false,
     bookingNotes: '',
     startDate: null,
     completionDate: null,

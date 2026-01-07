@@ -12,7 +12,7 @@ interface ContactCellProps {
   bookedDate: Date | null;
   status: string;
   contactHistory: ContactHistory[];
-  onBookJob?: (bookedDate: Date) => void;
+  onBookJob?: (bookedDate: Date, isFlexible: boolean) => void;
 }
 
 export function ContactCell({
