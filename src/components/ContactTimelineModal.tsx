@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { format, formatDistanceToNow } from 'date-fns';
+import { format, formatDistanceToNow, startOfDay } from 'date-fns';
 import { 
   Phone, 
   Plus, 
@@ -213,7 +213,7 @@ export function ContactTimelineModal({
                             mode="single"
                             selected={callbackDate}
                             onSelect={setCallbackDate}
-                            disabled={(date) => date < new Date()}
+                            disabled={(date) => date < startOfDay(new Date())}
                             initialFocus
                             className="p-3 pointer-events-auto"
                           />
@@ -242,7 +242,7 @@ export function ContactTimelineModal({
                           mode="single"
                           selected={bookedDate}
                           onSelect={setBookedDate}
-                          disabled={(date) => date < new Date()}
+                          disabled={(date) => date < startOfDay(new Date())}
                           initialFocus
                           className="p-3 pointer-events-auto rounded-md border bg-background"
                         />
