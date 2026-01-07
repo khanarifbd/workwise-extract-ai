@@ -222,7 +222,7 @@ export function ContactTimelineModal({
                 </div>
               )}
 
-              {/* Section: Booked Date */}
+              {/* Section: Booked Date - Calendar visible inline */}
               {(selectedOutcome === 'booked' || selectedOutcome === 'booked_flexible') && (
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
@@ -234,27 +234,17 @@ export function ContactTimelineModal({
                       </span>
                     )}
                   </div>
-                  <div className="pl-4 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg space-y-2">
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button variant="outline" size="sm" className="w-full justify-start">
-                          <CalendarDays className="w-4 h-4 mr-2" />
-                          {bookedDate ? format(bookedDate, 'dd/MM/yyyy') : 'Select start date'}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={bookedDate}
-                          onSelect={setBookedDate}
-                          initialFocus
-                          className="pointer-events-auto"
-                        />
-                      </PopoverContent>
-                    </Popover>
+                  <div className="pl-4 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg space-y-3">
+                    {/* Calendar shown inline - no popover */}
+                    <Calendar
+                      mode="single"
+                      selected={bookedDate}
+                      onSelect={setBookedDate}
+                      className="pointer-events-auto rounded-md border bg-background"
+                    />
                     {bookedDate && (
-                      <p className="text-xs text-emerald-600 dark:text-emerald-400">
-                        Job will be marked as booked{selectedOutcome === 'booked_flexible' ? ' (flexible)' : ''} for {format(bookedDate, 'dd/MM/yyyy')}
+                      <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                        ✓ Selected: {format(bookedDate, 'EEEE, dd MMMM yyyy')}
                       </p>
                     )}
                   </div>

@@ -189,7 +189,18 @@ export const TeamSettingsModal = ({ onClose }: TeamSettingsModalProps) => {
           </div>
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <div className="pl-4 pt-2 space-y-2">
+          <div className="pl-4 pt-2 space-y-3">
+            {/* Add Member Button at TOP for visibility */}
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => setShowAddTeam(categoryId)}
+              className="h-9 gap-2 w-full bg-primary hover:bg-primary/90"
+            >
+              <Plus className="w-4 h-4" />
+              Add Team Member
+            </Button>
+            
             {/* Show ALL members without scroll restriction */}
             <div className="space-y-2">
               {categoryTeams.length > 0 && (
@@ -209,18 +220,9 @@ export const TeamSettingsModal = ({ onClose }: TeamSettingsModalProps) => {
                 </div>
               )}
               {allTeamsForCategory.length === 0 && (
-                <p className="text-sm text-muted-foreground py-2">No team members available</p>
+                <p className="text-sm text-muted-foreground py-2">No team members yet. Click "Add Team Member" above.</p>
               )}
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowAddTeam(categoryId)}
-              className="h-8 gap-1 w-full"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Add Team Member to {categoryName}
-            </Button>
           </div>
         </CollapsibleContent>
       </Collapsible>
