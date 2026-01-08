@@ -311,7 +311,7 @@ const TeamPortal = () => {
     }
   }, [isOnline, isAuthenticated]);
 
-  // Set up realtime subscription (still works as teams can subscribe to changes)
+  // Set up realtime subscription - listen to all job changes to detect unassignments
   useEffect(() => {
     if (!isAuthenticated || !session?.teamName) return;
 
@@ -323,10 +323,35 @@ const TeamPortal = () => {
           event: '*',
           schema: 'public',
           table: 'jobs',
-          filter: `team=eq.${session.teamName}`,
         },
-        () => {
-          loadJobs();
+        (payload) => {
+          const changedJob = payload.new as any;
+          const oldJob = payload.old as any;
+          
+          // Check if a job was unassigned from this team
+          if (payload.eventType === 'UPDATE' && oldJob?.team === session.teamName && changedJob?.team !== session.teamName) {
+            // Job was unassigned from this team - remove it immediately
+            setJobs(prev => prev.filter(j => j.id !== changedJob.id));
+            
+            // If this job is currently selected, show toast and close it
+            if (selectedJob?.id === changedJob.id) {
+              setSelectedJob(null);
+              toast({
+                title: '⚠️ Job Unassigned',
+                description: `Job #${changedJob.job_number} has been removed from your team by admin.`,
+                variant: 'destructive',
+              });
+            } else {
+              toast({
+                title: 'Job Removed',
+                description: `Job #${changedJob.job_number} has been unassigned from your team.`,
+              });
+            }
+          } 
+          // Check if a job was newly assigned to this team
+          else if (changedJob?.team === session.teamName) {
+            loadJobs();
+          }
         }
       )
       .subscribe();
@@ -334,7 +359,7 @@ const TeamPortal = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [isAuthenticated, session?.teamName]);
+  }, [isAuthenticated, session?.teamName, selectedJob?.id, toast]);
 
   if (authLoading) {
     return (
