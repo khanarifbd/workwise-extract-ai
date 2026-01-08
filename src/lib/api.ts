@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { Job, WorkItem, FanInfo } from "@/types/job";
 import { SOR_CODES_DATABASE } from "@/data/sorCodes";
+import { Json } from "@/integrations/supabase/types";
 
 // Generate SOR codes context for AI with costs
 const getSORCodesContext = () => {
@@ -362,6 +363,94 @@ export const createLinkedFanJob = async (
     .eq('id', sourceJob.id);
 
   return mapDatabaseJobToJob(data);
+};
+
+// Sync (create or update) a linked fan job based on manual fan edits
+export const syncLinkedFanJob = async (
+  sourceJob: Job,
+  fanInfo: FanInfo[],
+  fanCategoryId: string
+): Promise<{ linkedFanJobId: string; created: boolean }> => {
+  const fanDescription = fanInfo.map(fan => 
+    `${fan.type} x${fan.quantity}${fan.location ? ` - ${fan.location}` : ''}`
+  ).join('\n');
+
+  // Check if a linked fan job already exists
+  if (sourceJob.linkedFanJobId) {
+    // Update existing fan job
+    const { error } = await supabase
+      .from('jobs')
+      .update({
+        fan_info: fanInfo as unknown as Json,
+        description: fanDescription,
+      })
+      .eq('id', sourceJob.linkedFanJobId);
+
+    if (error) {
+      console.error('Error updating linked fan job:', error);
+      throw error;
+    }
+
+    // Also update the source job's fan_info
+    await supabase
+      .from('jobs')
+      .update({ fan_info: fanInfo as unknown as Json })
+      .eq('id', sourceJob.id);
+
+    return { linkedFanJobId: sourceJob.linkedFanJobId, created: false };
+  }
+
+  // Create new fan job
+  const fanJob: Omit<Job, 'id'> = {
+    jobNumber: `${sourceJob.jobNumber}-FAN`,
+    name: sourceJob.name,
+    address: sourceJob.address,
+    phoneNumber: sourceJob.phoneNumber,
+    summaryOfWorks: `Fan Installation from ${sourceJob.jobNumber}`,
+    description: fanDescription,
+    workItems: [],
+    additionalWorks: [],
+    team: null,
+    progress: 0,
+    progressNotes: '',
+    isCompleted: false,
+    dateIssued: new Date(),
+    bookedDate: null,
+    isFlexibleBooking: false,
+    bookingNotes: '',
+    startDate: null,
+    completionDate: null,
+    attachments: [],
+    status: 'pending',
+    fanInfo: fanInfo,
+    linkedFanJobId: null,
+    costs: null,
+  };
+
+  const dbJob = mapJobToDatabase(fanJob);
+  dbJob.category_id = fanCategoryId;
+
+  const { data, error } = await supabase
+    .from('jobs')
+    .insert(dbJob)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating linked fan job:', error);
+    throw error;
+  }
+
+  // Update the source job to link to the fan job and save fan_info
+  await supabase
+    .from('jobs')
+    .update({ 
+      linked_fan_job_id: data.id,
+      fan_info: fanInfo as unknown as Json 
+    })
+    .eq('id', sourceJob.id);
+
+  return { linkedFanJobId: data.id, created: true };
 };
 
 // Notification history functions
