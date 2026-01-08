@@ -51,9 +51,9 @@ export const FanEditor = ({ fanInfo, onUpdate, job, fanCategoryId, onJobUpdated 
       return;
     }
 
-    // Create a single fan entry with the total quantity
+    // Create a single fan entry with manual override flag
     const newFanInfo: FanInfo[] = numQuantity > 0 
-      ? [{ type: 'Extractor Fan', quantity: numQuantity, location: '' }]
+      ? [{ type: 'Extractor Fan', quantity: numQuantity, location: '', manualOverride: true }]
       : [];
 
     // Sync to database if we have job context
