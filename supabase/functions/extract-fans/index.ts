@@ -94,45 +94,54 @@ serve(async (req) => {
       workItemsText
     ].filter(Boolean).join('\n\nWORK ITEMS:\n');
 
-    const systemPrompt = `You are an expert at counting fans in property maintenance job descriptions.
+    const systemPrompt = `You are an expert at identifying and counting ventilation fans in UK property maintenance job descriptions.
 
-CRITICAL INSTRUCTIONS FOR COUNTING:
-1. Work items are prefixed with [QTY: X] where X is the EXACT quantity. USE THIS NUMBER.
-2. If a work item says "[QTY: 3] FAN:RENEW" it means 3 fans, NOT 1.
-3. The total fan count = sum of all fan-related work item quantities.
-4. Common fan work items include: FAN, EXTRACTOR, ENVIROVENT, CONDENSATION CONTROL
+YOUR TASK: Carefully read the entire description and work items to find ALL references to fans that need to be installed, renewed, or repaired.
 
-WHAT TO LOOK FOR:
-- Extractor fans
-- Bathroom fans  
-- Kitchen fans
-- Ventilation fans / Envirovent
-- Exhaust fans
-- Condensation control fans
-- Any fan renewal/installation work
+FAN TYPES TO LOOK FOR (common terms):
+- Extractor fan / Extract fan
+- Bathroom fan / Bath fan
+- Kitchen fan
+- Ventilation fan / Vent fan
+- Envirovent / EnviroVent (brand name for fan units)
+- Condensation control unit / CCU
+- Axial fan
+- Centrifugal fan
+- Mechanical ventilation
+- MVH / MVHR (Mechanical Ventilation with Heat Recovery)
+- Humidity sensor fan
+- Timer fan
+- Intermittent fan
+- Continuous running fan
+
+WORK DESCRIPTIONS THAT INDICATE FANS:
+- "RENEW" or "RENEWAL" of any fan type
+- "INSTALL" new fan
+- "REPLACE" fan
+- "FIT" fan
+- "SUPPLY AND FIT" fan
+- Terms like "vent", "ventilator", "extraction", "extractor"
 
 COUNTING RULES:
-- Read the [QTY: X] prefix carefully - this is the actual quantity
-- If no QTY prefix, default to 1
-- Sum all fan-related quantities for totalFanCount
+1. Work items are prefixed with [QTY: X] - this is the EXACT quantity to use
+2. If a work item says "[QTY: 3] FAN:RENEW" it means 3 fans
+3. If no QTY prefix shown, assume quantity = 1
+4. Add up ALL fan-related work item quantities
+5. Also check the description text for additional fan mentions not in work items
 
-Return ONLY this JSON:
+EXAMPLES:
+- "[QTY: 2] FAN:RENEW ENVIROVENT" → 2 fans
+- "Install bathroom extractor fan" → 1 fan
+- "[QTY: 1] RENEW EXTRACT FAN TO KITCHEN" → 1 fan
+
+Return ONLY valid JSON:
 {
   "hasFans": true/false,
-  "fans": [
-    {
-      "type": "Extractor Fan",
-      "quantity": <number from QTY prefix>,
-      "location": ""
-    }
-  ],
-  "totalFanCount": <sum of all fan quantities>
+  "fans": [{"type": "Fan Type", "quantity": <number>, "location": "room if mentioned"}],
+  "totalFanCount": <sum of all quantities>
 }
 
-Example: "[QTY: 3] FAN:RENEW ENVIROVENT" = {"hasFans": true, "fans": [{"type": "Extractor Fan", "quantity": 3, "location": ""}], "totalFanCount": 3}
-
-If no fans found:
-{"hasFans": false, "fans": [], "totalFanCount": 0}`;
+If NO fans found: {"hasFans": false, "fans": [], "totalFanCount": 0}`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',

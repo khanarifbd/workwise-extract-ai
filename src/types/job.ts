@@ -40,6 +40,7 @@ export interface FanInfo {
   type: string;
   quantity: number;
   location: string;
+  manualOverride?: boolean; // When true, auto-scan should not overwrite this
 }
 
 export interface JobCosts {

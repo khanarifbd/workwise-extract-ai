@@ -214,9 +214,19 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
     }
   };
 
-  const handleScanForFans = async (jobId: string) => {
+  const handleScanForFans = async (jobId: string, forceOverride: boolean = false) => {
     const job = jobs.find(j => j.id === jobId);
     if (!job) return;
+
+    // Check if manual override is set (unless force override is requested)
+    const hasManualOverride = job.fanInfo?.some(f => f.manualOverride);
+    if (hasManualOverride && !forceOverride) {
+      toast({
+        title: "Manual Override Active",
+        description: "This job has a manually set fan count. Use the editor to change it.",
+      });
+      return;
+    }
 
     setScanningFanJobId(jobId);
     try {
@@ -290,7 +300,10 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
     try {
       const jobsToScan = jobs.filter(j => {
         if (!selectedJobs.has(j.id)) return false;
-        if (forceRescan) return true; // Re-scan all selected
+        // Skip jobs with manual override unless force rescan
+        const hasManualOverride = j.fanInfo?.some(f => f.manualOverride);
+        if (hasManualOverride && !forceRescan) return false;
+        if (forceRescan) return true; // Re-scan all selected (including overridden if forced)
         // Only scan jobs without results or with NONE marker
         return !j.fanInfo || j.fanInfo.length === 0 || wasScannedNoFans(j.fanInfo);
       });
