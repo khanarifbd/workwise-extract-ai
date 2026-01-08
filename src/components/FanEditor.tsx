@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { FanInfo } from '@/types/job';
-import { Fan, Plus, Trash2, Edit2, Check, X } from 'lucide-react';
+import { FanInfo, Job } from '@/types/job';
+import { Fan, Plus, Trash2, Edit2, Check, X, Save, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -9,17 +9,23 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { syncLinkedFanJob } from '@/lib/api';
+import { toast } from 'sonner';
 
 interface FanEditorProps {
   fanInfo: FanInfo[] | null;
   onUpdate: (fanInfo: FanInfo[]) => void;
+  job?: Job;
+  fanCategoryId?: string;
+  onJobUpdated?: (updates: Partial<Job>) => void;
 }
 
-export const FanEditor = ({ fanInfo, onUpdate }: FanEditorProps) => {
+export const FanEditor = ({ fanInfo, onUpdate, job, fanCategoryId, onJobUpdated }: FanEditorProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [newFan, setNewFan] = useState<FanInfo>({ type: '', quantity: 1, location: '' });
   const [showAddForm, setShowAddForm] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // Filter out the "no fans" marker
   const actualFans = fanInfo?.filter(f => f.type !== '__SCANNED_NO_FANS__') || [];
@@ -42,6 +48,37 @@ export const FanEditor = ({ fanInfo, onUpdate }: FanEditorProps) => {
     setNewFan({ type: '', quantity: 1, location: '' });
     setShowAddForm(false);
   };
+
+  const handleSaveAndSync = async () => {
+    if (!job || !fanCategoryId) {
+      toast.error('Missing job or category information');
+      return;
+    }
+
+    if (actualFans.length === 0) {
+      toast.error('Add at least one fan before saving');
+      return;
+    }
+
+    setIsSyncing(true);
+    try {
+      const result = await syncLinkedFanJob(job, actualFans, fanCategoryId);
+      
+      if (onJobUpdated && result.linkedFanJobId) {
+        onJobUpdated({ linkedFanJobId: result.linkedFanJobId });
+      }
+
+      toast.success(result.created ? 'Fan job created successfully' : 'Fan job updated successfully');
+      setIsOpen(false);
+    } catch (error) {
+      console.error('Error syncing fan job:', error);
+      toast.error('Failed to sync fan job');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const canSync = job && fanCategoryId && actualFans.length > 0;
 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
@@ -210,6 +247,23 @@ export const FanEditor = ({ fanInfo, onUpdate }: FanEditorProps) => {
             >
               <Plus className="w-3 h-3 mr-1" />
               Add Fan
+            </Button>
+          )}
+
+          {/* Save & Sync Button */}
+          {canSync && (
+            <Button
+              size="sm"
+              className="w-full h-8 bg-cyan-600 hover:bg-cyan-700"
+              onClick={handleSaveAndSync}
+              disabled={isSyncing}
+            >
+              {isSyncing ? (
+                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+              ) : (
+                <Save className="w-3 h-3 mr-1" />
+              )}
+              {job.linkedFanJobId ? 'Update Fan Job' : 'Create Fan Job'}
             </Button>
           )}
         </div>

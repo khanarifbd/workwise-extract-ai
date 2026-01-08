@@ -690,61 +690,23 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                   {/* Fan Column */}
                   <td onClick={(e) => e.stopPropagation()}>
                     <div className="flex flex-col gap-1">
-                      {hasActualFans(job.fanInfo) ? (
-                        <>
-                          <Badge className="bg-cyan-500/20 text-cyan-700 dark:text-cyan-400 border-cyan-500/30">
-                            <Fan className="w-3 h-3 mr-1" />
-                            {getTotalFanCount(job.fanInfo)}
-                          </Badge>
-                          {job.linkedFanJobId && (
-                            <Badge variant="outline" className="text-xs bg-green-500/10 text-green-700 dark:text-green-400">
-                              Linked
-                            </Badge>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-5 px-1.5 text-xs text-muted-foreground hover:text-primary"
-                            onClick={() => handleScanForFans(job.id)}
-                            disabled={scanningFanJobId === job.id}
-                          >
-                            {scanningFanJobId === job.id ? (
-                              <Loader2 className="w-3 h-3 animate-spin" />
-                            ) : (
-                              <>
-                                <Wand2 className="w-3 h-3 mr-0.5" />
-                                Re-scan
-                              </>
-                            )}
-                          </Button>
-                        </>
-                      ) : wasScannedNoFans(job.fanInfo) ? (
-                        <div className="flex flex-col gap-1">
-                          <Badge variant="outline" className="text-xs bg-muted text-muted-foreground">
-                            NONE
-                          </Badge>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-5 px-1.5 text-xs text-muted-foreground hover:text-primary"
-                            onClick={() => handleScanForFans(job.id)}
-                            disabled={scanningFanJobId === job.id}
-                          >
-                            {scanningFanJobId === job.id ? (
-                              <Loader2 className="w-3 h-3 animate-spin" />
-                            ) : (
-                              <>
-                                <Wand2 className="w-3 h-3 mr-0.5" />
-                                Re-scan
-                              </>
-                            )}
-                          </Button>
-                        </div>
-                      ) : (
+                      <FanEditor
+                        fanInfo={job.fanInfo}
+                        onUpdate={(fanInfo) => onUpdateJob({ ...job, fanInfo })}
+                        job={job}
+                        fanCategoryId={fanCategoryId}
+                        onJobUpdated={(updates) => onUpdateJob({ ...job, ...updates })}
+                      />
+                      {job.linkedFanJobId && (
+                        <Badge variant="outline" className="text-xs bg-green-500/10 text-green-700 dark:text-green-400">
+                          Linked
+                        </Badge>
+                      )}
+                      {!hasActualFans(job.fanInfo) && (
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-6 px-2 text-xs"
+                          className="h-5 px-1.5 text-xs text-muted-foreground hover:text-primary"
                           onClick={() => handleScanForFans(job.id)}
                           disabled={scanningFanJobId === job.id}
                         >
@@ -752,8 +714,26 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                             <Loader2 className="w-3 h-3 animate-spin" />
                           ) : (
                             <>
-                              <Wand2 className="w-3 h-3 mr-1" />
-                              Scan
+                              <Wand2 className="w-3 h-3 mr-0.5" />
+                              AI Scan
+                            </>
+                          )}
+                        </Button>
+                      )}
+                      {hasActualFans(job.fanInfo) && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-5 px-1.5 text-xs text-muted-foreground hover:text-primary"
+                          onClick={() => handleScanForFans(job.id)}
+                          disabled={scanningFanJobId === job.id}
+                        >
+                          {scanningFanJobId === job.id ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <>
+                              <Wand2 className="w-3 h-3 mr-0.5" />
+                              Re-scan
                             </>
                           )}
                         </Button>
