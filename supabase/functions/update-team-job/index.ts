@@ -21,6 +21,7 @@ interface UpdateJobRequest {
   teamId: string;
   teamName: string;
   jobId: string;
+  languagePreference?: string; // User's language for translation
   updates: {
     status?: string;
     progress?: number;
@@ -77,6 +78,50 @@ function checkRateLimit(teamId: string): { allowed: boolean; remaining: number; 
   return { allowed: true, remaining: RATE_LIMIT_MAX_REQUESTS - entry.count, resetAt: entry.resetAt };
 }
 
+// Translate text using Lovable AI
+async function translateToEnglish(text: string, sourceLanguage: string): Promise<string> {
+  if (!text || sourceLanguage === 'en') return text;
+  
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+  if (!LOVABLE_API_KEY) {
+    console.error('LOVABLE_API_KEY not configured, skipping translation');
+    return text;
+  }
+
+  try {
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          { 
+            role: 'system', 
+            content: `You are a professional translator. Translate the given text from ${sourceLanguage} to English accurately while preserving the meaning and tone. Return ONLY the translated text, nothing else. If the text is already in English, return it unchanged.`
+          },
+          { role: 'user', content: text }
+        ],
+        max_tokens: 2000,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('Translation API error:', response.status);
+      return text;
+    }
+
+    const data = await response.json();
+    const translated = data.choices?.[0]?.message?.content?.trim();
+    return translated || text;
+  } catch (error) {
+    console.error('Translation error:', error);
+    return text;
+  }
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -103,7 +148,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { teamId, teamName, jobId, updates } = body;
+    const { teamId, teamName, jobId, languagePreference, updates } = body;
 
     // Rate limiting check (per team) - check early after parsing body
     if (teamId) {
@@ -257,7 +302,14 @@ Deno.serve(async (req) => {
     }
     
     if (updates.notes) {
-      jobUpdates.progress_notes = updates.notes;
+      // Translate notes to English if user has a different language preference
+      let notesToSave = updates.notes;
+      if (languagePreference && languagePreference !== 'en') {
+        console.log(`Translating notes from ${languagePreference} to English`);
+        notesToSave = await translateToEnglish(updates.notes, languagePreference);
+        console.log('Notes translated successfully');
+      }
+      jobUpdates.progress_notes = notesToSave;
     }
 
     // Handle work item updates - merge with existing work items

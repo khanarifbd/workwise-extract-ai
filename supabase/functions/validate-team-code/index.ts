@@ -14,6 +14,7 @@ interface TeamSession {
   teamName: string;
   validatedAt: string;
   expiresAt: string;
+  languagePreference: string;
 }
 
 // Rate limiting configuration
@@ -143,7 +144,7 @@ Deno.serve(async (req) => {
     // Query team_access_codes table (uses service role, bypasses RLS)
     const { data, error } = await supabase
       .from("team_access_codes")
-      .select("team_id, team_name, is_active")
+      .select("team_id, team_name, is_active, language_preference")
       .eq("access_code", sanitizedCode)
       .maybeSingle();
 
@@ -173,6 +174,7 @@ Deno.serve(async (req) => {
       teamName: data.team_name,
       validatedAt: now.toISOString(),
       expiresAt: expiresAt.toISOString(),
+      languagePreference: data.language_preference || 'en',
     };
 
     console.log(`Team validated: ${data.team_name} (${data.team_id}) from IP: ${clientIP}`);
