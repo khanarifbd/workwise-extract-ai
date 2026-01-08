@@ -330,6 +330,7 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
+          language_preference: string | null
           team_id: string
           team_name: string
           updated_at: string
@@ -339,6 +340,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          language_preference?: string | null
           team_id: string
           team_name: string
           updated_at?: string
@@ -348,6 +350,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          language_preference?: string | null
           team_id?: string
           team_name?: string
           updated_at?: string

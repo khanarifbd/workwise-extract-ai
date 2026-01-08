@@ -23,7 +23,8 @@ const TeamPortal = () => {
     logout, 
     error: authError,
     fetchTeamJobs,
-    updateTeamJob 
+    updateTeamJob,
+    updateLanguagePreference,
   } = useTeamAuth();
   const { isOnline, pendingSyncCount, cacheJobs, getCachedJobs, getPendingSyncItems, markSynced } = useOfflineStorage();
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -387,6 +388,7 @@ const TeamPortal = () => {
           job={selectedJob}
           teamId={session!.teamId}
           teamName={session!.teamName}
+          languagePreference={session!.languagePreference || 'en'}
           onBack={() => setSelectedJob(null)}
           onJobUpdate={(updatedJob) => {
             setJobs(prev => prev.map(j => j.id === updatedJob.id ? updatedJob : j));
@@ -400,9 +402,25 @@ const TeamPortal = () => {
           teamName={session!.teamName}
           teamId={session!.teamId}
           isLoading={isLoadingJobs}
+          languagePreference={session!.languagePreference || 'en'}
           onSelectJob={setSelectedJob}
           onRefresh={loadJobs}
           onLogout={logout}
+          onLanguageChange={async (lang) => {
+            try {
+              await updateLanguagePreference(lang);
+              toast({
+                title: 'Language Updated',
+                description: 'Job descriptions will now be translated to your language.',
+              });
+            } catch (error) {
+              toast({
+                title: 'Failed to update language',
+                description: 'Please try again.',
+                variant: 'destructive',
+              });
+            }
+          }}
         />
       )}
     </div>

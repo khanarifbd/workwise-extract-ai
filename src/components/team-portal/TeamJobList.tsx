@@ -11,15 +11,18 @@ import { format } from 'date-fns';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useCapacitorPush } from '@/hooks/useCapacitorPush';
 import { TeamDiary } from './TeamDiary';
+import { LanguageSelector } from './LanguageSelector';
 
 interface TeamJobListProps {
   jobs: Job[];
   teamName: string;
   teamId: string;
   isLoading: boolean;
+  languagePreference: string;
   onSelectJob: (job: Job) => void;
   onRefresh: () => void;
   onLogout: () => void;
+  onLanguageChange: (language: string) => void;
 }
 
 export const TeamJobList = ({
@@ -27,9 +30,11 @@ export const TeamJobList = ({
   teamName,
   teamId,
   isLoading,
+  languagePreference,
   onSelectJob,
   onRefresh,
   onLogout,
+  onLanguageChange,
 }: TeamJobListProps) => {
   // Web push notifications (PWA)
   const { isSupported: webPushSupported, isSubscribed: webPushSubscribed, isLoading: webPushLoading, subscribe: webSubscribe, unsubscribe: webUnsubscribe } = usePushNotifications(teamId);
@@ -128,9 +133,16 @@ const { isSupported: nativePushSupported, isRegistered: nativePushRegistered, is
                 className="h-9 w-9 sm:h-10 sm:w-10"
                 onClick={onLogout}
               >
-                <LogOut className="h-4 w-4" />
+              <LogOut className="h-4 w-4" />
               </Button>
             </div>
+          </div>
+          {/* Language Selector Row */}
+          <div className="flex justify-end pt-2 border-t border-primary-foreground/20 mt-2">
+            <LanguageSelector
+              currentLanguage={languagePreference}
+              onLanguageChange={onLanguageChange}
+            />
           </div>
         </div>
       </div>

@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ArrowLeft, MapPin, Phone, Calendar, Save, Camera, Upload, Loader2, CheckCircle2, Clock, FileText, ChevronDown, CheckSquare, AlertCircle, File, X, Image, Video, Square, CheckSquare2, Edit3, Check } from 'lucide-react';
+import { ArrowLeft, MapPin, Phone, Calendar, Save, Camera, Upload, Loader2, CheckCircle2, Clock, FileText, ChevronDown, CheckSquare, AlertCircle, File, X, Image, Video, Square, CheckSquare2, Edit3, Check, Languages } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -17,10 +17,13 @@ import { useOfflineStorage } from '@/hooks/useOfflineStorage';
 import { useToast } from '@/hooks/use-toast';
 import { useTeamAuth } from '@/hooks/useTeamAuth';
 import { SignOffConfirmationModal } from './SignOffConfirmationModal';
+import { useTranslation, SUPPORTED_LANGUAGES } from '@/hooks/useTranslation';
+
 interface TeamJobDetailProps {
   job: Job;
   teamId: string;
   teamName: string;
+  languagePreference: string;
   onBack: () => void;
   onJobUpdate: (job: Job) => void;
   isOnline: boolean;
@@ -30,10 +33,16 @@ export const TeamJobDetail = ({
   job,
   teamId,
   teamName,
+  languagePreference,
   onBack,
   onJobUpdate,
   isOnline,
 }: TeamJobDetailProps) => {
+  // Translation hook
+  const { translateToUserLanguage, translateToEnglish, isTranslating } = useTranslation(languagePreference);
+  const [translatedDescription, setTranslatedDescription] = useState<string | null>(null);
+  const [translatedSummary, setTranslatedSummary] = useState<string | null>(null);
+  const [showOriginal, setShowOriginal] = useState(false);
   const [progress, setProgress] = useState(job.progress);
   const [notes, setNotes] = useState(job.progressNotes || '');
   const [status, setStatus] = useState<JobStatus>(job.status);
@@ -117,6 +126,31 @@ export const TeamJobDetail = ({
     };
     loadDraft();
   }, [job.id, teamName]);
+
+  // Translate job description and summary when language is not English
+  useEffect(() => {
+    const translateJobContent = async () => {
+      if (languagePreference === 'en') {
+        setTranslatedDescription(null);
+        setTranslatedSummary(null);
+        return;
+      }
+
+      // Translate description
+      if (job.description) {
+        const translated = await translateToUserLanguage(job.description);
+        setTranslatedDescription(translated);
+      }
+
+      // Translate summary
+      if (job.summaryOfWorks) {
+        const translated = await translateToUserLanguage(job.summaryOfWorks);
+        setTranslatedSummary(translated);
+      }
+    };
+
+    translateJobContent();
+  }, [job.description, job.summaryOfWorks, languagePreference, translateToUserLanguage]);
 
   // Auto-save every 30 seconds
   useEffect(() => {

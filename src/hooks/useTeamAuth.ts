@@ -6,6 +6,7 @@ interface TeamSession {
   teamName: string;
   validatedAt: string;
   expiresAt: string;
+  languagePreference: string;
 }
 
 const SESSION_KEY = 'team_portal_session';
@@ -67,6 +68,7 @@ export const useTeamAuth = () => {
         expiresAt: rememberMe 
           ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days
           : data.session.expiresAt, // 24 hours from server
+        languagePreference: data.session.languagePreference || 'en',
       };
 
       // Store session without access code (security improvement)
@@ -132,6 +134,7 @@ export const useTeamAuth = () => {
       body: {
         teamId: session.teamId,
         teamName: session.teamName,
+        languagePreference: session.languagePreference || 'en',
         jobId,
         updates,
       },
@@ -148,6 +151,31 @@ export const useTeamAuth = () => {
     return true;
   }, [session]);
 
+  // Function to update language preference
+  const updateLanguagePreference = useCallback(async (languagePreference: string): Promise<boolean> => {
+    if (!session) {
+      throw new Error('Not authenticated');
+    }
+
+    const { data, error: fnError } = await supabase.functions.invoke('update-team-language', {
+      body: {
+        teamId: session.teamId,
+        languagePreference,
+      },
+    });
+
+    if (fnError || !data?.success) {
+      throw new Error('Failed to update language preference');
+    }
+
+    // Update local session
+    const updatedSession = { ...session, languagePreference };
+    localStorage.setItem(SESSION_KEY, JSON.stringify(updatedSession));
+    setSession(updatedSession);
+
+    return true;
+  }, [session]);
+
   return {
     session,
     isLoading,
@@ -157,5 +185,6 @@ export const useTeamAuth = () => {
     logout,
     fetchTeamJobs,
     updateTeamJob,
+    updateLanguagePreference,
   };
 };
