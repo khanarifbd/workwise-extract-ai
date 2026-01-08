@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FanInfo, Job } from '@/types/job';
 import { Fan, Check, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -23,17 +23,22 @@ interface FanEditorProps {
 export const FanEditor = ({ fanInfo, onUpdate, job, fanCategoryId, onJobUpdated }: FanEditorProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [quantity, setQuantity] = useState<string>('');
   
   // Calculate current total from fanInfo
   const actualFans = fanInfo?.filter(f => f.type !== '__SCANNED_NO_FANS__') || [];
   const currentTotal = actualFans.reduce((sum, fan) => sum + fan.quantity, 0);
-  
-  const [quantity, setQuantity] = useState<string>(currentTotal.toString());
+
+  // Sync quantity state when fanInfo changes (e.g., from realtime update)
+  useEffect(() => {
+    if (!isOpen) {
+      setQuantity(currentTotal.toString());
+    }
+  }, [currentTotal, isOpen]);
 
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
     if (open) {
-      // Reset to current value when opening
       setQuantity(currentTotal.toString());
     }
   };
@@ -51,17 +56,17 @@ export const FanEditor = ({ fanInfo, onUpdate, job, fanCategoryId, onJobUpdated 
       ? [{ type: 'Extractor Fan', quantity: numQuantity, location: '' }]
       : [];
 
-    // Update local state first
-    onUpdate(newFanInfo);
-
     // Sync to database if we have job context
     if (job && fanCategoryId) {
       setIsSyncing(true);
       try {
         const result = await syncLinkedFanJob(job, newFanInfo, fanCategoryId);
         
+        // Update local state after successful sync
+        onUpdate(newFanInfo);
+        
         if (onJobUpdated && result.linkedFanJobId) {
-          onJobUpdated({ linkedFanJobId: result.linkedFanJobId });
+          onJobUpdated({ linkedFanJobId: result.linkedFanJobId, fanInfo: newFanInfo });
         }
 
         toast.success(result.created ? 'Fan job created' : 'Fan job updated');
@@ -73,6 +78,8 @@ export const FanEditor = ({ fanInfo, onUpdate, job, fanCategoryId, onJobUpdated 
         setIsSyncing(false);
       }
     } else {
+      // Just update local state
+      onUpdate(newFanInfo);
       setIsOpen(false);
     }
   };

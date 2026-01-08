@@ -12,6 +12,7 @@ const extractFansSchema = z.object({
   description: z.string().max(50000, "Description too long").optional(),
   workItems: z.array(z.object({
     description: z.string().max(1000).optional(),
+    qty: z.number().optional(),
   }).passthrough()).max(200, "Too many work items").optional(),
 }).refine(
   data => data.description || (data.workItems && data.workItems.length > 0),
@@ -81,53 +82,57 @@ serve(async (req) => {
 
     console.log(`Scanning for fan installations for user ${user.id}...`);
 
+    // Format work items with quantities for accurate counting
+    const workItemsText = (workItems || []).map((item: any) => {
+      const qty = item.qty || 1;
+      const desc = item.description || '';
+      return `[QTY: ${qty}] ${desc}`;
+    }).join('\n');
+
     const combinedText = [
       description || '',
-      ...(workItems || []).map((item: any) => item.description || '')
-    ].join('\n');
+      workItemsText
+    ].filter(Boolean).join('\n\nWORK ITEMS:\n');
 
-    const systemPrompt = `You are an expert at identifying fan installation requirements in property maintenance job descriptions.
+    const systemPrompt = `You are an expert at counting fans in property maintenance job descriptions.
 
-IMPORTANT: Only extract information that is DIRECTLY related to fans. Do not include any other work items, repairs, or general job information.
+CRITICAL INSTRUCTIONS FOR COUNTING:
+1. Work items are prefixed with [QTY: X] where X is the EXACT quantity. USE THIS NUMBER.
+2. If a work item says "[QTY: 3] FAN:RENEW" it means 3 fans, NOT 1.
+3. The total fan count = sum of all fan-related work item quantities.
+4. Common fan work items include: FAN, EXTRACTOR, ENVIROVENT, CONDENSATION CONTROL
 
-Analyze the provided text and identify ONLY mentions of fans that need to be installed. This includes:
+WHAT TO LOOK FOR:
 - Extractor fans
-- Bathroom fans
+- Bathroom fans  
 - Kitchen fans
-- Ventilation fans
+- Ventilation fans / Envirovent
 - Exhaust fans
-- Any fan-related work
+- Condensation control fans
+- Any fan renewal/installation work
 
-For each fan found, extract ONLY fan-specific details:
-1. The type of fan (e.g., "Bathroom Extractor Fan", "Kitchen Ventilation Fan")
-2. The quantity (default to 1 if not specified)
-3. The location where the fan should be installed
+COUNTING RULES:
+- Read the [QTY: X] prefix carefully - this is the actual quantity
+- If no QTY prefix, default to 1
+- Sum all fan-related quantities for totalFanCount
 
-Do NOT include:
-- General job descriptions
-- Non-fan related work items
-- Customer contact details
-- Property details unrelated to fan location
-
-Return the data in this exact JSON format:
+Return ONLY this JSON:
 {
   "hasFans": true/false,
   "fans": [
     {
-      "type": "string (e.g., Bathroom Extractor Fan)",
-      "quantity": number,
-      "location": "string (e.g., Main Bathroom, Kitchen)"
+      "type": "Extractor Fan",
+      "quantity": <number from QTY prefix>,
+      "location": ""
     }
   ],
-  "totalFanCount": number
+  "totalFanCount": <sum of all fan quantities>
 }
 
-If no fans are mentioned, return:
-{
-  "hasFans": false,
-  "fans": [],
-  "totalFanCount": 0
-}`;
+Example: "[QTY: 3] FAN:RENEW ENVIROVENT" = {"hasFans": true, "fans": [{"type": "Extractor Fan", "quantity": 3, "location": ""}], "totalFanCount": 3}
+
+If no fans found:
+{"hasFans": false, "fans": [], "totalFanCount": 0}`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
