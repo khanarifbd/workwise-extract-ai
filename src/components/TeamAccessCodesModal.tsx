@@ -1,10 +1,17 @@
 import { useState } from 'react';
-import { X, Plus, KeyRound, Trash2, RefreshCw, Check, XCircle, Pencil } from 'lucide-react';
+import { Plus, KeyRound, Trash2, RefreshCw, Check, XCircle, Pencil, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { useTeamAccessCodes } from '@/hooks/useTeamAccessCodes';
 import { cn } from '@/lib/utils';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 
 interface TeamAccessCodesModalProps {
   onClose: () => void;
@@ -80,197 +87,198 @@ export const TeamAccessCodesModal = ({ onClose }: TeamAccessCodesModalProps) => 
   };
 
   return (
-    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-start justify-center p-4 overflow-y-auto">
-      <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-3xl h-[min(90vh,44rem)] flex flex-col animate-scale-in">
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30 flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
-              <KeyRound className="w-4 h-4 text-primary" />
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-4xl max-h-[90vh] p-0 flex flex-col">
+        <DialogHeader className="px-5 pt-5 pb-3 border-b border-border bg-muted/30 flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <KeyRound className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-semibold">Team Access Codes</DialogTitle>
+                <DialogDescription className="text-xs">
+                  Manage PIN codes for team portal access
+                </DialogDescription>
+              </div>
             </div>
-            <div>
-              <h2 className="text-base font-semibold text-foreground">Team Access Codes</h2>
-              <p className="text-[11px] text-muted-foreground">Manage PIN codes for team portal access</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon" onClick={refreshCodes} className="h-8 w-8">
               <RefreshCw className="w-4 h-4" />
             </Button>
-            <button onClick={onClose} className="p-1.5 hover:bg-muted rounded-lg transition-colors" aria-label="Close">
-              <X className="w-5 h-5" />
-            </button>
           </div>
-        </div>
+        </DialogHeader>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
-          {isLoading ? (
-            <div className="text-center text-muted-foreground py-8">Loading...</div>
-          ) : (
-            <>
-              {/* Add New Form */}
-              {showAddForm ? (
-                <div className="p-4 rounded-lg border border-primary/30 bg-primary/5 space-y-3">
-                  <h4 className="font-medium text-sm">Add New Team Access Code</h4>
-                  <div className="flex gap-3">
-                    <Input
-                      placeholder="Team name"
-                      value={newTeamName}
-                      onChange={(e) => setNewTeamName(e.target.value)}
-                      className="flex-1"
-                    />
-                    <Input
-                      placeholder="Access code"
-                      value={newAccessCode}
-                      onChange={(e) => setNewAccessCode(e.target.value.toUpperCase())}
-                      className="w-32 uppercase font-mono"
-                      maxLength={8}
-                    />
+        {/* Content - Native scroll */}
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+          <div className="p-5 pb-24">
+            {isLoading ? (
+              <div className="text-center text-muted-foreground py-8">Loading...</div>
+            ) : (
+              <>
+                {/* Add New Form */}
+                {showAddForm ? (
+                  <div className="p-4 rounded-lg border border-primary/30 bg-primary/5 space-y-3 mb-4">
+                    <h4 className="font-medium text-sm">Add New Team Access Code</h4>
+                    <div className="flex gap-3">
+                      <Input
+                        placeholder="Team name"
+                        value={newTeamName}
+                        onChange={(e) => setNewTeamName(e.target.value)}
+                        className="flex-1"
+                      />
+                      <Input
+                        placeholder="Access code"
+                        value={newAccessCode}
+                        onChange={(e) => setNewAccessCode(e.target.value.toUpperCase())}
+                        className="w-32 uppercase font-mono"
+                        maxLength={8}
+                      />
+                    </div>
+                    <div className="flex gap-2 justify-end">
+                      <Button variant="ghost" size="sm" onClick={() => setShowAddForm(false)}>
+                        Cancel
+                      </Button>
+                      <Button size="sm" onClick={handleAdd} disabled={isAdding || !newTeamName.trim() || !newAccessCode.trim()}>
+                        {isAdding ? 'Adding...' : 'Add Code'}
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex gap-2 justify-end">
-                    <Button variant="ghost" size="sm" onClick={() => setShowAddForm(false)}>
-                      Cancel
-                    </Button>
-                    <Button size="sm" onClick={handleAdd} disabled={isAdding || !newTeamName.trim() || !newAccessCode.trim()}>
-                      {isAdding ? 'Adding...' : 'Add Code'}
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <Button variant="outline" onClick={() => setShowAddForm(true)} className="w-full">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add New Team Code
-                </Button>
-              )}
-
-              {/* Codes List */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5">
-                {codes.length === 0 ? (
-                  <p className="text-center text-muted-foreground py-6 text-sm sm:col-span-2">No access codes configured</p>
                 ) : (
-                  codes.map((code) => (
-                    <div
-                      key={code.id}
-                      className={cn(
-                        "flex items-center gap-2 px-2.5 py-2 rounded-md border",
-                        code.isActive ? "border-border bg-muted/20" : "border-destructive/30 bg-destructive/5"
-                      )}
-                    >
-                      <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                        {code.isActive ? (
-                          <Check className="w-3 h-3 text-green-500 flex-shrink-0" />
-                        ) : (
-                          <XCircle className="w-3 h-3 text-destructive flex-shrink-0" />
+                  <Button variant="outline" onClick={() => setShowAddForm(true)} className="w-full mb-4">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add New Team Code
+                  </Button>
+                )}
+
+                {/* Codes List - Full display grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                  {codes.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-6 text-sm col-span-full">No access codes configured</p>
+                  ) : (
+                    codes.map((code) => (
+                      <div
+                        key={code.id}
+                        className={cn(
+                          "flex items-center gap-2 px-3 py-2.5 rounded-lg border",
+                          code.isActive ? "border-border bg-muted/20" : "border-destructive/30 bg-destructive/5"
                         )}
-                        {editingNameId === code.id ? (
-                          <div className="flex items-center gap-1 flex-1">
+                      >
+                        <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                          {code.isActive ? (
+                            <Check className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
+                          ) : (
+                            <XCircle className="w-3.5 h-3.5 text-destructive flex-shrink-0" />
+                          )}
+                          {editingNameId === code.id ? (
+                            <div className="flex items-center gap-1 flex-1">
+                              <Input
+                                value={editingName}
+                                onChange={(e) => setEditingName(e.target.value)}
+                                className="h-7 text-sm flex-1"
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleSaveEditName(code.id);
+                                  if (e.key === 'Escape') handleCancelEditName();
+                                }}
+                              />
+                              <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => handleSaveEditName(code.id)}>
+                                <Check className="w-3.5 h-3.5 text-green-500" />
+                              </Button>
+                              <Button size="sm" variant="ghost" className="h-7 px-2" onClick={handleCancelEditName}>
+                                <X className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1 min-w-0">
+                              <span className="text-sm font-medium truncate">{code.teamName}</span>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 flex-shrink-0"
+                                onClick={() => handleStartEditName(code.id, code.teamName)}
+                                title="Edit team name"
+                              >
+                                <Pencil className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+
+                        {editingId === code.id ? (
+                          <div className="flex items-center gap-1">
                             <Input
-                              value={editingName}
-                              onChange={(e) => setEditingName(e.target.value)}
-                              className="h-6 text-xs flex-1"
+                              value={editingCode}
+                              onChange={(e) => setEditingCode(e.target.value.toUpperCase())}
+                              className="w-20 h-7 font-mono text-xs tracking-wider uppercase"
+                              maxLength={8}
                               autoFocus
                               onKeyDown={(e) => {
-                                if (e.key === 'Enter') handleSaveEditName(code.id);
-                                if (e.key === 'Escape') handleCancelEditName();
+                                if (e.key === 'Enter') handleSaveEdit(code.id);
+                                if (e.key === 'Escape') handleCancelEdit();
                               }}
                             />
-                            <Button size="sm" variant="ghost" className="h-6 px-1.5" onClick={() => handleSaveEditName(code.id)}>
-                              <Check className="w-3 h-3 text-green-500" />
+                            <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => handleSaveEdit(code.id)}>
+                              <Check className="w-3.5 h-3.5 text-green-500" />
                             </Button>
-                            <Button size="sm" variant="ghost" className="h-6 px-1.5" onClick={handleCancelEditName}>
-                              <X className="w-3 h-3" />
+                            <Button size="sm" variant="ghost" className="h-7 px-2" onClick={handleCancelEdit}>
+                              <X className="w-3.5 h-3.5" />
                             </Button>
                           </div>
                         ) : (
-                          <div className="flex items-center gap-1 min-w-0">
-                            <span className="text-sm font-medium truncate">{code.teamName}</span>
+                          <div className="flex items-center gap-1">
+                            <code className="px-2 py-1 bg-muted rounded text-xs font-mono tracking-wider">
+                              {code.accessCode}
+                            </code>
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-5 w-5 flex-shrink-0"
-                              onClick={() => handleStartEditName(code.id, code.teamName)}
-                              title="Edit team name"
+                              className="h-6 w-6"
+                              onClick={() => handleStartEdit(code.id, code.accessCode)}
+                              title="Edit access code"
                             >
-                              <Pencil className="w-2.5 h-2.5" />
+                              <Pencil className="w-3 h-3" />
                             </Button>
                           </div>
                         )}
-                      </div>
 
-                      {editingId === code.id ? (
-                        <div className="flex items-center gap-1">
-                          <Input
-                            value={editingCode}
-                            onChange={(e) => setEditingCode(e.target.value.toUpperCase())}
-                            className="w-20 h-6 font-mono text-xs tracking-wider uppercase"
-                            maxLength={8}
-                            autoFocus
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') handleSaveEdit(code.id);
-                              if (e.key === 'Escape') handleCancelEdit();
-                            }}
-                          />
-                          <Button size="sm" variant="ghost" className="h-6 px-1.5" onClick={() => handleSaveEdit(code.id)}>
-                            <Check className="w-3 h-3 text-green-500" />
-                          </Button>
-                          <Button size="sm" variant="ghost" className="h-6 px-1.5" onClick={handleCancelEdit}>
-                            <X className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1">
-                          <code className="px-2 py-0.5 bg-muted rounded text-xs font-mono tracking-wider">
-                            {code.accessCode}
-                          </code>
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] text-muted-foreground hidden sm:inline">Active</span>
+                            <Switch
+                              checked={code.isActive}
+                              onCheckedChange={() => handleToggleActive(code.id, code.isActive)}
+                              className="scale-75"
+                            />
+                          </div>
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-6 w-6"
-                            onClick={() => handleStartEdit(code.id, code.accessCode)}
-                            title="Edit access code"
+                            className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => handleDelete(code.id, code.teamName)}
                           >
-                            <Pencil className="w-2.5 h-2.5" />
+                            <Trash2 className="w-3 h-3" />
                           </Button>
                         </div>
-                      )}
-
-                      <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] text-muted-foreground">Active</span>
-                          <Switch
-                            checked={code.isActive}
-                            onCheckedChange={() => handleToggleActive(code.id, code.isActive)}
-                            className="scale-75"
-                          />
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10"
-                          onClick={() => handleDelete(code.id, code.teamName)}
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
                       </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </>
-          )}
+                    ))
+                  )}
+                </div>
+              </>
+            )}
+
+            <p className="text-xs text-muted-foreground mt-6">
+              Teams use these codes to access the portal at /team
+            </p>
+          </div>
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-5 py-3 border-t border-border bg-muted/30 flex-shrink-0">
-          <p className="text-xs text-muted-foreground">
-            Teams use these codes to access the portal at /team
-          </p>
+        <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-border bg-muted/30 flex-shrink-0">
           <Button variant="outline" onClick={onClose}>
             Close
           </Button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 };
