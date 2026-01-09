@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Job, JOB_STATUS_OPTIONS } from '@/types/job';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -6,12 +6,17 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { RefreshCw, LogOut, MapPin, ChevronRight, ChevronDown, Briefcase, Loader2, Bell, BellOff, Calendar, Phone, Smartphone, CalendarDays } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { RefreshCw, LogOut, MapPin, ChevronRight, ChevronDown, Briefcase, Loader2, Bell, BellOff, Calendar, Phone, Smartphone, CalendarDays, Crown, Filter, X, Users, Search } from 'lucide-react';
 import { format } from 'date-fns';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useCapacitorPush } from '@/hooks/useCapacitorPush';
 import { TeamDiary } from './TeamDiary';
 import { LanguageSelector } from './LanguageSelector';
+import { cn } from '@/lib/utils';
 
 interface TeamJobListProps {
   jobs: Job[];
@@ -19,6 +24,7 @@ interface TeamJobListProps {
   teamId: string;
   isLoading: boolean;
   languagePreference: string;
+  isOpsManager?: boolean;
   onSelectJob: (job: Job) => void;
   onRefresh: () => void;
   onLogout: () => void;
@@ -31,6 +37,7 @@ export const TeamJobList = ({
   teamId,
   isLoading,
   languagePreference,
+  isOpsManager = false,
   onSelectJob,
   onRefresh,
   onLogout,
@@ -40,10 +47,70 @@ export const TeamJobList = ({
   const { isSupported: webPushSupported, isSubscribed: webPushSubscribed, isLoading: webPushLoading, subscribe: webSubscribe, unsubscribe: webUnsubscribe } = usePushNotifications(teamId);
   
   // Native push notifications (Capacitor - Android/iOS)
-const { isSupported: nativePushSupported, isRegistered: nativePushRegistered, isLoading: nativePushLoading, register: nativeRegister, unregister: nativeUnregister } = useCapacitorPush(teamId);
+  const { isSupported: nativePushSupported, isRegistered: nativePushRegistered, isLoading: nativePushLoading, register: nativeRegister, unregister: nativeUnregister } = useCapacitorPush(teamId);
   
   const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<'jobs' | 'diary'>('jobs');
+  
+  // Ops Manager filters
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterTeam, setFilterTeam] = useState<string>('');
+  const [filterStatus, setFilterStatus] = useState<string>('');
+  const [filterDateFrom, setFilterDateFrom] = useState<Date | undefined>();
+  const [filterDateTo, setFilterDateTo] = useState<Date | undefined>();
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  // Get unique teams from jobs for filter dropdown
+  const availableTeams = useMemo(() => {
+    const teams = new Set(jobs.map(j => j.team).filter(Boolean) as string[]);
+    return Array.from(teams).sort();
+  }, [jobs]);
+  
+  // Filter jobs for ops manager
+  const filteredJobs = useMemo(() => {
+    if (!isOpsManager) return jobs;
+    
+    return jobs.filter(job => {
+      // Search query
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const matchesSearch = 
+          job.jobNumber.toLowerCase().includes(query) ||
+          job.name.toLowerCase().includes(query) ||
+          job.address?.toLowerCase().includes(query) ||
+          job.team?.toLowerCase().includes(query);
+        if (!matchesSearch) return false;
+      }
+      
+      // Team filter
+      if (filterTeam && job.team !== filterTeam) return false;
+      
+      // Status filter
+      if (filterStatus && job.status !== filterStatus) return false;
+      
+      // Date range filter (on booked date)
+      if (filterDateFrom && job.bookedDate) {
+        const bookedDate = new Date(job.bookedDate);
+        if (bookedDate < filterDateFrom) return false;
+      }
+      if (filterDateTo && job.bookedDate) {
+        const bookedDate = new Date(job.bookedDate);
+        if (bookedDate > filterDateTo) return false;
+      }
+      
+      return true;
+    });
+  }, [jobs, isOpsManager, searchQuery, filterTeam, filterStatus, filterDateFrom, filterDateTo]);
+  
+  const hasActiveFilters = filterTeam || filterStatus || filterDateFrom || filterDateTo || searchQuery;
+  
+  const clearFilters = () => {
+    setFilterTeam('');
+    setFilterStatus('');
+    setFilterDateFrom(undefined);
+    setFilterDateTo(undefined);
+    setSearchQuery('');
+  };
 
   const getStatusColor = (status: string) => {
     const option = JOB_STATUS_OPTIONS.find(o => o.value === status);
@@ -68,22 +135,52 @@ const { isSupported: nativePushSupported, isRegistered: nativePushRegistered, is
     });
   };
 
-  const activeJobs = jobs.filter(j => !j.isCompleted);
-  const completedJobs = jobs.filter(j => j.isCompleted);
+  const activeJobs = filteredJobs.filter(j => !j.isCompleted);
+  const completedJobs = filteredJobs.filter(j => j.isCompleted);
+  const totalActiveJobs = jobs.filter(j => !j.isCompleted).length;
 
   return (
     <div className="pb-20 min-h-screen safe-area-bottom">
       {/* Header - Mobile optimized with iOS safe area */}
-      <div className="bg-primary text-primary-foreground sticky top-0 z-10 shadow-md safe-area-top safe-area-left safe-area-right">
+      <div className={cn(
+        "text-primary-foreground sticky top-0 z-10 shadow-md safe-area-top safe-area-left safe-area-right",
+        isOpsManager ? "bg-gradient-to-r from-amber-600 to-orange-600" : "bg-primary"
+      )}>
         <div className="px-4 py-3 sm:py-4">
           <div className="flex items-center justify-between">
             <div className="min-w-0 flex-1">
-              <h1 className="text-lg sm:text-xl font-bold truncate">Team {teamName}</h1>
-              <p className="text-primary-foreground/80 text-xs sm:text-sm">
-                {activeJobs.length} active job{activeJobs.length !== 1 ? 's' : ''}
-              </p>
+              {isOpsManager ? (
+                <div className="flex items-center gap-2">
+                  <Crown className="h-5 w-5 text-yellow-300 flex-shrink-0" />
+                  <div>
+                    <h1 className="text-lg sm:text-xl font-bold truncate">Operations Manager</h1>
+                    <p className="text-primary-foreground/80 text-xs sm:text-sm">
+                      {totalActiveJobs} active job{totalActiveJobs !== 1 ? 's'  : ''} across all teams
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <h1 className="text-lg sm:text-xl font-bold truncate">Team {teamName}</h1>
+                  <p className="text-primary-foreground/80 text-xs sm:text-sm">
+                    {activeJobs.length} active job{activeJobs.length !== 1 ? 's' : ''}
+                  </p>
+                </>
+              )}
             </div>
             <div className="flex gap-1 sm:gap-2 flex-shrink-0">
+              {/* Filter button for Ops Manager */}
+              {isOpsManager && (
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className={cn("h-9 w-9 sm:h-10 sm:w-10", hasActiveFilters && "ring-2 ring-yellow-300")}
+                  onClick={() => setShowFilters(!showFilters)}
+                  title="Filter jobs"
+                >
+                  <Filter className="h-4 w-4" />
+                </Button>
+              )}
               {/* Native Push (Capacitor - Android/iOS) */}
               {nativePushSupported && (
                 <Button
@@ -147,6 +244,106 @@ const { isSupported: nativePushSupported, isRegistered: nativePushRegistered, is
         </div>
       </div>
 
+      {/* Ops Manager Filters Panel */}
+      {isOpsManager && showFilters && (
+        <div className="bg-muted/50 border-b border-border p-3 sm:p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <Filter className="h-4 w-4" />
+              Filter Jobs
+            </h3>
+            {hasActiveFilters && (
+              <Button variant="ghost" size="sm" onClick={clearFilters} className="h-7 text-xs">
+                <X className="h-3 w-3 mr-1" />
+                Clear
+              </Button>
+            )}
+          </div>
+          
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search jobs..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 h-9"
+            />
+          </div>
+          
+          <div className="grid grid-cols-2 gap-2">
+            {/* Team Filter */}
+            <Select value={filterTeam} onValueChange={setFilterTeam}>
+              <SelectTrigger className="h-9">
+                <SelectValue placeholder="All Teams" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Teams</SelectItem>
+                {availableTeams.map(team => (
+                  <SelectItem key={team} value={team}>{team}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            
+            {/* Status Filter */}
+            <Select value={filterStatus} onValueChange={setFilterStatus}>
+              <SelectTrigger className="h-9">
+                <SelectValue placeholder="All Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Status</SelectItem>
+                {JOB_STATUS_OPTIONS.map(opt => (
+                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          {/* Date Range */}
+          <div className="grid grid-cols-2 gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="h-9 justify-start text-left font-normal text-xs">
+                  <Calendar className="mr-2 h-3 w-3" />
+                  {filterDateFrom ? format(filterDateFrom, 'MMM d') : 'From'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <CalendarComponent
+                  mode="single"
+                  selected={filterDateFrom}
+                  onSelect={setFilterDateFrom}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+            
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="h-9 justify-start text-left font-normal text-xs">
+                  <Calendar className="mr-2 h-3 w-3" />
+                  {filterDateTo ? format(filterDateTo, 'MMM d') : 'To'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <CalendarComponent
+                  mode="single"
+                  selected={filterDateTo}
+                  onSelect={setFilterDateTo}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+          
+          {hasActiveFilters && (
+            <p className="text-xs text-muted-foreground">
+              Showing {filteredJobs.length} of {jobs.length} jobs
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Tabs for Jobs and Diary */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'jobs' | 'diary')} className="w-full">
         <div className="border-b border-border bg-background sticky top-[calc(68px+env(safe-area-inset-top,0px))] z-[5] safe-area-left safe-area-right">
@@ -163,7 +360,7 @@ const { isSupported: nativePushSupported, isRegistered: nativePushRegistered, is
               className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-3"
             >
               <CalendarDays className="h-4 w-4 mr-2" />
-              My Diary
+              {isOpsManager ? 'All Teams' : 'My Diary'}
             </TabsTrigger>
           </TabsList>
         </div>
@@ -180,12 +377,14 @@ const { isSupported: nativePushSupported, isRegistered: nativePushRegistered, is
                 <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
                 <p className="text-muted-foreground">Loading jobs...</p>
               </div>
-            ) : jobs.length === 0 ? (
+            ) : filteredJobs.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12">
                 <Briefcase className="h-12 w-12 text-muted-foreground/50 mb-4" />
-                <p className="text-lg font-medium text-muted-foreground">No jobs assigned</p>
+                <p className="text-lg font-medium text-muted-foreground">
+                  {hasActiveFilters ? 'No jobs match filters' : 'No jobs assigned'}
+                </p>
                 <p className="text-sm text-muted-foreground/80 text-center px-4">
-                  Jobs assigned to your team will appear here
+                  {hasActiveFilters ? 'Try adjusting your filter criteria' : 'Jobs assigned to your team will appear here'}
                 </p>
               </div>
             ) : (
@@ -237,6 +436,16 @@ const { isSupported: nativePushSupported, isRegistered: nativePushRegistered, is
                                 >
                                   {getStatusLabel(job.status)}
                                 </Badge>
+                                {/* Show assigned team for ops manager */}
+                                {isOpsManager && job.team && (
+                                  <Badge 
+                                    variant="secondary"
+                                    className="text-xs px-1.5 py-0 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                                  >
+                                    <Users className="h-3 w-3 mr-1" />
+                                    {job.team}
+                                  </Badge>
+                                )}
                               </div>
                               
                               <h3 className="font-semibold text-sm sm:text-base text-foreground line-clamp-2">
@@ -357,6 +566,16 @@ const { isSupported: nativePushSupported, isRegistered: nativePushRegistered, is
                                 >
                                   Complete
                                 </Badge>
+                                {/* Show assigned team for ops manager */}
+                                {isOpsManager && job.team && (
+                                  <Badge 
+                                    variant="secondary"
+                                    className="text-xs px-1.5 py-0 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                                  >
+                                    <Users className="h-3 w-3 mr-1" />
+                                    {job.team}
+                                  </Badge>
+                                )}
                               </div>
                               <h3 className="font-medium text-sm sm:text-base text-foreground truncate">
                                 {job.name}
