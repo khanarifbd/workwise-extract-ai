@@ -58,46 +58,6 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get team ID from team_notification_settings
-    const teamName = record.team;
-    if (!teamName) {
-      console.log("No team assigned, skipping notification");
-      return new Response(
-        JSON.stringify({ success: true, message: "No team assigned" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Find team_id
-    const { data: teamSettings, error: teamError } = await supabase
-      .from("team_notification_settings")
-      .select("team_id, is_paused")
-      .eq("team_name", teamName)
-      .maybeSingle();
-
-    if (teamError) {
-      console.error("Error fetching team settings:", teamError);
-      throw teamError;
-    }
-
-    if (!teamSettings) {
-      console.log("Team not found in notification settings:", teamName);
-      return new Response(
-        JSON.stringify({ success: true, message: "Team not found" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    if (teamSettings.is_paused) {
-      console.log("Team notifications are paused:", teamName);
-      return new Response(
-        JSON.stringify({ success: true, message: "Team notifications paused" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const teamId = teamSettings.team_id;
-
     // Build notification message
     let title = "";
     let body = "";
@@ -130,112 +90,158 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Sending notification to team ${teamId}: ${title} - ${body}`);
+    // Collect all team IDs to notify
+    const teamsToNotify: Array<{ teamId: string; teamName: string }> = [];
 
-    // Send FCM notification (for native apps)
-    const FIREBASE_SERVER_KEY = Deno.env.get("FIREBASE_SERVER_KEY");
-    
-    if (FIREBASE_SERVER_KEY) {
-      // Fetch FCM tokens
-      const { data: fcmTokens, error: fcmError } = await supabase
-        .from("team_fcm_tokens")
-        .select("fcm_token, platform")
-        .eq("team_id", teamId);
+    // Get team ID from team_notification_settings for the assigned team
+    const teamName = record.team;
+    if (teamName) {
+      const { data: teamSettings, error: teamError } = await supabase
+        .from("team_notification_settings")
+        .select("team_id, is_paused")
+        .eq("team_name", teamName)
+        .maybeSingle();
 
-      if (fcmError) {
-        console.error("Error fetching FCM tokens:", fcmError);
-      } else if (fcmTokens && fcmTokens.length > 0) {
-        console.log(`Sending FCM to ${fcmTokens.length} devices`);
-        
-        const invalidTokens: string[] = [];
-        
-        for (const { fcm_token, platform } of fcmTokens) {
-          try {
-            const message = {
-              to: fcm_token,
-              notification: {
-                title,
-                body,
-                sound: "default",
-                badge: 1,
-                click_action: "OPEN_JOB_ACTIVITY",
-              },
-              data: {
-                jobId: record.id,
-                jobNumber: record.job_number,
-                teamId: teamId,
-                type: statusChanged ? "status_change" : "job_assigned",
-                click_action: "OPEN_JOB_ACTIVITY",
-                deepLink: `/team?job=${record.id}&action=submit`,
-              },
-              priority: "high",
-              content_available: true,
-            };
+      if (teamError) {
+        console.error("Error fetching team settings:", teamError);
+      } else if (teamSettings && !teamSettings.is_paused) {
+        teamsToNotify.push({ teamId: teamSettings.team_id, teamName });
+      }
+    }
 
-            const response = await fetch("https://fcm.googleapis.com/fcm/send", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": `key=${FIREBASE_SERVER_KEY}`,
-              },
-              body: JSON.stringify(message),
-            });
+    // ALWAYS notify Operations Manager(s) - they receive ALL notifications
+    const { data: opsManagers, error: opsError } = await supabase
+      .from("team_access_codes")
+      .select("team_id, team_name")
+      .eq("is_ops_manager", true)
+      .eq("is_active", true);
 
-            const result = await response.json();
-            console.log(`FCM response for ${platform}:`, result);
-
-            if (result.failure === 1) {
-              if (result.results?.[0]?.error === "NotRegistered" || 
-                  result.results?.[0]?.error === "InvalidRegistration") {
-                invalidTokens.push(fcm_token);
-              }
-            }
-          } catch (error) {
-            console.error(`Error sending FCM to token:`, error);
-          }
-        }
-
-        // Clean up invalid tokens
-        if (invalidTokens.length > 0) {
-          console.log(`Removing ${invalidTokens.length} invalid FCM tokens`);
-          await supabase
-            .from("team_fcm_tokens")
-            .delete()
-            .in("fcm_token", invalidTokens);
+    if (opsError) {
+      console.error("Error fetching ops managers:", opsError);
+    } else if (opsManagers && opsManagers.length > 0) {
+      for (const opsMgr of opsManagers) {
+        // Avoid duplicate if ops manager is also the assigned team
+        if (!teamsToNotify.some(t => t.teamId === opsMgr.team_id)) {
+          teamsToNotify.push({ teamId: opsMgr.team_id, teamName: opsMgr.team_name });
         }
       }
     }
 
-    // Send Web Push notification (for PWA)
+    if (teamsToNotify.length === 0) {
+      console.log("No teams to notify");
+      return new Response(
+        JSON.stringify({ success: true, message: "No teams to notify" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log(`Sending notifications to ${teamsToNotify.length} teams: ${title} - ${body}`);
+
+    // Send notifications to all teams
+    const FIREBASE_SERVER_KEY = Deno.env.get("FIREBASE_SERVER_KEY");
     const VAPID_PUBLIC_KEY = Deno.env.get("VAPID_PUBLIC_KEY");
     const VAPID_PRIVATE_KEY = Deno.env.get("VAPID_PRIVATE_KEY");
 
-    if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
-      const { data: pushSubs, error: pushError } = await supabase
-        .from("team_push_subscriptions")
-        .select("endpoint, p256dh, auth")
-        .eq("team_id", teamId);
+    for (const { teamId, teamName: notifyTeamName } of teamsToNotify) {
+      console.log(`Sending notification to team ${teamId} (${notifyTeamName})`);
 
-      if (pushError) {
-        console.error("Error fetching push subscriptions:", pushError);
-      } else if (pushSubs && pushSubs.length > 0) {
-        console.log(`Found ${pushSubs.length} web push subscriptions`);
-        // Web push implementation would go here
-        // For now, just log that we found subscriptions
+      // Send FCM notification (for native apps)
+      if (FIREBASE_SERVER_KEY) {
+        const { data: fcmTokens, error: fcmError } = await supabase
+          .from("team_fcm_tokens")
+          .select("fcm_token, platform")
+          .eq("team_id", teamId);
+
+        if (fcmError) {
+          console.error("Error fetching FCM tokens:", fcmError);
+        } else if (fcmTokens && fcmTokens.length > 0) {
+          console.log(`Sending FCM to ${fcmTokens.length} devices for team ${teamId}`);
+          
+          const invalidTokens: string[] = [];
+          
+          for (const { fcm_token, platform } of fcmTokens) {
+            try {
+              const message = {
+                to: fcm_token,
+                notification: {
+                  title,
+                  body,
+                  sound: "default",
+                  badge: 1,
+                  click_action: "OPEN_JOB_ACTIVITY",
+                },
+                data: {
+                  jobId: record.id,
+                  jobNumber: record.job_number,
+                  teamId: teamId,
+                  type: statusChanged ? "status_change" : "job_assigned",
+                  click_action: "OPEN_JOB_ACTIVITY",
+                  deepLink: `/team?job=${record.id}&action=submit`,
+                },
+                priority: "high",
+                content_available: true,
+              };
+
+              const response = await fetch("https://fcm.googleapis.com/fcm/send", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": `key=${FIREBASE_SERVER_KEY}`,
+                },
+                body: JSON.stringify(message),
+              });
+
+              const result = await response.json();
+              console.log(`FCM response for ${platform}:`, result);
+
+              if (result.failure === 1) {
+                if (result.results?.[0]?.error === "NotRegistered" || 
+                    result.results?.[0]?.error === "InvalidRegistration") {
+                  invalidTokens.push(fcm_token);
+                }
+              }
+            } catch (error) {
+              console.error(`Error sending FCM to token:`, error);
+            }
+          }
+
+          // Clean up invalid tokens
+          if (invalidTokens.length > 0) {
+            console.log(`Removing ${invalidTokens.length} invalid FCM tokens`);
+            await supabase
+              .from("team_fcm_tokens")
+              .delete()
+              .in("fcm_token", invalidTokens);
+          }
+        }
       }
-    }
 
-    // Log notification to history
-    await supabase
-      .from("notification_history")
-      .insert({
-        job_id: record.id,
-        job_number: record.job_number,
-        team_name: teamName,
-        message: `${title}: ${body}`,
-        sent_via: "push",
-        status: "sent",
-      });
+      // Send Web Push notification (for PWA)
+      if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
+        const { data: pushSubs, error: pushError } = await supabase
+          .from("team_push_subscriptions")
+          .select("endpoint, p256dh, auth")
+          .eq("team_id", teamId);
+
+        if (pushError) {
+          console.error("Error fetching push subscriptions:", pushError);
+        } else if (pushSubs && pushSubs.length > 0) {
+          console.log(`Found ${pushSubs.length} web push subscriptions for team ${teamId}`);
+        }
+      }
+
+      // Log notification to history
+      await supabase
+        .from("notification_history")
+        .insert({
+          job_id: record.id,
+          job_number: record.job_number,
+          team_name: notifyTeamName,
+          message: `${title}: ${body}`,
+          sent_via: "push",
+          status: "sent",
+        });
+    }
 
     return new Response(
       JSON.stringify({ success: true, message: "Notifications sent" }),

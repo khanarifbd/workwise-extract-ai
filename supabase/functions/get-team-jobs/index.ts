@@ -126,7 +126,7 @@ Deno.serve(async (req) => {
     // First verify the team exists and is active
     const { data: teamData, error: teamError } = await supabase
       .from("team_access_codes")
-      .select("team_id, team_name, is_active")
+      .select("team_id, team_name, is_active, is_ops_manager")
       .eq("team_id", teamId)
       .eq("is_active", true)
       .maybeSingle();
@@ -139,12 +139,19 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Fetch jobs assigned to this team
-    const { data: jobs, error: jobsError } = await supabase
+    const isOpsManager = teamData.is_ops_manager === true;
+
+    // Fetch jobs - Operations Manager sees ALL jobs, regular teams see only their assigned jobs
+    let jobsQuery = supabase
       .from("jobs")
       .select("*")
-      .eq("team", teamName)
       .order("created_at", { ascending: false });
+
+    if (!isOpsManager) {
+      jobsQuery = jobsQuery.eq("team", teamName);
+    }
+
+    const { data: jobs, error: jobsError } = await jobsQuery;
 
     if (jobsError) {
       console.error("Failed to fetch jobs:", jobsError.message);
@@ -154,7 +161,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`Fetched ${jobs?.length || 0} jobs for team: ${teamName}`);
+    console.log(`Fetched ${jobs?.length || 0} jobs for ${isOpsManager ? 'ops manager' : 'team'}: ${teamName}`);
 
     return new Response(
       JSON.stringify({ success: true, jobs: jobs || [] }),

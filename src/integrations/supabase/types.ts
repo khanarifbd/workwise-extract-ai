@@ -330,6 +330,7 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
+          is_ops_manager: boolean
           language_preference: string | null
           team_id: string
           team_name: string
@@ -340,6 +341,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          is_ops_manager?: boolean
           language_preference?: string | null
           team_id: string
           team_name: string
@@ -350,6 +352,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          is_ops_manager?: boolean
           language_preference?: string | null
           team_id?: string
           team_name?: string
