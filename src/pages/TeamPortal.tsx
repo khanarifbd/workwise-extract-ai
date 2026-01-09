@@ -403,6 +403,7 @@ const TeamPortal = () => {
           teamId={session!.teamId}
           isLoading={isLoadingJobs}
           languagePreference={session!.languagePreference || 'en'}
+          isOpsManager={session!.isOpsManager || false}
           onSelectJob={setSelectedJob}
           onRefresh={loadJobs}
           onLogout={logout}
