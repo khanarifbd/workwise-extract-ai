@@ -8,6 +8,7 @@ export interface TeamAccessCode {
   teamName: string;
   accessCode: string;
   isActive: boolean;
+  isOpsManager: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -34,6 +35,7 @@ export const useTeamAccessCodes = () => {
           teamName: row.team_name,
           accessCode: row.access_code,
           isActive: row.is_active,
+          isOpsManager: row.is_ops_manager === true,
           createdAt: row.created_at,
           updatedAt: row.updated_at,
         }))
@@ -84,7 +86,7 @@ export const useTeamAccessCodes = () => {
     }
   };
 
-  const updateCode = async (id: string, updates: { accessCode?: string; isActive?: boolean; teamName?: string }) => {
+  const updateCode = async (id: string, updates: { accessCode?: string; isActive?: boolean; teamName?: string; isOpsManager?: boolean }) => {
     try {
       const updateData: any = {};
       if (updates.accessCode !== undefined) {
@@ -96,6 +98,9 @@ export const useTeamAccessCodes = () => {
       if (updates.teamName !== undefined) {
         updateData.team_name = updates.teamName;
         updateData.team_id = `team_${updates.teamName.toLowerCase().replace(/\s+/g, '_')}`;
+      }
+      if (updates.isOpsManager !== undefined) {
+        updateData.is_ops_manager = updates.isOpsManager;
       }
 
       const { error } = await supabase

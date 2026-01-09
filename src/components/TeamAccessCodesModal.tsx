@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, KeyRound, Trash2, RefreshCw, Check, XCircle, Pencil, X } from 'lucide-react';
+import { Plus, KeyRound, Trash2, RefreshCw, Check, XCircle, Pencil, X, Crown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -42,6 +42,10 @@ export const TeamAccessCodesModal = ({ onClose }: TeamAccessCodesModalProps) => 
 
   const handleToggleActive = async (id: string, currentStatus: boolean) => {
     await updateCode(id, { isActive: !currentStatus });
+  };
+
+  const handleToggleOpsManager = async (id: string, currentStatus: boolean) => {
+    await updateCode(id, { isOpsManager: !currentStatus });
   };
 
   const handleDelete = async (id: string, teamName: string) => {
@@ -242,6 +246,16 @@ export const TeamAccessCodesModal = ({ onClose }: TeamAccessCodesModalProps) => 
                         )}
 
                         <div className="flex items-center gap-2">
+                          {/* Ops Manager Toggle */}
+                          <div className="flex items-center gap-1" title="Operations Manager receives ALL notifications">
+                            <Crown className={cn("w-3.5 h-3.5", code.isOpsManager ? "text-amber-500" : "text-muted-foreground/40")} />
+                            <Switch
+                              checked={code.isOpsManager}
+                              onCheckedChange={() => handleToggleOpsManager(code.id, code.isOpsManager)}
+                              className="scale-75"
+                            />
+                          </div>
+                          {/* Active Toggle */}
                           <div className="flex items-center gap-1.5">
                             <span className="text-[10px] text-muted-foreground hidden sm:inline">Active</span>
                             <Switch
@@ -267,7 +281,10 @@ export const TeamAccessCodesModal = ({ onClose }: TeamAccessCodesModalProps) => 
             )}
 
             <p className="text-xs text-muted-foreground mt-6">
-              Teams use these codes to access the portal at /team
+              Teams use these codes to access the portal at /team. 
+              <span className="inline-flex items-center gap-1 ml-1">
+                <Crown className="w-3 h-3 text-amber-500" /> = Operations Manager (receives ALL notifications & sees ALL jobs)
+              </span>
             </p>
           </div>
         </div>

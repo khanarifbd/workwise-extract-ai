@@ -7,6 +7,7 @@ interface TeamSession {
   validatedAt: string;
   expiresAt: string;
   languagePreference: string;
+  isOpsManager: boolean;
 }
 
 const SESSION_KEY = 'team_portal_session';
@@ -69,6 +70,7 @@ export const useTeamAuth = () => {
           ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days
           : data.session.expiresAt, // 24 hours from server
         languagePreference: data.session.languagePreference || 'en',
+        isOpsManager: data.session.isOpsManager === true,
       };
 
       // Store session without access code (security improvement)
