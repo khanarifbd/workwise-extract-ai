@@ -6,11 +6,23 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar as CalendarComponent } from '@/components/ui/calendar';
-import { RefreshCw, LogOut, MapPin, ChevronRight, ChevronDown, Briefcase, Loader2, Bell, BellOff, Calendar, Phone, Smartphone, CalendarDays, Crown, Filter, X, Users, Search } from 'lucide-react';
+import {
+  RefreshCw,
+  LogOut,
+  MapPin,
+  ChevronRight,
+  ChevronDown,
+  Briefcase,
+  Loader2,
+  Bell,
+  BellOff,
+  Calendar,
+  Phone,
+  Smartphone,
+  CalendarDays,
+  Crown,
+  Users,
+} from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useCapacitorPush } from '@/hooks/useCapacitorPush';
@@ -31,41 +43,46 @@ interface TeamJobListProps {
   onLanguageChange: (language: string) => void;
 }
 
-// Helper to get display date from job (prioritize booked_date, then created_at)
-const getJobDisplayDate = (job: Job): Date => {
-  if (job.bookedDate) {
-    const date = new Date(job.bookedDate);
-    if (isValid(date)) return date;
-  }
+// Ops Manager ordering must match database ordering: group + sort by createdAt.
+const getJobGroupDate = (job: Job): Date => {
+  const createdAt = job.createdAt instanceof Date ? job.createdAt : new Date(job.createdAt as any);
+  if (isValid(createdAt)) return createdAt;
+
   if (job.dateIssued) {
     const date = new Date(job.dateIssued);
     if (isValid(date)) return date;
   }
+
   return new Date();
 };
 
-// Group jobs by date string for display
-const groupJobsByDate = (jobs: Job[]): Map<string, Job[]> => {
+const groupJobsByCreatedDateDesc = (jobs: Job[]): Map<string, Job[]> => {
   const groups = new Map<string, Job[]>();
-  
-  jobs.forEach(job => {
-    const displayDate = getJobDisplayDate(job);
-    const dateKey = format(displayDate, 'yyyy-MM-dd');
-    
-    if (!groups.has(dateKey)) {
-      groups.set(dateKey, []);
-    }
+
+  for (const job of jobs) {
+    const d = getJobGroupDate(job);
+    const dateKey = format(d, 'yyyy-MM-dd');
+
+    if (!groups.has(dateKey)) groups.set(dateKey, []);
     groups.get(dateKey)!.push(job);
-  });
-  
-  // Sort keys by date descending (newest first)
-  const sortedGroups = new Map<string, Job[]>();
+  }
+
+  // Sort each group newest -> oldest (createdAt)
+  for (const [key, group] of groups.entries()) {
+    group.sort((a, b) => {
+      const at = getJobGroupDate(a).getTime();
+      const bt = getJobGroupDate(b).getTime();
+      return bt - at;
+    });
+    groups.set(key, group);
+  }
+
+  // Sort date keys newest -> oldest
+  const sorted = new Map<string, Job[]>();
   const sortedKeys = Array.from(groups.keys()).sort((a, b) => b.localeCompare(a));
-  sortedKeys.forEach(key => {
-    sortedGroups.set(key, groups.get(key)!);
-  });
-  
-  return sortedGroups;
+  for (const key of sortedKeys) sorted.set(key, groups.get(key)!);
+
+  return sorted;
 };
 
 export const TeamJobList = ({
@@ -81,74 +98,26 @@ export const TeamJobList = ({
   onLanguageChange,
 }: TeamJobListProps) => {
   // Web push notifications (PWA)
-  const { isSupported: webPushSupported, isSubscribed: webPushSubscribed, isLoading: webPushLoading, subscribe: webSubscribe, unsubscribe: webUnsubscribe } = usePushNotifications(teamId);
-  
+  const {
+    isSupported: webPushSupported,
+    isSubscribed: webPushSubscribed,
+    isLoading: webPushLoading,
+    subscribe: webSubscribe,
+    unsubscribe: webUnsubscribe,
+  } = usePushNotifications(teamId);
+
   // Native push notifications (Capacitor - Android/iOS)
-  const { isSupported: nativePushSupported, isRegistered: nativePushRegistered, isLoading: nativePushLoading, register: nativeRegister, unregister: nativeUnregister } = useCapacitorPush(teamId);
-  
+  const {
+    isSupported: nativePushSupported,
+    isRegistered: nativePushRegistered,
+    isLoading: nativePushLoading,
+    register: nativeRegister,
+    unregister: nativeUnregister,
+  } = useCapacitorPush(teamId);
+
   const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set());
   const [expandedDateGroups, setExpandedDateGroups] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<'jobs' | 'diary'>('jobs');
-  
-  // Ops Manager filters
-  const [showFilters, setShowFilters] = useState(false);
-  const [filterTeam, setFilterTeam] = useState<string>('all');
-  const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [filterDateFrom, setFilterDateFrom] = useState<Date | undefined>();
-  const [filterDateTo, setFilterDateTo] = useState<Date | undefined>();
-  const [searchQuery, setSearchQuery] = useState('');
-  
-  // Get unique teams from jobs for filter dropdown
-  const availableTeams = useMemo(() => {
-    const teams = new Set(jobs.map(j => j.team).filter(Boolean) as string[]);
-    return Array.from(teams).sort();
-  }, [jobs]);
-  
-  // Filter jobs for ops manager
-  const filteredJobs = useMemo(() => {
-    if (!isOpsManager) return jobs;
-    
-    return jobs.filter(job => {
-      // Search query
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase();
-        const matchesSearch = 
-          job.jobNumber.toLowerCase().includes(query) ||
-          job.name.toLowerCase().includes(query) ||
-          job.address?.toLowerCase().includes(query) ||
-          job.team?.toLowerCase().includes(query);
-        if (!matchesSearch) return false;
-      }
-      
-      // Team filter
-      if (filterTeam && filterTeam !== 'all' && job.team !== filterTeam) return false;
-      
-      // Status filter
-      if (filterStatus && filterStatus !== 'all' && job.status !== filterStatus) return false;
-      
-      // Date range filter (on booked date)
-      if (filterDateFrom && job.bookedDate) {
-        const bookedDate = new Date(job.bookedDate);
-        if (bookedDate < filterDateFrom) return false;
-      }
-      if (filterDateTo && job.bookedDate) {
-        const bookedDate = new Date(job.bookedDate);
-        if (bookedDate > filterDateTo) return false;
-      }
-      
-      return true;
-    });
-  }, [jobs, isOpsManager, searchQuery, filterTeam, filterStatus, filterDateFrom, filterDateTo]);
-  
-  const hasActiveFilters = (filterTeam && filterTeam !== 'all') || (filterStatus && filterStatus !== 'all') || filterDateFrom || filterDateTo || searchQuery;
-  
-  const clearFilters = () => {
-    setFilterTeam('all');
-    setFilterStatus('all');
-    setFilterDateFrom(undefined);
-    setFilterDateTo(undefined);
-    setSearchQuery('');
-  };
 
   const getStatusColor = (status: string) => {
     const option = JOB_STATUS_OPTIONS.find(o => o.value === status);
@@ -185,23 +154,23 @@ export const TeamJobList = ({
     });
   };
 
+  // Filter UI removed (requested). Ops Manager sees the complete assigned set.
+  const filteredJobs = jobs;
+
   const activeJobs = filteredJobs.filter(j => !j.isCompleted);
   const completedJobs = filteredJobs.filter(j => j.isCompleted);
   const totalActiveJobs = jobs.filter(j => !j.isCompleted).length;
-  
-  // Group active jobs by date for Ops Manager view
+
   const groupedActiveJobs = useMemo(() => {
     if (!isOpsManager) return null;
-    return groupJobsByDate(activeJobs);
+    return groupJobsByCreatedDateDesc(activeJobs);
   }, [isOpsManager, activeJobs]);
-  
-  // Group completed jobs by date for Ops Manager view  
+
   const groupedCompletedJobs = useMemo(() => {
     if (!isOpsManager) return null;
-    return groupJobsByDate(completedJobs);
+    return groupJobsByCreatedDateDesc(completedJobs);
   }, [isOpsManager, completedJobs]);
 
-  // Helper to format date key for display
   const formatDateHeader = (dateKey: string): string => {
     try {
       const date = parseISO(dateKey);
@@ -210,7 +179,7 @@ export const TeamJobList = ({
       yesterday.setDate(yesterday.getDate() - 1);
       const tomorrow = new Date(today);
       tomorrow.setDate(tomorrow.getDate() + 1);
-      
+
       if (format(date, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd')) {
         return 'Today';
       }
@@ -225,6 +194,7 @@ export const TeamJobList = ({
       return dateKey;
     }
   };
+
 
   return (
     <div className="pb-20 min-h-screen safe-area-bottom">
@@ -256,18 +226,6 @@ export const TeamJobList = ({
               )}
             </div>
             <div className="flex gap-1 sm:gap-2 flex-shrink-0">
-              {/* Filter button for Ops Manager */}
-              {isOpsManager && (
-                <Button
-                  variant="secondary"
-                  size="icon"
-                  className={cn("h-9 w-9 sm:h-10 sm:w-10", hasActiveFilters && "ring-2 ring-yellow-300")}
-                  onClick={() => setShowFilters(!showFilters)}
-                  title="Filter jobs"
-                >
-                  <Filter className="h-4 w-4" />
-                </Button>
-              )}
               {/* Native Push (Capacitor - Android/iOS) */}
               {nativePushSupported && (
                 <Button
@@ -317,7 +275,7 @@ export const TeamJobList = ({
                 className="h-9 w-9 sm:h-10 sm:w-10"
                 onClick={onLogout}
               >
-              <LogOut className="h-4 w-4" />
+                <LogOut className="h-4 w-4" />
               </Button>
             </div>
           </div>
@@ -330,106 +288,6 @@ export const TeamJobList = ({
           </div>
         </div>
       </div>
-
-      {/* Ops Manager Filters Panel */}
-      {isOpsManager && showFilters && (
-        <div className="bg-muted/50 border-b border-border p-3 sm:p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold flex items-center gap-2">
-              <Filter className="h-4 w-4" />
-              Filter Jobs
-            </h3>
-            {hasActiveFilters && (
-              <Button variant="ghost" size="sm" onClick={clearFilters} className="h-7 text-xs">
-                <X className="h-3 w-3 mr-1" />
-                Clear
-              </Button>
-            )}
-          </div>
-          
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search jobs..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 h-9"
-            />
-          </div>
-          
-          <div className="grid grid-cols-2 gap-2">
-            {/* Team Filter */}
-            <Select value={filterTeam} onValueChange={setFilterTeam}>
-              <SelectTrigger className="h-9">
-                <SelectValue placeholder="All Teams" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Teams</SelectItem>
-                {availableTeams.map(team => (
-                  <SelectItem key={team} value={team}>{team}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            
-            {/* Status Filter */}
-            <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="h-9">
-                <SelectValue placeholder="All Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                {JOB_STATUS_OPTIONS.map(opt => (
-                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          
-          {/* Date Range */}
-          <div className="grid grid-cols-2 gap-2">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="h-9 justify-start text-left font-normal text-xs">
-                  <Calendar className="mr-2 h-3 w-3" />
-                  {filterDateFrom ? format(filterDateFrom, 'MMM d') : 'From'}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <CalendarComponent
-                  mode="single"
-                  selected={filterDateFrom}
-                  onSelect={setFilterDateFrom}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-            
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="h-9 justify-start text-left font-normal text-xs">
-                  <Calendar className="mr-2 h-3 w-3" />
-                  {filterDateTo ? format(filterDateTo, 'MMM d') : 'To'}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <CalendarComponent
-                  mode="single"
-                  selected={filterDateTo}
-                  onSelect={setFilterDateTo}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-          
-          {hasActiveFilters && (
-            <p className="text-xs text-muted-foreground">
-              Showing {filteredJobs.length} of {jobs.length} jobs
-            </p>
-          )}
-        </div>
-      )}
 
       {/* Tabs for Jobs and Diary */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'jobs' | 'diary')} className="w-full">
@@ -467,11 +325,9 @@ export const TeamJobList = ({
             ) : filteredJobs.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12">
                 <Briefcase className="h-12 w-12 text-muted-foreground/50 mb-4" />
-                <p className="text-lg font-medium text-muted-foreground">
-                  {hasActiveFilters ? 'No jobs match filters' : 'No jobs assigned'}
-                </p>
+                <p className="text-lg font-medium text-muted-foreground">No jobs assigned</p>
                 <p className="text-sm text-muted-foreground/80 text-center px-4">
-                  {hasActiveFilters ? 'Try adjusting your filter criteria' : 'Jobs assigned to your team will appear here'}
+                  Jobs assigned to your team will appear here
                 </p>
               </div>
             ) : isOpsManager && groupedActiveJobs ? (
