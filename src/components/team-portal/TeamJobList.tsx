@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Job, JOB_STATUS_OPTIONS } from '@/types/job';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -22,6 +22,10 @@ import {
   CalendarDays,
   Crown,
   Users,
+  ChevronsUpDown,
+  Minus,
+  Plus,
+  ArrowUp,
 } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
@@ -117,7 +121,8 @@ export const TeamJobList = ({
 
   const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set());
   const [expandedDateGroups, setExpandedDateGroups] = useState<Set<string>>(new Set());
-  const [activeTab, setActiveTab] = useState<'jobs' | 'diary'>('jobs');
+  const [activeTab, setActiveTab] = useState<'jobs' | 'diary' | 'workload'>('jobs');
+  const [teamFilter, setTeamFilter] = useState<string | null>(null);
 
   const getStatusColor = (status: string) => {
     const option = JOB_STATUS_OPTIONS.find(o => o.value === status);
@@ -154,8 +159,28 @@ export const TeamJobList = ({
     });
   };
 
-  // Filter UI removed (requested). Ops Manager sees the complete assigned set.
-  const filteredJobs = jobs;
+  // Team workload counts (for Ops Manager)
+  const teamWorkloadCounts = useMemo(() => {
+    if (!isOpsManager) return new Map<string, { active: number; completed: number }>();
+    const counts = new Map<string, { active: number; completed: number }>();
+    for (const job of jobs) {
+      const team = job.team || 'Unassigned';
+      if (!counts.has(team)) counts.set(team, { active: 0, completed: 0 });
+      if (job.isCompleted) {
+        counts.get(team)!.completed++;
+      } else {
+        counts.get(team)!.active++;
+      }
+    }
+    // Sort by active count descending
+    return new Map([...counts.entries()].sort((a, b) => b[1].active - a[1].active));
+  }, [isOpsManager, jobs]);
+
+  // Filtered jobs (by team if filter is active)
+  const filteredJobs = useMemo(() => {
+    if (!teamFilter) return jobs;
+    return jobs.filter(j => (j.team || 'Unassigned') === teamFilter);
+  }, [jobs, teamFilter]);
 
   const activeJobs = filteredJobs.filter(j => !j.isCompleted);
   const completedJobs = filteredJobs.filter(j => j.isCompleted);
@@ -170,6 +195,28 @@ export const TeamJobList = ({
     if (!isOpsManager) return null;
     return groupJobsByCreatedDateDesc(completedJobs);
   }, [isOpsManager, completedJobs]);
+
+  const todayKey = format(new Date(), 'yyyy-MM-dd');
+  const allActiveDateKeys = useMemo(() => {
+    if (!groupedActiveJobs) return [];
+    return Array.from(groupedActiveJobs.keys());
+  }, [groupedActiveJobs]);
+
+  // Expand/Collapse all
+  const expandAllDateGroups = useCallback(() => {
+    setExpandedDateGroups(new Set(allActiveDateKeys));
+  }, [allActiveDateKeys]);
+
+  const collapseAllDateGroups = useCallback(() => {
+    setExpandedDateGroups(new Set());
+  }, []);
+
+  // Jump to today (expand only today)
+  const jumpToToday = useCallback(() => {
+    if (allActiveDateKeys.includes(todayKey)) {
+      setExpandedDateGroups(new Set([todayKey]));
+    }
+  }, [allActiveDateKeys, todayKey]);
 
   const formatDateHeader = (dateKey: string): string => {
     try {
@@ -194,8 +241,6 @@ export const TeamJobList = ({
       return dateKey;
     }
   };
-
-
   return (
     <div className="pb-20 min-h-screen safe-area-bottom">
       {/* Header - Mobile optimized with iOS safe area */}
@@ -289,8 +334,8 @@ export const TeamJobList = ({
         </div>
       </div>
 
-      {/* Tabs for Jobs and Diary */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'jobs' | 'diary')} className="w-full">
+      {/* Tabs for Jobs, Diary and Workload */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'jobs' | 'diary' | 'workload')} className="w-full">
         <div className="border-b border-border bg-background sticky top-[calc(68px+env(safe-area-inset-top,0px))] z-[5] safe-area-left safe-area-right">
           <TabsList className="w-full justify-start rounded-none h-auto p-0 bg-transparent">
             <TabsTrigger 
@@ -300,6 +345,15 @@ export const TeamJobList = ({
               <Briefcase className="h-4 w-4 mr-2" />
               Jobs ({activeJobs.length})
             </TabsTrigger>
+            {isOpsManager && (
+              <TabsTrigger 
+                value="workload" 
+                className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-3"
+              >
+                <Users className="h-4 w-4 mr-2" />
+                Teams
+              </TabsTrigger>
+            )}
             <TabsTrigger 
               value="diary" 
               className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-3"
@@ -310,6 +364,55 @@ export const TeamJobList = ({
           </TabsList>
         </div>
 
+        {/* Team Workload Tab (Ops Manager only) */}
+        {isOpsManager && (
+          <TabsContent value="workload" className="p-3 sm:p-4 mt-0">
+            <div className="space-y-3">
+              <h2 className="text-xs sm:text-sm font-semibold text-muted-foreground uppercase tracking-wider px-1">
+                Team Workload
+              </h2>
+              {teamFilter && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => { setTeamFilter(null); setActiveTab('jobs'); }} 
+                  className="mb-2"
+                >
+                  <Minus className="h-3 w-3 mr-1" />
+                  Clear filter: {teamFilter}
+                </Button>
+              )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {Array.from(teamWorkloadCounts.entries()).map(([team, counts]) => (
+                  <Card 
+                    key={team}
+                    className={cn(
+                      "cursor-pointer hover:bg-muted/50 transition-colors",
+                      teamFilter === team && "ring-2 ring-primary"
+                    )}
+                    onClick={() => { setTeamFilter(team); setActiveTab('jobs'); }}
+                  >
+                    <CardContent className="p-3 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Users className="h-4 w-4 text-primary" />
+                        <span className="font-medium text-sm truncate">{team}</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <Badge variant="default" className="text-xs">
+                          {counts.active} active
+                        </Badge>
+                        <Badge variant="secondary" className="text-xs">
+                          {counts.completed} done
+                        </Badge>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          </TabsContent>
+        )}
+
         <TabsContent value="diary" className="p-3 sm:p-4 mt-0">
           <TeamDiary teamId={teamId} teamName={teamName} />
         </TabsContent>
@@ -317,6 +420,38 @@ export const TeamJobList = ({
         <TabsContent value="jobs" className="mt-0">
           {/* Job List - Mobile optimized */}
           <div className="p-3 sm:p-4 space-y-3">
+            {/* Ops Manager: Team filter indicator + expand/collapse controls */}
+            {isOpsManager && (
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                {teamFilter && (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setTeamFilter(null)} 
+                    className="text-xs"
+                  >
+                    <Minus className="h-3 w-3 mr-1" />
+                    {teamFilter}
+                  </Button>
+                )}
+                <div className="flex-1" />
+                <Button variant="ghost" size="sm" onClick={expandAllDateGroups} className="text-xs h-7 px-2">
+                  <Plus className="h-3 w-3 mr-1" />
+                  Expand All
+                </Button>
+                <Button variant="ghost" size="sm" onClick={collapseAllDateGroups} className="text-xs h-7 px-2">
+                  <Minus className="h-3 w-3 mr-1" />
+                  Collapse
+                </Button>
+                {allActiveDateKeys.includes(todayKey) && (
+                  <Button variant="ghost" size="sm" onClick={jumpToToday} className="text-xs h-7 px-2">
+                    <ArrowUp className="h-3 w-3 mr-1" />
+                    Today
+                  </Button>
+                )}
+              </div>
+            )}
+
             {isLoading && jobs.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
@@ -325,10 +460,17 @@ export const TeamJobList = ({
             ) : filteredJobs.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12">
                 <Briefcase className="h-12 w-12 text-muted-foreground/50 mb-4" />
-                <p className="text-lg font-medium text-muted-foreground">No jobs assigned</p>
-                <p className="text-sm text-muted-foreground/80 text-center px-4">
-                  Jobs assigned to your team will appear here
+                <p className="text-lg font-medium text-muted-foreground">
+                  {teamFilter ? `No jobs for ${teamFilter}` : 'No jobs assigned'}
                 </p>
+                <p className="text-sm text-muted-foreground/80 text-center px-4">
+                  {teamFilter ? 'Try clearing the filter' : 'Jobs assigned to your team will appear here'}
+                </p>
+                {teamFilter && (
+                  <Button variant="outline" size="sm" className="mt-3" onClick={() => setTeamFilter(null)}>
+                    Clear Filter
+                  </Button>
+                )}
               </div>
             ) : isOpsManager && groupedActiveJobs ? (
               <>
