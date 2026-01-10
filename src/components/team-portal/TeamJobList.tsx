@@ -54,8 +54,8 @@ export const TeamJobList = ({
   
   // Ops Manager filters
   const [showFilters, setShowFilters] = useState(false);
-  const [filterTeam, setFilterTeam] = useState<string>('');
-  const [filterStatus, setFilterStatus] = useState<string>('');
+  const [filterTeam, setFilterTeam] = useState<string>('all');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterDateFrom, setFilterDateFrom] = useState<Date | undefined>();
   const [filterDateTo, setFilterDateTo] = useState<Date | undefined>();
   const [searchQuery, setSearchQuery] = useState('');
@@ -83,10 +83,10 @@ export const TeamJobList = ({
       }
       
       // Team filter
-      if (filterTeam && job.team !== filterTeam) return false;
+      if (filterTeam && filterTeam !== 'all' && job.team !== filterTeam) return false;
       
       // Status filter
-      if (filterStatus && job.status !== filterStatus) return false;
+      if (filterStatus && filterStatus !== 'all' && job.status !== filterStatus) return false;
       
       // Date range filter (on booked date)
       if (filterDateFrom && job.bookedDate) {
@@ -102,11 +102,11 @@ export const TeamJobList = ({
     });
   }, [jobs, isOpsManager, searchQuery, filterTeam, filterStatus, filterDateFrom, filterDateTo]);
   
-  const hasActiveFilters = filterTeam || filterStatus || filterDateFrom || filterDateTo || searchQuery;
+  const hasActiveFilters = (filterTeam && filterTeam !== 'all') || (filterStatus && filterStatus !== 'all') || filterDateFrom || filterDateTo || searchQuery;
   
   const clearFilters = () => {
-    setFilterTeam('');
-    setFilterStatus('');
+    setFilterTeam('all');
+    setFilterStatus('all');
     setFilterDateFrom(undefined);
     setFilterDateTo(undefined);
     setSearchQuery('');
@@ -278,7 +278,7 @@ export const TeamJobList = ({
                 <SelectValue placeholder="All Teams" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Teams</SelectItem>
+                <SelectItem value="all">All Teams</SelectItem>
                 {availableTeams.map(team => (
                   <SelectItem key={team} value={team}>{team}</SelectItem>
                 ))}
@@ -291,7 +291,7 @@ export const TeamJobList = ({
                 <SelectValue placeholder="All Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Status</SelectItem>
+                <SelectItem value="all">All Status</SelectItem>
                 {JOB_STATUS_OPTIONS.map(opt => (
                   <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                 ))}
