@@ -16,6 +16,7 @@ import { BookedDateSidebar } from '@/components/BookedDateSidebar';
 import { ViewToggle } from '@/components/ViewToggle';
 import { JobDetailsModal } from '@/components/JobDetailsModal';
 import { DuplicateJobAlert } from '@/components/DuplicateJobAlert';
+import { CompletedJobsPDFButton } from '@/components/CompletedJobsPDFButton';
 
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -928,15 +929,21 @@ const Index = () => {
               )}
               {/* Sort by completion date when in COMPLETED tab */}
               {activeDatabaseTab === 'completed' && (
-                <Select value={completedSortOrder} onValueChange={(v) => setCompletedSortOrder(v as CompletedSortOrder)}>
-                  <SelectTrigger className="w-44 h-8 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="newest">Newest Completed First</SelectItem>
-                    <SelectItem value="oldest">Oldest Completed First</SelectItem>
-                  </SelectContent>
-                </Select>
+                <>
+                  <CompletedJobsPDFButton 
+                    jobs={jobs} 
+                    categoryName={categories.find(c => c.id === activeCategory)?.name || 'Damp & Mold'} 
+                  />
+                  <Select value={completedSortOrder} onValueChange={(v) => setCompletedSortOrder(v as CompletedSortOrder)}>
+                    <SelectTrigger className="w-44 h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="newest">Newest Completed First</SelectItem>
+                      <SelectItem value="oldest">Oldest Completed First</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </>
               )}
               {viewType === 'kanban' && (
                 <Select value={kanbanGroupBy} onValueChange={(v) => setKanbanGroupBy(v as KanbanGroupBy)}>
