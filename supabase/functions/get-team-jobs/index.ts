@@ -141,10 +141,12 @@ Deno.serve(async (req) => {
 
     const isOpsManager = teamData.is_ops_manager === true;
 
-    // Fetch jobs - Operations Manager sees ALL jobs, regular teams see only their assigned jobs
+    // Fetch jobs - Operations Manager sees only ASSIGNED jobs, regular teams see only their assigned jobs
     let jobsQuery = supabase
       .from("jobs")
       .select("*")
+      .not("team", "is", null)
+      .neq("team", "")
       .order("created_at", { ascending: false });
 
     if (!isOpsManager) {
