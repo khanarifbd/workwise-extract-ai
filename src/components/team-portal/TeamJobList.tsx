@@ -30,9 +30,20 @@ import {
 import { format, parseISO, isValid } from 'date-fns';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useCapacitorPush } from '@/hooks/useCapacitorPush';
+import { useTeamSettings } from '@/hooks/useTeamSettings';
 import { TeamDiary } from './TeamDiary';
 import { LanguageSelector } from './LanguageSelector';
 import { cn } from '@/lib/utils';
+
+// Helper to get contrasting text color (white or black) for a given background color
+const getContrastTextColor = (hexColor: string): string => {
+  if (!hexColor || !hexColor.startsWith('#')) return '#ffffff';
+  const r = parseInt(hexColor.slice(1, 3), 16);
+  const g = parseInt(hexColor.slice(3, 5), 16);
+  const b = parseInt(hexColor.slice(5, 7), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.5 ? '#000000' : '#ffffff';
+};
 
 interface TeamJobListProps {
   jobs: Job[];
@@ -123,6 +134,15 @@ export const TeamJobList = ({
   const [expandedDateGroups, setExpandedDateGroups] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<'jobs' | 'diary' | 'workload'>('jobs');
   const [teamFilter, setTeamFilter] = useState<string | null>(null);
+
+  // Get team settings for color-coding
+  const { settings: teamSettings } = useTeamSettings();
+
+  // Get team color by team name
+  const getTeamColor = (teamName: string): string | undefined => {
+    const team = teamSettings.find(t => t.teamName === teamName);
+    return team?.color || undefined;
+  };
 
   const getStatusColor = (status: string) => {
     const option = JOB_STATUS_OPTIONS.find(o => o.value === status);
@@ -383,31 +403,49 @@ export const TeamJobList = ({
                 </Button>
               )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {Array.from(teamWorkloadCounts.entries()).map(([team, counts]) => (
-                  <Card 
-                    key={team}
-                    className={cn(
-                      "cursor-pointer hover:bg-muted/50 transition-colors",
-                      teamFilter === team && "ring-2 ring-primary"
-                    )}
-                    onClick={() => { setTeamFilter(team); setActiveTab('jobs'); }}
-                  >
-                    <CardContent className="p-3 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Users className="h-4 w-4 text-primary" />
-                        <span className="font-medium text-sm truncate">{team}</span>
-                      </div>
-                      <div className="flex gap-2">
-                        <Badge variant="default" className="text-xs">
-                          {counts.active} active
-                        </Badge>
-                        <Badge variant="secondary" className="text-xs">
-                          {counts.completed} done
-                        </Badge>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                {Array.from(teamWorkloadCounts.entries()).map(([team, counts]) => {
+                  const teamColor = getTeamColor(team);
+                  return (
+                    <Card 
+                      key={team}
+                      className={cn(
+                        "cursor-pointer hover:opacity-90 transition-all overflow-hidden",
+                        teamFilter === team && "ring-2 ring-primary"
+                      )}
+                      style={teamColor ? { borderLeftWidth: '4px', borderLeftColor: teamColor } : undefined}
+                      onClick={() => { setTeamFilter(team); setActiveTab('jobs'); }}
+                    >
+                      <CardContent className="p-3 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="h-6 w-6 rounded-full flex items-center justify-center flex-shrink-0"
+                            style={{ 
+                              backgroundColor: teamColor || 'hsl(var(--muted))',
+                              color: teamColor ? getContrastTextColor(teamColor) : 'hsl(var(--muted-foreground))'
+                            }}
+                          >
+                            <Users className="h-3.5 w-3.5" />
+                          </div>
+                          <span className="font-medium text-sm truncate">{team}</span>
+                        </div>
+                        <div className="flex gap-2">
+                          <Badge 
+                            className="text-xs"
+                            style={teamColor ? { 
+                              backgroundColor: teamColor, 
+                              color: getContrastTextColor(teamColor) 
+                            } : undefined}
+                          >
+                            {counts.active} active
+                          </Badge>
+                          <Badge variant="secondary" className="text-xs">
+                            {counts.completed} done
+                          </Badge>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             </div>
           </TabsContent>
@@ -541,8 +579,12 @@ export const TeamJobList = ({
                                           </Badge>
                                           {job.team && (
                                             <Badge 
-                                              variant="secondary"
-                                              className="text-xs px-1.5 py-0 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                                              className="text-xs px-1.5 py-0"
+                                              style={getTeamColor(job.team) ? {
+                                                backgroundColor: getTeamColor(job.team),
+                                                color: getContrastTextColor(getTeamColor(job.team)!)
+                                              } : undefined}
+                                              variant={getTeamColor(job.team) ? undefined : "secondary"}
                                             >
                                               <Users className="h-3 w-3 mr-1" />
                                               {job.team}
@@ -655,8 +697,12 @@ export const TeamJobList = ({
                                   </Badge>
                                   {job.team && (
                                     <Badge 
-                                      variant="secondary"
-                                      className="text-xs px-1.5 py-0 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                                      className="text-xs px-1.5 py-0"
+                                      style={getTeamColor(job.team) ? {
+                                        backgroundColor: getTeamColor(job.team),
+                                        color: getContrastTextColor(getTeamColor(job.team)!)
+                                      } : undefined}
+                                      variant={getTeamColor(job.team) ? undefined : "secondary"}
                                     >
                                       <Users className="h-3 w-3 mr-1" />
                                       {job.team}
