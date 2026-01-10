@@ -99,13 +99,14 @@ const Index = () => {
         description: extractedData.description || '',
         workItems: (extractedData.workItems || []).map((item: any) => ({
           ...item,
-          id: crypto.randomUUID()
+          id: crypto.randomUUID(),
         })),
         additionalWorks: [],
         team: null,
         progress: 0,
         progressNotes: '',
         isCompleted: false,
+        createdAt: new Date(),
         dateIssued: new Date(),
         bookedDate: extractedData.bookedDate || null,
         isFlexibleBooking: false,
@@ -116,7 +117,7 @@ const Index = () => {
         status: 'pending',
         fanInfo: null,
         linkedFanJobId: null,
-        costs: null
+        costs: null,
       };
       
       // Check for duplicates before adding

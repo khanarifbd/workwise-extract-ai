@@ -64,6 +64,11 @@ export interface Job {
   progress: number;
   progressNotes: string;
   isCompleted: boolean;
+  /**
+   * Created timestamp from the database.
+   * Used for Ops Manager ordering/grouping to match backend ordering.
+   */
+  createdAt: Date;
   dateIssued: Date;
   bookedDate: Date | null;
   isFlexibleBooking: boolean;

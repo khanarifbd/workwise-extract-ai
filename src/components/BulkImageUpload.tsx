@@ -120,13 +120,14 @@ export const BulkImageUpload = ({ onJobsExtracted, onClose }: BulkImageUploadPro
             description: extractedData.description || '',
             workItems: (extractedData.workItems || []).map((item: any) => ({
               ...item,
-              id: crypto.randomUUID()
+              id: crypto.randomUUID(),
             })),
             additionalWorks: [],
             team: null,
             progress: 0,
             progressNotes: '',
             isCompleted: false,
+            createdAt: new Date(),
             dateIssued: new Date(),
             bookedDate: extractedData.bookedDate || null,
             isFlexibleBooking: false,
@@ -137,7 +138,7 @@ export const BulkImageUpload = ({ onJobsExtracted, onClose }: BulkImageUploadPro
             status: 'pending',
             fanInfo: null,
             linkedFanJobId: null,
-            costs: null
+            costs: null,
           };
 
           extractedJobs.push(newJob);
