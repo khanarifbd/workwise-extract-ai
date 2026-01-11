@@ -1,8 +1,15 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Edit2, Check, X } from 'lucide-react';
+import { Edit2, Check, X, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface InlineDescriptionEditorProps {
   description: string;
@@ -11,6 +18,9 @@ interface InlineDescriptionEditorProps {
   onToggleExpand: () => void;
   shouldTruncate: boolean;
 }
+
+// Priority keywords to detect in descriptions
+const PRIORITY_KEYWORDS = ['emergency', 'urgent', 'priority', 'critical', 'asap', 'immediate'];
 
 export const InlineDescriptionEditor = ({
   description,
@@ -22,6 +32,25 @@ export const InlineDescriptionEditor = ({
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(description);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Detect if description contains priority keywords
+  const priorityInfo = useMemo(() => {
+    if (!description) return null;
+    
+    const lowerDesc = description.toLowerCase();
+    const foundKeywords = PRIORITY_KEYWORDS.filter(keyword => lowerDesc.includes(keyword));
+    
+    if (foundKeywords.length === 0) return null;
+    
+    // Determine the priority level based on keywords found
+    if (foundKeywords.includes('emergency') || foundKeywords.includes('critical')) {
+      return { level: 'critical', keywords: foundKeywords, color: 'bg-red-500' };
+    } else if (foundKeywords.includes('urgent') || foundKeywords.includes('asap') || foundKeywords.includes('immediate')) {
+      return { level: 'urgent', keywords: foundKeywords, color: 'bg-orange-500' };
+    } else {
+      return { level: 'priority', keywords: foundKeywords, color: 'bg-amber-500' };
+    }
+  }, [description]);
 
   useEffect(() => {
     if (isEditing && textareaRef.current) {
@@ -77,6 +106,31 @@ export const InlineDescriptionEditor = ({
 
   return (
     <div className="relative group">
+      {/* Priority Badge */}
+      {priorityInfo && (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge 
+                className={cn(
+                  "mb-1 text-white text-xs font-bold animate-pulse cursor-help",
+                  priorityInfo.color
+                )}
+              >
+                <AlertTriangle className="w-3 h-3 mr-1" />
+                {priorityInfo.level === 'critical' ? 'EMERGENCY' : 
+                 priorityInfo.level === 'urgent' ? 'URGENT' : 'PRIORITY'}
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p className="text-xs">
+                Detected keywords: {priorityInfo.keywords.join(', ')}
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )}
+      
       <p className={cn(
         "text-foreground",
         !isExpanded && shouldTruncate && "line-clamp-2"
