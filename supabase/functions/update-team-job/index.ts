@@ -261,10 +261,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Verify the job belongs to this team
+    // Verify the job belongs to this team (either as team or team2)
     const { data: job, error: jobError } = await supabase
       .from("jobs")
-      .select("id, team, work_items, attachments")
+      .select("id, team, team2, work_items, attachments")
       .eq("id", jobId)
       .maybeSingle();
 
@@ -276,8 +276,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (job.team !== teamName) {
-      console.error("Team mismatch: job belongs to", job.team, "but request from", teamName);
+    // Check if team is assigned as either primary or secondary team
+    const isAssignedTeam = job.team === teamName || job.team2 === teamName;
+    if (!isAssignedTeam) {
+      console.error("Team mismatch: job belongs to", job.team, "and", job.team2, "but request from", teamName);
       return new Response(
         JSON.stringify({ error: "You don't have permission to update this job" }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }

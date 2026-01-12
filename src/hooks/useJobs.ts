@@ -66,13 +66,19 @@ export const useJobs = (categoryId?: string) => {
     try {
       const currentJob = jobs.find(j => j.id === id);
       const previousTeam = currentJob?.team;
+      const previousTeam2 = currentJob?.team2;
       const newTeam = updates.team;
+      const newTeam2 = updates.team2;
       const previousStatus = currentJob?.status;
       const newStatus = updates.status;
       
-      // Check if team is being assigned or unassigned
-      const isNewTeamAssignment = newTeam && newTeam !== previousTeam;
-      const isTeamUnassigned = 'team' in updates && !newTeam && previousTeam;
+      // Check if primary team is being assigned or unassigned
+      const isNewTeam1Assignment = newTeam && newTeam !== previousTeam;
+      const isTeam1Unassigned = 'team' in updates && !newTeam && previousTeam;
+      
+      // Check if secondary team is being assigned or unassigned
+      const isNewTeam2Assignment = newTeam2 && newTeam2 !== previousTeam2;
+      const isTeam2Unassigned = 'team2' in updates && !newTeam2 && previousTeam2;
       
       // Check if status changed
       const isStatusChanged = 'status' in updates && newStatus && newStatus !== previousStatus;
@@ -80,19 +86,34 @@ export const useJobs = (categoryId?: string) => {
       const updated = await updateJob(id, updates);
       setJobs(prev => prev.map(j => j.id === id ? updated : j));
       
-      // Send push notification if team was just assigned
-      if (isNewTeamAssignment && newTeam) {
+      // Send push notification if primary team was just assigned
+      if (isNewTeam1Assignment && newTeam) {
         sendTeamNotification(newTeam, updated, 'assigned');
       }
       
-      // Send push notification if team was unassigned
-      if (isTeamUnassigned && previousTeam) {
+      // Send push notification if secondary team was just assigned
+      if (isNewTeam2Assignment && newTeam2) {
+        sendTeamNotification(newTeam2, updated, 'assigned');
+      }
+      
+      // Send push notification if primary team was unassigned
+      if (isTeam1Unassigned && previousTeam) {
         sendTeamNotification(previousTeam, { ...updated, team: previousTeam }, 'unassigned');
       }
       
-      // Send push notification if status changed (to the assigned team)
-      if (isStatusChanged && updated.team) {
-        sendTeamNotification(updated.team, updated, 'status_changed', newStatus);
+      // Send push notification if secondary team was unassigned
+      if (isTeam2Unassigned && previousTeam2) {
+        sendTeamNotification(previousTeam2, { ...updated, team: previousTeam2 }, 'unassigned');
+      }
+      
+      // Send push notification if status changed (to both assigned teams)
+      if (isStatusChanged) {
+        if (updated.team) {
+          sendTeamNotification(updated.team, updated, 'status_changed', newStatus);
+        }
+        if (updated.team2) {
+          sendTeamNotification(updated.team2, updated, 'status_changed', newStatus);
+        }
       }
       
       return updated;

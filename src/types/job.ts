@@ -61,6 +61,7 @@ export interface Job {
   workItems: WorkItem[];
   additionalWorks: WorkItem[];
   team: string | null;
+  team2: string | null; // Second team assignment (optional)
   progress: number;
   progressNotes: string;
   isCompleted: boolean;

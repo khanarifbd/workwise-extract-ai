@@ -119,11 +119,18 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
     return () => window.removeEventListener('contact-history-updated', handler as EventListener);
   }, [jobIds.join(','), refreshAllHistory]);
 
-  const handleTeamSelect = (jobId: string, teamId: string | null) => {
+  const handleTeamSelect = (jobId: string, teamSelection: string | null) => {
     const job = jobs.find(j => j.id === jobId);
     if (job) {
-      const team = teamId ? teams.find(t => t.id === teamId) : null;
-      onUpdateJob({ ...job, team: team?.name || null });
+      // Handle dual team selection (format: "Team1|Team2" or single team name)
+      if (teamSelection && teamSelection.includes('|')) {
+        const [team1, team2] = teamSelection.split('|');
+        onUpdateJob({ ...job, team: team1 || null, team2: team2 || null });
+      } else {
+        // Single team or unassign
+        const team = teamSelection ? teams.find(t => t.id === teamSelection || t.name === teamSelection) : null;
+        onUpdateJob({ ...job, team: team?.name || teamSelection || null, team2: null });
+      }
     }
     setShowTeamSelector(null);
   };
@@ -628,28 +635,48 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                         const bookedDateStr = job.bookedDate instanceof Date 
                           ? job.bookedDate.toISOString() 
                           : job.bookedDate;
-                        // Use team name directly - hasAvailabilityConflict now supports name lookup
-                        const hasConflict = hasAvailabilityConflict(job.team, bookedDateStr);
+                        // Check conflicts for both teams
+                        const hasConflict = hasAvailabilityConflict(job.team, bookedDateStr) || 
+                                           (job.team2 && hasAvailabilityConflict(job.team2, bookedDateStr));
                         
                         return (
                           <>
                             {job.team ? (
-                              <div className="flex items-center gap-1">
-                                {hasConflict && (
-                                  <AlertTriangle className="w-4 h-4 text-red-500 animate-pulse flex-shrink-0" />
-                                )}
-                                <Badge 
-                                  className={cn(
-                                    "cursor-pointer text-xs",
-                                    hasConflict && "animate-pulse ring-2 ring-red-500"
+                              <div className="flex flex-col gap-1">
+                                <div className="flex items-center gap-1">
+                                  {hasConflict && (
+                                    <AlertTriangle className="w-4 h-4 text-red-500 animate-pulse flex-shrink-0" />
                                   )}
-                                  style={{ backgroundColor: getTeamColor(job.team), color: 'white' }}
-                                  onClick={() => setShowTeamSelector(job.id)}
-                                  title={hasConflict ? 'Team unavailable on booked date!' : undefined}
-                                >
-                                  <Users className="w-3.5 h-3.5 mr-1" />
-                                  {job.team}
-                                </Badge>
+                                  <Badge 
+                                    className={cn(
+                                      "cursor-pointer text-xs",
+                                      hasAvailabilityConflict(job.team, bookedDateStr) && "animate-pulse ring-2 ring-red-500"
+                                    )}
+                                    style={{ backgroundColor: getTeamColor(job.team), color: 'white' }}
+                                    onClick={() => setShowTeamSelector(job.id)}
+                                    title={hasAvailabilityConflict(job.team, bookedDateStr) ? 'Team unavailable on booked date!' : undefined}
+                                  >
+                                    <Users className="w-3.5 h-3.5 mr-1" />
+                                    {job.team}
+                                  </Badge>
+                                </div>
+                                {/* Show second team if assigned */}
+                                {job.team2 && (
+                                  <div className="flex items-center gap-1">
+                                    <Badge 
+                                      className={cn(
+                                        "cursor-pointer text-xs",
+                                        hasAvailabilityConflict(job.team2, bookedDateStr) && "animate-pulse ring-2 ring-red-500"
+                                      )}
+                                      style={{ backgroundColor: getTeamColor(job.team2), color: 'white' }}
+                                      onClick={() => setShowTeamSelector(job.id)}
+                                      title={hasAvailabilityConflict(job.team2, bookedDateStr) ? 'Team unavailable on booked date!' : undefined}
+                                    >
+                                      <Users className="w-3.5 h-3.5 mr-1" />
+                                      {job.team2}
+                                    </Badge>
+                                  </div>
+                                )}
                               </div>
                             ) : (
                               <Button

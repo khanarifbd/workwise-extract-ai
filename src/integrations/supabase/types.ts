@@ -145,6 +145,7 @@ export type Database = {
           status: string | null
           summary_of_works: string | null
           team: string | null
+          team2: string | null
           updated_at: string
           work_items: Json | null
         }
@@ -174,6 +175,7 @@ export type Database = {
           status?: string | null
           summary_of_works?: string | null
           team?: string | null
+          team2?: string | null
           updated_at?: string
           work_items?: Json | null
         }
@@ -203,6 +205,7 @@ export type Database = {
           status?: string | null
           summary_of_works?: string | null
           team?: string | null
+          team2?: string | null
           updated_at?: string
           work_items?: Json | null
         }

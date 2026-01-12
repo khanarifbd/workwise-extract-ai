@@ -329,8 +329,18 @@ const TeamPortal = () => {
           const changedJob = payload.new as any;
           const oldJob = payload.old as any;
           
-          // Check if a job was unassigned from this team
-          if (payload.eventType === 'UPDATE' && oldJob?.team === session.teamName && changedJob?.team !== session.teamName) {
+          // Check if team was previously assigned as team or team2
+          const wasAssignedAsTeam1 = oldJob?.team === session.teamName;
+          const wasAssignedAsTeam2 = oldJob?.team2 === session.teamName;
+          const wasAssigned = wasAssignedAsTeam1 || wasAssignedAsTeam2;
+          
+          // Check if team is currently assigned as team or team2
+          const isAssignedAsTeam1 = changedJob?.team === session.teamName;
+          const isAssignedAsTeam2 = changedJob?.team2 === session.teamName;
+          const isAssigned = isAssignedAsTeam1 || isAssignedAsTeam2;
+          
+          // Check if a job was unassigned from this team (was assigned but no longer is)
+          if (payload.eventType === 'UPDATE' && wasAssigned && !isAssigned) {
             // Job was unassigned from this team - remove it immediately
             setJobs(prev => prev.filter(j => j.id !== changedJob.id));
             
@@ -349,8 +359,12 @@ const TeamPortal = () => {
               });
             }
           } 
-          // Check if a job was newly assigned to this team
-          else if (changedJob?.team === session.teamName) {
+          // Check if a job was newly assigned to this team (as either team or team2)
+          else if (isAssigned && !wasAssigned) {
+            loadJobs();
+          }
+          // If still assigned, refresh to get updates
+          else if (isAssigned && wasAssigned) {
             loadJobs();
           }
         }
