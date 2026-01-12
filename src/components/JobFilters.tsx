@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { ALLSAINTS_TEAMS, FAN_TEAMS } from '@/types/job';
-import { Search, Filter, X, CalendarDays, Bookmark, Save, FileDown, FileSpreadsheet, Fan, Calendar } from 'lucide-react';
+import { Search, Filter, X, CalendarDays, Bookmark, Save, FileDown, FileSpreadsheet, Fan, Calendar, ClipboardCheck } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
@@ -20,6 +20,7 @@ export interface FilterState {
   dateTo: Date | undefined;
   hasFans: string;
   hasBookedDate: string;
+  signOffStatus: string;
 }
 
 interface FilterPreset {
@@ -75,6 +76,7 @@ export const JobFilters = ({ filters, onFiltersChange, availableSorCodes, onExpo
       dateTo: undefined,
       hasFans: '',
       hasBookedDate: '',
+      signOffStatus: '',
     });
   };
 
@@ -94,6 +96,7 @@ export const JobFilters = ({ filters, onFiltersChange, availableSorCodes, onExpo
         dateTo: filters.dateTo,
         hasFans: filters.hasFans,
         hasBookedDate: filters.hasBookedDate,
+        signOffStatus: filters.signOffStatus,
       },
     };
     savePresets([...presets, newPreset]);
@@ -123,6 +126,7 @@ export const JobFilters = ({ filters, onFiltersChange, availableSorCodes, onExpo
     filters.dateTo,
     filters.hasFans,
     filters.hasBookedDate,
+    filters.signOffStatus,
   ].filter(Boolean).length;
 
   return (

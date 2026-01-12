@@ -89,13 +89,12 @@ export const SignOffStatusIndicator = ({
 
   if (compact) {
     return (
-      <Badge
-        variant="outline"
+      <div
         className={cn(
-          "cursor-pointer text-xs gap-1",
+          "inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs cursor-pointer",
           allSignedOff && "bg-success/10 text-success border-success/30",
           someSignedOff && "bg-amber-500/10 text-amber-600 border-amber-500/30",
-          noneSignedOff && "bg-muted text-muted-foreground"
+          noneSignedOff && "bg-muted text-muted-foreground border-border"
         )}
         onClick={onClick}
         title={`${totalSignedOff}/${totalAssigned} teams signed off`}
@@ -106,7 +105,7 @@ export const SignOffStatusIndicator = ({
           <Clock className="h-3 w-3" />
         )}
         {totalSignedOff}/{totalAssigned}
-      </Badge>
+      </div>
     );
   }
 

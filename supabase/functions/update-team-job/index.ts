@@ -443,7 +443,7 @@ Deno.serve(async (req) => {
       // Get job details for notification
       const { data: jobDetails } = await supabase
         .from("jobs")
-        .select("job_number, name")
+        .select("job_number, name, team, team2")
         .eq("id", jobId)
         .single();
 
@@ -494,6 +494,147 @@ Deno.serve(async (req) => {
         // Don't fail the request, just log
       } else {
         console.log(`Team sign-off recorded for ${teamName} on job ${jobId}`);
+      }
+
+      // Send push notifications to all Operations Managers about this sign-off
+      try {
+        // Get all Operations Managers
+        const { data: opsManagers } = await supabase
+          .from("team_access_codes")
+          .select("team_id, team_name")
+          .eq("is_ops_manager", true)
+          .eq("is_active", true);
+
+        if (opsManagers && opsManagers.length > 0) {
+          console.log(`Notifying ${opsManagers.length} Operations Managers about sign-off`);
+          
+          const signOffTitle = `Sign-Off: ${teamName}`;
+          const signOffBody = `Job #${jobDetails?.job_number || 'Unknown'} - ${jobDetails?.name || 'Unknown'} signed off by ${teamName}. Photos: ${photosCount}, Videos: ${videosCount}`;
+
+          // Check if both teams have now signed off
+          const { data: allSignOffs } = await supabase
+            .from("team_sign_offs")
+            .select("team_name")
+            .eq("job_id", jobId);
+          
+          const signedOffTeams = (allSignOffs || []).map(s => s.team_name);
+          const assignedTeams = [jobDetails?.team, jobDetails?.team2].filter(Boolean);
+          const allTeamsSignedOff = assignedTeams.every(t => signedOffTeams.includes(t as string));
+
+          // Send FCM notifications to each Operations Manager
+          for (const opsMgr of opsManagers) {
+            try {
+              // Get topic for this ops manager
+              const topicName = `team_${opsMgr.team_id.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+              console.log(`Sending sign-off notification to Ops Manager topic: ${topicName}`);
+
+              const FIREBASE_SERVICE_ACCOUNT = Deno.env.get("FIREBASE_SERVICE_ACCOUNT");
+              if (FIREBASE_SERVICE_ACCOUNT) {
+                const serviceAccount = JSON.parse(FIREBASE_SERVICE_ACCOUNT);
+                const projectId = serviceAccount.project_id;
+
+                // Get access token
+                const now = Math.floor(Date.now() / 1000);
+                const expiry = now + 3600;
+                const header = { alg: "RS256", typ: "JWT" };
+                const claimSet = {
+                  iss: serviceAccount.client_email,
+                  scope: "https://www.googleapis.com/auth/firebase.messaging",
+                  aud: "https://oauth2.googleapis.com/token",
+                  iat: now,
+                  exp: expiry,
+                };
+
+                const base64url = (data: string) => btoa(data).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+                const headerB64 = base64url(JSON.stringify(header));
+                const claimSetB64 = base64url(JSON.stringify(claimSet));
+                const signatureInput = `${headerB64}.${claimSetB64}`;
+
+                const pemContents = serviceAccount.private_key
+                  .replace(/-----BEGIN PRIVATE KEY-----/, '')
+                  .replace(/-----END PRIVATE KEY-----/, '')
+                  .replace(/\n/g, '');
+                
+                const binaryKey = Uint8Array.from(atob(pemContents), c => c.charCodeAt(0));
+                const cryptoKey = await crypto.subtle.importKey(
+                  "pkcs8",
+                  binaryKey,
+                  { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+                  false,
+                  ["sign"]
+                );
+
+                const signature = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", cryptoKey, new TextEncoder().encode(signatureInput));
+                const signatureB64 = base64url(String.fromCharCode(...new Uint8Array(signature)));
+                const jwt = `${signatureInput}.${signatureB64}`;
+
+                const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                  body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
+                });
+
+                if (tokenResponse.ok) {
+                  const tokenData = await tokenResponse.json();
+                  const accessToken = tokenData.access_token;
+
+                  // Determine notification content
+                  let notifTitle = signOffTitle;
+                  let notifBody = signOffBody;
+                  
+                  if (allTeamsSignedOff && assignedTeams.length > 1) {
+                    notifTitle = `✅ All Teams Signed Off`;
+                    notifBody = `Job #${jobDetails?.job_number || 'Unknown'} - ${jobDetails?.name || 'Unknown'} - All assigned teams have signed off!`;
+                  }
+
+                  const message = {
+                    message: {
+                      topic: topicName,
+                      notification: { title: notifTitle, body: notifBody },
+                      android: {
+                        priority: "high",
+                        notification: { sound: "default", channel_id: "job_notifications" },
+                      },
+                      apns: {
+                        headers: { "apns-priority": "10" },
+                        payload: { aps: { sound: "default", badge: 1 } },
+                      },
+                      data: { 
+                        jobId, 
+                        jobNumber: jobDetails?.job_number || '', 
+                        type: 'sign_off',
+                        allTeamsSignedOff: String(allTeamsSignedOff),
+                      },
+                    },
+                  };
+
+                  const fcmResponse = await fetch(
+                    `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`,
+                    {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${accessToken}`,
+                      },
+                      body: JSON.stringify(message),
+                    }
+                  );
+
+                  if (fcmResponse.ok) {
+                    console.log(`Sign-off notification sent to Ops Manager: ${opsMgr.team_name}`);
+                  } else {
+                    console.error(`Failed to send to Ops Manager ${opsMgr.team_name}:`, await fcmResponse.text());
+                  }
+                }
+              }
+            } catch (opsError) {
+              console.error(`Error notifying Ops Manager ${opsMgr.team_name}:`, opsError);
+            }
+          }
+        }
+      } catch (notifyError) {
+        console.error("Failed to notify Operations Managers:", notifyError);
+        // Don't fail the request
       }
     }
 

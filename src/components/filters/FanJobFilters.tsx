@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { FAN_TEAMS, JOB_STATUS_OPTIONS } from '@/types/job';
-import { Search, Filter, X, CalendarDays, Bookmark, Save, FileDown, FileSpreadsheet, Calendar } from 'lucide-react';
+import { Search, Filter, X, CalendarDays, Bookmark, Save, FileDown, FileSpreadsheet, Calendar, ClipboardCheck } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
@@ -63,6 +63,7 @@ export const FanJobFilters = ({
       hasFans: '',
       hasBookedDate: '',
       phoneNumber: '',
+      signOffStatus: '',
     });
   };
 
@@ -83,6 +84,7 @@ export const FanJobFilters = ({
         hasFans: filters.hasFans,
         hasBookedDate: filters.hasBookedDate,
         phoneNumber: '',
+        signOffStatus: filters.signOffStatus,
       },
     };
     savePresets([...presets, newPreset]);
@@ -111,6 +113,7 @@ export const FanJobFilters = ({
     filters.dateFrom,
     filters.dateTo,
     filters.hasBookedDate,
+    filters.signOffStatus,
   ].filter(Boolean).length;
 
   return (
@@ -382,6 +385,23 @@ export const FanJobFilters = ({
                 </div>
               </SelectItem>
               <SelectItem value="unbooked">Unbooked</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Sign-Off Status Filter */}
+          <Select value={filters.signOffStatus} onValueChange={(v) => updateFilter('signOffStatus', v)}>
+            <SelectTrigger className="w-36 h-9 text-sm">
+              <SelectValue placeholder="Sign-Off" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Sign-Off</SelectItem>
+              <SelectItem value="pending">
+                <div className="flex items-center gap-2">
+                  <ClipboardCheck className="w-3 h-3" />
+                  Pending Sign-Off
+                </div>
+              </SelectItem>
+              <SelectItem value="complete">All Signed Off</SelectItem>
             </SelectContent>
           </Select>
         </div>
