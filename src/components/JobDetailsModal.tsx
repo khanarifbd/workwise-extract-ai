@@ -501,6 +501,8 @@ export const JobDetailsModal = ({ job, onClose, onUpdate }: JobDetailsModalProps
                 jobId={editedJob.id}
                 attachments={editedJob.attachments}
                 workItems={editedJob.workItems}
+                team1={editedJob.team}
+                team2={editedJob.team2}
               />
             </TabsContent>
           </Tabs>

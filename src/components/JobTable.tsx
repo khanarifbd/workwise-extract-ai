@@ -28,6 +28,8 @@ import { FanEditor } from './FanEditor';
 import { CostsEditor } from './CostsEditor';
 import { ContactCell } from './ContactCell';
 import { BookedDateCell } from './BookedDateCell';
+import { SignOffStatusIndicator } from './SignOffStatusIndicator';
+import { SignOffHistoryModal } from './SignOffHistoryModal';
 import { extractFansWithAI, createLinkedFanJob } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { useTeamSettings } from '@/hooks/useTeamSettings';
@@ -84,6 +86,7 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
   const [scanningFanJobId, setScanningFanJobId] = useState<string | null>(null);
   const [isBulkScanning, setIsBulkScanning] = useState(false);
   const [duplicateActionJob, setDuplicateActionJob] = useState<Job | null>(null);
+  const [signOffHistoryJob, setSignOffHistoryJob] = useState<Job | null>(null);
   const { toast } = useToast();
   const { settings: teamSettings } = useTeamSettings();
   const { hasAvailabilityConflict } = useTeamAvailability();
@@ -516,6 +519,7 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
               <th className="w-32">Costs</th>
               <th className="w-36">Start/End</th>
               <th className="w-20">Files</th>
+              <th className="w-20">Sign-Off</th>
               {!readOnly && <th className="w-12"></th>}
             </tr>
           </thead>
@@ -807,6 +811,15 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                       </span>
                     </div>
                   </td>
+                  {/* Sign-Off Status Column */}
+                  <td onClick={(e) => e.stopPropagation()} className="relative z-20">
+                    <SignOffStatusIndicator
+                      jobId={job.id}
+                      team1={job.team}
+                      team2={job.team2}
+                      onClick={() => setSignOffHistoryJob(job)}
+                    />
+                  </td>
                   {!readOnly && (
                     <td onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center gap-1">
@@ -871,6 +884,19 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
           job={showJobDetails}
           onClose={() => setShowJobDetails(null)}
           onUpdate={onUpdateJob}
+        />
+      )}
+
+      {/* Sign-Off History Modal */}
+      {signOffHistoryJob && (
+        <SignOffHistoryModal
+          isOpen={true}
+          onClose={() => setSignOffHistoryJob(null)}
+          jobId={signOffHistoryJob.id}
+          jobNumber={signOffHistoryJob.jobNumber}
+          jobName={signOffHistoryJob.name}
+          team1={signOffHistoryJob.team}
+          team2={signOffHistoryJob.team2}
         />
       )}
 
