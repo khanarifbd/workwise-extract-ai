@@ -30,15 +30,29 @@ interface TeamJobUpdate {
   created_at: string;
 }
 
+interface TeamSignOff {
+  id: string;
+  team_name: string;
+  signed_off_at: string;
+  photos_count: number;
+  videos_count: number;
+  documents_count: number;
+  work_items_modified: number;
+  work_items_total: number;
+}
+
 interface TeamUpdatesSectionProps {
   jobId: string;
   attachments: Attachment[];
   workItems: WorkItem[];
+  team1?: string | null;
+  team2?: string | null;
 }
 
-export const TeamUpdatesSection = ({ jobId, attachments, workItems }: TeamUpdatesSectionProps) => {
+export const TeamUpdatesSection = ({ jobId, attachments, workItems, team1, team2 }: TeamUpdatesSectionProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [updates, setUpdates] = useState<TeamJobUpdate[]>([]);
+  const [signOffs, setSignOffs] = useState<TeamSignOff[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   // Filter attachments uploaded by team
@@ -57,21 +71,36 @@ export const TeamUpdatesSection = ({ jobId, attachments, workItems }: TeamUpdate
   const modifiedItems = workItems.filter(item => item.hasModification === true);
   const hasTeamData = teamPhotos.length > 0 || teamVideos.length > 0 || teamDocuments.length > 0 || modifiedItems.length > 0;
 
+  const assignedTeams = [team1, team2].filter(Boolean) as string[];
+  const signedOffTeamNames = signOffs.map(s => s.team_name);
+  const allTeamsSignedOff = assignedTeams.length > 0 && assignedTeams.every(t => signedOffTeamNames.includes(t));
+
   useEffect(() => {
     const fetchUpdates = async () => {
       if (!isExpanded) return;
       
       setIsLoading(true);
       try {
-        const { data, error } = await supabase
-          .from('team_job_updates')
-          .select('*')
-          .eq('job_id', jobId)
-          .order('created_at', { ascending: false })
-          .limit(10);
+        // Fetch updates and sign-offs in parallel
+        const [updatesResult, signOffsResult] = await Promise.all([
+          supabase
+            .from('team_job_updates')
+            .select('*')
+            .eq('job_id', jobId)
+            .order('created_at', { ascending: false })
+            .limit(10),
+          supabase
+            .from('team_sign_offs')
+            .select('*')
+            .eq('job_id', jobId)
+            .order('signed_off_at', { ascending: false })
+        ]);
 
-        if (error) throw error;
-        setUpdates(data || []);
+        if (updatesResult.error) throw updatesResult.error;
+        if (signOffsResult.error) throw signOffsResult.error;
+        
+        setUpdates(updatesResult.data || []);
+        setSignOffs((signOffsResult.data as TeamSignOff[]) || []);
       } catch (error) {
         console.error('Failed to fetch team updates:', error);
       } finally {
@@ -84,14 +113,25 @@ export const TeamUpdatesSection = ({ jobId, attachments, workItems }: TeamUpdate
 
   return (
     <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
-      <Card className={hasTeamData ? 'border-primary/30 bg-primary/5' : ''}>
+      <Card className={hasTeamData || allTeamsSignedOff ? 'border-primary/30 bg-primary/5' : ''}>
         <CollapsibleTrigger asChild>
           <CardHeader className="pb-2 cursor-pointer hover:bg-muted/50 transition-colors">
             <CardTitle className="text-sm flex items-center justify-between">
               <span className="flex items-center gap-2">
                 <Users className="h-4 w-4" />
                 Team Updates
-                {hasTeamData && (
+                {allTeamsSignedOff && (
+                  <Badge variant="default" className="text-xs bg-success text-success-foreground">
+                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                    All Signed Off
+                  </Badge>
+                )}
+                {!allTeamsSignedOff && signOffs.length > 0 && (
+                  <Badge variant="secondary" className="text-xs">
+                    {signOffs.length}/{assignedTeams.length} Signed Off
+                  </Badge>
+                )}
+                {!allTeamsSignedOff && signOffs.length === 0 && hasTeamData && (
                   <Badge variant="secondary" className="text-xs">
                     Has Data
                   </Badge>
@@ -104,6 +144,38 @@ export const TeamUpdatesSection = ({ jobId, attachments, workItems }: TeamUpdate
         
         <CollapsibleContent>
           <CardContent className="pt-0 space-y-4">
+            {/* Sign-Off Status Section */}
+            {assignedTeams.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground">Sign-Off Status:</p>
+                <div className="flex flex-wrap gap-2">
+                  {assignedTeams.map(team => {
+                    const signOff = signOffs.find(s => s.team_name === team);
+                    return (
+                      <div
+                        key={team}
+                        className={`p-2 rounded-lg flex items-center gap-2 ${
+                          signOff ? 'bg-success/10 border border-success/30' : 'bg-muted/50'
+                        }`}
+                      >
+                        {signOff ? (
+                          <CheckCircle2 className="h-4 w-4 text-success" />
+                        ) : (
+                          <Clock className="h-4 w-4 text-muted-foreground" />
+                        )}
+                        <span className="text-sm font-medium">{team}</span>
+                        {signOff && (
+                          <span className="text-xs text-muted-foreground">
+                            {format(new Date(signOff.signed_off_at), 'dd MMM, HH:mm')}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Team Data Summary */}
             <div className="grid grid-cols-2 gap-2">
               {/* Work Items Status */}

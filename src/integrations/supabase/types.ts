@@ -606,6 +606,59 @@ export type Database = {
           },
         ]
       }
+      team_sign_offs: {
+        Row: {
+          created_at: string
+          documents_count: number
+          id: string
+          job_id: string
+          photos_count: number
+          progress_notes: string | null
+          signed_off_at: string
+          team_id: string
+          team_name: string
+          videos_count: number
+          work_items_modified: number
+          work_items_total: number
+        }
+        Insert: {
+          created_at?: string
+          documents_count?: number
+          id?: string
+          job_id: string
+          photos_count?: number
+          progress_notes?: string | null
+          signed_off_at?: string
+          team_id: string
+          team_name: string
+          videos_count?: number
+          work_items_modified?: number
+          work_items_total?: number
+        }
+        Update: {
+          created_at?: string
+          documents_count?: number
+          id?: string
+          job_id?: string
+          photos_count?: number
+          progress_notes?: string | null
+          signed_off_at?: string
+          team_id?: string
+          team_name?: string
+          videos_count?: number
+          work_items_modified?: number
+          work_items_total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_sign_offs_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string

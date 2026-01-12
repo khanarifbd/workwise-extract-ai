@@ -470,6 +470,31 @@ Deno.serve(async (req) => {
       } else {
         console.log(`Sign-off notification created for admin - job ${jobId}`);
       }
+
+      // Record individual team sign-off in team_sign_offs table (upsert to handle re-signoffs)
+      const { error: signOffError } = await supabase
+        .from("team_sign_offs")
+        .upsert({
+          job_id: jobId,
+          team_id: teamId,
+          team_name: teamName,
+          signed_off_at: timestamp,
+          photos_count: photosCount,
+          videos_count: videosCount,
+          documents_count: documentsCount,
+          work_items_modified: workItemsModified,
+          work_items_total: workItemsTotal,
+          progress_notes: updates.notes || null,
+        }, {
+          onConflict: 'job_id,team_id',
+        });
+
+      if (signOffError) {
+        console.error("Failed to record team sign-off:", signOffError.message);
+        // Don't fail the request, just log
+      } else {
+        console.log(`Team sign-off recorded for ${teamName} on job ${jobId}`);
+      }
     }
 
     // Update the job
