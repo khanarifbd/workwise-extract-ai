@@ -124,6 +124,7 @@ export const BulkImageUpload = ({ onJobsExtracted, onClose }: BulkImageUploadPro
             })),
             additionalWorks: [],
             team: null,
+            team2: null,
             progress: 0,
             progressNotes: '',
             isCompleted: false,

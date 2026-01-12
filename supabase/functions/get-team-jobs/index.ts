@@ -141,26 +141,42 @@ Deno.serve(async (req) => {
 
     const isOpsManager = teamData.is_ops_manager === true;
 
-    // Fetch jobs - Operations Manager sees only ASSIGNED jobs, regular teams see only their assigned jobs
-    let jobsQuery = supabase
-      .from("jobs")
-      .select("*")
-      .not("team", "is", null)
-      .neq("team", "")
-      .order("created_at", { ascending: false });
-
-    if (!isOpsManager) {
-      jobsQuery = jobsQuery.eq("team", teamName);
-    }
-
-    const { data: jobs, error: jobsError } = await jobsQuery;
-
-    if (jobsError) {
-      console.error("Failed to fetch jobs:", jobsError.message);
-      return new Response(
-        JSON.stringify({ error: "Failed to fetch jobs" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    // Fetch jobs - Operations Manager sees only ASSIGNED jobs, regular teams see jobs where they are team or team2
+    let jobs = [];
+    
+    if (isOpsManager) {
+      // Ops managers see all assigned jobs
+      const { data, error } = await supabase
+        .from("jobs")
+        .select("*")
+        .not("team", "is", null)
+        .neq("team", "")
+        .order("created_at", { ascending: false });
+      
+      if (error) {
+        console.error("Failed to fetch jobs:", error.message);
+        return new Response(
+          JSON.stringify({ error: "Failed to fetch jobs" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      jobs = data || [];
+    } else {
+      // Regular teams see jobs where they are assigned as team or team2
+      const { data, error } = await supabase
+        .from("jobs")
+        .select("*")
+        .or(`team.eq.${teamName},team2.eq.${teamName}`)
+        .order("created_at", { ascending: false });
+      
+      if (error) {
+        console.error("Failed to fetch jobs:", error.message);
+        return new Response(
+          JSON.stringify({ error: "Failed to fetch jobs" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      jobs = data || [];
     }
 
     console.log(`Fetched ${jobs?.length || 0} jobs for ${isOpsManager ? 'ops manager' : 'team'}: ${teamName}`);

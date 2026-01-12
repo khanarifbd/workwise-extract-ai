@@ -104,6 +104,7 @@ const Index = () => {
         })),
         additionalWorks: [],
         team: null,
+        team2: null,
         progress: 0,
         progressNotes: '',
         isCompleted: false,

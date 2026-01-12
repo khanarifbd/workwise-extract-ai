@@ -260,6 +260,7 @@ export const mapDatabaseJobToJob = (dbJob: any): Job => ({
   workItems: dbJob.work_items || [],
   additionalWorks: dbJob.additional_works || [],
   team: dbJob.team || null,
+  team2: dbJob.team2 || null,
   progress: dbJob.progress || 0,
   progressNotes: dbJob.progress_notes || '',
   isCompleted: dbJob.is_completed || false,
@@ -289,6 +290,7 @@ export const mapJobToDatabase = (job: Partial<Job>): any => {
   if (job.workItems !== undefined) dbJob.work_items = job.workItems;
   if (job.additionalWorks !== undefined) dbJob.additional_works = job.additionalWorks;
   if (job.team !== undefined) dbJob.team = job.team;
+  if (job.team2 !== undefined) dbJob.team2 = job.team2;
   if (job.progress !== undefined) dbJob.progress = job.progress;
   if (job.progressNotes !== undefined) dbJob.progress_notes = job.progressNotes;
   if (job.isCompleted !== undefined) dbJob.is_completed = job.isCompleted;
@@ -327,6 +329,7 @@ export const createLinkedFanJob = async (
     workItems: [],
     additionalWorks: [],
     team: null,
+    team2: null,
     progress: 0,
     progressNotes: '',
     isCompleted: false,
@@ -413,6 +416,7 @@ export const syncLinkedFanJob = async (
     workItems: [],
     additionalWorks: [],
     team: null,
+    team2: null,
     progress: 0,
     progressNotes: '',
     isCompleted: false,

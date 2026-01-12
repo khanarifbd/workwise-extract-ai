@@ -98,17 +98,27 @@ export const TeamSelector = ({ job, currentCategoryId, onSelect, onClose, onDupl
       // Remove assignment
       setAssignments(prev => prev.filter((_, i) => i !== existingIndex));
     } else {
-      // Add assignment (only one per category)
-      setAssignments(prev => {
-        // Remove any existing assignment for this category
-        const filtered = prev.filter(a => a.categoryId !== category.id);
-        return [...filtered, {
-          categoryId: category.id,
-          categoryName: category.name,
-          teamId: team.teamId,
-          teamName: team.teamName,
-        }];
-      });
+      // Check how many teams are already selected for this category
+      const categoryAssignments = assignments.filter(a => a.categoryId === category.id);
+      
+      if (categoryAssignments.length >= 2) {
+        // Already have 2 teams selected, show message
+        toast({
+          title: 'Maximum Teams Reached',
+          description: 'You can only assign up to 2 teams per category. Deselect one to choose a different team.',
+          variant: 'destructive',
+          duration: 3000,
+        });
+        return;
+      }
+      
+      // Add assignment (up to 2 per category)
+      setAssignments(prev => [...prev, {
+        categoryId: category.id,
+        categoryName: category.name,
+        teamId: team.teamId,
+        teamName: team.teamName,
+      }]);
     }
   };
 
@@ -128,11 +138,14 @@ export const TeamSelector = ({ job, currentCategoryId, onSelect, onClose, onDupl
       const currentCategoryAssignments = assignments.filter(a => a.categoryId === currentCategoryId);
       const otherCategoryAssignments = assignments.filter(a => a.categoryId !== currentCategoryId);
       
-      // For current category: assign team (show team name)
+      // For current category: assign team(s) - support up to 2 teams
       if (currentCategoryAssignments.length > 0) {
-        // Use the first selected team for current category
-        const assignment = currentCategoryAssignments[0];
-        onSelect(assignment.teamId);
+        // First team goes to primary team field
+        const team1 = currentCategoryAssignments[0];
+        const team2 = currentCategoryAssignments[1]; // May be undefined
+        
+        // Call onSelect with both teams (encoded as comma-separated if two teams)
+        onSelect(team2 ? `${team1.teamName}|${team2.teamName}` : team1.teamName);
       }
       
       // For other categories: duplicate job with team assignment
@@ -251,7 +264,7 @@ export const TeamSelector = ({ job, currentCategoryId, onSelect, onClose, onDupl
                 {/* Category list */}
                 {categories.map((category) => {
                   const teamsCount = getTeamsForDisplay(category.id).length;
-                  const selectedInCategory = assignments.find((a) => a.categoryId === category.id);
+                  const selectedInCategory = assignments.filter((a) => a.categoryId === category.id);
                   const isCurrent = category.id === currentCategoryId;
 
                   return (
@@ -273,10 +286,12 @@ export const TeamSelector = ({ job, currentCategoryId, onSelect, onClose, onDupl
                           {teamsCount} teams {isCurrent && '(current)'}
                         </span>
                       </div>
-                      {selectedInCategory && (
+                      {selectedInCategory.length > 0 && (
                         <div className="flex items-center gap-1 text-xs text-primary">
                           <Check className="w-3 h-3" />
-                          <span className="truncate max-w-[160px]">{selectedInCategory.teamName}</span>
+                          <span className="truncate max-w-[160px]">
+                            {selectedInCategory.map(a => a.teamName).join(' + ')}
+                          </span>
                         </div>
                       )}
                       {!isCurrent && <Copy className="w-3.5 h-3.5 text-muted-foreground" />}

@@ -590,6 +590,19 @@ export const TeamJobList = ({
                                               {job.team}
                                             </Badge>
                                           )}
+                                          {job.team2 && (
+                                            <Badge 
+                                              className="text-xs px-1.5 py-0"
+                                              style={getTeamColor(job.team2) ? {
+                                                backgroundColor: getTeamColor(job.team2),
+                                                color: getContrastTextColor(getTeamColor(job.team2)!)
+                                              } : undefined}
+                                              variant={getTeamColor(job.team2) ? undefined : "secondary"}
+                                            >
+                                              <Users className="h-3 w-3 mr-1" />
+                                              {job.team2}
+                                            </Badge>
+                                          )}
                                         </div>
                                         <h3 className="font-semibold text-sm sm:text-base text-foreground line-clamp-2">
                                           {job.name}
@@ -706,6 +719,19 @@ export const TeamJobList = ({
                                     >
                                       <Users className="h-3 w-3 mr-1" />
                                       {job.team}
+                                    </Badge>
+                                  )}
+                                  {job.team2 && (
+                                    <Badge 
+                                      className="text-xs px-1.5 py-0"
+                                      style={getTeamColor(job.team2) ? {
+                                        backgroundColor: getTeamColor(job.team2),
+                                        color: getContrastTextColor(getTeamColor(job.team2)!)
+                                      } : undefined}
+                                      variant={getTeamColor(job.team2) ? undefined : "secondary"}
+                                    >
+                                      <Users className="h-3 w-3 mr-1" />
+                                      {job.team2}
                                     </Badge>
                                   )}
                                 </div>
