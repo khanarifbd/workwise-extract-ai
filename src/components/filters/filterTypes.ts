@@ -8,6 +8,7 @@ export interface FilterState {
   hasFans: string;
   hasBookedDate: string;
   phoneNumber: string;
+  signOffStatus: string;
 }
 
 export interface FilterPreset {
@@ -28,4 +29,5 @@ export const getDefaultFilterState = (): FilterState => ({
   hasFans: '',
   hasBookedDate: '',
   phoneNumber: '',
+  signOffStatus: '',
 });

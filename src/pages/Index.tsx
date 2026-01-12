@@ -26,6 +26,7 @@ import { isAfter, isBefore, startOfDay, endOfDay, format, parseISO, isValid } fr
 import { useJobs } from '@/hooks/useJobs';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { useCategories } from '@/hooks/useCategories';
+import { useSignOffStatus } from '@/hooks/useSignOffStatus';
 import { extractPDFWithAI, extractImageWithAI } from '@/lib/api';
 import { extractTextFromPDF } from '@/lib/pdfUtils';
 import jsPDF from 'jspdf';
@@ -44,6 +45,10 @@ const Index = () => {
   const { categories, isLoading: categoriesLoading, addCategory, updateCategory, deleteCategory } = useCategories();
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const { jobs, isLoading: jobsLoading, addJob, editJob, removeJob, toggleComplete, refreshJobs } = useJobs(activeCategory ?? undefined);
+  
+  // Get job IDs for sign-off status
+  const jobIds = useMemo(() => jobs.map(j => j.id), [jobs]);
+  const { getSignOffStatus } = useSignOffStatus(jobIds);
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [showExport, setShowExport] = useState(false);
@@ -523,6 +528,13 @@ const Index = () => {
         if (filters.hasBookedDate === 'unbooked' && hasBookedDate) return false;
       }
 
+      // Sign-off status filter
+      if (filters.signOffStatus && filters.signOffStatus !== 'all') {
+        const signOffData = getSignOffStatus(job.id, job.team, job.team2);
+        if (filters.signOffStatus === 'pending' && signOffData.allSignedOff) return false;
+        if (filters.signOffStatus === 'complete' && !signOffData.allSignedOff) return false;
+      }
+
       return true;
     });
     
@@ -545,7 +557,7 @@ const Index = () => {
     }
     
     return result;
-  }, [jobs, filters, isFanCategory, activeMonthFolder, activeDatabaseTab, bookedSortOrder, completedSortOrder, selectedBookedDate]);
+  }, [jobs, filters, isFanCategory, activeMonthFolder, activeDatabaseTab, bookedSortOrder, completedSortOrder, selectedBookedDate, getSignOffStatus]);
 
   // Count booked jobs for badge (exclude completed)
   const bookedJobsCount = useMemo(() => {
