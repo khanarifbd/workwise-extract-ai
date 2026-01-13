@@ -9,10 +9,12 @@ interface ContactCellProps {
   jobNumber: string;
   tenantName: string;
   phoneNumber: string;
+  description?: string;
   bookedDate: Date | null;
   status: string;
   contactHistory: ContactHistory[];
   onBookJob?: (bookedDate: Date, isFlexible: boolean) => void;
+  onDescriptionChange?: (description: string) => void;
 }
 
 export function ContactCell({
@@ -20,10 +22,12 @@ export function ContactCell({
   jobNumber,
   tenantName,
   phoneNumber,
+  description,
   bookedDate,
   status,
   contactHistory,
   onBookJob,
+  onDescriptionChange,
 }: ContactCellProps) {
   const [showTimeline, setShowTimeline] = useState(false);
 
@@ -107,8 +111,10 @@ export function ContactCell({
         jobNumber={jobNumber}
         tenantName={tenantName}
         phoneNumber={phoneNumber}
+        description={description}
         bookedDate={bookedDate}
         onBookJob={onBookJob}
+        onDescriptionChange={onDescriptionChange}
       />
     </>
   );
