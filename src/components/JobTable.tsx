@@ -626,10 +626,12 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                       jobNumber={job.jobNumber}
                       tenantName={job.name}
                       phoneNumber={job.phoneNumber}
+                      description={job.description}
                       bookedDate={job.bookedDate}
                       status={job.status}
                       contactHistory={contactHistoryMap[job.id] || []}
                       onBookJob={(bookedDate, isFlexible) => handleBookedDateChange(job.id, bookedDate, isFlexible)}
+                      onDescriptionChange={(newDesc) => handleDescriptionSave(job.id, newDesc)}
                     />
                   </td>
                   {/* Assigned Column */}

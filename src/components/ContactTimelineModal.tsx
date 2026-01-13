@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -14,7 +14,9 @@ import {
   Trash2, 
   MessageSquare,
   Clock,
-  User
+  User,
+  FileText,
+  Check
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useContactHistory } from '@/hooks/useContactHistory';
@@ -31,8 +33,10 @@ interface ContactTimelineModalProps {
   jobNumber: string;
   tenantName: string;
   phoneNumber: string;
+  description?: string;
   bookedDate?: Date | null;
   onBookJob?: (bookedDate: Date, isFlexible: boolean) => void;
+  onDescriptionChange?: (description: string) => void;
 }
 
 export function ContactTimelineModal({
@@ -42,8 +46,10 @@ export function ContactTimelineModal({
   jobNumber,
   tenantName,
   phoneNumber,
+  description: propDescription,
   bookedDate: propBookedDate,
   onBookJob,
+  onDescriptionChange,
 }: ContactTimelineModalProps) {
   const { history, isLoading, addContactAttempt, deleteContactAttempt } = useContactHistory(jobId);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -52,6 +58,21 @@ export function ContactTimelineModal({
   const [callbackDate, setCallbackDate] = useState<Date | undefined>(undefined);
   const [bookedDate, setBookedDate] = useState<Date | undefined>(undefined);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [localDescription, setLocalDescription] = useState(propDescription || '');
+  const [descriptionSaved, setDescriptionSaved] = useState(false);
+
+  // Sync local description with prop
+  React.useEffect(() => {
+    setLocalDescription(propDescription || '');
+  }, [propDescription]);
+
+  const handleDescriptionSave = () => {
+    if (onDescriptionChange && localDescription !== propDescription) {
+      onDescriptionChange(localDescription);
+      setDescriptionSaved(true);
+      setTimeout(() => setDescriptionSaved(false), 2000);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!selectedOutcome) return;
@@ -137,6 +158,29 @@ export function ContactTimelineModal({
         {/* Content */}
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
           <div className="space-y-4 pr-2 pb-24">
+            {/* Job Description Section */}
+            <div className="p-4 bg-muted/30 rounded-lg border border-border space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <FileText className="w-4 h-4" />
+                  Job Description
+                </div>
+                {descriptionSaved && (
+                  <div className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
+                    <Check className="w-3 h-3" />
+                    Saved
+                  </div>
+                )}
+              </div>
+              <Textarea
+                placeholder="Add job description or notes..."
+                value={localDescription}
+                onChange={(e) => setLocalDescription(e.target.value)}
+                onBlur={handleDescriptionSave}
+                className="min-h-[100px] bg-background text-sm resize-none"
+              />
+            </div>
+
             {/* Add Contact Button */}
             {!showAddForm && (
               <Button
