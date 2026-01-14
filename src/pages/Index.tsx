@@ -458,13 +458,28 @@ const Index = () => {
 
       if (filters.search) {
         const searchLower = filters.search.toLowerCase();
+        
+        // Search work items (SOR codes and descriptions)
+        const workItemsMatch = job.workItems?.some(item => 
+          item.sorCode?.toLowerCase().includes(searchLower) ||
+          item.description?.toLowerCase().includes(searchLower)
+        ) || job.additionalWorks?.some(item =>
+          item.sorCode?.toLowerCase().includes(searchLower) ||
+          item.description?.toLowerCase().includes(searchLower)
+        );
+        
         const matchesSearch = 
           job.jobNumber.toLowerCase().includes(searchLower) ||
           job.name.toLowerCase().includes(searchLower) ||
           job.address.toLowerCase().includes(searchLower) ||
           job.description?.toLowerCase().includes(searchLower) ||
           job.phoneNumber?.toLowerCase().includes(searchLower) ||
-          job.summaryOfWorks?.toLowerCase().includes(searchLower);
+          job.summaryOfWorks?.toLowerCase().includes(searchLower) ||
+          job.team?.toLowerCase().includes(searchLower) ||
+          job.team2?.toLowerCase().includes(searchLower) ||
+          job.bookingNotes?.toLowerCase().includes(searchLower) ||
+          job.progressNotes?.toLowerCase().includes(searchLower) ||
+          workItemsMatch;
         if (!matchesSearch) return false;
       }
 
