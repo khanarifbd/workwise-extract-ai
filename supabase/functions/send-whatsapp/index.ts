@@ -16,7 +16,7 @@ const sendWhatsAppSchema = z.object({
     jobNumber: z.string().max(50).optional(),
     name: z.string().max(200).optional(),
     address: z.string().max(500).optional(),
-    phoneNumber: z.string().max(20).optional(),
+    phoneNumber: z.string().max(50).optional(),
     description: z.string().max(5000).optional(),
     summaryOfWorks: z.string().max(5000).optional(),
     workItems: z.array(z.object({
