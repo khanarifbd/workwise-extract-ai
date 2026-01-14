@@ -17,11 +17,12 @@ import { ViewToggle } from '@/components/ViewToggle';
 import { JobDetailsModal } from '@/components/JobDetailsModal';
 import { DuplicateJobAlert } from '@/components/DuplicateJobAlert';
 import { CompletedJobsPDFButton } from '@/components/CompletedJobsPDFButton';
+import { ManualJobEntry } from '@/components/ManualJobEntry';
 
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ChevronDown, ChevronUp, Loader2, Images } from 'lucide-react';
+import { ChevronDown, ChevronUp, Loader2, Images, PenLine } from 'lucide-react';
 import { isAfter, isBefore, startOfDay, endOfDay, format, parseISO, isValid } from 'date-fns';
 import { useJobs } from '@/hooks/useJobs';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
@@ -53,6 +54,7 @@ const Index = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
+  const [showManualEntry, setShowManualEntry] = useState(false);
   const [uploadExpanded, setUploadExpanded] = useState(false);
   const [viewType, setViewType] = useState<ViewType>('table');
   const [kanbanGroupBy, setKanbanGroupBy] = useState<KanbanGroupBy>('team');
@@ -808,13 +810,13 @@ const Index = () => {
         {canEdit && (
           <section 
             className="bg-section-upload border border-border rounded-lg overflow-hidden"
-            style={{ maxHeight: uploadExpanded ? '220px' : '48px' }}
+            style={{ maxHeight: uploadExpanded ? '260px' : '48px' }}
           >
             <button
               onClick={() => setUploadExpanded(!uploadExpanded)}
               className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors"
             >
-              <span className="text-sm font-medium">Upload Job (PDF or Image)</span>
+              <span className="text-sm font-medium">Add New Job</span>
               {uploadExpanded ? (
                 <ChevronUp className="w-4 h-4 text-muted-foreground" />
               ) : (
@@ -829,7 +831,7 @@ const Index = () => {
                   isProcessing={isProcessing} 
                   allowMultiple={true}
                 />
-                <div className="flex justify-center">
+                <div className="flex justify-center gap-2">
                   <Button
                     variant="outline"
                     size="sm"
@@ -838,6 +840,15 @@ const Index = () => {
                   >
                     <Images className="w-3 h-3 mr-1" />
                     Bulk Image Upload
+                  </Button>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => setShowManualEntry(true)}
+                    className="text-xs"
+                  >
+                    <PenLine className="w-3 h-3 mr-1" />
+                    Enter Manually
                   </Button>
                 </div>
               </div>
@@ -1031,6 +1042,30 @@ const Index = () => {
           onClose={() => setShowBulkUpload(false)}
         />
       )}
+
+      <ManualJobEntry
+        isOpen={showManualEntry}
+        onOpenChange={setShowManualEntry}
+        onJobCreate={async (newJob) => {
+          // Check for duplicates before adding
+          const existing = findDuplicateJob(newJob.jobNumber);
+          if (existing) {
+            setDuplicateCheck({
+              newJob,
+              existingJob: existing,
+              pendingJobs: []
+            });
+            return existing; // Return existing to satisfy type, duplicate modal will handle it
+          }
+          
+          const created = await addJob(newJob);
+          toast({
+            title: "Job Created Successfully",
+            description: `Job #${newJob.jobNumber} has been added.`,
+          });
+          return created;
+        }}
+      />
 
       {duplicateCheck && (
         <DuplicateJobAlert
