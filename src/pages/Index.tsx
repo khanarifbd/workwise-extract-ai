@@ -810,7 +810,7 @@ const Index = () => {
         {canEdit && (
           <section 
             className="bg-section-upload border border-border rounded-lg overflow-hidden"
-            style={{ maxHeight: uploadExpanded ? '260px' : '48px' }}
+            style={{ maxHeight: uploadExpanded ? '380px' : '48px' }}
           >
             <button
               onClick={() => setUploadExpanded(!uploadExpanded)}
@@ -824,31 +824,43 @@ const Index = () => {
               )}
             </button>
             {uploadExpanded && (
-              <div className="px-4 pb-4 space-y-3">
+              <div className="px-4 pb-4 space-y-4">
+                {/* Prominent Manual Entry Button */}
+                <Button
+                  variant="default"
+                  size="lg"
+                  onClick={() => setShowManualEntry(true)}
+                  className="w-full gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
+                >
+                  <PenLine className="w-4 h-4" />
+                  Enter Job Manually
+                </Button>
+                
+                {/* Divider */}
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-section-upload px-2 text-muted-foreground">or upload files</span>
+                  </div>
+                </div>
+                
                 <FileDropZone 
                   onFileUpload={handleFileUpload} 
                   onMultipleFilesUpload={handleMultipleFilesUpload}
                   isProcessing={isProcessing} 
                   allowMultiple={true}
                 />
-                <div className="flex justify-center gap-2">
+                <div className="flex justify-center">
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
                     onClick={() => setShowBulkUpload(true)}
-                    className="text-xs"
+                    className="text-xs text-muted-foreground hover:text-foreground"
                   >
                     <Images className="w-3 h-3 mr-1" />
                     Bulk Image Upload
-                  </Button>
-                  <Button
-                    variant="default"
-                    size="sm"
-                    onClick={() => setShowManualEntry(true)}
-                    className="text-xs"
-                  >
-                    <PenLine className="w-3 h-3 mr-1" />
-                    Enter Manually
                   </Button>
                 </div>
               </div>
