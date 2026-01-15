@@ -895,10 +895,23 @@ export const TeamJobList = ({
                                           >
                                             {getStatusLabel(job.status)}
                                           </Badge>
+                                          {job.isOngoing && (
+                                            <Badge className="text-xs px-1.5 py-0 bg-amber-500 text-white">
+                                              Ongoing
+                                            </Badge>
+                                          )}
                                         </div>
-                                        <h3 className="font-semibold text-sm sm:text-base text-foreground line-clamp-2">
-                                          {job.name}
-                                        </h3>
+                                        <div className="flex items-center gap-2">
+                                          <h3 className="font-semibold text-sm sm:text-base text-foreground line-clamp-1">
+                                            {job.name}
+                                          </h3>
+                                          {job.bookedDate && (
+                                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 flex-shrink-0 bg-primary/10">
+                                              <Calendar className="h-3 w-3 mr-1" />
+                                              {format(new Date(job.bookedDate), 'EEE d MMM')}
+                                            </Badge>
+                                          )}
+                                        </div>
                                         <div className="mt-2">
                                           <div className="flex items-center justify-between text-xs mb-1">
                                             <span className="text-muted-foreground">Progress</span>
@@ -1012,10 +1025,17 @@ export const TeamJobList = ({
                                           >
                                             {getStatusLabel(job.status)}
                                           </Badge>
+                                          {job.isOngoing && (
+                                            <Badge className="text-xs px-1.5 py-0 bg-amber-500 text-white">
+                                              Ongoing
+                                            </Badge>
+                                          )}
                                         </div>
-                                        <h3 className="font-semibold text-sm sm:text-base text-foreground line-clamp-2">
-                                          {job.name}
-                                        </h3>
+                                        <div className="flex items-center gap-2">
+                                          <h3 className="font-semibold text-sm sm:text-base text-foreground line-clamp-1">
+                                            {job.name}
+                                          </h3>
+                                        </div>
                                         <div className="mt-2">
                                           <div className="flex items-center justify-between text-xs mb-1">
                                             <span className="text-muted-foreground">Progress</span>

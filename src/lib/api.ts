@@ -264,6 +264,7 @@ export const mapDatabaseJobToJob = (dbJob: any): Job => ({
   progress: dbJob.progress || 0,
   progressNotes: dbJob.progress_notes || '',
   isCompleted: dbJob.is_completed || false,
+  isOngoing: dbJob.is_ongoing || false,
   createdAt: dbJob.created_at ? new Date(dbJob.created_at) : new Date(),
   dateIssued: dbJob.date_issued ? new Date(dbJob.date_issued) : new Date(),
   bookedDate: dbJob.booked_date ? new Date(dbJob.booked_date) : null,
@@ -294,6 +295,7 @@ export const mapJobToDatabase = (job: Partial<Job>): any => {
   if (job.progress !== undefined) dbJob.progress = job.progress;
   if (job.progressNotes !== undefined) dbJob.progress_notes = job.progressNotes;
   if (job.isCompleted !== undefined) dbJob.is_completed = job.isCompleted;
+  if (job.isOngoing !== undefined) dbJob.is_ongoing = job.isOngoing;
   if (job.dateIssued !== undefined) dbJob.date_issued = job.dateIssued;
   if (job.bookedDate !== undefined) dbJob.booked_date = job.bookedDate;
   if (job.isFlexibleBooking !== undefined) dbJob.is_flexible_booking = job.isFlexibleBooking;
@@ -333,6 +335,7 @@ export const createLinkedFanJob = async (
     progress: 0,
     progressNotes: '',
     isCompleted: false,
+    isOngoing: false,
     createdAt: new Date(),
     dateIssued: new Date(),
     bookedDate: null,
@@ -420,6 +423,7 @@ export const syncLinkedFanJob = async (
     progress: 0,
     progressNotes: '',
     isCompleted: false,
+    isOngoing: false,
     createdAt: new Date(),
     dateIssued: new Date(),
     bookedDate: null,
