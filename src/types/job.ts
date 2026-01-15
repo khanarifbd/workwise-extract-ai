@@ -91,6 +91,7 @@ export interface Attachment {
   url: string; // For backward compatibility - may be public URL or signed URL
   path?: string; // Storage path for generating signed URLs
   uploadedAt: Date;
+  folderId?: string; // For photo folder organization
 }
 
 export interface Team {

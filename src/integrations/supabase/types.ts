@@ -303,6 +303,41 @@ export type Database = {
         }
         Relationships: []
       }
+      photo_folders: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          job_id: string
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          job_id: string
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          job_id?: string
+          name?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "photo_folders_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string

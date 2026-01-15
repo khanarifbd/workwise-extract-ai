@@ -18,6 +18,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { AIWorkConverter } from './AIWorkConverter';
 import { AttachmentUpload } from './AttachmentUpload';
+import { PhotoFolderUpload } from './PhotoFolderUpload';
 import { SortableWorkItem } from './SortableWorkItem';
 import { TeamUpdatesSection } from './TeamUpdatesSection';
 import { searchSORCodes, SORCode } from '@/data/sorCodes';
@@ -488,12 +489,26 @@ export const JobDetailsModal = ({ job, onClose, onUpdate }: JobDetailsModalProps
               </Collapsible>
             </TabsContent>
 
-            <TabsContent value="attachments" className="space-y-4">
-              <AttachmentUpload
-                jobId={editedJob.id}
-                attachments={editedJob.attachments}
-                onAttachmentsChange={(attachments) => setEditedJob({ ...editedJob, attachments })}
-              />
+            <TabsContent value="attachments" className="space-y-6">
+              {/* Photo Folders Section */}
+              <div>
+                <h3 className="text-sm font-semibold mb-3">Photo Folders</h3>
+                <PhotoFolderUpload
+                  jobId={editedJob.id}
+                  attachments={editedJob.attachments}
+                  onAttachmentsChange={(attachments) => setEditedJob({ ...editedJob, attachments })}
+                />
+              </div>
+
+              {/* Other Attachments (Videos & Documents) */}
+              <div>
+                <h3 className="text-sm font-semibold mb-3">Videos & Documents</h3>
+                <AttachmentUpload
+                  jobId={editedJob.id}
+                  attachments={editedJob.attachments}
+                  onAttachmentsChange={(attachments) => setEditedJob({ ...editedJob, attachments })}
+                />
+              </div>
             </TabsContent>
 
             <TabsContent value="team" className="space-y-4">

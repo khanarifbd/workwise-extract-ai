@@ -3,7 +3,7 @@ import { Job, ALLSAINTS_TEAMS } from '@/types/job';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { format } from 'date-fns';
-import { CheckCircle2, Phone, MapPin, Users, GripVertical } from 'lucide-react';
+import { CheckCircle2, Phone, MapPin, Users, GripVertical, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   DndContext,
@@ -70,9 +70,17 @@ const DraggableJobCard = ({ job, groupBy, onJobClick, onToggleComplete }: Dragga
             <GripVertical className="w-4 h-4" />
           </button>
           <div onClick={() => onJobClick(job)}>
-            <span className="font-mono text-sm font-semibold text-primary">
-              {job.jobNumber}
-            </span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="font-mono text-sm font-semibold text-primary">
+                {job.jobNumber}
+              </span>
+              {job.isOngoing && (
+                <Badge className="bg-amber-500 text-white font-bold text-[10px] px-1.5 py-0 h-4 animate-pulse shadow-md">
+                  <Clock className="w-3 h-3 mr-0.5" />
+                  ONGOING
+                </Badge>
+              )}
+            </div>
             <p className="font-medium text-foreground mt-0.5">{job.name}</p>
           </div>
         </div>

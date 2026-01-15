@@ -599,13 +599,18 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                     {format(job.dateIssued, 'dd/MM/yy')}
                   </td>
                   <td className="relative z-20">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-mono font-semibold text-primary">
                         {job.jobNumber}
                       </span>
                       {isDuplicate && (
                         <Badge className="bg-red-600 text-white font-bold text-xs animate-pulse">
                           DUP
+                        </Badge>
+                      )}
+                      {job.isOngoing && (
+                        <Badge className="bg-amber-500 text-white font-bold text-xs animate-pulse shadow-md">
+                          ONGOING
                         </Badge>
                       )}
                     </div>
