@@ -71,6 +71,48 @@ const getJobGroupDate = (job: Job): Date => {
   return new Date();
 };
 
+// Group jobs by booked date for regular team view
+const getJobBookedDate = (job: Job): Date | null => {
+  if (job.bookedDate) {
+    const date = new Date(job.bookedDate);
+    if (isValid(date)) return date;
+  }
+  return null;
+};
+
+const groupJobsByBookedDate = (jobs: Job[]): { grouped: Map<string, Job[]>, unscheduled: Job[] } => {
+  const groups = new Map<string, Job[]>();
+  const unscheduled: Job[] = [];
+
+  for (const job of jobs) {
+    const bookedDate = getJobBookedDate(job);
+    if (bookedDate) {
+      const dateKey = format(bookedDate, 'yyyy-MM-dd');
+      if (!groups.has(dateKey)) groups.set(dateKey, []);
+      groups.get(dateKey)!.push(job);
+    } else {
+      unscheduled.push(job);
+    }
+  }
+
+  // Sort each group by booked date time
+  for (const [key, group] of groups.entries()) {
+    group.sort((a, b) => {
+      const at = new Date(a.bookedDate!).getTime();
+      const bt = new Date(b.bookedDate!).getTime();
+      return at - bt;
+    });
+    groups.set(key, group);
+  }
+
+  // Sort date keys chronologically (earliest first for upcoming work)
+  const sorted = new Map<string, Job[]>();
+  const sortedKeys = Array.from(groups.keys()).sort((a, b) => a.localeCompare(b));
+  for (const key of sortedKeys) sorted.set(key, groups.get(key)!);
+
+  return { grouped: sorted, unscheduled };
+};
+
 const groupJobsByCreatedDateDesc = (jobs: Job[]): Map<string, Job[]> => {
   const groups = new Map<string, Job[]>();
 
@@ -206,6 +248,7 @@ export const TeamJobList = ({
   const completedJobs = filteredJobs.filter(j => j.isCompleted);
   const totalActiveJobs = jobs.filter(j => !j.isCompleted).length;
 
+  // Ops Manager: group by created date
   const groupedActiveJobs = useMemo(() => {
     if (!isOpsManager) return null;
     return groupJobsByCreatedDateDesc(activeJobs);
@@ -216,11 +259,28 @@ export const TeamJobList = ({
     return groupJobsByCreatedDateDesc(completedJobs);
   }, [isOpsManager, completedJobs]);
 
+  // Regular team: group by booked date
+  const teamGroupedJobs = useMemo(() => {
+    if (isOpsManager) return null;
+    return groupJobsByBookedDate(activeJobs);
+  }, [isOpsManager, activeJobs]);
+
   const todayKey = format(new Date(), 'yyyy-MM-dd');
+  
+  // Get all date keys for expand/collapse functionality
   const allActiveDateKeys = useMemo(() => {
-    if (!groupedActiveJobs) return [];
-    return Array.from(groupedActiveJobs.keys());
-  }, [groupedActiveJobs]);
+    if (isOpsManager && groupedActiveJobs) {
+      return Array.from(groupedActiveJobs.keys());
+    }
+    if (!isOpsManager && teamGroupedJobs) {
+      const keys = Array.from(teamGroupedJobs.grouped.keys());
+      if (teamGroupedJobs.unscheduled.length > 0) {
+        keys.push('unscheduled');
+      }
+      return keys;
+    }
+    return [];
+  }, [isOpsManager, groupedActiveJobs, teamGroupedJobs]);
 
   // Expand/Collapse all
   const expandAllDateGroups = useCallback(() => {
@@ -745,108 +805,270 @@ export const TeamJobList = ({
                   </div>
                 )}
               </>
-            ) : (
+            ) : teamGroupedJobs ? (
               <>
-                {/* Regular Team View - Original flat list */}
+                {/* Regular Team View - Jobs grouped by booked date */}
+                {/* Expand/Collapse controls for regular team */}
                 {activeJobs.length > 0 && (
-                  <div className="space-y-3">
+                  <div className="flex flex-wrap items-center gap-2 mb-2">
+                    <div className="flex-1" />
+                    <Button variant="ghost" size="sm" onClick={expandAllDateGroups} className="text-xs h-7 px-2">
+                      <Plus className="h-3 w-3 mr-1" />
+                      Expand All
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={collapseAllDateGroups} className="text-xs h-7 px-2">
+                      <Minus className="h-3 w-3 mr-1" />
+                      Collapse
+                    </Button>
+                    {allActiveDateKeys.includes(todayKey) && (
+                      <Button variant="ghost" size="sm" onClick={jumpToToday} className="text-xs h-7 px-2">
+                        <ArrowUp className="h-3 w-3 mr-1" />
+                        Today
+                      </Button>
+                    )}
+                  </div>
+                )}
+
+                {activeJobs.length > 0 && (
+                  <div className="space-y-2">
                     <h2 className="text-xs sm:text-sm font-semibold text-muted-foreground uppercase tracking-wider px-1">
                       Active Jobs ({activeJobs.length})
                     </h2>
-                    {activeJobs.map((job) => (
-                      <Collapsible key={job.id} open={expandedJobs.has(job.id)}>
-                        <Card className="border-l-4 border-l-primary bg-card shadow-md hover:shadow-lg transition-all">
-                          <CardContent className="p-0">
-                            <div 
-                              className="p-3 sm:p-4 cursor-pointer active:bg-muted/50 transition-colors"
-                              onClick={() => onSelectJob(job)}
-                            >
-                              <div className="flex items-start gap-2 sm:gap-3">
-                                <CollapsibleTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8 flex-shrink-0 -ml-1"
-                                    onClick={(e) => toggleExpand(job.id, e)}
+                    
+                    {/* Jobs grouped by booked date */}
+                    {Array.from(teamGroupedJobs.grouped.entries()).map(([dateKey, dateJobs]) => (
+                      <Collapsible 
+                        key={dateKey} 
+                        open={expandedDateGroups.has(dateKey)}
+                        onOpenChange={() => toggleDateGroup(dateKey)}
+                      >
+                        <CollapsibleTrigger asChild>
+                          <Card className="cursor-pointer hover:bg-muted/50 transition-colors">
+                            <CardContent className="p-3 flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                {expandedDateGroups.has(dateKey) ? (
+                                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                ) : (
+                                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                )}
+                                <Calendar className="h-4 w-4 text-primary" />
+                                <span className="font-medium text-sm">{formatDateHeader(dateKey)}</span>
+                              </div>
+                              <Badge variant="secondary" className="text-xs">
+                                {dateJobs.length} job{dateJobs.length !== 1 ? 's' : ''}
+                              </Badge>
+                            </CardContent>
+                          </Card>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="space-y-2 mt-2 ml-2 border-l-2 border-primary/20 pl-2">
+                          {dateJobs.map((job) => (
+                            <Collapsible key={job.id} open={expandedJobs.has(job.id)}>
+                              <Card className="border-l-4 border-l-primary bg-card shadow-md hover:shadow-lg transition-all">
+                                <CardContent className="p-0">
+                                  <div 
+                                    className="p-3 sm:p-4 cursor-pointer active:bg-muted/50 transition-colors"
+                                    onClick={() => onSelectJob(job)}
                                   >
-                                    {expandedJobs.has(job.id) ? (
-                                      <ChevronDown className="h-4 w-4" />
-                                    ) : (
-                                      <ChevronRight className="h-4 w-4" />
-                                    )}
-                                  </Button>
-                                </CollapsibleTrigger>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex flex-wrap items-center gap-1.5 mb-1">
-                                    <Badge variant="outline" className="text-xs font-mono px-1.5 py-0">
-                                      {job.jobNumber}
-                                    </Badge>
-                                    <Badge 
-                                      style={{ backgroundColor: getStatusColor(job.status), color: 'white' }}
-                                      className="text-xs px-1.5 py-0"
-                                    >
-                                      {getStatusLabel(job.status)}
-                                    </Badge>
-                                  </div>
-                                  <h3 className="font-semibold text-sm sm:text-base text-foreground line-clamp-2">
-                                    {job.name}
-                                  </h3>
-                                  <div className="mt-2">
-                                    <div className="flex items-center justify-between text-xs mb-1">
-                                      <span className="text-muted-foreground">Progress</span>
-                                      <span className="font-medium">{job.progress}%</span>
+                                    <div className="flex items-start gap-2 sm:gap-3">
+                                      <CollapsibleTrigger asChild>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-8 w-8 flex-shrink-0 -ml-1"
+                                          onClick={(e) => toggleExpand(job.id, e)}
+                                        >
+                                          {expandedJobs.has(job.id) ? (
+                                            <ChevronDown className="h-4 w-4" />
+                                          ) : (
+                                            <ChevronRight className="h-4 w-4" />
+                                          )}
+                                        </Button>
+                                      </CollapsibleTrigger>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                                          <Badge variant="outline" className="text-xs font-mono px-1.5 py-0">
+                                            {job.jobNumber}
+                                          </Badge>
+                                          <Badge 
+                                            style={{ backgroundColor: getStatusColor(job.status), color: 'white' }}
+                                            className="text-xs px-1.5 py-0"
+                                          >
+                                            {getStatusLabel(job.status)}
+                                          </Badge>
+                                        </div>
+                                        <h3 className="font-semibold text-sm sm:text-base text-foreground line-clamp-2">
+                                          {job.name}
+                                        </h3>
+                                        <div className="mt-2">
+                                          <div className="flex items-center justify-between text-xs mb-1">
+                                            <span className="text-muted-foreground">Progress</span>
+                                            <span className="font-medium">{job.progress}%</span>
+                                          </div>
+                                          <Progress value={job.progress} className="h-1.5 sm:h-2" />
+                                        </div>
+                                      </div>
                                     </div>
-                                    <Progress value={job.progress} className="h-1.5 sm:h-2" />
                                   </div>
-                                </div>
-                              </div>
-                            </div>
-                            <CollapsibleContent>
-                              <div className="px-3 sm:px-4 pb-3 sm:pb-4 pt-0 space-y-2 border-t border-border/50">
-                                <div className="pt-3 space-y-2">
-                                  {job.address && (
-                                    <a 
-                                      href={`https://maps.google.com/?q=${encodeURIComponent(job.address)}`}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="flex items-start gap-2 text-xs sm:text-sm text-primary hover:underline"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      <MapPin className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
-                                      <span className="line-clamp-2">{job.address}</span>
-                                    </a>
-                                  )}
-                                  {job.phoneNumber && (
-                                    <a 
-                                      href={`tel:${job.phoneNumber}`}
-                                      className="flex items-center gap-2 text-xs sm:text-sm text-primary hover:underline"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      <Phone className="h-3.5 w-3.5" />
-                                      <span>{job.phoneNumber}</span>
-                                    </a>
-                                  )}
-                                  {job.bookedDate && (
-                                    <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
-                                      <Calendar className="h-3.5 w-3.5" />
-                                      <span>Booked: {format(new Date(job.bookedDate), 'MMM d, yyyy')}</span>
+                                  <CollapsibleContent>
+                                    <div className="px-3 sm:px-4 pb-3 sm:pb-4 pt-0 space-y-2 border-t border-border/50">
+                                      <div className="pt-3 space-y-2">
+                                        {job.address && (
+                                          <a 
+                                            href={`https://maps.google.com/?q=${encodeURIComponent(job.address)}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-start gap-2 text-xs sm:text-sm text-primary hover:underline"
+                                            onClick={(e) => e.stopPropagation()}
+                                          >
+                                            <MapPin className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+                                            <span className="line-clamp-2">{job.address}</span>
+                                          </a>
+                                        )}
+                                        {job.phoneNumber && (
+                                          <a 
+                                            href={`tel:${job.phoneNumber}`}
+                                            className="flex items-center gap-2 text-xs sm:text-sm text-primary hover:underline"
+                                            onClick={(e) => e.stopPropagation()}
+                                          >
+                                            <Phone className="h-3.5 w-3.5" />
+                                            <span>{job.phoneNumber}</span>
+                                          </a>
+                                        )}
+                                        {job.summaryOfWorks && (
+                                          <p className="text-xs sm:text-sm text-muted-foreground mt-2 bg-muted/50 p-2 rounded">
+                                            {job.summaryOfWorks}
+                                          </p>
+                                        )}
+                                        <Button className="w-full mt-2" size="sm" onClick={() => onSelectJob(job)}>
+                                          View & Update Job
+                                        </Button>
+                                      </div>
                                     </div>
-                                  )}
-                                  {job.summaryOfWorks && (
-                                    <p className="text-xs sm:text-sm text-muted-foreground mt-2 bg-muted/50 p-2 rounded">
-                                      {job.summaryOfWorks}
-                                    </p>
-                                  )}
-                                  <Button className="w-full mt-2" size="sm" onClick={() => onSelectJob(job)}>
-                                    View & Update Job
-                                  </Button>
-                                </div>
-                              </div>
-                            </CollapsibleContent>
-                          </CardContent>
-                        </Card>
+                                  </CollapsibleContent>
+                                </CardContent>
+                              </Card>
+                            </Collapsible>
+                          ))}
+                        </CollapsibleContent>
                       </Collapsible>
                     ))}
+
+                    {/* Unscheduled jobs section */}
+                    {teamGroupedJobs.unscheduled.length > 0 && (
+                      <Collapsible 
+                        open={expandedDateGroups.has('unscheduled')}
+                        onOpenChange={() => toggleDateGroup('unscheduled')}
+                      >
+                        <CollapsibleTrigger asChild>
+                          <Card className="cursor-pointer hover:bg-muted/50 transition-colors border-dashed">
+                            <CardContent className="p-3 flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                {expandedDateGroups.has('unscheduled') ? (
+                                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                ) : (
+                                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                )}
+                                <Briefcase className="h-4 w-4 text-muted-foreground" />
+                                <span className="font-medium text-sm text-muted-foreground">Unscheduled</span>
+                              </div>
+                              <Badge variant="outline" className="text-xs">
+                                {teamGroupedJobs.unscheduled.length} job{teamGroupedJobs.unscheduled.length !== 1 ? 's' : ''}
+                              </Badge>
+                            </CardContent>
+                          </Card>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="space-y-2 mt-2 ml-2 border-l-2 border-muted/40 pl-2">
+                          {teamGroupedJobs.unscheduled.map((job) => (
+                            <Collapsible key={job.id} open={expandedJobs.has(job.id)}>
+                              <Card className="border-l-4 border-l-muted bg-card shadow-md hover:shadow-lg transition-all">
+                                <CardContent className="p-0">
+                                  <div 
+                                    className="p-3 sm:p-4 cursor-pointer active:bg-muted/50 transition-colors"
+                                    onClick={() => onSelectJob(job)}
+                                  >
+                                    <div className="flex items-start gap-2 sm:gap-3">
+                                      <CollapsibleTrigger asChild>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-8 w-8 flex-shrink-0 -ml-1"
+                                          onClick={(e) => toggleExpand(job.id, e)}
+                                        >
+                                          {expandedJobs.has(job.id) ? (
+                                            <ChevronDown className="h-4 w-4" />
+                                          ) : (
+                                            <ChevronRight className="h-4 w-4" />
+                                          )}
+                                        </Button>
+                                      </CollapsibleTrigger>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                                          <Badge variant="outline" className="text-xs font-mono px-1.5 py-0">
+                                            {job.jobNumber}
+                                          </Badge>
+                                          <Badge 
+                                            style={{ backgroundColor: getStatusColor(job.status), color: 'white' }}
+                                            className="text-xs px-1.5 py-0"
+                                          >
+                                            {getStatusLabel(job.status)}
+                                          </Badge>
+                                        </div>
+                                        <h3 className="font-semibold text-sm sm:text-base text-foreground line-clamp-2">
+                                          {job.name}
+                                        </h3>
+                                        <div className="mt-2">
+                                          <div className="flex items-center justify-between text-xs mb-1">
+                                            <span className="text-muted-foreground">Progress</span>
+                                            <span className="font-medium">{job.progress}%</span>
+                                          </div>
+                                          <Progress value={job.progress} className="h-1.5 sm:h-2" />
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <CollapsibleContent>
+                                    <div className="px-3 sm:px-4 pb-3 sm:pb-4 pt-0 space-y-2 border-t border-border/50">
+                                      <div className="pt-3 space-y-2">
+                                        {job.address && (
+                                          <a 
+                                            href={`https://maps.google.com/?q=${encodeURIComponent(job.address)}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-start gap-2 text-xs sm:text-sm text-primary hover:underline"
+                                            onClick={(e) => e.stopPropagation()}
+                                          >
+                                            <MapPin className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+                                            <span className="line-clamp-2">{job.address}</span>
+                                          </a>
+                                        )}
+                                        {job.phoneNumber && (
+                                          <a 
+                                            href={`tel:${job.phoneNumber}`}
+                                            className="flex items-center gap-2 text-xs sm:text-sm text-primary hover:underline"
+                                            onClick={(e) => e.stopPropagation()}
+                                          >
+                                            <Phone className="h-3.5 w-3.5" />
+                                            <span>{job.phoneNumber}</span>
+                                          </a>
+                                        )}
+                                        {job.summaryOfWorks && (
+                                          <p className="text-xs sm:text-sm text-muted-foreground mt-2 bg-muted/50 p-2 rounded">
+                                            {job.summaryOfWorks}
+                                          </p>
+                                        )}
+                                        <Button className="w-full mt-2" size="sm" onClick={() => onSelectJob(job)}>
+                                          View & Update Job
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  </CollapsibleContent>
+                                </CardContent>
+                              </Card>
+                            </Collapsible>
+                          ))}
+                        </CollapsibleContent>
+                      </Collapsible>
+                    )}
                   </div>
                 )}
 
@@ -885,7 +1107,7 @@ export const TeamJobList = ({
                   </div>
                 )}
               </>
-            )}
+            ) : null}
           </div>
         </TabsContent>
       </Tabs>
