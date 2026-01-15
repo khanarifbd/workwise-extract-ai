@@ -31,6 +31,7 @@ interface UpdateJobRequest {
     documents?: DocumentUpload[];
     workItemUpdates?: Record<string, WorkItemUpdate>;
     isCompletion?: boolean; // Flag to indicate this is a job completion/sign-off
+    isOngoing?: boolean; // Flag to mark job as ongoing/unfinished
   };
 }
 
@@ -301,6 +302,11 @@ Deno.serve(async (req) => {
     
     if (updates.progress !== undefined) {
       jobUpdates.progress = updates.progress;
+    }
+
+    // Handle ongoing/unfinished flag
+    if (updates.isOngoing !== undefined) {
+      jobUpdates.is_ongoing = updates.isOngoing;
     }
     
     if (updates.notes) {

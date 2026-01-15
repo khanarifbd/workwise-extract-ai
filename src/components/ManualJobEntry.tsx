@@ -148,6 +148,7 @@ export const ManualJobEntry = ({ onJobCreate, isOpen, onOpenChange }: ManualJobE
         progress: 0,
         progressNotes: '',
         isCompleted: false,
+        isOngoing: false,
         createdAt: new Date(),
         dateIssued: new Date(),
         bookedDate: null,

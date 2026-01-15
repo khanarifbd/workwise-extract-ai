@@ -65,6 +65,7 @@ export interface Job {
   progress: number;
   progressNotes: string;
   isCompleted: boolean;
+  isOngoing: boolean; // Flag for unfinished/ongoing jobs that need tracking
   /**
    * Created timestamp from the database.
    * Used for Ops Manager ordering/grouping to match backend ordering.
