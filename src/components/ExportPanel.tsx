@@ -291,6 +291,13 @@ export const ExportPanel = ({ jobs, onClose, isFanCategory = false }: ExportPane
     URL.revokeObjectURL(url);
   };
 
+  // HTML escape helper to prevent XSS
+  const escapeHtml = (text: string): string => {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  };
+
   const handlePrint = () => {
     const printContent = `
       <html>
@@ -329,10 +336,10 @@ export const ExportPanel = ({ jobs, onClose, isFanCategory = false }: ExportPane
             <tbody>
               ${filteredJobs.map(job => `
                 <tr>
-                  <td>${job.jobNumber}</td>
-                  <td>${job.name}</td>
-                  <td>${job.address || '-'}</td>
-                  <td>${job.team || 'Unassigned'}</td>
+                  <td>${escapeHtml(job.jobNumber)}</td>
+                  <td>${escapeHtml(job.name)}</td>
+                  <td>${escapeHtml(job.address || '-')}</td>
+                  <td>${escapeHtml(job.team || 'Unassigned')}</td>
                   <td>${job.progress}%</td>
                   <td>${job.startDate ? format(job.startDate, 'dd/MM/yy') : '-'}</td>
                   <td>${job.completionDate ? format(job.completionDate, 'dd/MM/yy') : '-'}</td>

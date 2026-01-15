@@ -38,3 +38,6 @@ verify_jwt = true
 
 [functions.check-password-breach]
 verify_jwt = false
+
+[functions.send-fcm-notification]
+verify_jwt = false
