@@ -11,8 +11,10 @@ import {
   Wand2, 
   Plus,
   Calendar as CalendarIcon,
-  ChevronDown
+  ChevronDown,
+  Clock
 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
@@ -330,6 +332,21 @@ export const JobDetailsModal = ({ job, onClose, onUpdate }: JobDetailsModalProps
                     className="text-sm"
                   />
                 </div>
+              </div>
+
+              {/* Ongoing Toggle */}
+              <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border border-border">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-orange-500" />
+                  <div>
+                    <label className="text-sm font-medium">Mark as Ongoing</label>
+                    <p className="text-xs text-muted-foreground">Flag this job as work in progress / pending completion</p>
+                  </div>
+                </div>
+                <Switch
+                  checked={editedJob.isOngoing || false}
+                  onCheckedChange={(checked) => setEditedJob({ ...editedJob, isOngoing: checked })}
+                />
               </div>
 
               <div>
