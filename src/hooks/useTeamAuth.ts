@@ -178,6 +178,31 @@ export const useTeamAuth = () => {
     return true;
   }, [session]);
 
+  // Function to remove a job from team's list (unassign team from job)
+  const removeJobFromTeam = useCallback(async (jobId: string): Promise<boolean> => {
+    if (!session) {
+      throw new Error('Not authenticated');
+    }
+
+    const { data, error: fnError } = await supabase.functions.invoke('remove-team-job', {
+      body: {
+        teamId: session.teamId,
+        teamName: session.teamName,
+        jobId,
+      },
+    });
+
+    if (fnError) {
+      throw new Error('Failed to remove job from team');
+    }
+
+    if (!data?.success) {
+      throw new Error(data?.error || 'Failed to remove job from team');
+    }
+
+    return true;
+  }, [session]);
+
   return {
     session,
     isLoading,
@@ -188,5 +213,6 @@ export const useTeamAuth = () => {
     fetchTeamJobs,
     updateTeamJob,
     updateLanguagePreference,
+    removeJobFromTeam,
   };
 };

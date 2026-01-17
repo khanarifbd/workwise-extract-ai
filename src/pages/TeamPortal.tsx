@@ -25,6 +25,7 @@ const TeamPortal = () => {
     fetchTeamJobs,
     updateTeamJob,
     updateLanguagePreference,
+    removeJobFromTeam,
   } = useTeamAuth();
   const { isOnline, pendingSyncCount, cacheJobs, getCachedJobs, getPendingSyncItems, markSynced } = useOfflineStorage();
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -434,6 +435,24 @@ const TeamPortal = () => {
                 description: 'Please try again.',
                 variant: 'destructive',
               });
+            }
+          }}
+          onRemoveJob={async (jobId, jobNumber) => {
+            try {
+              await removeJobFromTeam(jobId);
+              // Remove from local state immediately
+              setJobs(prev => prev.filter(j => j.id !== jobId));
+              toast({
+                title: 'Job Removed',
+                description: `Job #${jobNumber} has been removed from your list.`,
+              });
+            } catch (error) {
+              toast({
+                title: 'Failed to remove job',
+                description: 'Please try again.',
+                variant: 'destructive',
+              });
+              throw error;
             }
           }}
         />
