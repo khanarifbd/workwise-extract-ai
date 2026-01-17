@@ -155,13 +155,13 @@ export const ExportPanel = ({ jobs, onClose, isFanCategory = false }: ExportPane
         job.address || '-',
         job.team || 'Unassigned',
         `${job.progress}%`,
-        job.startDate ? format(job.startDate, 'dd/MM/yy') : '-',
+        job.bookedDate ? format(job.bookedDate, 'dd/MM/yy') : '-',
         job.completionDate ? format(job.completionDate, 'dd/MM/yy') : '-',
         job.workItems.map(w => w.sorCode).join(', ') || '-'
       ]);
 
       autoTable(doc, {
-        head: [['Job #', 'Name', 'Phone', 'Address', 'Team', 'Progress', 'Start', 'End', 'SOR Codes']],
+        head: [['Job #', 'Name', 'Phone', 'Address', 'Team', 'Progress', 'Booked', 'End', 'SOR Codes']],
         body: tableData,
         startY: 48,
         styles: { fontSize: 7 },
@@ -253,7 +253,7 @@ export const ExportPanel = ({ jobs, onClose, isFanCategory = false }: ExportPane
         'Progress': `${job.progress}%`,
         'Status': job.isCompleted ? 'Completed' : 'In Progress',
         'Date Issued': format(job.dateIssued, 'dd/MM/yyyy'),
-        'Start Date': job.startDate ? format(job.startDate, 'dd/MM/yyyy') : '',
+        'Booked Date': job.bookedDate ? format(job.bookedDate, 'dd/MM/yyyy') : '',
         'Completion Date': job.completionDate ? format(job.completionDate, 'dd/MM/yyyy') : '',
         'Summary': job.summaryOfWorks || '',
         'SOR Codes': job.workItems.map(w => w.sorCode).join(', '),
@@ -341,7 +341,7 @@ export const ExportPanel = ({ jobs, onClose, isFanCategory = false }: ExportPane
                   <td>${escapeHtml(job.address || '-')}</td>
                   <td>${escapeHtml(job.team || 'Unassigned')}</td>
                   <td>${job.progress}%</td>
-                  <td>${job.startDate ? format(job.startDate, 'dd/MM/yy') : '-'}</td>
+                  <td>${job.bookedDate ? format(job.bookedDate, 'dd/MM/yy') : '-'}</td>
                   <td>${job.completionDate ? format(job.completionDate, 'dd/MM/yy') : '-'}</td>
                 </tr>
               `).join('')}

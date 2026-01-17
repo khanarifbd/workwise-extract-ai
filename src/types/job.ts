@@ -75,13 +75,13 @@ export interface Job {
   bookedDate: Date | null;
   isFlexibleBooking: boolean;
   bookingNotes: string;
-  startDate: Date | null;
   completionDate: Date | null;
   attachments: Attachment[];
   status: JobStatus;
   fanInfo: FanInfo[] | null;
   linkedFanJobId: string | null;
   costs: JobCosts | null;
+  privateNotes: string; // Admin-only notes, not visible in team portal
 }
 
 export interface Attachment {

@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { CheckCircle2, Image, Video, FileText, Wrench, Clock, User } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { CheckCircle2, Image, Video, FileText, Wrench, Clock, User, ChevronDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 
@@ -30,6 +31,9 @@ interface SignOffHistoryModalProps {
   team2?: string | null;
 }
 
+const INITIAL_LIMIT = 20;
+const LOAD_MORE_COUNT = 40;
+
 export const SignOffHistoryModal = ({
   isOpen,
   onClose,
@@ -41,16 +45,27 @@ export const SignOffHistoryModal = ({
 }: SignOffHistoryModalProps) => {
   const [signOffs, setSignOffs] = useState<SignOff[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [displayCount, setDisplayCount] = useState(INITIAL_LIMIT);
+  const [totalCount, setTotalCount] = useState(0);
 
   useEffect(() => {
     if (isOpen && jobId) {
       fetchSignOffs();
+      setDisplayCount(INITIAL_LIMIT);
     }
   }, [isOpen, jobId]);
 
   const fetchSignOffs = async () => {
     setIsLoading(true);
     try {
+      // Get count first
+      const { count } = await supabase
+        .from('team_sign_offs')
+        .select('*', { count: 'exact', head: true })
+        .eq('job_id', jobId);
+      
+      setTotalCount(count || 0);
+
       const { data, error } = await supabase
         .from('team_sign_offs')
         .select('*')
@@ -65,6 +80,13 @@ export const SignOffHistoryModal = ({
       setIsLoading(false);
     }
   };
+
+  const loadMore = useCallback(() => {
+    setDisplayCount(prev => prev + LOAD_MORE_COUNT);
+  }, []);
+
+  const displayedSignOffs = signOffs.slice(0, displayCount);
+  const hasMore = displayCount < signOffs.length;
 
   const assignedTeams = [team1, team2].filter(Boolean) as string[];
   const signedOffTeams = signOffs.map(s => s.team_name);
@@ -128,7 +150,7 @@ export const SignOffHistoryModal = ({
               </div>
             ) : (
               <div className="space-y-3">
-                {signOffs.map(signOff => (
+                {displayedSignOffs.map(signOff => (
                   <div
                     key={signOff.id}
                     className="p-4 bg-muted/50 rounded-lg space-y-3"
@@ -179,6 +201,27 @@ export const SignOffHistoryModal = ({
                     )}
                   </div>
                 ))}
+
+                {/* Load More Button */}
+                {hasMore && (
+                  <div className="flex justify-center pt-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={loadMore}
+                      className="gap-2"
+                    >
+                      <ChevronDown className="h-4 w-4" />
+                      Show More ({signOffs.length - displayCount} remaining)
+                    </Button>
+                  </div>
+                )}
+
+                {!hasMore && signOffs.length > INITIAL_LIMIT && (
+                  <p className="text-center text-xs text-muted-foreground pt-2">
+                    Showing all {signOffs.length} sign-offs
+                  </p>
+                )}
               </div>
             )}
           </ScrollArea>

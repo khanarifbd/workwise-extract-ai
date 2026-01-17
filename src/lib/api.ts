@@ -270,13 +270,13 @@ export const mapDatabaseJobToJob = (dbJob: any): Job => ({
   bookedDate: dbJob.booked_date ? new Date(dbJob.booked_date) : null,
   isFlexibleBooking: dbJob.is_flexible_booking || false,
   bookingNotes: dbJob.booking_notes || '',
-  startDate: dbJob.start_date ? new Date(dbJob.start_date) : null,
   completionDate: dbJob.completion_date ? new Date(dbJob.completion_date) : null,
   attachments: dbJob.attachments || [],
   status: dbJob.status || 'pending',
   fanInfo: dbJob.fan_info || null,
   linkedFanJobId: dbJob.linked_fan_job_id || null,
   costs: dbJob.costs || null,
+  privateNotes: dbJob.private_notes || '',
 });
 
 export const mapJobToDatabase = (job: Partial<Job>): any => {
@@ -300,13 +300,13 @@ export const mapJobToDatabase = (job: Partial<Job>): any => {
   if (job.bookedDate !== undefined) dbJob.booked_date = job.bookedDate;
   if (job.isFlexibleBooking !== undefined) dbJob.is_flexible_booking = job.isFlexibleBooking;
   if (job.bookingNotes !== undefined) dbJob.booking_notes = job.bookingNotes;
-  if (job.startDate !== undefined) dbJob.start_date = job.startDate;
   if (job.completionDate !== undefined) dbJob.completion_date = job.completionDate;
   if (job.attachments !== undefined) dbJob.attachments = job.attachments;
   if (job.status !== undefined) dbJob.status = job.status;
   if (job.fanInfo !== undefined) dbJob.fan_info = job.fanInfo;
   if (job.linkedFanJobId !== undefined) dbJob.linked_fan_job_id = job.linkedFanJobId;
   if (job.costs !== undefined) dbJob.costs = job.costs;
+  if (job.privateNotes !== undefined) dbJob.private_notes = job.privateNotes;
   
   return dbJob;
 };
@@ -341,13 +341,13 @@ export const createLinkedFanJob = async (
     bookedDate: null,
     isFlexibleBooking: false,
     bookingNotes: '',
-    startDate: null,
     completionDate: null,
     attachments: [],
     status: 'pending',
     fanInfo: fanInfo,
     linkedFanJobId: null,
     costs: null,
+    privateNotes: '',
   };
 
   const dbJob = mapJobToDatabase(fanJob);
@@ -429,13 +429,13 @@ export const syncLinkedFanJob = async (
     bookedDate: null,
     isFlexibleBooking: false,
     bookingNotes: '',
-    startDate: null,
     completionDate: null,
     attachments: [],
     status: 'pending',
     fanInfo: fanInfo,
     linkedFanJobId: null,
     costs: null,
+    privateNotes: '',
   };
 
   const dbJob = mapJobToDatabase(fanJob);

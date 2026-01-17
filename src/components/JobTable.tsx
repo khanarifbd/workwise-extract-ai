@@ -25,7 +25,7 @@ import { TeamSelector } from './TeamSelector';
 import { JobDetailsModal } from './JobDetailsModal';
 import { InlineDescriptionEditor } from './InlineDescriptionEditor';
 import { FanEditor } from './FanEditor';
-import { CostsEditor } from './CostsEditor';
+import { PrivateNotesEditor } from './PrivateNotesEditor';
 import { ContactCell } from './ContactCell';
 import { BookedDateCell } from './BookedDateCell';
 import { SignOffStatusIndicator } from './SignOffStatusIndicator';
@@ -516,8 +516,8 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
               <th className="w-28">Status</th>
               <th className="min-w-[200px]">Description</th>
               <th className="w-24">Fan</th>
-              <th className="w-32">Costs</th>
-              <th className="w-36">Start/End</th>
+              <th className="w-40">Private Notes</th>
+              <th className="w-36">Booked/End</th>
               <th className="w-20">Files</th>
               <th className="w-20">Sign-Off</th>
               {!readOnly && <th className="w-12"></th>}
@@ -791,18 +791,18 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                       )}
                     </div>
                   </td>
-                  {/* Costs Column */}
+                  {/* Private Notes Column - Admin only */}
                   <td onClick={(e) => e.stopPropagation()}>
-                    <CostsEditor
-                      costs={job.costs}
-                      onUpdate={(costs) => onUpdateJob({ ...job, costs })}
+                    <PrivateNotesEditor
+                      notes={job.privateNotes || ''}
+                      onUpdate={(notes) => onUpdateJob({ ...job, privateNotes: notes })}
                     />
                   </td>
                   <td>
                     <div className="text-xs text-muted-foreground space-y-0.5">
                       <div className="flex items-center gap-1">
-                        <span className="text-muted-foreground/70">S:</span>
-                        <span>{job.startDate ? format(job.startDate, 'dd/MM/yy') : '-'}</span>
+                        <span className="text-muted-foreground/70">B:</span>
+                        <span>{job.bookedDate ? format(job.bookedDate, 'dd/MM/yy') : '-'}</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <span className="text-muted-foreground/70">E:</span>

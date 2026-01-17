@@ -183,10 +183,7 @@ export const JobDetailsModal = ({ job, onClose, onUpdate }: JobDetailsModalProps
     const newDate = value ? new Date(value) : null;
     let updates: Partial<Job> = { [field]: newDate };
     
-    // Auto-update progress based on dates
-    if (field === 'startDate' && newDate && editedJob.progress === 0) {
-      updates.progress = 10; // Job started
-    }
+    // Auto-update progress based on completion date
     if (field === 'completionDate' && newDate) {
       updates.progress = 100;
       updates.isCompleted = true;
@@ -194,7 +191,7 @@ export const JobDetailsModal = ({ job, onClose, onUpdate }: JobDetailsModalProps
     // If completion date is cleared, mark as not completed
     if (field === 'completionDate' && !newDate && editedJob.isCompleted) {
       updates.isCompleted = false;
-      updates.progress = editedJob.startDate ? 50 : 0;
+      updates.progress = 50;
     }
     
     setEditedJob({ ...editedJob, ...updates });
@@ -292,37 +289,6 @@ export const JobDetailsModal = ({ job, onClose, onUpdate }: JobDetailsModalProps
                 <div>
                   <label className="text-xs font-medium mb-1 flex items-center gap-1">
                     <CalendarIcon className="w-3 h-3" />
-                    Start Date
-                  </label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-full justify-start text-left font-normal text-sm",
-                          !editedJob.startDate && "text-muted-foreground",
-                        )}
-                      >
-                        <CalendarIcon className="w-4 h-4 mr-2" />
-                        {editedJob.startDate ? format(editedJob.startDate, 'dd/MM/yyyy') : 'Select start date'}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={editedJob.startDate ?? undefined}
-                        onSelect={(date) =>
-                          handleDateChange('startDate', date ? format(date, 'yyyy-MM-dd') : '')
-                        }
-                        initialFocus
-                        className="p-3 pointer-events-auto"
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-                <div>
-                  <label className="text-xs font-medium mb-1 flex items-center gap-1">
-                    <CalendarIcon className="w-3 h-3" />
                     Completion Date
                   </label>
                   <Input
@@ -334,18 +300,34 @@ export const JobDetailsModal = ({ job, onClose, onUpdate }: JobDetailsModalProps
                 </div>
               </div>
 
-              {/* Ongoing Toggle */}
-              <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border border-border">
-                <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-orange-500" />
+              {/* Ongoing Toggle - Enhanced & Prominent */}
+              <div 
+                className={cn(
+                  "flex items-center justify-between p-4 rounded-xl border-2 transition-all cursor-pointer",
+                  editedJob.isOngoing 
+                    ? "bg-amber-500/20 border-amber-500 shadow-lg shadow-amber-500/20" 
+                    : "bg-muted/30 border-border hover:border-amber-500/50"
+                )}
+                onClick={() => setEditedJob({ ...editedJob, isOngoing: !editedJob.isOngoing })}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={cn(
+                    "w-12 h-12 rounded-xl flex items-center justify-center transition-all",
+                    editedJob.isOngoing 
+                      ? "bg-amber-500 text-white animate-pulse" 
+                      : "bg-muted text-muted-foreground"
+                  )}>
+                    <Clock className="w-6 h-6" />
+                  </div>
                   <div>
-                    <label className="text-sm font-medium">Mark as Ongoing</label>
-                    <p className="text-xs text-muted-foreground">Flag this job as work in progress / pending completion</p>
+                    <label className="text-base font-semibold cursor-pointer">Mark as Ongoing</label>
+                    <p className="text-sm text-muted-foreground">Flag this job as work in progress / pending completion</p>
                   </div>
                 </div>
                 <Switch
                   checked={editedJob.isOngoing || false}
                   onCheckedChange={(checked) => setEditedJob({ ...editedJob, isOngoing: checked })}
+                  className="data-[state=checked]:bg-amber-500"
                 />
               </div>
 
