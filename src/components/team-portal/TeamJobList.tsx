@@ -34,6 +34,7 @@ import { useCapacitorPush } from '@/hooks/useCapacitorPush';
 import { useTeamSettings } from '@/hooks/useTeamSettings';
 import { TeamDiary } from './TeamDiary';
 import { LanguageSelector } from './LanguageSelector';
+import { RemoveJobConfirmModal } from './RemoveJobConfirmModal';
 import { cn } from '@/lib/utils';
 
 // Helper to get contrasting text color (white or black) for a given background color
@@ -180,6 +181,7 @@ export const TeamJobList = ({
   const [activeTab, setActiveTab] = useState<'jobs' | 'diary' | 'workload'>('jobs');
   const [teamFilter, setTeamFilter] = useState<string | null>(null);
   const [removingJobId, setRemovingJobId] = useState<string | null>(null);
+  const [jobToRemove, setJobToRemove] = useState<Job | null>(null);
 
   // Get team settings for color-coding
   const { settings: teamSettings } = useTeamSettings();
@@ -225,22 +227,30 @@ export const TeamJobList = ({
     });
   };
 
-  // Handle job removal from team's list
-  const handleRemoveJob = async (job: Job, e: React.MouseEvent) => {
+  // Handle job removal from team's list - opens confirmation modal
+  const handleRemoveJobClick = (job: Job, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!onRemoveJob || removingJobId) return;
+    setJobToRemove(job);
+  };
+
+  // Confirm job removal
+  const confirmRemoveJob = async () => {
+    if (!jobToRemove || !onRemoveJob) return;
     
-    const confirmed = window.confirm(
-      `Remove "${job.name}" (${job.jobNumber}) from your job list?\n\nThis will hide the job from your portal. The admin can reassign it if needed.`
-    );
-    
-    if (!confirmed) return;
-    
-    setRemovingJobId(job.id);
+    setRemovingJobId(jobToRemove.id);
     try {
-      await onRemoveJob(job.id, job.jobNumber);
+      await onRemoveJob(jobToRemove.id, jobToRemove.jobNumber);
     } finally {
       setRemovingJobId(null);
+      setJobToRemove(null);
+    }
+  };
+
+  // Cancel job removal
+  const cancelRemoveJob = () => {
+    if (!removingJobId) {
+      setJobToRemove(null);
     }
   };
 
@@ -739,7 +749,7 @@ export const TeamJobList = ({
                                               variant="outline" 
                                               size="sm" 
                                               className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                                              onClick={(e) => handleRemoveJob(job, e)}
+                                              onClick={(e) => handleRemoveJobClick(job, e)}
                                               disabled={removingJobId === job.id}
                                             >
                                               {removingJobId === job.id ? (
@@ -1001,7 +1011,7 @@ export const TeamJobList = ({
                                               variant="outline" 
                                               size="sm" 
                                               className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                                              onClick={(e) => handleRemoveJob(job, e)}
+                                            onClick={(e) => handleRemoveJobClick(job, e)}
                                               disabled={removingJobId === job.id}
                                             >
                                               {removingJobId === job.id ? (
@@ -1142,7 +1152,7 @@ export const TeamJobList = ({
                                               variant="outline" 
                                               size="sm" 
                                               className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                                              onClick={(e) => handleRemoveJob(job, e)}
+                                              onClick={(e) => handleRemoveJobClick(job, e)}
                                               disabled={removingJobId === job.id}
                                             >
                                               {removingJobId === job.id ? (
@@ -1205,6 +1215,15 @@ export const TeamJobList = ({
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Remove Job Confirmation Modal */}
+      <RemoveJobConfirmModal
+        job={jobToRemove}
+        isOpen={!!jobToRemove}
+        isRemoving={removingJobId === jobToRemove?.id}
+        onConfirm={confirmRemoveJob}
+        onCancel={cancelRemoveJob}
+      />
     </div>
   );
 };
