@@ -778,6 +778,7 @@ const Index = () => {
             setSelectedJobForModal(job);
           }
         }}
+        onRefresh={refreshJobs}
       />
       
       <main className="flex-1 container mx-auto px-4 py-4 flex flex-col gap-4">

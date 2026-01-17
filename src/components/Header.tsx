@@ -1,4 +1,4 @@
-import { FileDown, Moon, Sun, Settings, History, KeyRound, Users, LogOut, ChevronDown, CalendarDays } from 'lucide-react';
+import { FileDown, Moon, Sun, Settings, History, KeyRound, Users, LogOut, ChevronDown, CalendarDays, CheckCircle2, Briefcase } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
@@ -7,12 +7,15 @@ import { NotificationHistoryModal } from './NotificationHistoryModal';
 import { TeamAccessCodesModal } from './TeamAccessCodesModal';
 import { TeamAvailabilityModal } from './TeamAvailabilityModal';
 import { SignOffNotificationBell } from './SignOffNotificationBell';
+import { GlobalSignOffHistoryModal } from './GlobalSignOffHistoryModal';
+import { AdminTeamJobsModal } from './AdminTeamJobsModal';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import logo from '@/assets/logo.png';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
@@ -20,9 +23,10 @@ interface HeaderProps {
   onExport: () => void;
   jobCount: number;
   onJobClick?: (jobId: string) => void;
+  onRefresh?: () => void;
 }
 
-export const Header = ({ onExport, jobCount, onJobClick }: HeaderProps) => {
+export const Header = ({ onExport, jobCount, onJobClick, onRefresh }: HeaderProps) => {
   const [isDark, setIsDark] = useState(() => {
     // Initialize from localStorage or system preference
     const stored = localStorage.getItem('theme');
@@ -35,6 +39,8 @@ export const Header = ({ onExport, jobCount, onJobClick }: HeaderProps) => {
   const [showNotificationHistory, setShowNotificationHistory] = useState(false);
   const [showAccessCodes, setShowAccessCodes] = useState(false);
   const [showAvailability, setShowAvailability] = useState(false);
+  const [showSignOffHistory, setShowSignOffHistory] = useState(false);
+  const [showTeamJobs, setShowTeamJobs] = useState(false);
   const { signOut, user } = useAdminAuth();
 
   // Apply theme on mount and when isDark changes
@@ -85,17 +91,27 @@ export const Header = ({ onExport, jobCount, onJobClick }: HeaderProps) => {
                   <ChevronDown className="w-4 h-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuItem asChild>
                   <Link to="/team" className="flex items-center gap-2 cursor-pointer">
                     <Users className="w-4 h-4" />
                     Team Portal
                   </Link>
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowTeamJobs(true)} className="flex items-center gap-2 cursor-pointer">
+                  <Briefcase className="w-4 h-4" />
+                  Manage Team Jobs
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setShowSignOffHistory(true)} className="flex items-center gap-2 cursor-pointer">
+                  <CheckCircle2 className="w-4 h-4" />
+                  Sign-Off History
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setShowNotificationHistory(true)} className="flex items-center gap-2 cursor-pointer">
                   <History className="w-4 h-4" />
                   Notifications
                 </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => setShowAvailability(true)} className="flex items-center gap-2 cursor-pointer">
                   <CalendarDays className="w-4 h-4" />
                   Team Availability
@@ -153,6 +169,18 @@ export const Header = ({ onExport, jobCount, onJobClick }: HeaderProps) => {
       <TeamAvailabilityModal 
         open={showAvailability} 
         onOpenChange={setShowAvailability} 
+      />
+
+      <GlobalSignOffHistoryModal
+        isOpen={showSignOffHistory}
+        onClose={() => setShowSignOffHistory(false)}
+        onJobClick={onJobClick}
+      />
+
+      <AdminTeamJobsModal
+        isOpen={showTeamJobs}
+        onClose={() => setShowTeamJobs(false)}
+        onJobRemoved={onRefresh}
       />
     </header>
   );
