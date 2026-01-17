@@ -95,30 +95,18 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
   const jobIds = useMemo(() => jobs.map(j => j.id), [jobs]);
   const { historyMap: contactHistoryMap, refreshAllHistory } = useAllContactHistory(jobIds);
   
-  // Build dynamic teams list from settings - include all teams for bulk assign
-  // Category-specific teams + global teams (without type or categoryId)
+  // Build dynamic teams list from settings - include ALL teams for bulk assign
+  // All teams should be available for assignment regardless of category
   const teams: Team[] = useMemo(() => {
-    // Get category-specific teams based on current category type
-    const categoryTeams = teamSettings.filter(s => 
-      isFanCategory ? s.type === 'fan' : s.type === 'dm'
-    );
-    
-    // Get global teams (no type assigned - available to all categories)
-    const globalTeams = teamSettings.filter(s => !s.type && !s.categoryId);
-    
-    // Combine and deduplicate by teamId
-    const allTeams = [...categoryTeams, ...globalTeams];
-    const uniqueTeams = allTeams.filter((team, index, self) => 
-      index === self.findIndex(t => t.teamId === team.teamId)
-    );
-    
-    return uniqueTeams.map(s => ({
+    // Include all teams from team settings for bulk assignment
+    // This ensures every team is available in the dropdown
+    return teamSettings.map(s => ({
       id: s.teamId,
       name: s.teamName,
       color: s.color || '#3B82F6',
       whatsappGroup: s.whatsappGroup || undefined,
     }));
-  }, [teamSettings, isFanCategory]);
+  }, [teamSettings]);
   
   // Find all duplicate job numbers
   const duplicateJobIds = findDuplicates(jobs);
