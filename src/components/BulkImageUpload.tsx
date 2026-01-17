@@ -134,13 +134,13 @@ export const BulkImageUpload = ({ onJobsExtracted, onClose }: BulkImageUploadPro
             bookedDate: extractedData.bookedDate || null,
             isFlexibleBooking: false,
             bookingNotes: '',
-            startDate: null,
             completionDate: null,
             attachments: [],
             status: 'pending',
             fanInfo: null,
             linkedFanJobId: null,
             costs: null,
+            privateNotes: '',
           };
 
           extractedJobs.push(newJob);

@@ -49,24 +49,20 @@ export const CalendarView = ({ jobs, onJobClick, onToggleComplete }: CalendarVie
       if (job.bookedDate && isSameDay(job.bookedDate, date)) {
         return true;
       }
-      // Fallback: show on start/completion dates if no booked date
-      const startMatch = job.startDate && isSameDay(job.startDate, date);
+      // Fallback: show on completion date if no booked date
       const completionMatch = job.completionDate && isSameDay(job.completionDate, date);
-      return startMatch || completionMatch;
+      return completionMatch;
     });
   };
 
   const getJobBadgeInfo = (job: Job, date: Date) => {
     const bookedMatch = job.bookedDate && isSameDay(job.bookedDate, date);
-    const startMatch = job.startDate && isSameDay(job.startDate, date);
     const completionMatch = job.completionDate && isSameDay(job.completionDate, date);
     
     if (bookedMatch) {
       return { label: 'Booked', color: 'bg-primary text-primary-foreground' };
     } else if (completionMatch) {
       return { label: 'Due', color: 'bg-success text-white' };
-    } else if (startMatch) {
-      return { label: 'Start', color: 'bg-warning text-warning-foreground' };
     }
     return { label: 'Other', color: 'bg-muted text-muted-foreground' };
   };

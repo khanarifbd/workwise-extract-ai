@@ -140,6 +140,7 @@ export type Database = {
           linked_fan_job_id: string | null
           name: string
           phone_number: string | null
+          private_notes: string | null
           progress: number | null
           progress_notes: string | null
           start_date: string | null
@@ -171,6 +172,7 @@ export type Database = {
           linked_fan_job_id?: string | null
           name: string
           phone_number?: string | null
+          private_notes?: string | null
           progress?: number | null
           progress_notes?: string | null
           start_date?: string | null
@@ -202,6 +204,7 @@ export type Database = {
           linked_fan_job_id?: string | null
           name?: string
           phone_number?: string | null
+          private_notes?: string | null
           progress?: number | null
           progress_notes?: string | null
           start_date?: string | null

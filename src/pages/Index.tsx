@@ -121,13 +121,13 @@ const Index = () => {
         bookedDate: extractedData.bookedDate || null,
         isFlexibleBooking: false,
         bookingNotes: '',
-        startDate: null,
         completionDate: null,
         attachments: [],
         status: 'pending',
         fanInfo: null,
         linkedFanJobId: null,
         costs: null,
+        privateNotes: '',
       };
       
       // Check for duplicates before adding
@@ -646,12 +646,12 @@ const Index = () => {
         job.team || 'Unassigned',
         `${job.progress}%`,
         job.isCompleted ? 'Complete' : 'In Progress',
-        job.startDate ? format(job.startDate, 'dd/MM/yy') : '-',
+        job.bookedDate ? format(job.bookedDate, 'dd/MM/yy') : '-',
         job.workItems.map(w => w.sorCode).join(', ') || '-'
       ]);
 
       autoTable(doc, {
-        head: [['Job #', 'Name', 'Phone', 'Address', 'Fan Qty', 'Team', 'Progress', 'Status', 'Start', 'SOR Codes']],
+        head: [['Job #', 'Name', 'Phone', 'Address', 'Fan Qty', 'Team', 'Progress', 'Status', 'Booked', 'SOR Codes']],
         body: tableData,
         startY: 42,
         styles: { fontSize: 7 },
@@ -669,12 +669,12 @@ const Index = () => {
         job.team || 'Unassigned',
         `${job.progress}%`,
         job.isCompleted ? 'Complete' : 'In Progress',
-        job.startDate ? format(job.startDate, 'dd/MM/yy') : '-',
+        job.bookedDate ? format(job.bookedDate, 'dd/MM/yy') : '-',
         job.workItems.map(w => w.sorCode).join(', ') || '-'
       ]);
 
       autoTable(doc, {
-        head: [['Job #', 'Name', 'Address', 'Team', 'Progress', 'Status', 'Start', 'SOR Codes']],
+        head: [['Job #', 'Name', 'Address', 'Team', 'Progress', 'Status', 'Booked', 'SOR Codes']],
         body: tableData,
         startY: 42,
         styles: { fontSize: 8 },
@@ -703,7 +703,6 @@ const Index = () => {
         'Status': job.isCompleted ? 'Completed' : 'In Progress',
         'Date Issued': format(job.dateIssued, 'dd/MM/yyyy'),
         'Booked Date': job.bookedDate ? format(job.bookedDate, 'dd/MM/yyyy') : '',
-        'Start Date': job.startDate ? format(job.startDate, 'dd/MM/yyyy') : '',
         'Description': job.summaryOfWorks || job.description || '',
         'SOR Codes': job.workItems.map(w => w.sorCode).join(', '),
         'Total Cost': `£${job.workItems.reduce((sum, w) => sum + w.cost, 0).toFixed(2)}`
@@ -718,7 +717,7 @@ const Index = () => {
         'Progress': `${job.progress}%`,
         'Status': job.isCompleted ? 'Completed' : 'In Progress',
         'Date Issued': format(job.dateIssued, 'dd/MM/yyyy'),
-        'Start Date': job.startDate ? format(job.startDate, 'dd/MM/yyyy') : '',
+        'Booked Date': job.bookedDate ? format(job.bookedDate, 'dd/MM/yyyy') : '',
         'Completion Date': job.completionDate ? format(job.completionDate, 'dd/MM/yyyy') : '',
         'Summary': job.summaryOfWorks || '',
         'SOR Codes': job.workItems.map(w => w.sorCode).join(', '),
