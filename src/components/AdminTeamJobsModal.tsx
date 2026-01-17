@@ -2,10 +2,9 @@ import { useState, useEffect, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Users, Trash2, MapPin, Phone, Briefcase, Loader2, RefreshCw, X } from 'lucide-react';
+import { Users, Trash2, MapPin, Phone, Briefcase, Loader2, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useTeamSettings } from '@/hooks/useTeamSettings';
 import { toast } from 'sonner';
@@ -175,8 +174,8 @@ export const AdminTeamJobsModal = ({
               </div>
             </div>
 
-            {/* Jobs List */}
-            <ScrollArea className="flex-1 px-6 py-4">
+            {/* Jobs List - scrollable container */}
+            <div className="flex-1 overflow-y-auto px-6 py-4">
               {!selectedTeam ? (
                 <div className="text-center py-12 text-muted-foreground">
                   <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -279,7 +278,7 @@ export const AdminTeamJobsModal = ({
                   ))}
                 </div>
               )}
-            </ScrollArea>
+            </div>
           </div>
 
           {/* Footer */}
