@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { Bell, CheckCircle2, Image, Video, FileText, Wrench, X, Check } from 'lucide-react';
+import { Bell, CheckCircle2, Image, Video, FileText, Wrench, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -198,7 +197,7 @@ export const SignOffNotificationBell = ({ onJobClick }: SignOffNotificationBellP
           )}
         </div>
 
-        <ScrollArea className="max-h-96">
+        <div className="max-h-96 overflow-y-auto">
           {isLoading ? (
             <div className="p-4 text-center text-muted-foreground text-sm">
               Loading...
@@ -280,7 +279,7 @@ export const SignOffNotificationBell = ({ onJobClick }: SignOffNotificationBellP
               ))}
             </div>
           )}
-        </ScrollArea>
+        </div>
       </PopoverContent>
     </Popover>
   );
