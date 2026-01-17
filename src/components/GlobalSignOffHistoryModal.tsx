@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { CheckCircle2, Image, Video, FileText, Wrench, User, ChevronDown, Maximize2, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -142,27 +141,27 @@ export const GlobalSignOffHistoryModal = ({
 
       {/* Stats */}
       <div className="flex flex-wrap gap-2">
-        <Badge variant="secondary" className="text-xs gap-1">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground text-xs">
           <Wrench className="h-3 w-3" />
           {signOff.work_items_modified}/{signOff.work_items_total} items
-        </Badge>
+        </span>
         {signOff.photos_count > 0 && (
-          <Badge variant="secondary" className="text-xs gap-1">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground text-xs">
             <Image className="h-3 w-3" />
             {signOff.photos_count}
-          </Badge>
+          </span>
         )}
         {signOff.videos_count > 0 && (
-          <Badge variant="secondary" className="text-xs gap-1">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground text-xs">
             <Video className="h-3 w-3" />
             {signOff.videos_count}
-          </Badge>
+          </span>
         )}
         {signOff.documents_count > 0 && (
-          <Badge variant="secondary" className="text-xs gap-1">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground text-xs">
             <FileText className="h-3 w-3" />
             {signOff.documents_count}
-          </Badge>
+          </span>
         )}
       </div>
 
