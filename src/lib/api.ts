@@ -146,14 +146,20 @@ export const sendWhatsAppNotification = async (
   twilioResult?: { sid: string; status: string } | null;
 } | null> => {
   try {
-    const headers = await getAuthHeaders();
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      throw new Error('Authentication required - please log in');
+    }
+    
     const { data, error } = await supabase.functions.invoke('send-whatsapp', {
       body: { 
         teamName,
         whatsappGroup,
         jobDetails
       },
-      headers
+      headers: {
+        Authorization: `Bearer ${session.access_token}`
+      }
     });
 
     if (error) {
