@@ -26,6 +26,7 @@ import {
   Minus,
   Plus,
   ArrowUp,
+  EyeOff,
 } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
@@ -56,6 +57,7 @@ interface TeamJobListProps {
   onRefresh: () => void;
   onLogout: () => void;
   onLanguageChange: (language: string) => void;
+  onRemoveJob?: (jobId: string, jobNumber: string) => Promise<void>;
 }
 
 // Ops Manager ordering must match database ordering: group + sort by createdAt.
@@ -153,6 +155,7 @@ export const TeamJobList = ({
   onRefresh,
   onLogout,
   onLanguageChange,
+  onRemoveJob,
 }: TeamJobListProps) => {
   // Web push notifications (PWA)
   const {
@@ -176,6 +179,7 @@ export const TeamJobList = ({
   const [expandedDateGroups, setExpandedDateGroups] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<'jobs' | 'diary' | 'workload'>('jobs');
   const [teamFilter, setTeamFilter] = useState<string | null>(null);
+  const [removingJobId, setRemovingJobId] = useState<string | null>(null);
 
   // Get team settings for color-coding
   const { settings: teamSettings } = useTeamSettings();
@@ -219,6 +223,25 @@ export const TeamJobList = ({
       }
       return next;
     });
+  };
+
+  // Handle job removal from team's list
+  const handleRemoveJob = async (job: Job, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!onRemoveJob || removingJobId) return;
+    
+    const confirmed = window.confirm(
+      `Remove "${job.name}" (${job.jobNumber}) from your job list?\n\nThis will hide the job from your portal. The admin can reassign it if needed.`
+    );
+    
+    if (!confirmed) return;
+    
+    setRemovingJobId(job.id);
+    try {
+      await onRemoveJob(job.id, job.jobNumber);
+    } finally {
+      setRemovingJobId(null);
+    }
   };
 
   // Team workload counts (for Ops Manager)
@@ -707,9 +730,26 @@ export const TeamJobList = ({
                                             {job.summaryOfWorks}
                                           </p>
                                         )}
-                                        <Button className="w-full mt-2" size="sm" onClick={() => onSelectJob(job)}>
-                                          View & Update Job
-                                        </Button>
+                                        <div className="flex gap-2 mt-2">
+                                          <Button className="flex-1" size="sm" onClick={() => onSelectJob(job)}>
+                                            View & Update Job
+                                          </Button>
+                                          {onRemoveJob && !isOpsManager && (
+                                            <Button 
+                                              variant="outline" 
+                                              size="sm" 
+                                              className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                                              onClick={(e) => handleRemoveJob(job, e)}
+                                              disabled={removingJobId === job.id}
+                                            >
+                                              {removingJobId === job.id ? (
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                              ) : (
+                                                <EyeOff className="h-4 w-4" />
+                                              )}
+                                            </Button>
+                                          )}
+                                        </div>
                                       </div>
                                     </div>
                                   </CollapsibleContent>
@@ -952,9 +992,26 @@ export const TeamJobList = ({
                                             {job.summaryOfWorks}
                                           </p>
                                         )}
-                                        <Button className="w-full mt-2" size="sm" onClick={() => onSelectJob(job)}>
-                                          View & Update Job
-                                        </Button>
+                                        <div className="flex gap-2 mt-2">
+                                          <Button className="flex-1" size="sm" onClick={() => onSelectJob(job)}>
+                                            View & Update Job
+                                          </Button>
+                                          {onRemoveJob && !isOpsManager && (
+                                            <Button 
+                                              variant="outline" 
+                                              size="sm" 
+                                              className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                                              onClick={(e) => handleRemoveJob(job, e)}
+                                              disabled={removingJobId === job.id}
+                                            >
+                                              {removingJobId === job.id ? (
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                              ) : (
+                                                <EyeOff className="h-4 w-4" />
+                                              )}
+                                            </Button>
+                                          )}
+                                        </div>
                                       </div>
                                     </div>
                                   </CollapsibleContent>
@@ -1076,9 +1133,26 @@ export const TeamJobList = ({
                                             {job.summaryOfWorks}
                                           </p>
                                         )}
-                                        <Button className="w-full mt-2" size="sm" onClick={() => onSelectJob(job)}>
-                                          View & Update Job
-                                        </Button>
+                                        <div className="flex gap-2 mt-2">
+                                          <Button className="flex-1" size="sm" onClick={() => onSelectJob(job)}>
+                                            View & Update Job
+                                          </Button>
+                                          {onRemoveJob && !isOpsManager && (
+                                            <Button 
+                                              variant="outline" 
+                                              size="sm" 
+                                              className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                                              onClick={(e) => handleRemoveJob(job, e)}
+                                              disabled={removingJobId === job.id}
+                                            >
+                                              {removingJobId === job.id ? (
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                              ) : (
+                                                <EyeOff className="h-4 w-4" />
+                                              )}
+                                            </Button>
+                                          )}
+                                        </div>
                                       </div>
                                     </div>
                                   </CollapsibleContent>

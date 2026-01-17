@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { CheckCircle2, Image, Video, FileText, Wrench, User, ChevronDown, Maximize2, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -219,8 +218,8 @@ export const GlobalSignOffHistoryModal = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
-        <DialogHeader>
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <CheckCircle2 className="h-5 w-5 text-success" />
             Sign-Off History
@@ -230,57 +229,55 @@ export const GlobalSignOffHistoryModal = ({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-          <ScrollArea className="flex-1">
-            {isLoading ? (
-              <div className="text-center py-8 text-muted-foreground">
-                Loading...
-              </div>
-            ) : signOffs.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                No sign-offs recorded yet
-              </div>
-            ) : (
-              <div className="space-y-3 pr-4">
-                {displayedSignOffs.map(signOff => (
-                  <SignOffCard key={signOff.id} signOff={signOff} />
-                ))}
+        <div className="flex-1 min-h-0 overflow-y-auto pr-2">
+          {isLoading ? (
+            <div className="text-center py-8 text-muted-foreground">
+              Loading...
+            </div>
+          ) : signOffs.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              No sign-offs recorded yet
+            </div>
+          ) : (
+            <div className="space-y-3 pb-4">
+              {displayedSignOffs.map(signOff => (
+                <SignOffCard key={signOff.id} signOff={signOff} />
+              ))}
 
-                {/* Load More / Expand Button */}
-                <div className="flex flex-col gap-2 pt-2 pb-4">
-                  {hasMore && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={loadMore}
-                      className="gap-2 w-full"
-                    >
-                      <ChevronDown className="h-4 w-4" />
-                      Show More ({Math.min(LOAD_MORE_COUNT, signOffs.length - displayCount)} more)
-                    </Button>
-                  )}
-                  
-                  {signOffs.length > INITIAL_LIMIT && (
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={handleExpandFullPage}
-                      className="gap-2 w-full"
-                    >
-                      <Maximize2 className="h-4 w-4" />
-                      View Full Page ({Math.min(FULL_PAGE_LIMIT, totalCount)} sign-offs)
-                    </Button>
-                  )}
-                </div>
-
-                {!hasMore && displayCount >= signOffs.length && signOffs.length > 0 && (
-                  <p className="text-center text-xs text-muted-foreground pb-4">
-                    Showing all {signOffs.length} sign-offs
-                  </p>
+              {/* Load More / Expand Button */}
+              <div className="flex flex-col gap-2 pt-2 sticky bottom-0 bg-background pb-2">
+                {hasMore && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={loadMore}
+                    className="gap-2 w-full"
+                  >
+                    <ChevronDown className="h-4 w-4" />
+                    Show More ({Math.min(LOAD_MORE_COUNT, signOffs.length - displayCount)} more)
+                  </Button>
+                )}
+                
+                {signOffs.length > INITIAL_LIMIT && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={handleExpandFullPage}
+                    className="gap-2 w-full"
+                  >
+                    <Maximize2 className="h-4 w-4" />
+                    View Full Page ({Math.min(FULL_PAGE_LIMIT, totalCount)} sign-offs)
+                  </Button>
                 )}
               </div>
-            )}
-          </ScrollArea>
+
+              {!hasMore && displayCount >= signOffs.length && signOffs.length > 0 && signOffs.length <= INITIAL_LIMIT && (
+                <p className="text-center text-xs text-muted-foreground pb-2">
+                  Showing all {signOffs.length} sign-offs
+                </p>
+              )}
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
