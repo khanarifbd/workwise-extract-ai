@@ -139,6 +139,16 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Security: Validate that provided teamName matches the database record
+    // This prevents SQL injection via malicious teamName parameter
+    if (teamData.team_name !== teamName) {
+      console.error(`Team name mismatch: provided "${teamName}", expected "${teamData.team_name}"`);
+      return new Response(
+        JSON.stringify({ error: "Invalid team session" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const isOpsManager = teamData.is_ops_manager === true;
 
     // Fetch jobs - Operations Manager sees only ASSIGNED jobs, regular teams see jobs where they are team or team2
