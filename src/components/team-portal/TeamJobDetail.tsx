@@ -43,7 +43,9 @@ export const TeamJobDetail = ({
   const { translateToUserLanguage, translateToEnglish, isTranslating } = useTranslation(languagePreference);
   const [translatedDescription, setTranslatedDescription] = useState<string | null>(null);
   const [translatedSummary, setTranslatedSummary] = useState<string | null>(null);
+  const [translatedWorkItems, setTranslatedWorkItems] = useState<Record<string, string>>({});
   const [showOriginal, setShowOriginal] = useState(false);
+  const [isTranslatingContent, setIsTranslatingContent] = useState(false);
   const [progress, setProgress] = useState(job.progress);
   const [notes, setNotes] = useState(job.progressNotes || '');
   const [status, setStatus] = useState<JobStatus>(job.status);
@@ -236,30 +238,55 @@ export const TeamJobDetail = ({
     loadDraft();
   }, [job.id, teamName]);
 
-  // Translate job description and summary when language is not English
+  // Translate job description, summary, and work items when language is not English
   useEffect(() => {
     const translateJobContent = async () => {
       if (languagePreference === 'en') {
         setTranslatedDescription(null);
         setTranslatedSummary(null);
+        setTranslatedWorkItems({});
+        setIsTranslatingContent(false);
         return;
       }
 
-      // Translate description
-      if (job.description) {
-        const translated = await translateToUserLanguage(job.description);
-        setTranslatedDescription(translated);
-      }
+      setIsTranslatingContent(true);
 
-      // Translate summary
-      if (job.summaryOfWorks) {
-        const translated = await translateToUserLanguage(job.summaryOfWorks);
-        setTranslatedSummary(translated);
+      try {
+        // Translate description
+        if (job.description) {
+          const translated = await translateToUserLanguage(job.description);
+          setTranslatedDescription(translated);
+        }
+
+        // Translate summary
+        if (job.summaryOfWorks) {
+          const translated = await translateToUserLanguage(job.summaryOfWorks);
+          setTranslatedSummary(translated);
+        }
+
+        // Translate work items descriptions
+        if (job.workItems && job.workItems.length > 0) {
+          const translations: Record<string, string> = {};
+          
+          // Translate in batches to avoid rate limiting
+          for (const item of job.workItems) {
+            if (item.description) {
+              const translated = await translateToUserLanguage(item.description);
+              translations[item.id] = translated;
+            }
+          }
+          
+          setTranslatedWorkItems(translations);
+        }
+      } catch (error) {
+        console.error('Translation error:', error);
+      } finally {
+        setIsTranslatingContent(false);
       }
     };
 
     translateJobContent();
-  }, [job.description, job.summaryOfWorks, languagePreference, translateToUserLanguage]);
+  }, [job.id, job.description, job.summaryOfWorks, job.workItems, languagePreference, translateToUserLanguage]);
 
   // Auto-save every 30 seconds
   useEffect(() => {
@@ -720,9 +747,20 @@ export const TeamJobDetail = ({
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div className="flex-1 min-w-0">
-              <Badge variant="secondary" className="text-xs font-mono mb-0.5">
-                {job.jobNumber}
-              </Badge>
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <Badge variant="secondary" className="text-xs font-mono">
+                  {job.jobNumber}
+                </Badge>
+                {languagePreference !== 'en' && (
+                  <Badge variant="secondary" className="text-xs flex items-center gap-1">
+                    <Languages className="h-3 w-3" />
+                    {SUPPORTED_LANGUAGES.find(l => l.code === languagePreference)?.flag || languagePreference.toUpperCase()}
+                  </Badge>
+                )}
+                {isTranslatingContent && (
+                  <Loader2 className="h-3 w-3 animate-spin text-primary-foreground/70" />
+                )}
+              </div>
               <h1 className="text-base sm:text-lg font-semibold truncate">{job.name}</h1>
             </div>
           </div>
@@ -781,8 +819,28 @@ export const TeamJobDetail = ({
 
                 {job.summaryOfWorks && (
                   <div className="pt-2 border-t">
-                    <p className="text-xs text-muted-foreground mb-1">Summary</p>
-                    <p className="text-xs sm:text-sm">{job.summaryOfWorks}</p>
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-xs text-muted-foreground">Summary</p>
+                      {languagePreference !== 'en' && (
+                        <div className="flex items-center gap-1">
+                          {isTranslatingContent && (
+                            <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-5 px-1 text-xs"
+                            onClick={() => setShowOriginal(!showOriginal)}
+                          >
+                            <Languages className="h-3 w-3 mr-1" />
+                            {showOriginal ? 'Translated' : 'Original'}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-xs sm:text-sm">
+                      {showOriginal || !translatedSummary ? job.summaryOfWorks : translatedSummary}
+                    </p>
                   </div>
                 )}
               </CardContent>
@@ -808,10 +866,21 @@ export const TeamJobDetail = ({
               <CollapsibleContent>
                 <CardContent className="pt-0">
                   <div className="space-y-3">
+                    {isTranslatingContent && languagePreference !== 'en' && (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground p-2 bg-muted/30 rounded">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        <span>Translating work items...</span>
+                      </div>
+                    )}
                     {job.workItems.map((item: WorkItem, index: number) => {
                       const updatedItem = getWorkItemWithUpdates(item);
                       const isConfirmed = updatedItem.isConfirmed ?? true;
                       const hasModification = updatedItem.hasModification ?? false;
+                      
+                      // Get translated description if available
+                      const displayDescription = showOriginal || !translatedWorkItems[item.id]
+                        ? item.description
+                        : translatedWorkItems[item.id];
                       
                       return (
                         <div key={item.id || index} className={`p-3 rounded-lg border ${!isConfirmed ? 'bg-muted/30 border-dashed opacity-60' : 'bg-muted/50'}`}>
@@ -828,7 +897,7 @@ export const TeamJobDetail = ({
                             
                             <div className="flex-1 min-w-0">
                               <p className={`text-sm ${!isConfirmed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
-                                {item.description}
+                                {displayDescription}
                               </p>
                               {item.sorCode && (
                                 <p className="text-xs text-muted-foreground font-mono mt-0.5">
