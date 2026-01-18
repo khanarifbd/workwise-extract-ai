@@ -20,6 +20,7 @@ import { CompletedJobsPDFButton } from '@/components/CompletedJobsPDFButton';
 import { ManualJobEntry } from '@/components/ManualJobEntry';
 import { OverdueJobsDashboard } from '@/components/OverdueJobsDashboard';
 import { useJobAlerts } from '@/hooks/useJobAlerts';
+import { useOverdueNotifications } from '@/hooks/useOverdueNotifications';
 
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -591,6 +592,12 @@ const Index = () => {
   const { getAlertJobs } = useJobAlerts(jobs, signOffStatusesMap);
   const overdueJobs = getAlertJobs();
   const overdueCount = overdueJobs.length;
+
+  // Real-time overdue notifications with toast and sound alerts
+  useOverdueNotifications({
+    jobs,
+    signOffStatuses: signOffStatusesMap,
+  });
 
   // Helper function to extract phone number from description or name column
   const extractPhoneNumber = (job: Job): string => {
