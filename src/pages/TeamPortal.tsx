@@ -313,16 +313,44 @@ const TeamPortal = () => {
     }
   }, [isOnline, isAuthenticated]);
 
-  // Set up realtime subscription - listen to all job changes to detect unassignments
+  // Set up realtime subscription - listen to all job changes for IMMEDIATE updates
+  // Jobs should appear immediately when assigned in the dashboard
   useEffect(() => {
     if (!isAuthenticated || !session?.teamName) return;
 
     const channel = supabase
-      .channel('team-jobs-changes')
+      .channel('team-jobs-realtime')
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'INSERT',
+          schema: 'public',
+          table: 'jobs',
+        },
+        (payload) => {
+          const newJob = payload.new as any;
+          // Check if this team is assigned
+          const isAssigned = newJob?.team === session.teamName || newJob?.team2 === session.teamName;
+          
+          if (isAssigned) {
+            // Immediately add the new job
+            const mappedJob = mapDatabaseJobToJob(newJob);
+            setJobs(prev => {
+              // Avoid duplicates
+              if (prev.some(j => j.id === mappedJob.id)) return prev;
+              return [mappedJob, ...prev];
+            });
+            toast({
+              title: '🆕 New Job Assigned',
+              description: `Job #${newJob.job_number} - ${newJob.name}`,
+            });
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
           schema: 'public',
           table: 'jobs',
         },
@@ -340,12 +368,22 @@ const TeamPortal = () => {
           const isAssignedAsTeam2 = changedJob?.team2 === session.teamName;
           const isAssigned = isAssignedAsTeam1 || isAssignedAsTeam2;
           
-          // Check if a job was unassigned from this team (was assigned but no longer is)
-          if (payload.eventType === 'UPDATE' && wasAssigned && !isAssigned) {
-            // Job was unassigned from this team - remove it immediately
+          // NEWLY ASSIGNED - add immediately
+          if (isAssigned && !wasAssigned) {
+            const mappedJob = mapDatabaseJobToJob(changedJob);
+            setJobs(prev => {
+              if (prev.some(j => j.id === mappedJob.id)) return prev;
+              return [mappedJob, ...prev];
+            });
+            toast({
+              title: '🆕 New Job Assigned',
+              description: `Job #${changedJob.job_number} - ${changedJob.name}`,
+            });
+          }
+          // UNASSIGNED - remove immediately
+          else if (wasAssigned && !isAssigned) {
             setJobs(prev => prev.filter(j => j.id !== changedJob.id));
             
-            // If this job is currently selected, show toast and close it
             if (selectedJob?.id === changedJob.id) {
               setSelectedJob(null);
               toast({
@@ -359,18 +397,43 @@ const TeamPortal = () => {
                 description: `Job #${changedJob.job_number} has been unassigned from your team.`,
               });
             }
-          } 
-          // Check if a job was newly assigned to this team (as either team or team2)
-          else if (isAssigned && !wasAssigned) {
-            loadJobs();
           }
-          // If still assigned, refresh to get updates
+          // STILL ASSIGNED - update in place
           else if (isAssigned && wasAssigned) {
-            loadJobs();
+            const mappedJob = mapDatabaseJobToJob(changedJob);
+            setJobs(prev => prev.map(j => j.id === mappedJob.id ? mappedJob : j));
+            
+            // Update selected job if it's the one that changed
+            if (selectedJob?.id === mappedJob.id) {
+              setSelectedJob(mappedJob);
+            }
           }
         }
       )
-      .subscribe();
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'jobs',
+        },
+        (payload) => {
+          const deletedJob = payload.old as any;
+          // Remove from list if it was in our list
+          setJobs(prev => prev.filter(j => j.id !== deletedJob.id));
+          
+          if (selectedJob?.id === deletedJob.id) {
+            setSelectedJob(null);
+            toast({
+              title: 'Job Deleted',
+              description: `Job #${deletedJob.job_number} has been deleted.`,
+            });
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log('[TeamPortal] Realtime subscription status:', status);
+      });
 
     return () => {
       supabase.removeChannel(channel);

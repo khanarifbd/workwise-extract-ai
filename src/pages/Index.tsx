@@ -18,6 +18,8 @@ import { JobDetailsModal } from '@/components/JobDetailsModal';
 import { DuplicateJobAlert } from '@/components/DuplicateJobAlert';
 import { CompletedJobsPDFButton } from '@/components/CompletedJobsPDFButton';
 import { ManualJobEntry } from '@/components/ManualJobEntry';
+import { OverdueJobsDashboard } from '@/components/OverdueJobsDashboard';
+import { useJobAlerts } from '@/hooks/useJobAlerts';
 
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -54,6 +56,7 @@ const Index = () => {
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [showExport, setShowExport] = useState(false);
+  const [showOverdueDashboard, setShowOverdueDashboard] = useState(false);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [uploadExpanded, setUploadExpanded] = useState(false);
@@ -574,6 +577,21 @@ const Index = () => {
     return jobs.filter(j => j.isCompleted || j.progress === 100).length;
   }, [jobs]);
 
+  // Build sign-off statuses map for overdue calculation
+  const signOffStatusesMap = useMemo(() => {
+    const map: Record<string, { allSignedOff: boolean }> = {};
+    for (const job of jobs) {
+      const status = getSignOffStatus(job.id);
+      map[job.id] = { allSignedOff: status?.allSignedOff || false };
+    }
+    return map;
+  }, [jobs, getSignOffStatus]);
+
+  // Use job alerts hook for overdue jobs count
+  const { getAlertJobs } = useJobAlerts(jobs, signOffStatusesMap);
+  const overdueJobs = getAlertJobs();
+  const overdueCount = overdueJobs.length;
+
   // Helper function to extract phone number from description or name column
   const extractPhoneNumber = (job: Job): string => {
     // First check job.phoneNumber
@@ -766,7 +784,24 @@ const Index = () => {
           }
         }}
         onRefresh={refreshJobs}
+        overdueCount={overdueCount}
+        onShowOverdue={() => setShowOverdueDashboard(true)}
       />
+      
+      {/* Overdue Jobs Dashboard Modal */}
+      {showOverdueDashboard && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <OverdueJobsDashboard
+            jobs={jobs}
+            signOffStatuses={signOffStatusesMap}
+            onClose={() => setShowOverdueDashboard(false)}
+            onJobClick={(job) => {
+              setShowOverdueDashboard(false);
+              setSelectedJobForModal(job);
+            }}
+          />
+        </div>
+      )}
       
       <main className="flex-1 container mx-auto px-4 py-4 flex flex-col gap-4">
         {/* Category Tabs - hide add/edit for viewers */}

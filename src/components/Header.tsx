@@ -1,4 +1,4 @@
-import { FileDown, Moon, Sun, Settings, History, KeyRound, Users, LogOut, ChevronDown, CalendarDays, CheckCircle2, Briefcase } from 'lucide-react';
+import { FileDown, Moon, Sun, Settings, History, KeyRound, Users, LogOut, ChevronDown, CalendarDays, CheckCircle2, Briefcase, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
@@ -24,9 +24,11 @@ interface HeaderProps {
   jobCount: number;
   onJobClick?: (jobId: string) => void;
   onRefresh?: () => void;
+  overdueCount?: number;
+  onShowOverdue?: () => void;
 }
 
-export const Header = ({ onExport, jobCount, onJobClick, onRefresh }: HeaderProps) => {
+export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount = 0, onShowOverdue }: HeaderProps) => {
   const [isDark, setIsDark] = useState(() => {
     // Initialize from localStorage or system preference
     const stored = localStorage.getItem('theme');
@@ -126,6 +128,21 @@ export const Header = ({ onExport, jobCount, onJobClick, onRefresh }: HeaderProp
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            {overdueCount > 0 && onShowOverdue && (
+              <Button 
+                variant="outline" 
+                size="icon" 
+                className="relative md:w-auto md:px-4 border-orange-300 text-orange-600 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-400 dark:hover:bg-orange-950"
+                onClick={onShowOverdue}
+                title={`${overdueCount} overdue job${overdueCount !== 1 ? 's' : ''}`}
+              >
+                <AlertTriangle className="w-4 h-4 md:mr-2 animate-pulse" />
+                <span className="hidden md:inline">Overdue</span>
+                <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-[10px] font-bold rounded-full h-4 min-w-4 flex items-center justify-center px-1">
+                  {overdueCount > 99 ? '99+' : overdueCount}
+                </span>
+              </Button>
+            )}
             <SignOffNotificationBell onJobClick={onJobClick} />
             <Button variant="outline" size="icon" className="md:w-auto md:px-4" onClick={onExport}>
               <FileDown className="w-4 h-4 md:mr-2" />
