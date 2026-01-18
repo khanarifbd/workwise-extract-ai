@@ -3,10 +3,12 @@ import { Upload, FolderPlus, Image as ImageIcon, X, Loader2, Trash2, Edit2, Chec
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Attachment } from '@/types/job';
+import { compressImages, formatBytes, calculateSavings } from '@/lib/imageCompression';
 import {
   Collapsible,
   CollapsibleContent,
@@ -51,6 +53,10 @@ export const PhotoFolderUpload = ({
   const [folders, setFolders] = useState<PhotoFolder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStats, setUploadStats] = useState({ completed: 0, total: 0 });
+  const [isCompressing, setIsCompressing] = useState(false);
+  const [compressionSaved, setCompressionSaved] = useState<string | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [editingFolder, setEditingFolder] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
@@ -234,51 +240,100 @@ export const PhotoFolderUpload = ({
     
     if (!files || files.length === 0 || !folderId) return;
 
+    const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+    if (imageFiles.length === 0) {
+      toast({
+        title: "Invalid files",
+        description: "Please select image files only",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsUploading(folderId);
-    const newAttachments: Attachment[] = [];
+    setUploadProgress(0);
+    setUploadStats({ completed: 0, total: imageFiles.length });
+    setCompressionSaved(null);
 
     try {
-      for (const file of Array.from(files)) {
-        // Only accept images
-        if (!file.type.startsWith('image/')) {
-          toast({
-            title: "Invalid file type",
-            description: `${file.name} is not an image`,
-            variant: "destructive",
-          });
-          continue;
-        }
+      // Step 1: Compress images (0-30% of progress)
+      setIsCompressing(true);
+      toast({
+        title: "Compressing photos",
+        description: `Optimizing ${imageFiles.length} photo(s) for upload...`,
+      });
 
-        const result = await uploadPhoto(file, folderId);
-        
-        if (!result) {
-          toast({
-            title: "Upload failed",
-            description: `Failed to upload ${file.name}`,
-            variant: "destructive",
-          });
-          continue;
+      const originalFiles = [...imageFiles];
+      const compressedFiles = await compressImages(
+        imageFiles,
+        { quality: 0.8, maxWidth: 1920, maxHeight: 1920 },
+        2, // Lower concurrency for mobile
+        (completed, total) => {
+          setUploadProgress(Math.round((completed / total) * 30));
         }
+      );
+
+      // Calculate savings
+      const savings = calculateSavings(originalFiles, compressedFiles);
+      if (savings.savedBytes > 0) {
+        setCompressionSaved(formatBytes(savings.savedBytes));
+      }
+      setIsCompressing(false);
+
+      // Step 2: Upload in batches (30-100% of progress)
+      const newAttachments: Attachment[] = [];
+      const batchSize = 3;
+      let completedCount = 0;
+
+      for (let i = 0; i < compressedFiles.length; i += batchSize) {
+        const batch = compressedFiles.slice(i, i + batchSize);
         
-        const attachment: Attachment = {
-          id: crypto.randomUUID(),
-          name: file.name,
-          type: 'image',
-          url: result.publicUrl,
-          path: result.path,
-          uploadedAt: new Date(),
-          folderId: folderId, // Store folder association
-        } as Attachment & { folderId: string };
-        
-        newAttachments.push(attachment);
-        setDisplayUrls(prev => ({ ...prev, [attachment.id]: result.publicUrl }));
+        const batchResults = await Promise.allSettled(
+          batch.map(async (file) => {
+            const result = await uploadPhoto(file, folderId);
+            if (!result) return null;
+            
+            const attachment: Attachment = {
+              id: crypto.randomUUID(),
+              name: file.name,
+              type: 'image',
+              url: result.publicUrl,
+              path: result.path,
+              uploadedAt: new Date(),
+              folderId: folderId,
+            } as Attachment & { folderId: string };
+            
+            setDisplayUrls(prev => ({ ...prev, [attachment.id]: result.publicUrl }));
+            return attachment;
+          })
+        );
+
+        // Collect successful uploads
+        batchResults.forEach(result => {
+          if (result.status === 'fulfilled' && result.value) {
+            newAttachments.push(result.value);
+          }
+          completedCount++;
+        });
+
+        // Update progress (30-100%)
+        const progress = 30 + Math.round((completedCount / compressedFiles.length) * 70);
+        setUploadProgress(progress);
+        setUploadStats({ completed: completedCount, total: compressedFiles.length });
+
+        // Small delay between batches
+        if (i + batchSize < compressedFiles.length) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
       }
 
       if (newAttachments.length > 0) {
         onAttachmentsChange([...attachments, ...newAttachments]);
+        
+        const savedMsg = compressionSaved ? ` (${compressionSaved} saved)` : '';
         toast({
           title: "Photos uploaded",
-          description: `${newAttachments.length} photo(s) added to folder`,
+          description: `${newAttachments.length} photo(s) added${savedMsg}`,
         });
       }
     } catch (error) {
@@ -290,12 +345,15 @@ export const PhotoFolderUpload = ({
       });
     } finally {
       setIsUploading(null);
+      setIsCompressing(false);
+      setUploadProgress(0);
+      setUploadStats({ completed: 0, total: 0 });
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
       activeFolderRef.current = null;
     }
-  }, [attachments, onAttachmentsChange, toast, jobId]);
+  }, [attachments, onAttachmentsChange, toast, jobId, compressionSaved]);
 
   const removePhoto = async (attachment: Attachment) => {
     try {
@@ -504,14 +562,35 @@ export const PhotoFolderUpload = ({
                 {/* Folder content */}
                 <CollapsibleContent>
                   <div className="p-3">
-                    {photos.length === 0 ? (
+                    {/* Upload progress indicator */}
+                    {isUploadingToThis && uploadStats.total > 0 && (
+                      <div className="mb-3 bg-primary/10 rounded-lg p-3 space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="font-medium text-primary">
+                            {isCompressing 
+                              ? `Compressing ${uploadStats.total} photos...`
+                              : `Uploading ${uploadStats.completed} of ${uploadStats.total}`
+                            }
+                          </span>
+                          <span className="text-primary font-medium">{uploadProgress}%</span>
+                        </div>
+                        <Progress value={uploadProgress} className="h-2" />
+                        {compressionSaved && (
+                          <p className="text-xs text-green-600 dark:text-green-400 font-medium">
+                            ✓ {compressionSaved} saved
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    
+                    {photos.length === 0 && !isUploadingToThis ? (
                       <div 
                         className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:bg-muted/20 transition-colors"
                         onClick={() => !readOnly && triggerUpload(folder.id)}
                       >
                         <ImageIcon className="w-8 h-8 mx-auto text-muted-foreground/50" />
                         <p className="text-sm text-muted-foreground mt-2">
-                          {readOnly ? 'No photos in this folder' : 'Click to add photos'}
+                          {readOnly ? 'No photos in this folder' : 'Click to add photos (60+ supported)'}
                         </p>
                       </div>
                     ) : (
