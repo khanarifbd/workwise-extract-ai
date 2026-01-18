@@ -18,7 +18,8 @@ import {
   Wand2,
   AlertTriangle,
   Copy,
-  ArrowRightLeft
+  ArrowRightLeft,
+  Clock
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TeamSelector } from './TeamSelector';
@@ -35,6 +36,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useTeamSettings } from '@/hooks/useTeamSettings';
 import { useTeamAvailability } from '@/hooks/useTeamAvailability';
 import { useAllContactHistory } from '@/hooks/useContactHistory';
+import { useSignOffStatus } from '@/hooks/useSignOffStatus';
+import { shouldShowOngoingAlert } from '@/hooks/useJobAlerts';
 import { CONTACT_OUTCOMES, determineNextAction, NextAction } from '@/types/contactHistory';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
@@ -94,6 +97,9 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
   // Load contact history for all jobs
   const jobIds = useMemo(() => jobs.map(j => j.id), [jobs]);
   const { historyMap: contactHistoryMap, refreshAllHistory } = useAllContactHistory(jobIds);
+  
+  // Get sign-off status for all jobs (for 24hr ongoing alert logic)
+  const { getSignOffStatus } = useSignOffStatus(jobIds);
   
   // Build dynamic teams list from settings - include ALL teams for bulk assign
   // All teams should be available for assignment regardless of category
@@ -600,21 +606,42 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
                     {format(job.dateIssued, 'dd/MM/yy')}
                   </td>
                   <td className="relative z-20">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-mono font-semibold text-primary">
-                        {job.jobNumber}
-                      </span>
-                      {isDuplicate && (
-                        <Badge className="bg-red-600 text-white font-bold text-xs animate-pulse">
-                          DUP
-                        </Badge>
-                      )}
-                      {job.isOngoing && (
-                        <Badge className="bg-amber-500 text-white font-bold text-xs animate-pulse shadow-md">
-                          ONGOING
-                        </Badge>
-                      )}
-                    </div>
+                    {(() => {
+                      // Check if job should show ongoing alert (manual OR 24hr auto-trigger)
+                      const signOffData = getSignOffStatus(job.id, job.team, job.team2);
+                      const alertInfo = shouldShowOngoingAlert(job, signOffData.allSignedOff);
+                      const showOngoingBadge = alertInfo.showAlert;
+                      
+                      return (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono font-semibold text-primary">
+                            {job.jobNumber}
+                          </span>
+                          {isDuplicate && (
+                            <Badge className="bg-red-600 text-white font-bold text-xs animate-pulse">
+                              DUP
+                            </Badge>
+                          )}
+                          {showOngoingBadge && (
+                            <Badge 
+                              className={cn(
+                                "text-white font-bold text-xs animate-pulse shadow-md flex items-center gap-1",
+                                alertInfo.isAutoTriggered 
+                                  ? "bg-orange-600" // Auto-triggered (overdue)
+                                  : "bg-amber-500"  // Manual ongoing
+                              )}
+                              title={alertInfo.isAutoTriggered 
+                                ? `Overdue: ${alertInfo.hoursOverdue}h past 24hr threshold` 
+                                : 'Manually marked as ongoing'
+                              }
+                            >
+                              <Clock className="w-3 h-3" />
+                              {alertInfo.isAutoTriggered ? 'OVERDUE' : 'ONGOING'}
+                            </Badge>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </td>
                   <td className="relative z-20">
                     <div className="space-y-0.5">

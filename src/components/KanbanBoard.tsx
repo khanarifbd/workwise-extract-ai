@@ -5,6 +5,7 @@ import { Progress } from '@/components/ui/progress';
 import { format } from 'date-fns';
 import { CheckCircle2, Phone, MapPin, Users, GripVertical, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { shouldShowOngoingAlert } from '@/hooks/useJobAlerts';
 import {
   DndContext,
   DragEndEvent,
@@ -74,12 +75,23 @@ const DraggableJobCard = ({ job, groupBy, onJobClick, onToggleComplete }: Dragga
               <span className="font-mono text-sm font-semibold text-primary">
                 {job.jobNumber}
               </span>
-              {job.isOngoing && (
-                <Badge className="bg-amber-500 text-white font-bold text-[10px] px-1.5 py-0 h-4 animate-pulse shadow-md">
-                  <Clock className="w-3 h-3 mr-0.5" />
-                  ONGOING
-                </Badge>
-              )}
+              {(() => {
+                const alertInfo = shouldShowOngoingAlert(job, false); // No sign-off info in kanban
+                if (alertInfo.showAlert) {
+                  return (
+                    <Badge 
+                      className={cn(
+                        "text-white font-bold text-[10px] px-1.5 py-0 h-4 animate-pulse shadow-md",
+                        alertInfo.isAutoTriggered ? "bg-orange-600" : "bg-amber-500"
+                      )}
+                    >
+                      <Clock className="w-3 h-3 mr-0.5" />
+                      {alertInfo.isAutoTriggered ? 'OVERDUE' : 'ONGOING'}
+                    </Badge>
+                  );
+                }
+                return null;
+              })()}
             </div>
             <p className="font-medium text-foreground mt-0.5">{job.name}</p>
           </div>
