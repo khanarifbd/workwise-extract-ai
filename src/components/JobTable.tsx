@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, forwardRef } from 'react';
 import { Job, JobStatus, FanInfo, Team } from '@/types/job';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -79,7 +79,7 @@ const findDuplicates = (jobs: Job[]): Set<string> => {
   return duplicates;
 };
 
-export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onBatchUpdateTeam, onTransferJob, onDuplicateToCategory, fanCategoryId, onFanJobCreated, isFanCategory = false, currentCategoryId, categories = [], readOnly = false }: JobTableProps) => {
+export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onBatchUpdateTeam, onTransferJob, onDuplicateToCategory, fanCategoryId, onFanJobCreated, isFanCategory = false, currentCategoryId, categories = [], readOnly = false }, ref) => {
   const [showTeamSelector, setShowTeamSelector] = useState<string | null>(null);
   const [showTransferModal, setShowTransferModal] = useState<Job | null>(null);
   const [showJobDetails, setShowJobDetails] = useState<Job | null>(null);
@@ -1089,4 +1089,6 @@ export const JobTable = ({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onB
       )}
     </>
   );
-};
+});
+
+JobTable.displayName = 'JobTable';
