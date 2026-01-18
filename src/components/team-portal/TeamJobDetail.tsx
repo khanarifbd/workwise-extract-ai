@@ -99,14 +99,24 @@ export const TeamJobDetail = ({
   const { toast } = useToast();
   const { updateTeamJob } = useTeamAuth();
   
-  // Batch upload hooks for photos and videos
+  // Batch upload hooks for photos and videos with compression
+  const [compressionSaved, setCompressionSaved] = useState<string | null>(null);
+  
   const photoBatchUpload = useBatchUpload({
     teamId,
     jobId: job.id,
     maxConcurrent: 3,
+    enableCompression: true,
+    compressionQuality: 0.8,
     onProgress: (progress, completed, total) => {
       setBatchUploadProgress(progress);
       setBatchUploadStats({ completed, total });
+    },
+    onCompressionComplete: (savedBytes, savedPercent) => {
+      if (savedBytes > 0) {
+        const savedMB = (savedBytes / 1024 / 1024).toFixed(1);
+        setCompressionSaved(`${savedMB}MB saved (${savedPercent.toFixed(0)}% smaller)`);
+      }
     },
     onComplete: (urls) => {
       setPhotos(prev => [...prev, ...urls]);
@@ -114,10 +124,13 @@ export const TeamJobDetail = ({
       setBatchUploadProgress(0);
       setBatchUploadStats({ completed: 0, total: 0 });
       setHasUnsavedChanges(true);
+      
+      const savedMsg = compressionSaved ? ` - ${compressionSaved}` : '';
       toast({
         title: 'Photos Uploaded',
-        description: `${urls.length} photo(s) uploaded successfully.`,
+        description: `${urls.length} photo(s) uploaded successfully${savedMsg}`,
       });
+      setCompressionSaved(null);
     },
     onError: (error) => {
       toast({
@@ -126,13 +139,15 @@ export const TeamJobDetail = ({
         variant: 'destructive',
       });
       setUploadingPhotos(false);
+      setCompressionSaved(null);
     },
   });
   
   const videoBatchUpload = useBatchUpload({
     teamId,
     jobId: job.id,
-    maxConcurrent: 2, // Fewer concurrent for larger video files
+    maxConcurrent: 2,
+    enableCompression: false, // Don't compress videos
     onProgress: (progress, completed, total) => {
       setBatchUploadProgress(progress);
       setBatchUploadStats({ completed, total });
@@ -972,18 +987,29 @@ export const TeamJobDetail = ({
             <CollapsibleContent>
               <CardContent className="pt-0">
                 <div className="space-y-3">
-                  {/* Batch upload progress indicator */}
+                  {/* Batch upload progress indicator with compression status */}
                   {uploadingPhotos && batchUploadStats.total > 0 && (
                     <div className="bg-primary/10 rounded-lg p-3 space-y-2">
                       <div className="flex items-center justify-between text-sm">
                         <span className="font-medium text-primary">
-                          Uploading {batchUploadStats.completed} of {batchUploadStats.total} photos
+                          {photoBatchUpload.isCompressing 
+                            ? `Compressing ${batchUploadStats.total} photos...`
+                            : `Uploading ${batchUploadStats.completed} of ${batchUploadStats.total} photos`
+                          }
                         </span>
                         <span className="text-primary font-medium">{batchUploadProgress}%</span>
                       </div>
                       <Progress value={batchUploadProgress} className="h-2" />
+                      {compressionSaved && (
+                        <p className="text-xs text-success font-medium">
+                          ✓ {compressionSaved}
+                        </p>
+                      )}
                       <p className="text-xs text-muted-foreground">
-                        Please wait while photos are being uploaded...
+                        {photoBatchUpload.isCompressing 
+                          ? 'Optimizing images to reduce upload size...'
+                          : 'Please wait while photos are being uploaded...'
+                        }
                       </p>
                     </div>
                   )}
