@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Job, JobStatus, JOB_STATUS_OPTIONS, WorkItem } from '@/types/job';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,6 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useTeamAuth } from '@/hooks/useTeamAuth';
 import { SignOffConfirmationModal } from './SignOffConfirmationModal';
 import { useTranslation, SUPPORTED_LANGUAGES } from '@/hooks/useTranslation';
+import { useBatchUpload } from '@/hooks/useBatchUpload';
 
 interface TeamJobDetailProps {
   job: Job;
@@ -55,7 +56,15 @@ export const TeamJobDetail = ({
   const [uploadingFiles, setUploadingFiles] = useState(false);
   const [uploadingVideos, setUploadingVideos] = useState(false);
   
-  // Upload progress tracking
+  // Batch upload progress tracking
+  const [batchUploadProgress, setBatchUploadProgress] = useState(0);
+  const [batchUploadStats, setBatchUploadStats] = useState({ completed: 0, total: 0 });
+  
+  // Use refs for file input to clear them after upload
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
   const [photoUploadProgress, setPhotoUploadProgress] = useState<Record<string, number>>({});
   const [videoUploadProgress, setVideoUploadProgress] = useState<Record<string, number>>({});
   const [fileUploadProgress, setFileUploadProgress] = useState<Record<string, number>>({});
@@ -89,6 +98,90 @@ export const TeamJobDetail = ({
   const { addToSyncQueue, saveDraft, getDraft, clearDraft } = useOfflineStorage();
   const { toast } = useToast();
   const { updateTeamJob } = useTeamAuth();
+  
+  // Batch upload hooks for photos and videos
+  const photoBatchUpload = useBatchUpload({
+    teamId,
+    jobId: job.id,
+    maxConcurrent: 3,
+    onProgress: (progress, completed, total) => {
+      setBatchUploadProgress(progress);
+      setBatchUploadStats({ completed, total });
+    },
+    onComplete: (urls) => {
+      setPhotos(prev => [...prev, ...urls]);
+      setUploadingPhotos(false);
+      setBatchUploadProgress(0);
+      setBatchUploadStats({ completed: 0, total: 0 });
+      setHasUnsavedChanges(true);
+      toast({
+        title: 'Photos Uploaded',
+        description: `${urls.length} photo(s) uploaded successfully.`,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: 'Upload Error',
+        description: error,
+        variant: 'destructive',
+      });
+      setUploadingPhotos(false);
+    },
+  });
+  
+  const videoBatchUpload = useBatchUpload({
+    teamId,
+    jobId: job.id,
+    maxConcurrent: 2, // Fewer concurrent for larger video files
+    onProgress: (progress, completed, total) => {
+      setBatchUploadProgress(progress);
+      setBatchUploadStats({ completed, total });
+    },
+    onComplete: (urls) => {
+      setVideos(prev => [...prev, ...urls]);
+      setUploadingVideos(false);
+      setBatchUploadProgress(0);
+      setBatchUploadStats({ completed: 0, total: 0 });
+      setHasUnsavedChanges(true);
+      toast({
+        title: 'Videos Uploaded',
+        description: `${urls.length} video(s) uploaded successfully.`,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: 'Upload Error',
+        description: error,
+        variant: 'destructive',
+      });
+      setUploadingVideos(false);
+    },
+  });
+  
+  const fileBatchUpload = useBatchUpload({
+    teamId,
+    jobId: job.id,
+    maxConcurrent: 3,
+    onProgress: (progress, completed, total) => {
+      setBatchUploadProgress(progress);
+      setBatchUploadStats({ completed, total });
+    },
+    onComplete: (urls) => {
+      // For documents, we need to track names too
+      setUploadingFiles(false);
+      setBatchUploadProgress(0);
+      setBatchUploadStats({ completed: 0, total: 0 });
+      setHasUnsavedChanges(true);
+    },
+    onError: (error) => {
+      toast({
+        title: 'Upload Error',
+        description: error,
+        variant: 'destructive',
+      });
+      setUploadingFiles(false);
+    },
+  });
 
   // Check if job is not already complete
   const canSignOff = status !== 'complete' && !job.isCompleted;
@@ -402,203 +495,128 @@ export const TeamJobDetail = ({
     }
   };
 
+  // Optimized batch photo upload - handles 60+ photos without freezing
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    setUploadingPhotos(true);
-
-    try {
-      for (const file of Array.from(files)) {
-        // Generate unique filename - handle camera files that may have generic names
-        const timestamp = Date.now();
-        const randomId = Math.random().toString(36).substring(2, 8);
-        const extension = file.name?.split('.').pop() || 'jpg';
-        const fileName = `${teamId}/${job.id}/${timestamp}-${randomId}.${extension}`;
-        const fileKey = `photo-${timestamp}-${randomId}`;
-        
-        // First convert to base64 for immediate preview
-        const base64 = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
-        
-        // Add base64 to preview immediately with 0% progress
-        setPhotos(prev => [...prev, base64]);
-        setPhotoUploadProgress(prev => ({ ...prev, [base64]: 0 }));
-        
-        // If online, upload to storage and replace base64 with URL
-        if (isOnline) {
-          try {
-            // Simulate progress updates
-            const progressInterval = setInterval(() => {
-              setPhotoUploadProgress(prev => ({
-                ...prev,
-                [base64]: Math.min((prev[base64] || 0) + 15, 90)
-              }));
-            }, 200);
-
-            const { data, error } = await supabase.storage
-              .from('job-attachments')
-              .upload(fileName, file);
-
-            clearInterval(progressInterval);
-
-            if (!error && data) {
-              const { data: urlData } = supabase.storage
-                .from('job-attachments')
-                .getPublicUrl(data.path);
-              
-              // Set to 100% and replace base64 with actual URL
-              setPhotoUploadProgress(prev => ({ ...prev, [base64]: 100 }));
-              
-              setTimeout(() => {
-                setPhotos(prev => prev.map(p => p === base64 ? urlData.publicUrl : p));
-                setPhotoUploadProgress(prev => {
-                  const newProgress = { ...prev };
-                  delete newProgress[base64];
-                  return newProgress;
-                });
-              }, 500);
-            } else {
-              // Upload failed, remove progress
-              setPhotoUploadProgress(prev => {
-                const newProgress = { ...prev };
-                delete newProgress[base64];
-                return newProgress;
-              });
-            }
-          } catch (uploadError) {
-            console.error('Storage upload error, keeping base64:', uploadError);
-            setPhotoUploadProgress(prev => {
-              const newProgress = { ...prev };
-              delete newProgress[base64];
-              return newProgress;
-            });
-          }
-        } else {
-          // Offline - just mark as complete
-          setPhotoUploadProgress(prev => {
-            const newProgress = { ...prev };
-            delete newProgress[base64];
-            return newProgress;
-          });
-        }
-      }
-
-      setHasUnsavedChanges(true);
-
+    const fileArray = Array.from(files);
+    
+    if (!isOnline) {
+      // Offline mode - show message, don't try to upload
       toast({
-        title: 'Photos Added',
-        description: `${Array.from(files).length} photo(s) uploaded.`,
-      });
-    } catch (error) {
-      console.error('Upload error:', error);
-      toast({
-        title: 'Upload Failed',
-        description: 'Failed to process photos.',
+        title: 'Offline Mode',
+        description: 'Photos will be uploaded when you\'re back online. Please save to queue.',
         variant: 'destructive',
       });
-    } finally {
+      e.target.value = '';
+      return;
+    }
+
+    setUploadingPhotos(true);
+    
+    toast({
+      title: 'Uploading Photos',
+      description: `Processing ${fileArray.length} photo(s)...`,
+    });
+
+    try {
+      await photoBatchUpload.processUploads(fileArray, 'photos');
+    } catch (error) {
+      console.error('Batch upload error:', error);
+      toast({
+        title: 'Upload Failed',
+        description: 'Some photos failed to upload. Please try again.',
+        variant: 'destructive',
+      });
       setUploadingPhotos(false);
-      // Reset input to allow re-selecting same file
+    } finally {
+      // Reset input to allow re-selecting same files
       e.target.value = '';
     }
   };
 
-  // Handle file/document upload
+  // Optimized batch file/document upload
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
+    const fileArray = Array.from(files);
+    
+    if (!isOnline) {
+      toast({
+        title: 'Offline Mode',
+        description: 'Files will be uploaded when you\'re back online.',
+        variant: 'destructive',
+      });
+      e.target.value = '';
+      return;
+    }
+
     setUploadingFiles(true);
+    
+    toast({
+      title: 'Uploading Files',
+      description: `Processing ${fileArray.length} file(s)...`,
+    });
 
     try {
-      for (const file of Array.from(files)) {
+      // For documents, we need to track file names
+      const uploadPromises = fileArray.map(async (file) => {
         const timestamp = Date.now();
         const randomId = Math.random().toString(36).substring(2, 8);
-        const fileName = `${teamId}/${job.id}/docs/${timestamp}-${file.name}`;
-        const fileKey = `file-${timestamp}-${randomId}`;
+        const fileName = `${teamId}/${job.id}/docs/${timestamp}-${randomId}-${file.name}`;
+
+        const { data, error } = await supabase.storage
+          .from('job-attachments')
+          .upload(fileName, file);
+
+        if (error) throw error;
+
+        const { data: urlData } = supabase.storage
+          .from('job-attachments')
+          .getPublicUrl(data.path);
+
+        return {
+          name: file.name,
+          url: urlData.publicUrl,
+          type: file.type,
+        };
+      });
+
+      // Process in smaller batches to avoid overwhelming mobile
+      const batchSize = 3;
+      const results: { name: string; url: string; type: string }[] = [];
+      
+      for (let i = 0; i < uploadPromises.length; i += batchSize) {
+        const batch = uploadPromises.slice(i, i + batchSize);
+        const batchResults = await Promise.all(batch);
+        results.push(...batchResults);
         
-        // First convert to base64 for preview
-        const base64 = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.readAsDataURL(file);
-        });
-        
-        // Add to documents with progress tracking
-        const tempDoc = { name: file.name, url: base64, type: file.type };
-        setDocuments(prev => [...prev, tempDoc]);
-        setFileUploadProgress(prev => ({ ...prev, [base64]: 0 }));
-        
-        if (isOnline) {
-          // Simulate progress updates
-          const progressInterval = setInterval(() => {
-            setFileUploadProgress(prev => ({
-              ...prev,
-              [base64]: Math.min((prev[base64] || 0) + 15, 90)
-            }));
-          }, 200);
-
-          const { data, error } = await supabase.storage
-            .from('job-attachments')
-            .upload(fileName, file);
-
-          clearInterval(progressInterval);
-
-          if (!error && data) {
-            const { data: urlData } = supabase.storage
-              .from('job-attachments')
-              .getPublicUrl(data.path);
-
-            // Set to 100% and update URL
-            setFileUploadProgress(prev => ({ ...prev, [base64]: 100 }));
-            
-            setTimeout(() => {
-              setDocuments(prev => prev.map(d => 
-                d.url === base64 ? { ...d, url: urlData.publicUrl } : d
-              ));
-              setFileUploadProgress(prev => {
-                const newProgress = { ...prev };
-                delete newProgress[base64];
-                return newProgress;
-              });
-            }, 500);
-          } else {
-            setFileUploadProgress(prev => {
-              const newProgress = { ...prev };
-              delete newProgress[base64];
-              return newProgress;
-            });
-          }
-        } else {
-          // Offline - mark as complete
-          setFileUploadProgress(prev => {
-            const newProgress = { ...prev };
-            delete newProgress[base64];
-            return newProgress;
-          });
-        }
+        // Update progress
+        const progress = Math.round(((i + batch.length) / uploadPromises.length) * 100);
+        setBatchUploadProgress(progress);
+        setBatchUploadStats({ completed: i + batch.length, total: uploadPromises.length });
       }
 
+      setDocuments(prev => [...prev, ...results]);
       setHasUnsavedChanges(true);
-
+      
       toast({
-        title: 'Files Added',
-        description: `${Array.from(files).length} file(s) ready to upload.`,
+        title: 'Files Uploaded',
+        description: `${results.length} file(s) uploaded successfully.`,
       });
     } catch (error) {
       console.error('File upload error:', error);
       toast({
         title: 'Upload Failed',
-        description: 'Failed to process files.',
+        description: 'Failed to upload files.',
         variant: 'destructive',
       });
     } finally {
       setUploadingFiles(false);
+      setBatchUploadProgress(0);
+      setBatchUploadStats({ completed: 0, total: 0 });
       e.target.value = '';
     }
   };
@@ -618,105 +636,41 @@ export const TeamJobDetail = ({
     setHasUnsavedChanges(true);
   };
 
-  // Handle video upload
+  // Optimized batch video upload
   const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
+    const fileArray = Array.from(files);
+    
+    if (!isOnline) {
+      toast({
+        title: 'Offline Mode',
+        description: 'Videos will be uploaded when you\'re back online.',
+        variant: 'destructive',
+      });
+      e.target.value = '';
+      return;
+    }
+
     setUploadingVideos(true);
+    
+    toast({
+      title: 'Uploading Videos',
+      description: `Processing ${fileArray.length} video(s)...`,
+    });
 
     try {
-      for (const file of Array.from(files)) {
-        const timestamp = Date.now();
-        const randomId = Math.random().toString(36).substring(2, 8);
-        const extension = file.name?.split('.').pop() || 'mp4';
-        const fileName = `${teamId}/${job.id}/videos/${timestamp}-${randomId}.${extension}`;
-
-        // Convert to base64 for immediate preview
-        const base64 = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
-
-        // Add preview immediately with progress
-        setVideos(prev => [...prev, base64]);
-        setVideoUploadProgress(prev => ({ ...prev, [base64]: 0 }));
-
-        // If online, upload and replace base64 with URL
-        if (isOnline) {
-          try {
-            // Simulate progress updates
-            const progressInterval = setInterval(() => {
-              setVideoUploadProgress(prev => ({
-                ...prev,
-                [base64]: Math.min((prev[base64] || 0) + 10, 90)
-              }));
-            }, 300);
-
-            const { data, error } = await supabase.storage
-              .from('job-attachments')
-              .upload(fileName, file);
-
-            clearInterval(progressInterval);
-
-            if (!error && data) {
-              const { data: urlData } = supabase.storage
-                .from('job-attachments')
-                .getPublicUrl(data.path);
-
-              // Set to 100% and update URL
-              setVideoUploadProgress(prev => ({ ...prev, [base64]: 100 }));
-
-              setTimeout(() => {
-                setVideos(prev => prev.map(v => v === base64 ? urlData.publicUrl : v));
-                setVideoUploadProgress(prev => {
-                  const newProgress = { ...prev };
-                  delete newProgress[base64];
-                  return newProgress;
-                });
-              }, 500);
-            } else {
-              setVideoUploadProgress(prev => {
-                const newProgress = { ...prev };
-                delete newProgress[base64];
-                return newProgress;
-              });
-            }
-          } catch (uploadError) {
-            console.error('Storage upload error, keeping base64:', uploadError);
-            setVideoUploadProgress(prev => {
-              const newProgress = { ...prev };
-              delete newProgress[base64];
-              return newProgress;
-            });
-          }
-        } else {
-          // Offline - mark as complete
-          setVideoUploadProgress(prev => {
-            const newProgress = { ...prev };
-            delete newProgress[base64];
-            return newProgress;
-          });
-        }
-      }
-
-      setHasUnsavedChanges(true);
-
-      toast({
-        title: 'Videos Added',
-        description: `${Array.from(files).length} video(s) uploaded.`,
-      });
+      await videoBatchUpload.processUploads(fileArray, 'videos');
     } catch (error) {
       console.error('Video upload error:', error);
       toast({
         title: 'Upload Failed',
-        description: 'Failed to process videos.',
+        description: 'Some videos failed to upload. Please try again.',
         variant: 'destructive',
       });
-    } finally {
       setUploadingVideos(false);
+    } finally {
       e.target.value = '';
     }
   };
@@ -1018,6 +972,22 @@ export const TeamJobDetail = ({
             <CollapsibleContent>
               <CardContent className="pt-0">
                 <div className="space-y-3">
+                  {/* Batch upload progress indicator */}
+                  {uploadingPhotos && batchUploadStats.total > 0 && (
+                    <div className="bg-primary/10 rounded-lg p-3 space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="font-medium text-primary">
+                          Uploading {batchUploadStats.completed} of {batchUploadStats.total} photos
+                        </span>
+                        <span className="text-primary font-medium">{batchUploadProgress}%</span>
+                      </div>
+                      <Progress value={batchUploadProgress} className="h-2" />
+                      <p className="text-xs text-muted-foreground">
+                        Please wait while photos are being uploaded...
+                      </p>
+                    </div>
+                  )}
+                  
                   <div className="flex gap-2">
                     {/* Camera capture button */}
                     <label className="flex-1 flex flex-col items-center justify-center h-20 border-2 border-dashed rounded-lg cursor-pointer bg-muted/50 hover:bg-muted transition-colors">
@@ -1041,7 +1011,7 @@ export const TeamJobDetail = ({
                       )}
                     </label>
                     
-                    {/* Gallery upload button */}
+                    {/* Gallery upload button - supports 60+ photos */}
                     <label className="flex-1 flex flex-col items-center justify-center h-20 border-2 border-dashed rounded-lg cursor-pointer bg-muted/50 hover:bg-muted transition-colors">
                       <input
                         type="file"
@@ -1064,42 +1034,64 @@ export const TeamJobDetail = ({
                     </label>
                   </div>
 
+                  {/* Show batch upload thumbnails during upload */}
+                  {photoBatchUpload.items.length > 0 && (
+                    <div className="grid grid-cols-4 gap-2 mb-2">
+                      {photoBatchUpload.items.map((item) => (
+                        <div key={item.id} className="relative aspect-square rounded-lg overflow-hidden bg-muted">
+                          {item.thumbnailUrl && (
+                            <img
+                              src={item.thumbnailUrl}
+                              alt="Uploading"
+                              className={`w-full h-full object-cover ${item.status === 'uploading' ? 'opacity-60' : ''}`}
+                            />
+                          )}
+                          {item.status === 'uploading' && (
+                            <div className="absolute inset-0 bg-background/70 flex flex-col items-center justify-center p-2">
+                              <Loader2 className="h-4 w-4 animate-spin text-primary mb-1" />
+                              <Progress value={item.progress} className="w-full h-1.5" />
+                              <span className="text-[10px] text-muted-foreground mt-1">{item.progress}%</span>
+                            </div>
+                          )}
+                          {item.status === 'complete' && (
+                            <div className="absolute inset-0 bg-success/20 flex items-center justify-center">
+                              <Check className="h-6 w-6 text-success" />
+                            </div>
+                          )}
+                          {item.status === 'error' && (
+                            <div className="absolute inset-0 bg-destructive/20 flex items-center justify-center">
+                              <AlertCircle className="h-6 w-6 text-destructive" />
+                            </div>
+                          )}
+                          {item.status === 'pending' && (
+                            <div className="absolute inset-0 bg-muted/50 flex items-center justify-center">
+                              <Clock className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   {allPhotos.length > 0 && (
                     <div className="grid grid-cols-4 gap-2">
                       {allPhotos.map((photo, index) => {
                         const isExisting = index < existingPhotos.length;
                         const newIndex = index - existingPhotos.length;
-                        const uploadProgress = photoUploadProgress[photo];
-                        const isUploading = uploadProgress !== undefined && uploadProgress < 100;
-                        const isComplete = uploadProgress === 100;
                         
                         return (
                           <div key={index} className="relative aspect-square rounded-lg overflow-hidden bg-muted group">
                             <img
                               src={photo}
                               alt={`${isExisting ? 'Saved' : 'New'} photo ${index + 1}`}
-                              className={`w-full h-full object-cover ${isUploading ? 'opacity-60' : ''}`}
+                              className="w-full h-full object-cover"
                             />
-                            {/* Upload progress overlay */}
-                            {isUploading && (
-                              <div className="absolute inset-0 bg-background/70 flex flex-col items-center justify-center p-2">
-                                <Loader2 className="h-4 w-4 animate-spin text-primary mb-1" />
-                                <Progress value={uploadProgress} className="w-full h-1.5" />
-                                <span className="text-[10px] text-muted-foreground mt-1">{uploadProgress}%</span>
-                              </div>
-                            )}
-                            {/* Complete checkmark */}
-                            {isComplete && (
-                              <div className="absolute inset-0 bg-success/20 flex items-center justify-center">
-                                <Check className="h-6 w-6 text-success" />
-                              </div>
-                            )}
                             {isExisting && (
                               <div className="absolute bottom-0 left-0 right-0 bg-success/80 text-success-foreground text-[10px] text-center py-0.5">
                                 Saved
                               </div>
                             )}
-                            {!isExisting && !isUploading && (
+                            {!isExisting && (
                               <button
                                 type="button"
                                 onClick={() => removePhoto(newIndex)}
@@ -1139,6 +1131,22 @@ export const TeamJobDetail = ({
             <CollapsibleContent>
               <CardContent className="pt-0">
                 <div className="space-y-3">
+                  {/* Batch upload progress indicator for videos */}
+                  {uploadingVideos && batchUploadStats.total > 0 && (
+                    <div className="bg-primary/10 rounded-lg p-3 space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="font-medium text-primary">
+                          Uploading {batchUploadStats.completed} of {batchUploadStats.total} videos
+                        </span>
+                        <span className="text-primary font-medium">{batchUploadProgress}%</span>
+                      </div>
+                      <Progress value={batchUploadProgress} className="h-2" />
+                      <p className="text-xs text-muted-foreground">
+                        Please wait while videos are being uploaded...
+                      </p>
+                    </div>
+                  )}
+                  
                   <div className="flex gap-2">
                     {/* Record video button */}
                     <label className="flex-1 flex flex-col items-center justify-center h-20 border-2 border-dashed rounded-lg cursor-pointer bg-muted/50 hover:bg-muted transition-colors">
@@ -1185,42 +1193,58 @@ export const TeamJobDetail = ({
                     </label>
                   </div>
 
+                  {/* Show batch upload items during upload */}
+                  {videoBatchUpload.items.length > 0 && (
+                    <div className="grid grid-cols-2 gap-2 mb-2">
+                      {videoBatchUpload.items.map((item) => (
+                        <div key={item.id} className="relative aspect-video rounded-lg overflow-hidden bg-muted flex items-center justify-center">
+                          <Video className="h-8 w-8 text-muted-foreground" />
+                          {item.status === 'uploading' && (
+                            <div className="absolute inset-0 bg-background/70 flex flex-col items-center justify-center p-3">
+                              <Loader2 className="h-5 w-5 animate-spin text-primary mb-2" />
+                              <Progress value={item.progress} className="w-full h-2" />
+                              <span className="text-xs text-muted-foreground mt-1">{item.progress}%</span>
+                            </div>
+                          )}
+                          {item.status === 'complete' && (
+                            <div className="absolute inset-0 bg-success/20 flex items-center justify-center">
+                              <Check className="h-8 w-8 text-success" />
+                            </div>
+                          )}
+                          {item.status === 'error' && (
+                            <div className="absolute inset-0 bg-destructive/20 flex items-center justify-center">
+                              <AlertCircle className="h-8 w-8 text-destructive" />
+                            </div>
+                          )}
+                          {item.status === 'pending' && (
+                            <div className="absolute inset-0 bg-muted/50 flex items-center justify-center">
+                              <Clock className="h-5 w-5 text-muted-foreground" />
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   {allVideos.length > 0 && (
                     <div className="grid grid-cols-2 gap-2">
                       {allVideos.map((video, index) => {
                         const isExisting = index < existingVideos.length;
                         const newIndex = index - existingVideos.length;
-                        const uploadProgress = videoUploadProgress[video];
-                        const isUploading = uploadProgress !== undefined && uploadProgress < 100;
-                        const isComplete = uploadProgress === 100;
                         
                         return (
                           <div key={index} className="relative aspect-video rounded-lg overflow-hidden bg-muted group">
                             <video
                               src={video}
-                              className={`w-full h-full object-cover ${isUploading ? 'opacity-60' : ''}`}
-                              controls={!isUploading}
+                              className="w-full h-full object-cover"
+                              controls
                             />
-                            {/* Upload progress overlay */}
-                            {isUploading && (
-                              <div className="absolute inset-0 bg-background/70 flex flex-col items-center justify-center p-3">
-                                <Loader2 className="h-5 w-5 animate-spin text-primary mb-2" />
-                                <Progress value={uploadProgress} className="w-full h-2" />
-                                <span className="text-xs text-muted-foreground mt-1">{uploadProgress}%</span>
-                              </div>
-                            )}
-                            {/* Complete checkmark */}
-                            {isComplete && (
-                              <div className="absolute inset-0 bg-success/20 flex items-center justify-center pointer-events-none">
-                                <Check className="h-8 w-8 text-success" />
-                              </div>
-                            )}
                             {isExisting && (
                               <div className="absolute bottom-0 left-0 right-0 bg-success/80 text-success-foreground text-[10px] text-center py-0.5">
                                 Saved
                               </div>
                             )}
-                            {!isExisting && !isUploading && (
+                            {!isExisting && (
                               <button
                                 type="button"
                                 onClick={() => removeVideo(newIndex)}
