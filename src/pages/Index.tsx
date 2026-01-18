@@ -28,6 +28,7 @@ import { useJobs } from '@/hooks/useJobs';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { useCategories } from '@/hooks/useCategories';
 import { useSignOffStatus } from '@/hooks/useSignOffStatus';
+import { useFuzzySearch } from '@/hooks/useFuzzySearch';
 import { extractPDFWithAI, extractImageWithAI } from '@/lib/api';
 import { extractTextFromPDF } from '@/lib/pdfUtils';
 import jsPDF from 'jspdf';
@@ -457,32 +458,8 @@ const Index = () => {
         if (jobMonthKey !== activeMonthFolder) return false;
       }
 
-      if (filters.search) {
-        const searchLower = filters.search.toLowerCase();
-        
-        // Search work items (SOR codes and descriptions)
-        const workItemsMatch = job.workItems?.some(item => 
-          item.sorCode?.toLowerCase().includes(searchLower) ||
-          item.description?.toLowerCase().includes(searchLower)
-        ) || job.additionalWorks?.some(item =>
-          item.sorCode?.toLowerCase().includes(searchLower) ||
-          item.description?.toLowerCase().includes(searchLower)
-        );
-        
-        const matchesSearch = 
-          job.jobNumber.toLowerCase().includes(searchLower) ||
-          job.name.toLowerCase().includes(searchLower) ||
-          job.address.toLowerCase().includes(searchLower) ||
-          job.description?.toLowerCase().includes(searchLower) ||
-          job.phoneNumber?.toLowerCase().includes(searchLower) ||
-          job.summaryOfWorks?.toLowerCase().includes(searchLower) ||
-          job.team?.toLowerCase().includes(searchLower) ||
-          job.team2?.toLowerCase().includes(searchLower) ||
-          job.bookingNotes?.toLowerCase().includes(searchLower) ||
-          job.progressNotes?.toLowerCase().includes(searchLower) ||
-          workItemsMatch;
-        if (!matchesSearch) return false;
-      }
+      // Search filtering is now handled by fuzzy search below
+      // Only filter here if no search term (fuzzy search handles the rest)
 
       // Phone number filter
       if (filters.phoneNumber) {
@@ -577,6 +554,16 @@ const Index = () => {
     return result;
   }, [jobs, filters, isFanCategory, activeMonthFolder, activeDatabaseTab, bookedSortOrder, completedSortOrder, selectedBookedDate, getSignOffStatus]);
 
+  // Apply fuzzy search on pre-filtered jobs
+  const { matches: fuzzyFilteredJobs, hasSearch } = useFuzzySearch(
+    filteredJobs,
+    filters.search,
+    { threshold: 0.35 }
+  );
+
+  // Use fuzzy results if search is active, otherwise use filtered jobs
+  const displayedJobs = hasSearch ? fuzzyFilteredJobs : filteredJobs;
+
   // Count booked jobs for badge (exclude completed)
   const bookedJobsCount = useMemo(() => {
     return jobs.filter(j => !!j.bookedDate && !j.isCompleted && j.progress !== 100).length;
@@ -634,10 +621,10 @@ const Index = () => {
     doc.text(isFanCategory ? 'Fans JOB REPORT' : `${activeCat?.name || 'ALLSAINTS'} JOB REPORT`, 14, 20);
     doc.setFontSize(10);
     doc.text(`Generated: ${format(new Date(), 'dd/MM/yyyy')}`, 14, 28);
-    doc.text(`Total Jobs: ${filteredJobs.length}`, 14, 34);
+    doc.text(`Total Jobs: ${displayedJobs.length}`, 14, 34);
 
     if (isFanCategory) {
-      const tableData = filteredJobs.map(job => [
+      const tableData = displayedJobs.map(job => [
         job.jobNumber,
         job.name,
         extractPhoneNumber(job) || '-',
@@ -662,7 +649,7 @@ const Index = () => {
         }
       });
     } else {
-      const tableData = filteredJobs.map(job => [
+      const tableData = displayedJobs.map(job => [
         job.jobNumber,
         job.name,
         job.address || '-',
@@ -692,7 +679,7 @@ const Index = () => {
     let excelData;
     
     if (isFanCategory) {
-      excelData = filteredJobs.map(job => ({
+      excelData = displayedJobs.map(job => ({
         'Job Number': job.jobNumber,
         'Name': job.name,
         'Phone': extractPhoneNumber(job),
@@ -708,7 +695,7 @@ const Index = () => {
         'Total Cost': `£${job.workItems.reduce((sum, w) => sum + w.cost, 0).toFixed(2)}`
       }));
     } else {
-      excelData = filteredJobs.map(job => ({
+      excelData = displayedJobs.map(job => ({
         'Job Number': job.jobNumber,
         'Name': job.name,
         'Address': job.address || '',
@@ -795,9 +782,9 @@ const Index = () => {
         {/* Compact Stats Row */}
         <div className="flex items-center justify-between gap-4 bg-section-stats rounded-lg p-3">
           {isFanCategory ? (
-            <FanStatsCards jobs={filteredJobs} />
+            <FanStatsCards jobs={displayedJobs} />
           ) : (
-            <StatsCards jobs={filteredJobs} allJobs={jobs} />
+            <StatsCards jobs={displayedJobs} allJobs={jobs} />
           )}
         </div>
 
@@ -958,7 +945,7 @@ const Index = () => {
                       : 'Jobs Database'}
               </h2>
               <p className="text-xs text-muted-foreground">
-                {filteredJobs.length} of {activeDatabaseTab === 'booked' ? bookedJobsCount : activeDatabaseTab === 'completed' ? completedJobsCount : jobs.length} jobs
+                {displayedJobs.length} of {activeDatabaseTab === 'booked' ? bookedJobsCount : activeDatabaseTab === 'completed' ? completedJobsCount : jobs.length} jobs
                 {activeMonthFolder && (
                   <span className="ml-1">
                     • Showing {format(new Date(activeMonthFolder + '-01'), 'MMMM yyyy')}
@@ -1026,7 +1013,7 @@ const Index = () => {
             <div className="flex-1 overflow-auto">
               {viewType === 'table' ? (
                 <JobTable 
-                  jobs={filteredJobs} 
+                  jobs={displayedJobs} 
                   onUpdateJob={canEdit ? handleUpdateJob : undefined}
                   onDeleteJob={canEdit ? handleDeleteJob : undefined}
                   onToggleComplete={canEdit ? handleToggleComplete : undefined}
@@ -1042,7 +1029,7 @@ const Index = () => {
                 />
               ) : viewType === 'kanban' ? (
                 <KanbanBoard
-                  jobs={filteredJobs}
+                  jobs={displayedJobs}
                   groupBy={kanbanGroupBy}
                   onJobClick={setSelectedJobForModal}
                   onToggleComplete={handleToggleComplete}
@@ -1050,7 +1037,7 @@ const Index = () => {
                 />
               ) : (
                 <CalendarView
-                  jobs={filteredJobs}
+                  jobs={displayedJobs}
                   onJobClick={setSelectedJobForModal}
                   onToggleComplete={handleToggleComplete}
                 />

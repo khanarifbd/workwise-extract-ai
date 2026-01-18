@@ -65,6 +65,10 @@ export const useJobs = (categoryId?: string) => {
   const editJob = async (id: string, updates: Partial<Job>) => {
     try {
       const currentJob = jobs.find(j => j.id === id);
+      if (!currentJob) {
+        throw new Error('Job not found in local state');
+      }
+      
       const previousTeam = currentJob?.team;
       const previousTeam2 = currentJob?.team2;
       const newTeam = updates.team;
@@ -83,8 +87,14 @@ export const useJobs = (categoryId?: string) => {
       // Check if status changed
       const isStatusChanged = 'status' in updates && newStatus && newStatus !== previousStatus;
       
-      const updated = await updateJob(id, updates);
-      setJobs(prev => prev.map(j => j.id === id ? updated : j));
+      // Optimistic update - immediately update local state for responsive UI
+      const optimisticJob = { ...currentJob, ...updates };
+      setJobs(prev => prev.map(j => j.id === id ? optimisticJob : j));
+      
+      try {
+        const updated = await updateJob(id, updates);
+        // Replace optimistic update with server response
+        setJobs(prev => prev.map(j => j.id === id ? updated : j));
       
       // Send push notification if primary team was just assigned
       if (isNewTeam1Assignment && newTeam) {
@@ -117,6 +127,11 @@ export const useJobs = (categoryId?: string) => {
       }
       
       return updated;
+      } catch (serverError) {
+        // Rollback optimistic update on server error
+        setJobs(prev => prev.map(j => j.id === id ? currentJob : j));
+        throw serverError;
+      }
     } catch (error) {
       console.error('Error updating job:', error);
       throw error;
