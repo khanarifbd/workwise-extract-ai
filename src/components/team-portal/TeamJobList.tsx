@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Job, JOB_STATUS_OPTIONS } from '@/types/job';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -27,11 +27,13 @@ import {
   Plus,
   ArrowUp,
   EyeOff,
+  Languages,
 } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useCapacitorPush } from '@/hooks/useCapacitorPush';
 import { useTeamSettings } from '@/hooks/useTeamSettings';
+import { useTranslation } from '@/hooks/useTranslation';
 import { TeamDiary } from './TeamDiary';
 import { LanguageSelector } from './LanguageSelector';
 import { RemoveJobConfirmModal } from './RemoveJobConfirmModal';
@@ -182,6 +184,61 @@ export const TeamJobList = ({
   const [teamFilter, setTeamFilter] = useState<string | null>(null);
   const [removingJobId, setRemovingJobId] = useState<string | null>(null);
   const [jobToRemove, setJobToRemove] = useState<Job | null>(null);
+  
+  // Translation hook for job summaries
+  const { translateToUserLanguage } = useTranslation(languagePreference);
+  const [translatedSummaries, setTranslatedSummaries] = useState<Record<string, string>>({});
+  const [isTranslatingList, setIsTranslatingList] = useState(false);
+  const translatedIdsRef = useRef<Set<string>>(new Set());
+  
+  // Clear translations when language changes
+  useEffect(() => {
+    setTranslatedSummaries({});
+    translatedIdsRef.current = new Set();
+  }, [languagePreference]);
+  
+  // Translate summaries for expanded jobs when they are expanded
+  useEffect(() => {
+    const translateExpandedJobSummaries = async () => {
+      if (languagePreference === 'en') {
+        return;
+      }
+      
+      // Only translate summaries for jobs that are expanded and not already translated
+      const expandedJobIds = Array.from(expandedJobs);
+      if (expandedJobIds.length === 0) return;
+      
+      const jobsToTranslate = jobs.filter(j => 
+        expandedJobIds.includes(j.id) && 
+        j.summaryOfWorks && 
+        !translatedIdsRef.current.has(j.id)
+      );
+      
+      if (jobsToTranslate.length === 0) return;
+      
+      setIsTranslatingList(true);
+      
+      for (const job of jobsToTranslate) {
+        if (job.summaryOfWorks) {
+          try {
+            // Mark as translating to prevent duplicate requests
+            translatedIdsRef.current.add(job.id);
+            
+            const translated = await translateToUserLanguage(job.summaryOfWorks);
+            setTranslatedSummaries(prev => ({ ...prev, [job.id]: translated }));
+          } catch (error) {
+            console.error('Translation error:', error);
+            // Remove from ref so it can be retried
+            translatedIdsRef.current.delete(job.id);
+          }
+        }
+      }
+      
+      setIsTranslatingList(false);
+    };
+    
+    translateExpandedJobSummaries();
+  }, [languagePreference, expandedJobs, jobs, translateToUserLanguage]);
 
   // Get team settings for color-coding
   const { settings: teamSettings } = useTeamSettings();
@@ -736,9 +793,19 @@ export const TeamJobList = ({
                                           </a>
                                         )}
                                         {job.summaryOfWorks && (
-                                          <p className="text-xs sm:text-sm text-muted-foreground mt-2 bg-muted/50 p-2 rounded">
-                                            {job.summaryOfWorks}
-                                          </p>
+                                          <div className="mt-2 bg-muted/50 p-2 rounded">
+                                            {isTranslatingList && !translatedSummaries[job.id] && languagePreference !== 'en' && (
+                                              <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
+                                                <Loader2 className="h-3 w-3 animate-spin" />
+                                                <span>Translating...</span>
+                                              </div>
+                                            )}
+                                            <p className="text-xs sm:text-sm text-muted-foreground">
+                                              {languagePreference !== 'en' && translatedSummaries[job.id]
+                                                ? translatedSummaries[job.id]
+                                                : job.summaryOfWorks}
+                                            </p>
+                                          </div>
                                         )}
                                         <div className="flex gap-2 mt-2">
                                           <Button className="flex-1" size="sm" onClick={() => onSelectJob(job)}>
@@ -998,9 +1065,19 @@ export const TeamJobList = ({
                                           </a>
                                         )}
                                         {job.summaryOfWorks && (
-                                          <p className="text-xs sm:text-sm text-muted-foreground mt-2 bg-muted/50 p-2 rounded">
-                                            {job.summaryOfWorks}
-                                          </p>
+                                          <div className="mt-2 bg-muted/50 p-2 rounded">
+                                            {isTranslatingList && !translatedSummaries[job.id] && languagePreference !== 'en' && (
+                                              <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
+                                                <Loader2 className="h-3 w-3 animate-spin" />
+                                                <span>Translating...</span>
+                                              </div>
+                                            )}
+                                            <p className="text-xs sm:text-sm text-muted-foreground">
+                                              {languagePreference !== 'en' && translatedSummaries[job.id]
+                                                ? translatedSummaries[job.id]
+                                                : job.summaryOfWorks}
+                                            </p>
+                                          </div>
                                         )}
                                         <div className="flex gap-2 mt-2">
                                           <Button className="flex-1" size="sm" onClick={() => onSelectJob(job)}>
@@ -1139,9 +1216,19 @@ export const TeamJobList = ({
                                           </a>
                                         )}
                                         {job.summaryOfWorks && (
-                                          <p className="text-xs sm:text-sm text-muted-foreground mt-2 bg-muted/50 p-2 rounded">
-                                            {job.summaryOfWorks}
-                                          </p>
+                                          <div className="mt-2 bg-muted/50 p-2 rounded">
+                                            {isTranslatingList && !translatedSummaries[job.id] && languagePreference !== 'en' && (
+                                              <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
+                                                <Loader2 className="h-3 w-3 animate-spin" />
+                                                <span>Translating...</span>
+                                              </div>
+                                            )}
+                                            <p className="text-xs sm:text-sm text-muted-foreground">
+                                              {languagePreference !== 'en' && translatedSummaries[job.id]
+                                                ? translatedSummaries[job.id]
+                                                : job.summaryOfWorks}
+                                            </p>
+                                          </div>
                                         )}
                                         <div className="flex gap-2 mt-2">
                                           <Button className="flex-1" size="sm" onClick={() => onSelectJob(job)}>
