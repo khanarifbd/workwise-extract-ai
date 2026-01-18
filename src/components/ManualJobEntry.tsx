@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, forwardRef } from 'react';
 import { PenLine, Loader2, Plus, Trash2, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -45,7 +45,7 @@ interface WorkItemEntry {
 // Get unique categories from SOR codes
 const SOR_CATEGORIES = [...new Set(SOR_CODES_DATABASE.map(code => code.category))].sort();
 
-export const ManualJobEntry = ({ onJobCreate, isOpen, onOpenChange }: ManualJobEntryProps) => {
+export const ManualJobEntry = forwardRef<HTMLDivElement, ManualJobEntryProps>(({ onJobCreate, isOpen, onOpenChange }, ref) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     jobNumber: '',
@@ -498,4 +498,6 @@ export const ManualJobEntry = ({ onJobCreate, isOpen, onOpenChange }: ManualJobE
       </DialogContent>
     </Dialog>
   );
-};
+});
+
+ManualJobEntry.displayName = 'ManualJobEntry';
