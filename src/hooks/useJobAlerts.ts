@@ -1,20 +1,22 @@
 import { useMemo } from 'react';
 import { Job } from '@/types/job';
-import { differenceInHours, isPast } from 'date-fns';
+import { getGMTNow, getHoursDifferenceGMT, isGMTPast } from '@/lib/dateUtils';
 
 interface JobAlertStatus {
-  isOverdue: boolean; // More than 24 hours past booked date without completion/sign-off
+  isOverdue: boolean; // More than 24 hours past booked date without completion/sign-off (GMT)
   isOngoing: boolean; // Manually marked as ongoing
   requiresAttention: boolean; // Either of the above
   hoursOverdue: number;
 }
 
 /**
- * Determines if a job should display the "Ongoing" alert badge.
+ * Determines if a job should display the "Ongoing" or "Overdue" alert badge.
+ * All time calculations are in GMT timezone.
+ * 
  * Conditions:
  * 1. Manually marked as isOngoing = true
- * 2. Auto-trigger: Job has a booked date, more than 24 hours have passed since booked date,
- *    job is not completed, not cancelled, and not rebooked to a future date.
+ * 2. Auto-trigger: Job has a booked date, more than 24 hours have passed since booked date (GMT),
+ *    job is not completed, not cancelled, and not signed off.
  */
 export const useJobAlerts = (
   jobs: Job[],
@@ -22,7 +24,7 @@ export const useJobAlerts = (
 ) => {
   const alertStatuses = useMemo(() => {
     const statuses: Record<string, JobAlertStatus> = {};
-    const now = new Date();
+    const now = getGMTNow();
 
     for (const job of jobs) {
       let isOverdue = false;
@@ -34,19 +36,20 @@ export const useJobAlerts = (
           ? job.bookedDate 
           : new Date(job.bookedDate);
         
-        // Calculate hours since booked date
-        hoursOverdue = differenceInHours(now, bookedDate);
+        // Calculate hours since booked date in GMT
+        hoursOverdue = getHoursDifferenceGMT(now, bookedDate);
 
         // Auto-trigger if:
+        // - Booked date is in the past (GMT)
         // - More than 24 hours past booked date
         // - Job is not completed
         // - Job is not signed off (if sign-off data available)
-        // - Job status is not cancelled/pause (rebook scenarios)
-        // - Booked date is in the past
-        const isOldBookedDate = isPast(bookedDate) && hoursOverdue > 24;
+        // - Job status is not cancelled/paused
+        const bookedDateGMT = new Date(bookedDate);
+        const isPastBookedDate = bookedDateGMT.getTime() < now.getTime();
+        const isOldBookedDate = isPastBookedDate && hoursOverdue > 24;
         const isNotComplete = !job.isCompleted && job.progress !== 100;
         const isNotCancelled = job.status !== 'pause' && job.status !== 'jan2026';
-        const hasNotBeenRebookedToFuture = !job.bookedDate || isPast(new Date(job.bookedDate));
         
         // Check sign-off status if available
         const signOffData = signOffStatuses?.[job.id];
@@ -90,7 +93,8 @@ export const useJobAlerts = (
 };
 
 /**
- * Standalone function to check if a single job should show ongoing alert
+ * Standalone function to check if a single job should show ongoing/overdue alert.
+ * All time calculations are in GMT timezone.
  */
 export const shouldShowOngoingAlert = (
   job: Job,
@@ -101,29 +105,40 @@ export const shouldShowOngoingAlert = (
     return { showAlert: true, isAutoTriggered: false, hoursOverdue: 0 };
   }
 
+  // Skip cancelled/paused jobs
+  if (job.status === 'pause' || job.status === 'jan2026') {
+    return { showAlert: false, isAutoTriggered: false, hoursOverdue: 0 };
+  }
+
+  // Skip completed jobs
+  if (job.isCompleted || job.progress === 100) {
+    return { showAlert: false, isAutoTriggered: false, hoursOverdue: 0 };
+  }
+
   // Check auto-trigger conditions
   if (!job.bookedDate) {
     return { showAlert: false, isAutoTriggered: false, hoursOverdue: 0 };
   }
 
-  const now = new Date();
+  const now = getGMTNow();
   const bookedDate = job.bookedDate instanceof Date 
     ? job.bookedDate 
     : new Date(job.bookedDate);
 
-  const hoursOverdue = differenceInHours(now, bookedDate);
+  if (isNaN(bookedDate.getTime())) {
+    return { showAlert: false, isAutoTriggered: false, hoursOverdue: 0 };
+  }
 
+  const hoursOverdue = getHoursDifferenceGMT(now, bookedDate);
+  
   // Auto-trigger if:
+  // - Booked date is in the past (GMT)
   // - More than 24 hours past booked date
-  // - Job is not completed
   // - Job is not signed off
-  // - Job status is not paused/cancelled
-  const isOverdue = hoursOverdue > 24;
-  const isNotComplete = !job.isCompleted && job.progress !== 100;
-  const isNotCancelled = job.status !== 'pause' && job.status !== 'jan2026';
-  const isPastDate = isPast(bookedDate);
-
-  const showAlert = isPastDate && isOverdue && isNotComplete && isNotCancelled && !isSignedOff;
+  const isPastDate = bookedDate.getTime() < now.getTime();
+  const isOverdue = isPastDate && hoursOverdue > 24;
+  
+  const showAlert = isOverdue && !isSignedOff;
 
   return {
     showAlert,
