@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ArrowLeft, MapPin, Phone, Calendar, Save, Camera, Upload, Loader2, CheckCircle2, Clock, FileText, ChevronDown, CheckSquare, AlertCircle, File, X, Image, Video, Square, CheckSquare2, Edit3, Check, Languages, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, MapPin, Phone, Calendar, Save, Camera, Upload, Loader2, CheckCircle2, Clock, FileText, ChevronDown, CheckSquare, AlertCircle, File, X, Image, Video, Square, CheckSquare2, Edit3, Check, Languages, AlertTriangle, Ban } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -987,17 +987,34 @@ export const TeamJobDetail = ({
             <CollapsibleContent>
               <CardContent className="pt-0">
                 <div className="space-y-3">
-                  {/* Batch upload progress indicator with compression status */}
+                  {/* Batch upload progress indicator with compression status and cancel button */}
                   {uploadingPhotos && batchUploadStats.total > 0 && (
                     <div className="bg-primary/10 rounded-lg p-3 space-y-2">
                       <div className="flex items-center justify-between text-sm">
                         <span className="font-medium text-primary">
-                          {photoBatchUpload.isCompressing 
-                            ? `Compressing ${batchUploadStats.total} photos...`
-                            : `Uploading ${batchUploadStats.completed} of ${batchUploadStats.total} photos`
+                          {photoBatchUpload.isCancelled
+                            ? 'Cancelling upload...'
+                            : photoBatchUpload.isCompressing 
+                              ? `Compressing ${batchUploadStats.total} photos...`
+                              : `Uploading ${batchUploadStats.completed} of ${batchUploadStats.total} photos`
                           }
                         </span>
-                        <span className="text-primary font-medium">{batchUploadProgress}%</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-primary font-medium">{batchUploadProgress}%</span>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            className="h-6 px-2 text-xs"
+                            onClick={() => {
+                              photoBatchUpload.cancelUploads();
+                              setUploadingPhotos(false);
+                            }}
+                            disabled={photoBatchUpload.isCancelled}
+                          >
+                            <Ban className="w-3 h-3 mr-1" />
+                            Cancel
+                          </Button>
+                        </div>
                       </div>
                       <Progress value={batchUploadProgress} className="h-2" />
                       {compressionSaved && (
@@ -1006,9 +1023,11 @@ export const TeamJobDetail = ({
                         </p>
                       )}
                       <p className="text-xs text-muted-foreground">
-                        {photoBatchUpload.isCompressing 
-                          ? 'Optimizing images to reduce upload size...'
-                          : 'Please wait while photos are being uploaded...'
+                        {photoBatchUpload.isCancelled
+                          ? 'Upload cancelled. Already uploaded photos will be kept.'
+                          : photoBatchUpload.isCompressing 
+                            ? 'Optimizing images to reduce upload size...'
+                            : 'Please wait while photos are being uploaded...'
                         }
                       </p>
                     </div>
@@ -1157,18 +1176,39 @@ export const TeamJobDetail = ({
             <CollapsibleContent>
               <CardContent className="pt-0">
                 <div className="space-y-3">
-                  {/* Batch upload progress indicator for videos */}
+                  {/* Batch upload progress indicator for videos with cancel button */}
                   {uploadingVideos && batchUploadStats.total > 0 && (
                     <div className="bg-primary/10 rounded-lg p-3 space-y-2">
                       <div className="flex items-center justify-between text-sm">
                         <span className="font-medium text-primary">
-                          Uploading {batchUploadStats.completed} of {batchUploadStats.total} videos
+                          {videoBatchUpload.isCancelled
+                            ? 'Cancelling upload...'
+                            : `Uploading ${batchUploadStats.completed} of ${batchUploadStats.total} videos`
+                          }
                         </span>
-                        <span className="text-primary font-medium">{batchUploadProgress}%</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-primary font-medium">{batchUploadProgress}%</span>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            className="h-6 px-2 text-xs"
+                            onClick={() => {
+                              videoBatchUpload.cancelUploads();
+                              setUploadingVideos(false);
+                            }}
+                            disabled={videoBatchUpload.isCancelled}
+                          >
+                            <Ban className="w-3 h-3 mr-1" />
+                            Cancel
+                          </Button>
+                        </div>
                       </div>
                       <Progress value={batchUploadProgress} className="h-2" />
                       <p className="text-xs text-muted-foreground">
-                        Please wait while videos are being uploaded...
+                        {videoBatchUpload.isCancelled
+                          ? 'Upload cancelled. Already uploaded videos will be kept.'
+                          : 'Please wait while videos are being uploaded...'
+                        }
                       </p>
                     </div>
                   )}

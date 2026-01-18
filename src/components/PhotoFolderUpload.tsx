@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Upload, FolderPlus, Image as ImageIcon, X, Loader2, Trash2, Edit2, Check, ChevronDown, ChevronRight } from 'lucide-react';
+import { Upload, FolderPlus, Image as ImageIcon, X, Loader2, Trash2, Edit2, Check, ChevronDown, ChevronRight, Ban, GripVertical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,19 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  DndContext,
+  DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
+  useSensor,
+  useSensors,
+  PointerSensor,
+  TouchSensor,
+  closestCenter,
+  useDroppable,
+  useDraggable,
+} from '@dnd-kit/core';
 
 interface PhotoFolder {
   id: string;
@@ -53,6 +66,7 @@ export const PhotoFolderUpload = ({
   const [folders, setFolders] = useState<PhotoFolder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState<string | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadStats, setUploadStats] = useState({ completed: 0, total: 0 });
   const [isCompressing, setIsCompressing] = useState(false);
@@ -63,9 +77,21 @@ export const PhotoFolderUpload = ({
   const [newFolderName, setNewFolderName] = useState('');
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [displayUrls, setDisplayUrls] = useState<Record<string, string>>({});
+  const [draggedPhoto, setDraggedPhoto] = useState<Attachment | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const activeFolderRef = useRef<string | null>(null);
   const { toast } = useToast();
+
+  // Drag and drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 250, tolerance: 5 },
+    })
+  );
 
   // Fetch folders for this job
   useEffect(() => {
@@ -254,6 +280,8 @@ export const PhotoFolderUpload = ({
     setUploadProgress(0);
     setUploadStats({ completed: 0, total: imageFiles.length });
     setCompressionSaved(null);
+    setIsCancelling(false);
+    abortControllerRef.current = new AbortController();
 
     try {
       // Step 1: Compress images (0-30% of progress)
@@ -286,10 +314,18 @@ export const PhotoFolderUpload = ({
       let completedCount = 0;
 
       for (let i = 0; i < compressedFiles.length; i += batchSize) {
+        // Check if cancelled
+        if (abortControllerRef.current?.signal.aborted) {
+          toast({ title: "Upload cancelled", description: `${newAttachments.length} photo(s) were uploaded before cancellation.` });
+          break;
+        }
+
         const batch = compressedFiles.slice(i, i + batchSize);
         
         const batchResults = await Promise.allSettled(
           batch.map(async (file) => {
+            if (abortControllerRef.current?.signal.aborted) return null;
+            
             const result = await uploadPhoto(file, folderId);
             if (!result) return null;
             
@@ -372,6 +408,28 @@ export const PhotoFolderUpload = ({
     fileInputRef.current?.click();
   };
 
+  const cancelUpload = () => {
+    abortControllerRef.current?.abort();
+    setIsCancelling(true);
+    toast({
+      title: "Cancelling upload...",
+      description: "Waiting for current uploads to finish.",
+    });
+    
+    // Reset after a short delay
+    setTimeout(() => {
+      setIsUploading(null);
+      setIsCompressing(false);
+      setUploadProgress(0);
+      setUploadStats({ completed: 0, total: 0 });
+      setIsCancelling(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      activeFolderRef.current = null;
+    }, 500);
+  };
+
   const toggleFolder = (folderId: string) => {
     setExpandedFolders(prev => {
       const next = new Set(prev);
@@ -399,6 +457,51 @@ export const PhotoFolderUpload = ({
     );
   };
 
+  // Handle drag start
+  const handleDragStart = (event: DragStartEvent) => {
+    const photoId = event.active.id as string;
+    const photo = attachments.find(a => a.id === photoId);
+    if (photo) {
+      setDraggedPhoto(photo);
+    }
+  };
+
+  // Handle drag end - move photo to new folder
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    setDraggedPhoto(null);
+
+    if (!over) return;
+
+    const photoId = active.id as string;
+    const targetFolderId = over.id as string;
+
+    // Find the photo
+    const photo = attachments.find(a => a.id === photoId);
+    if (!photo) return;
+
+    // Check if it's a valid folder target
+    const targetFolder = folders.find(f => f.id === targetFolderId);
+    if (!targetFolder) return;
+
+    // Check if photo is already in this folder
+    if ((photo as any).folderId === targetFolderId) return;
+
+    // Update the photo's folderId
+    const updatedAttachments = attachments.map(a => 
+      a.id === photoId
+        ? { ...a, folderId: targetFolderId } as Attachment & { folderId: string }
+        : a
+    );
+
+    onAttachmentsChange(updatedAttachments);
+    
+    toast({
+      title: "Photo moved",
+      description: `Moved to "${targetFolder.name}"`,
+    });
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -410,254 +513,415 @@ export const PhotoFolderUpload = ({
   const uncategorizedPhotos = getUncategorizedPhotos();
 
   return (
-    <div className="space-y-4">
-      {/* Hidden file input */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        multiple
-        onChange={handleFileSelect}
-        className="hidden"
-      />
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+    >
+      <div className="space-y-4">
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={handleFileSelect}
+          className="hidden"
+        />
 
-      {/* Header with create folder */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium text-muted-foreground">Photo Folders</h3>
-        {!readOnly && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowNewFolder(true)}
-            className="h-7 text-xs"
-          >
-            <FolderPlus className="w-3 h-3 mr-1" />
-            New Folder
-          </Button>
-        )}
-      </div>
-
-      {/* New folder input */}
-      {showNewFolder && (
-        <div className="flex items-center gap-2 p-2 border rounded-lg bg-muted/30">
-          <Input
-            value={newFolderName}
-            onChange={(e) => setNewFolderName(e.target.value)}
-            placeholder="Folder name..."
-            className="h-8 text-sm"
-            autoFocus
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') createFolder();
-              if (e.key === 'Escape') setShowNewFolder(false);
-            }}
-          />
-          <Button size="sm" className="h-8" onClick={createFolder}>
-            <Check className="w-4 h-4" />
-          </Button>
-          <Button size="sm" variant="ghost" className="h-8" onClick={() => setShowNewFolder(false)}>
-            <X className="w-4 h-4" />
-          </Button>
-        </div>
-      )}
-
-      {/* Folders list */}
-      <div className="space-y-3">
-        {folders.map((folder) => {
-          const photos = getFolderPhotos(folder.id);
-          const isExpanded = expandedFolders.has(folder.id);
-          const isEditing = editingFolder === folder.id;
-          const isUploadingToThis = isUploading === folder.id;
-
-          return (
-            <Collapsible 
-              key={folder.id} 
-              open={isExpanded}
-              onOpenChange={() => toggleFolder(folder.id)}
+        {/* Header with create folder */}
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-medium text-muted-foreground">
+            Photo Folders
+            {!readOnly && <span className="text-xs ml-2 opacity-60">(drag to reorganize)</span>}
+          </h3>
+          {!readOnly && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowNewFolder(true)}
+              className="h-7 text-xs"
             >
-              <div className="border rounded-lg overflow-hidden">
-                {/* Folder header */}
-                <CollapsibleTrigger asChild>
-                  <div className={cn(
-                    "flex items-center justify-between p-3 bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors",
-                    isExpanded && "border-b"
-                  )}>
-                    <div className="flex items-center gap-2">
-                      {isExpanded ? (
-                        <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                      ) : (
-                        <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                      )}
-                      {isEditing ? (
-                        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                          <Input
-                            value={editValue}
-                            onChange={(e) => setEditValue(e.target.value)}
-                            className="h-7 w-40 text-sm"
-                            autoFocus
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') updateFolderName(folder.id);
-                              if (e.key === 'Escape') setEditingFolder(null);
-                            }}
-                          />
-                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => updateFolderName(folder.id)}>
-                            <Check className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <span className="font-medium text-sm">{folder.name}</span>
-                      )}
-                      <Badge variant="secondary" className="text-xs">
-                        {photos.length}
-                      </Badge>
-                    </div>
-                    
-                    {!readOnly && !isEditing && (
-                      <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditValue(folder.name);
-                            setEditingFolder(folder.id);
-                          }}
-                        >
-                          <Edit2 className="w-3 h-3" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            triggerUpload(folder.id);
-                          }}
-                          disabled={isUploadingToThis}
-                        >
-                          {isUploadingToThis ? (
-                            <Loader2 className="w-3 h-3 animate-spin" />
-                          ) : (
-                            <Upload className="w-3 h-3" />
-                          )}
-                        </Button>
-                        {photos.length === 0 && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-destructive hover:text-destructive"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteFolder(folder.id);
-                            }}
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </CollapsibleTrigger>
+              <FolderPlus className="w-3 h-3 mr-1" />
+              New Folder
+            </Button>
+          )}
+        </div>
 
-                {/* Folder content */}
-                <CollapsibleContent>
-                  <div className="p-3">
-                    {/* Upload progress indicator */}
-                    {isUploadingToThis && uploadStats.total > 0 && (
-                      <div className="mb-3 bg-primary/10 rounded-lg p-3 space-y-2">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="font-medium text-primary">
-                            {isCompressing 
-                              ? `Compressing ${uploadStats.total} photos...`
-                              : `Uploading ${uploadStats.completed} of ${uploadStats.total}`
-                            }
-                          </span>
-                          <span className="text-primary font-medium">{uploadProgress}%</span>
-                        </div>
-                        <Progress value={uploadProgress} className="h-2" />
-                        {compressionSaved && (
-                          <p className="text-xs text-green-600 dark:text-green-400 font-medium">
-                            ✓ {compressionSaved} saved
-                          </p>
-                        )}
-                      </div>
-                    )}
-                    
-                    {photos.length === 0 && !isUploadingToThis ? (
-                      <div 
-                        className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:bg-muted/20 transition-colors"
-                        onClick={() => !readOnly && triggerUpload(folder.id)}
-                      >
-                        <ImageIcon className="w-8 h-8 mx-auto text-muted-foreground/50" />
-                        <p className="text-sm text-muted-foreground mt-2">
-                          {readOnly ? 'No photos in this folder' : 'Click to add photos (60+ supported)'}
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
-                        {photos.map((photo) => (
-                          <div
-                            key={photo.id}
-                            className="relative group aspect-square rounded-lg overflow-hidden border bg-muted"
-                          >
-                            <img
-                              src={displayUrls[photo.id] || photo.url}
-                              alt={photo.name}
-                              className="w-full h-full object-cover"
-                            />
-                            {!readOnly && (
-                              <button
-                                onClick={() => removePhoto(photo)}
-                                className="absolute top-1 right-1 p-1 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity"
-                              >
-                                <X className="w-3 h-3" />
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </CollapsibleContent>
-              </div>
-            </Collapsible>
-          );
-        })}
-      </div>
-
-      {/* Uncategorized photos */}
-      {uncategorizedPhotos.length > 0 && (
-        <div className="border rounded-lg p-3 bg-muted/20">
-          <div className="flex items-center gap-2 mb-3">
-            <ImageIcon className="w-4 h-4 text-muted-foreground" />
-            <span className="font-medium text-sm text-muted-foreground">Other Photos</span>
-            <Badge variant="secondary" className="text-xs">
-              {uncategorizedPhotos.length}
-            </Badge>
+        {/* New folder input */}
+        {showNewFolder && (
+          <div className="flex items-center gap-2 p-2 border rounded-lg bg-muted/30">
+            <Input
+              value={newFolderName}
+              onChange={(e) => setNewFolderName(e.target.value)}
+              placeholder="Folder name..."
+              className="h-8 text-sm"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') createFolder();
+                if (e.key === 'Escape') setShowNewFolder(false);
+              }}
+            />
+            <Button size="sm" className="h-8" onClick={createFolder}>
+              <Check className="w-4 h-4" />
+            </Button>
+            <Button size="sm" variant="ghost" className="h-8" onClick={() => setShowNewFolder(false)}>
+              <X className="w-4 h-4" />
+            </Button>
           </div>
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
-            {uncategorizedPhotos.map((photo) => (
-              <div
-                key={photo.id}
-                className="relative group aspect-square rounded-lg overflow-hidden border bg-muted"
-              >
-                <img
-                  src={displayUrls[photo.id] || photo.url}
-                  alt={photo.name}
-                  className="w-full h-full object-cover"
+        )}
+
+        {/* Folders list */}
+        <div className="space-y-3">
+          {folders.map((folder) => (
+            <DroppableFolderSection
+              key={folder.id}
+              folder={folder}
+              photos={getFolderPhotos(folder.id)}
+              isExpanded={expandedFolders.has(folder.id)}
+              isEditing={editingFolder === folder.id}
+              isUploadingToThis={isUploading === folder.id}
+              isCancelling={isCancelling}
+              uploadProgress={uploadProgress}
+              uploadStats={uploadStats}
+              isCompressing={isCompressing}
+              compressionSaved={compressionSaved}
+              editValue={editValue}
+              displayUrls={displayUrls}
+              readOnly={readOnly}
+              onToggleFolder={() => toggleFolder(folder.id)}
+              onEditFolder={(name) => {
+                setEditValue(name);
+                setEditingFolder(folder.id);
+              }}
+              onUpdateFolderName={() => updateFolderName(folder.id)}
+              onCancelEdit={() => setEditingFolder(null)}
+              onSetEditValue={setEditValue}
+              onTriggerUpload={() => triggerUpload(folder.id)}
+              onCancelUpload={cancelUpload}
+              onDeleteFolder={() => deleteFolder(folder.id)}
+              onRemovePhoto={removePhoto}
+            />
+          ))}
+        </div>
+
+        {/* Uncategorized photos with drag support */}
+        {uncategorizedPhotos.length > 0 && (
+          <div className="border rounded-lg p-3 bg-muted/20">
+            <div className="flex items-center gap-2 mb-3">
+              <ImageIcon className="w-4 h-4 text-muted-foreground" />
+              <span className="font-medium text-sm text-muted-foreground">Other Photos</span>
+              <Badge variant="secondary" className="text-xs">
+                {uncategorizedPhotos.length}
+              </Badge>
+            </div>
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+              {uncategorizedPhotos.map((photo) => (
+                <DraggablePhoto
+                  key={photo.id}
+                  photo={photo}
+                  displayUrl={displayUrls[photo.id] || photo.url}
+                  readOnly={readOnly}
+                  onRemove={() => removePhoto(photo)}
                 />
-                {!readOnly && (
-                  <button
-                    onClick={() => removePhoto(photo)}
-                    className="absolute top-1 right-1 p-1 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Drag overlay */}
+        <DragOverlay>
+          {draggedPhoto && (
+            <div className="aspect-square w-20 h-20 rounded-lg overflow-hidden border-2 border-primary shadow-lg">
+              <img
+                src={displayUrls[draggedPhoto.id] || draggedPhoto.url}
+                alt={draggedPhoto.name}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          )}
+        </DragOverlay>
+      </div>
+    </DndContext>
+  );
+};
+
+// Droppable folder section component
+interface DroppableFolderSectionProps {
+  folder: PhotoFolder;
+  photos: Attachment[];
+  isExpanded: boolean;
+  isEditing: boolean;
+  isUploadingToThis: boolean;
+  isCancelling: boolean;
+  uploadProgress: number;
+  uploadStats: { completed: number; total: number };
+  isCompressing: boolean;
+  compressionSaved: string | null;
+  editValue: string;
+  displayUrls: Record<string, string>;
+  readOnly: boolean;
+  onToggleFolder: () => void;
+  onEditFolder: (name: string) => void;
+  onUpdateFolderName: () => void;
+  onCancelEdit: () => void;
+  onSetEditValue: (value: string) => void;
+  onTriggerUpload: () => void;
+  onCancelUpload: () => void;
+  onDeleteFolder: () => void;
+  onRemovePhoto: (photo: Attachment) => void;
+}
+
+const DroppableFolderSection = ({
+  folder,
+  photos,
+  isExpanded,
+  isEditing,
+  isUploadingToThis,
+  isCancelling,
+  uploadProgress,
+  uploadStats,
+  isCompressing,
+  compressionSaved,
+  editValue,
+  displayUrls,
+  readOnly,
+  onToggleFolder,
+  onEditFolder,
+  onUpdateFolderName,
+  onCancelEdit,
+  onSetEditValue,
+  onTriggerUpload,
+  onCancelUpload,
+  onDeleteFolder,
+  onRemovePhoto,
+}: DroppableFolderSectionProps) => {
+  const { setNodeRef, isOver } = useDroppable({
+    id: folder.id,
+  });
+
+  return (
+    <Collapsible 
+      open={isExpanded}
+      onOpenChange={onToggleFolder}
+    >
+      <div 
+        ref={setNodeRef}
+        className={cn(
+          "border rounded-lg overflow-hidden transition-all",
+          isOver && "ring-2 ring-primary border-primary bg-primary/5"
+        )}
+      >
+        {/* Folder header */}
+        <CollapsibleTrigger asChild>
+          <div className={cn(
+            "flex items-center justify-between p-3 bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors",
+            isExpanded && "border-b"
+          )}>
+            <div className="flex items-center gap-2">
+              {isExpanded ? (
+                <ChevronDown className="w-4 h-4 text-muted-foreground" />
+              ) : (
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              )}
+              {isEditing ? (
+                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                  <Input
+                    value={editValue}
+                    onChange={(e) => onSetEditValue(e.target.value)}
+                    className="h-7 w-40 text-sm"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') onUpdateFolderName();
+                      if (e.key === 'Escape') onCancelEdit();
+                    }}
+                  />
+                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onUpdateFolderName}>
+                    <Check className="w-3 h-3" />
+                  </Button>
+                </div>
+              ) : (
+                <span className="font-medium text-sm">{folder.name}</span>
+              )}
+              <Badge variant="secondary" className="text-xs">
+                {photos.length}
+              </Badge>
+              {isOver && (
+                <Badge variant="default" className="text-xs animate-pulse">
+                  Drop here
+                </Badge>
+              )}
+            </div>
+            
+            {!readOnly && !isEditing && (
+              <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEditFolder(folder.name);
+                  }}
+                >
+                  <Edit2 className="w-3 h-3" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onTriggerUpload();
+                  }}
+                  disabled={isUploadingToThis}
+                >
+                  {isUploadingToThis ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Upload className="w-3 h-3" />
+                  )}
+                </Button>
+                {photos.length === 0 && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-destructive hover:text-destructive"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDeleteFolder();
+                    }}
                   >
-                    <X className="w-3 h-3" />
-                  </button>
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
                 )}
               </div>
-            ))}
+            )}
           </div>
+        </CollapsibleTrigger>
+
+        {/* Folder content */}
+        <CollapsibleContent>
+          <div className="p-3">
+            {/* Upload progress indicator with cancel button */}
+            {isUploadingToThis && uploadStats.total > 0 && (
+              <div className="mb-3 bg-primary/10 rounded-lg p-3 space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-medium text-primary">
+                    {isCancelling
+                      ? 'Cancelling...'
+                      : isCompressing 
+                        ? `Compressing ${uploadStats.total} photos...`
+                        : `Uploading ${uploadStats.completed} of ${uploadStats.total}`
+                    }
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-primary font-medium">{uploadProgress}%</span>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="h-6 px-2 text-xs"
+                      onClick={onCancelUpload}
+                      disabled={isCancelling}
+                    >
+                      <Ban className="w-3 h-3 mr-1" />
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+                <Progress value={uploadProgress} className="h-2" />
+                {compressionSaved && (
+                  <p className="text-xs text-green-600 dark:text-green-400 font-medium">
+                    ✓ {compressionSaved} saved
+                  </p>
+                )}
+              </div>
+            )}
+            
+            {photos.length === 0 && !isUploadingToThis ? (
+              <div 
+                className={cn(
+                  "border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:bg-muted/20 transition-colors",
+                  isOver && "border-primary bg-primary/5"
+                )}
+                onClick={() => !readOnly && onTriggerUpload()}
+              >
+                <ImageIcon className="w-8 h-8 mx-auto text-muted-foreground/50" />
+                <p className="text-sm text-muted-foreground mt-2">
+                  {readOnly ? 'No photos in this folder' : 'Click to add photos or drag here (60+ supported)'}
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                {photos.map((photo) => (
+                  <DraggablePhoto
+                    key={photo.id}
+                    photo={photo}
+                    displayUrl={displayUrls[photo.id] || photo.url}
+                    readOnly={readOnly}
+                    onRemove={() => onRemovePhoto(photo)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </CollapsibleContent>
+      </div>
+    </Collapsible>
+  );
+};
+
+// Draggable photo component
+interface DraggablePhotoProps {
+  photo: Attachment;
+  displayUrl: string;
+  readOnly: boolean;
+  onRemove: () => void;
+}
+
+const DraggablePhoto = ({ photo, displayUrl, readOnly, onRemove }: DraggablePhotoProps) => {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: photo.id,
+  });
+
+  const style = transform ? {
+    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+    zIndex: isDragging ? 50 : undefined,
+  } : undefined;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "relative group aspect-square rounded-lg overflow-hidden border bg-muted transition-all",
+        isDragging && "opacity-50 ring-2 ring-primary",
+        !readOnly && "cursor-grab active:cursor-grabbing"
+      )}
+    >
+      {!readOnly && (
+        <div 
+          {...attributes} 
+          {...listeners}
+          className="absolute top-1 left-1 p-1 rounded bg-background/80 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab z-10"
+        >
+          <GripVertical className="w-3 h-3 text-muted-foreground" />
         </div>
+      )}
+      <img
+        src={displayUrl}
+        alt={photo.name}
+        className="w-full h-full object-cover pointer-events-none"
+        draggable={false}
+      />
+      {!readOnly && (
+        <button
+          onClick={onRemove}
+          className="absolute top-1 right-1 p-1 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity z-10"
+        >
+          <X className="w-3 h-3" />
+        </button>
       )}
     </div>
   );

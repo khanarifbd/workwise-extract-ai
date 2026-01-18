@@ -5,7 +5,7 @@ import { compressImages, formatBytes, calculateSavings } from '@/lib/imageCompre
 interface UploadItem {
   id: string;
   file: File;
-  status: 'pending' | 'compressing' | 'uploading' | 'complete' | 'error';
+  status: 'pending' | 'compressing' | 'uploading' | 'complete' | 'error' | 'cancelled';
   progress: number;
   url?: string;
   error?: string;
@@ -24,6 +24,7 @@ interface UseBatchUploadOptions {
   onCompressionComplete?: (savedBytes: number, savedPercent: number) => void;
   onComplete?: (urls: string[]) => void;
   onError?: (error: string) => void;
+  onCancel?: () => void;
 }
 
 export const useBatchUpload = ({
@@ -38,10 +39,12 @@ export const useBatchUpload = ({
   onCompressionComplete,
   onComplete,
   onError,
+  onCancel,
 }: UseBatchUploadOptions) => {
   const [items, setItems] = useState<UploadItem[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
+  const [isCancelled, setIsCancelled] = useState(false);
   const [overallProgress, setOverallProgress] = useState(0);
   const [compressionStats, setCompressionStats] = useState<{ saved: number; percent: number } | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -96,6 +99,7 @@ export const useBatchUpload = ({
     if (files.length === 0) return [];
     
     setIsUploading(true);
+    setIsCancelled(false);
     setCompressionStats(null);
     abortControllerRef.current = new AbortController();
 
@@ -241,12 +245,24 @@ export const useBatchUpload = ({
   // Cancel all uploads
   const cancelUploads = useCallback(() => {
     abortControllerRef.current?.abort();
-    setIsUploading(false);
-    setIsCompressing(false);
-    setItems([]);
-    setOverallProgress(0);
-    setCompressionStats(null);
-  }, []);
+    setIsCancelled(true);
+    setItems(prev => prev.map(item => 
+      item.status === 'pending' || item.status === 'uploading' || item.status === 'compressing'
+        ? { ...item, status: 'cancelled' as const }
+        : item
+    ));
+    
+    // Clean up after a short delay to show cancelled state
+    setTimeout(() => {
+      setIsUploading(false);
+      setIsCompressing(false);
+      setItems([]);
+      setOverallProgress(0);
+      setCompressionStats(null);
+      setIsCancelled(false);
+      onCancel?.();
+    }, 500);
+  }, [onCancel]);
 
   // Reset state
   const reset = useCallback(() => {
@@ -267,6 +283,7 @@ export const useBatchUpload = ({
     items,
     isUploading,
     isCompressing,
+    isCancelled,
     overallProgress,
     compressionStats,
     processUploads,
