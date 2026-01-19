@@ -299,17 +299,29 @@ const TeamPortal = () => {
     bindPendingToken();
   }, [session?.teamId, toast, saveFcmTokenToTeam]);
 
-  // Load jobs when authenticated
+  // Load jobs when authenticated and refresh periodically
   useEffect(() => {
     if (isAuthenticated && session) {
       loadJobs();
+      
+      // Refresh jobs every 30 seconds to ensure data stays in sync
+      const refreshInterval = setInterval(() => {
+        if (isOnline) {
+          console.log('[TeamPortal] Auto-refreshing jobs...');
+          loadJobs();
+        }
+      }, 30000);
+      
+      return () => clearInterval(refreshInterval);
     }
-  }, [isAuthenticated, session]);
+  }, [isAuthenticated, session, isOnline]);
 
   // Sync when coming online
   useEffect(() => {
     if (isOnline && isAuthenticated) {
       syncPendingUpdates();
+      // Also reload jobs when coming back online
+      loadJobs();
     }
   }, [isOnline, isAuthenticated]);
 

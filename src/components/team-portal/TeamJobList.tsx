@@ -28,8 +28,9 @@ import {
   ArrowUp,
   EyeOff,
   Languages,
+  FolderOpen,
 } from 'lucide-react';
-import { format, parseISO, isValid } from 'date-fns';
+import { format, parseISO, isValid, isSameMonth, isSameDay, startOfMonth, isToday, isTomorrow, isYesterday } from 'date-fns';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useCapacitorPush } from '@/hooks/useCapacitorPush';
 import { useTeamSettings } from '@/hooks/useTeamSettings';
@@ -63,7 +64,24 @@ interface TeamJobListProps {
   onRemoveJob?: (jobId: string, jobNumber: string) => Promise<void>;
 }
 
-// Ops Manager ordering must match database ordering: group + sort by createdAt.
+// Interfaces for grouping
+interface MonthGroup {
+  monthKey: string;
+  monthLabel: string;
+  days: Map<string, Job[]>;
+  totalJobs: number;
+}
+
+// Get job booked date for regular team view
+const getJobBookedDate = (job: Job): Date | null => {
+  if (job.bookedDate) {
+    const date = new Date(job.bookedDate);
+    if (isValid(date)) return date;
+  }
+  return null;
+};
+
+// Get job created date for ops manager view
 const getJobGroupDate = (job: Job): Date => {
   const createdAt = job.createdAt instanceof Date ? job.createdAt : new Date(job.createdAt as any);
   if (isValid(createdAt)) return createdAt;
@@ -76,75 +94,125 @@ const getJobGroupDate = (job: Job): Date => {
   return new Date();
 };
 
-// Group jobs by booked date for regular team view
-const getJobBookedDate = (job: Job): Date | null => {
-  if (job.bookedDate) {
-    const date = new Date(job.bookedDate);
-    if (isValid(date)) return date;
-  }
-  return null;
-};
-
-const groupJobsByBookedDate = (jobs: Job[]): { grouped: Map<string, Job[]>, unscheduled: Job[] } => {
-  const groups = new Map<string, Job[]>();
+// Group jobs by month, then by day - for regular teams (by booked date)
+const groupJobsByMonthAndDay = (jobs: Job[]): { months: MonthGroup[], unscheduled: Job[] } => {
+  const monthMap = new Map<string, Map<string, Job[]>>();
   const unscheduled: Job[] = [];
 
   for (const job of jobs) {
     const bookedDate = getJobBookedDate(job);
     if (bookedDate) {
-      const dateKey = format(bookedDate, 'yyyy-MM-dd');
-      if (!groups.has(dateKey)) groups.set(dateKey, []);
-      groups.get(dateKey)!.push(job);
+      const monthKey = format(bookedDate, 'yyyy-MM');
+      const dayKey = format(bookedDate, 'yyyy-MM-dd');
+      
+      if (!monthMap.has(monthKey)) {
+        monthMap.set(monthKey, new Map());
+      }
+      const daysMap = monthMap.get(monthKey)!;
+      if (!daysMap.has(dayKey)) {
+        daysMap.set(dayKey, []);
+      }
+      daysMap.get(dayKey)!.push(job);
     } else {
       unscheduled.push(job);
     }
   }
 
-  // Sort each group by booked date time
-  for (const [key, group] of groups.entries()) {
-    group.sort((a, b) => {
-      const at = new Date(a.bookedDate!).getTime();
-      const bt = new Date(b.bookedDate!).getTime();
-      return at - bt;
-    });
-    groups.set(key, group);
+  // Sort jobs within each day by booked date time
+  for (const [_, daysMap] of monthMap.entries()) {
+    for (const [dayKey, dayJobs] of daysMap.entries()) {
+      dayJobs.sort((a, b) => {
+        const at = new Date(a.bookedDate!).getTime();
+        const bt = new Date(b.bookedDate!).getTime();
+        return at - bt;
+      });
+    }
   }
 
-  // Sort date keys chronologically (earliest first for upcoming work)
-  const sorted = new Map<string, Job[]>();
-  const sortedKeys = Array.from(groups.keys()).sort((a, b) => a.localeCompare(b));
-  for (const key of sortedKeys) sorted.set(key, groups.get(key)!);
+  // Convert to sorted array of MonthGroup
+  const months: MonthGroup[] = [];
+  const sortedMonthKeys = Array.from(monthMap.keys()).sort((a, b) => a.localeCompare(b));
+  
+  for (const monthKey of sortedMonthKeys) {
+    const daysMap = monthMap.get(monthKey)!;
+    const sortedDays = new Map<string, Job[]>();
+    const sortedDayKeys = Array.from(daysMap.keys()).sort((a, b) => a.localeCompare(b));
+    
+    let totalJobs = 0;
+    for (const dayKey of sortedDayKeys) {
+      const jobs = daysMap.get(dayKey)!;
+      sortedDays.set(dayKey, jobs);
+      totalJobs += jobs.length;
+    }
 
-  return { grouped: sorted, unscheduled };
+    const monthDate = parseISO(`${monthKey}-01`);
+    months.push({
+      monthKey,
+      monthLabel: format(monthDate, 'MMMM yyyy'),
+      days: sortedDays,
+      totalJobs,
+    });
+  }
+
+  return { months, unscheduled };
 };
 
-const groupJobsByCreatedDateDesc = (jobs: Job[]): Map<string, Job[]> => {
-  const groups = new Map<string, Job[]>();
+// Group jobs by month, then by day - for ops manager (by created date, descending)
+const groupJobsByMonthAndDayDesc = (jobs: Job[]): MonthGroup[] => {
+  const monthMap = new Map<string, Map<string, Job[]>>();
 
   for (const job of jobs) {
-    const d = getJobGroupDate(job);
-    const dateKey = format(d, 'yyyy-MM-dd');
-
-    if (!groups.has(dateKey)) groups.set(dateKey, []);
-    groups.get(dateKey)!.push(job);
+    const date = getJobGroupDate(job);
+    const monthKey = format(date, 'yyyy-MM');
+    const dayKey = format(date, 'yyyy-MM-dd');
+    
+    if (!monthMap.has(monthKey)) {
+      monthMap.set(monthKey, new Map());
+    }
+    const daysMap = monthMap.get(monthKey)!;
+    if (!daysMap.has(dayKey)) {
+      daysMap.set(dayKey, []);
+    }
+    daysMap.get(dayKey)!.push(job);
   }
 
-  // Sort each group newest -> oldest (createdAt)
-  for (const [key, group] of groups.entries()) {
-    group.sort((a, b) => {
-      const at = getJobGroupDate(a).getTime();
-      const bt = getJobGroupDate(b).getTime();
-      return bt - at;
+  // Sort jobs within each day by created date (newest first)
+  for (const [_, daysMap] of monthMap.entries()) {
+    for (const [dayKey, dayJobs] of daysMap.entries()) {
+      dayJobs.sort((a, b) => {
+        const at = getJobGroupDate(a).getTime();
+        const bt = getJobGroupDate(b).getTime();
+        return bt - at;
+      });
+    }
+  }
+
+  // Convert to sorted array of MonthGroup (newest first)
+  const months: MonthGroup[] = [];
+  const sortedMonthKeys = Array.from(monthMap.keys()).sort((a, b) => b.localeCompare(a));
+  
+  for (const monthKey of sortedMonthKeys) {
+    const daysMap = monthMap.get(monthKey)!;
+    const sortedDays = new Map<string, Job[]>();
+    const sortedDayKeys = Array.from(daysMap.keys()).sort((a, b) => b.localeCompare(a));
+    
+    let totalJobs = 0;
+    for (const dayKey of sortedDayKeys) {
+      const jobs = daysMap.get(dayKey)!;
+      sortedDays.set(dayKey, jobs);
+      totalJobs += jobs.length;
+    }
+
+    const monthDate = parseISO(`${monthKey}-01`);
+    months.push({
+      monthKey,
+      monthLabel: format(monthDate, 'MMMM yyyy'),
+      days: sortedDays,
+      totalJobs,
     });
-    groups.set(key, group);
   }
 
-  // Sort date keys newest -> oldest
-  const sorted = new Map<string, Job[]>();
-  const sortedKeys = Array.from(groups.keys()).sort((a, b) => b.localeCompare(a));
-  for (const key of sortedKeys) sorted.set(key, groups.get(key)!);
-
-  return sorted;
+  return months;
 };
 
 export const TeamJobList = ({
@@ -179,7 +247,8 @@ export const TeamJobList = ({
   } = useCapacitorPush(teamId);
 
   const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set());
-  const [expandedDateGroups, setExpandedDateGroups] = useState<Set<string>>(new Set());
+  const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set());
+  const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<'jobs' | 'diary' | 'workload'>('jobs');
   const [teamFilter, setTeamFilter] = useState<string | null>(null);
   const [removingJobId, setRemovingJobId] = useState<string | null>(null);
@@ -272,13 +341,25 @@ export const TeamJobList = ({
     });
   };
 
-  const toggleDateGroup = (dateKey: string) => {
-    setExpandedDateGroups(prev => {
+  const toggleMonth = (monthKey: string) => {
+    setExpandedMonths(prev => {
       const next = new Set(prev);
-      if (next.has(dateKey)) {
-        next.delete(dateKey);
+      if (next.has(monthKey)) {
+        next.delete(monthKey);
       } else {
-        next.add(dateKey);
+        next.add(monthKey);
+      }
+      return next;
+    });
+  };
+
+  const toggleDay = (dayKey: string) => {
+    setExpandedDays(prev => {
+      const next = new Set(prev);
+      if (next.has(dayKey)) {
+        next.delete(dayKey);
+      } else {
+        next.add(dayKey);
       }
       return next;
     });
@@ -338,79 +419,244 @@ export const TeamJobList = ({
   const completedJobs = filteredJobs.filter(j => j.isCompleted);
   const totalActiveJobs = jobs.filter(j => !j.isCompleted).length;
 
-  // Ops Manager: group by created date
+  // Grouped jobs by month/day
   const groupedActiveJobs = useMemo(() => {
-    if (!isOpsManager) return null;
-    return groupJobsByCreatedDateDesc(activeJobs);
+    if (isOpsManager) {
+      return groupJobsByMonthAndDayDesc(activeJobs);
+    } else {
+      return groupJobsByMonthAndDay(activeJobs).months;
+    }
   }, [isOpsManager, activeJobs]);
 
   const groupedCompletedJobs = useMemo(() => {
-    if (!isOpsManager) return null;
-    return groupJobsByCreatedDateDesc(completedJobs);
+    if (isOpsManager) {
+      return groupJobsByMonthAndDayDesc(completedJobs);
+    } else {
+      return groupJobsByMonthAndDay(completedJobs).months;
+    }
   }, [isOpsManager, completedJobs]);
 
-  // Regular team: group by booked date
-  const teamGroupedJobs = useMemo(() => {
-    if (isOpsManager) return null;
-    return groupJobsByBookedDate(activeJobs);
+  // Unscheduled jobs (only for regular teams)
+  const unscheduledJobs = useMemo(() => {
+    if (isOpsManager) return [];
+    return groupJobsByMonthAndDay(activeJobs).unscheduled;
   }, [isOpsManager, activeJobs]);
 
   const todayKey = format(new Date(), 'yyyy-MM-dd');
+  const currentMonthKey = format(new Date(), 'yyyy-MM');
   
-  // Get all date keys for expand/collapse functionality
-  const allActiveDateKeys = useMemo(() => {
-    if (isOpsManager && groupedActiveJobs) {
-      return Array.from(groupedActiveJobs.keys());
-    }
-    if (!isOpsManager && teamGroupedJobs) {
-      const keys = Array.from(teamGroupedJobs.grouped.keys());
-      if (teamGroupedJobs.unscheduled.length > 0) {
-        keys.push('unscheduled');
+  // Auto-expand current month and today on mount
+  useEffect(() => {
+    // Auto-expand current month
+    setExpandedMonths(new Set([currentMonthKey]));
+    // Auto-expand today
+    setExpandedDays(new Set([todayKey]));
+  }, [currentMonthKey, todayKey]);
+
+  // Get all keys for expand/collapse functionality
+  const allMonthKeys = useMemo(() => {
+    return groupedActiveJobs.map(m => m.monthKey);
+  }, [groupedActiveJobs]);
+
+  const allDayKeys = useMemo(() => {
+    const keys: string[] = [];
+    for (const month of groupedActiveJobs) {
+      for (const dayKey of month.days.keys()) {
+        keys.push(dayKey);
       }
-      return keys;
     }
-    return [];
-  }, [isOpsManager, groupedActiveJobs, teamGroupedJobs]);
+    if (unscheduledJobs.length > 0) {
+      keys.push('unscheduled');
+    }
+    return keys;
+  }, [groupedActiveJobs, unscheduledJobs]);
 
   // Expand/Collapse all
-  const expandAllDateGroups = useCallback(() => {
-    setExpandedDateGroups(new Set(allActiveDateKeys));
-  }, [allActiveDateKeys]);
+  const expandAllGroups = useCallback(() => {
+    setExpandedMonths(new Set(allMonthKeys));
+    setExpandedDays(new Set(allDayKeys));
+  }, [allMonthKeys, allDayKeys]);
 
-  const collapseAllDateGroups = useCallback(() => {
-    setExpandedDateGroups(new Set());
+  const collapseAllGroups = useCallback(() => {
+    setExpandedMonths(new Set());
+    setExpandedDays(new Set());
   }, []);
 
-  // Jump to today (expand only today)
+  // Jump to today (expand only current month and today)
   const jumpToToday = useCallback(() => {
-    if (allActiveDateKeys.includes(todayKey)) {
-      setExpandedDateGroups(new Set([todayKey]));
-    }
-  }, [allActiveDateKeys, todayKey]);
+    setExpandedMonths(new Set([currentMonthKey]));
+    setExpandedDays(new Set([todayKey]));
+  }, [currentMonthKey, todayKey]);
 
-  const formatDateHeader = (dateKey: string): string => {
+  const formatDayHeader = (dateKey: string): string => {
     try {
       const date = parseISO(dateKey);
-      const today = new Date();
-      const yesterday = new Date(today);
-      yesterday.setDate(yesterday.getDate() - 1);
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-
-      if (format(date, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd')) {
-        return 'Today';
+      
+      if (isToday(date)) {
+        return `Today - ${format(date, 'EEEE, d')}`;
       }
-      if (format(date, 'yyyy-MM-dd') === format(yesterday, 'yyyy-MM-dd')) {
-        return 'Yesterday';
+      if (isTomorrow(date)) {
+        return `Tomorrow - ${format(date, 'EEEE, d')}`;
       }
-      if (format(date, 'yyyy-MM-dd') === format(tomorrow, 'yyyy-MM-dd')) {
-        return 'Tomorrow';
+      if (isYesterday(date)) {
+        return `Yesterday - ${format(date, 'EEEE, d')}`;
       }
-      return format(date, 'EEEE, MMMM d, yyyy');
+      return format(date, 'EEEE, d');
     } catch {
       return dateKey;
     }
   };
+
+  const getDayBadgeStyle = (dateKey: string): string => {
+    try {
+      const date = parseISO(dateKey);
+      if (isToday(date)) {
+        return 'bg-primary text-primary-foreground';
+      }
+      if (isTomorrow(date)) {
+        return 'bg-blue-500 text-white';
+      }
+      return '';
+    } catch {
+      return '';
+    }
+  };
+
+  // Render a single job card
+  const renderJobCard = (job: Job, showTeamBadge: boolean = false) => (
+    <Collapsible key={job.id} open={expandedJobs.has(job.id)}>
+      <Card className="border-l-4 border-l-primary bg-card shadow-sm hover:shadow-md transition-all">
+        <CardContent className="p-0">
+          <div 
+            className="p-3 cursor-pointer active:bg-muted/50 transition-colors"
+            onClick={() => onSelectJob(job)}
+          >
+            <div className="flex items-start gap-2">
+              <CollapsibleTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 flex-shrink-0 -ml-1"
+                  onClick={(e) => toggleExpand(job.id, e)}
+                >
+                  {expandedJobs.has(job.id) ? (
+                    <ChevronDown className="h-4 w-4" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4" />
+                  )}
+                </Button>
+              </CollapsibleTrigger>
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-1 mb-1">
+                  <Badge variant="outline" className="text-[10px] font-mono px-1 py-0">
+                    {job.jobNumber}
+                  </Badge>
+                  <Badge 
+                    style={{ backgroundColor: getStatusColor(job.status), color: 'white' }}
+                    className="text-[10px] px-1 py-0"
+                  >
+                    {getStatusLabel(job.status)}
+                  </Badge>
+                  {job.isOngoing && (
+                    <Badge className="text-[10px] px-1 py-0 bg-amber-500 text-white">
+                      Ongoing
+                    </Badge>
+                  )}
+                  {showTeamBadge && job.team && (
+                    <Badge 
+                      className="text-[10px] px-1 py-0"
+                      style={getTeamColor(job.team) ? {
+                        backgroundColor: getTeamColor(job.team),
+                        color: getContrastTextColor(getTeamColor(job.team)!)
+                      } : undefined}
+                      variant={getTeamColor(job.team) ? undefined : "secondary"}
+                    >
+                      <Users className="h-2.5 w-2.5 mr-0.5" />
+                      {job.team}
+                    </Badge>
+                  )}
+                </div>
+                <h3 className="font-semibold text-sm text-foreground line-clamp-1">
+                  {job.name}
+                </h3>
+                <div className="mt-1.5">
+                  <div className="flex items-center justify-between text-[10px] mb-0.5">
+                    <span className="text-muted-foreground">Progress</span>
+                    <span className="font-medium">{job.progress}%</span>
+                  </div>
+                  <Progress value={job.progress} className="h-1" />
+                </div>
+              </div>
+            </div>
+          </div>
+          <CollapsibleContent>
+            <div className="px-3 pb-3 pt-0 space-y-2 border-t border-border/50">
+              <div className="pt-2 space-y-1.5">
+                {job.address && (
+                  <a 
+                    href={`https://maps.google.com/?q=${encodeURIComponent(job.address)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-start gap-1.5 text-xs text-primary hover:underline"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <MapPin className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                    <span className="line-clamp-2">{job.address}</span>
+                  </a>
+                )}
+                {job.phoneNumber && (
+                  <a 
+                    href={`tel:${job.phoneNumber}`}
+                    className="flex items-center gap-1.5 text-xs text-primary hover:underline"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Phone className="h-3 w-3" />
+                    <span>{job.phoneNumber}</span>
+                  </a>
+                )}
+                {job.summaryOfWorks && (
+                  <div className="mt-1.5 bg-muted/50 p-1.5 rounded">
+                    {isTranslatingList && !translatedSummaries[job.id] && languagePreference !== 'en' && (
+                      <div className="flex items-center gap-1 text-[10px] text-muted-foreground mb-0.5">
+                        <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                        <span>Translating...</span>
+                      </div>
+                    )}
+                    <p className="text-xs text-muted-foreground line-clamp-3">
+                      {languagePreference !== 'en' && translatedSummaries[job.id]
+                        ? translatedSummaries[job.id]
+                        : job.summaryOfWorks}
+                    </p>
+                  </div>
+                )}
+                <div className="flex gap-2 mt-2">
+                  <Button className="flex-1 h-8 text-xs" size="sm" onClick={() => onSelectJob(job)}>
+                    View & Update Job
+                  </Button>
+                  {onRemoveJob && !isOpsManager && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="h-8 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                      onClick={(e) => handleRemoveJobClick(job, e)}
+                      disabled={removingJobId === job.id}
+                    >
+                      {removingJobId === job.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <EyeOff className="h-3.5 w-3.5" />
+                      )}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </CollapsibleContent>
+        </CardContent>
+      </Card>
+    </Collapsible>
+  );
+
   return (
     <div className="pb-20 min-h-screen safe-area-bottom">
       {/* Header - Mobile optimized with iOS safe area */}
@@ -418,43 +664,43 @@ export const TeamJobList = ({
         "text-primary-foreground sticky top-0 z-10 shadow-md safe-area-top safe-area-left safe-area-right",
         isOpsManager ? "bg-gradient-to-r from-amber-600 to-orange-600" : "bg-primary"
       )}>
-        <div className="px-4 py-3 sm:py-4">
+        <div className="px-3 py-2.5">
           <div className="flex items-center justify-between">
             <div className="min-w-0 flex-1">
               {isOpsManager ? (
                 <div className="flex items-center gap-2">
-                  <Crown className="h-5 w-5 text-yellow-300 flex-shrink-0" />
+                  <Crown className="h-4 w-4 text-yellow-300 flex-shrink-0" />
                   <div>
-                    <h1 className="text-lg sm:text-xl font-bold truncate">Operations Manager</h1>
-                    <p className="text-primary-foreground/80 text-xs sm:text-sm">
-                      {totalActiveJobs} active job{totalActiveJobs !== 1 ? 's'  : ''} across all teams
+                    <h1 className="text-base font-bold truncate">Operations Manager</h1>
+                    <p className="text-primary-foreground/80 text-xs">
+                      {totalActiveJobs} active job{totalActiveJobs !== 1 ? 's' : ''} across all teams
                     </p>
                   </div>
                 </div>
               ) : (
                 <>
-                  <h1 className="text-lg sm:text-xl font-bold truncate">Team {teamName}</h1>
-                  <p className="text-primary-foreground/80 text-xs sm:text-sm">
+                  <h1 className="text-base font-bold truncate">Team {teamName}</h1>
+                  <p className="text-primary-foreground/80 text-xs">
                     {activeJobs.length} active job{activeJobs.length !== 1 ? 's' : ''}
                   </p>
                 </>
               )}
             </div>
-            <div className="flex gap-1 sm:gap-2 flex-shrink-0">
+            <div className="flex gap-1 flex-shrink-0">
               {/* Native Push (Capacitor - Android/iOS) */}
               {nativePushSupported && (
                 <Button
                   variant="secondary"
                   size="icon"
-                  className="h-9 w-9 sm:h-10 sm:w-10"
+                  className="h-8 w-8"
                   onClick={() => nativePushRegistered ? nativeUnregister() : nativeRegister()}
                   disabled={nativePushLoading}
                   title={nativePushRegistered ? 'Disable push notifications' : 'Enable push notifications'}
                 >
                   {nativePushRegistered ? (
-                    <Smartphone className="h-4 w-4 text-green-600" />
+                    <Smartphone className="h-3.5 w-3.5 text-green-600" />
                   ) : (
-                    <Smartphone className="h-4 w-4" />
+                    <Smartphone className="h-3.5 w-3.5" />
                   )}
                 </Button>
               )}
@@ -463,39 +709,39 @@ export const TeamJobList = ({
                 <Button
                   variant="secondary"
                   size="icon"
-                  className="h-9 w-9 sm:h-10 sm:w-10"
+                  className="h-8 w-8"
                   onClick={() => webPushSubscribed ? webUnsubscribe() : webSubscribe()}
                   disabled={webPushLoading}
                   title={webPushSubscribed ? 'Disable notifications' : 'Enable notifications'}
                 >
                   {webPushSubscribed ? (
-                    <Bell className="h-4 w-4" />
+                    <Bell className="h-3.5 w-3.5" />
                   ) : (
-                    <BellOff className="h-4 w-4" />
+                    <BellOff className="h-3.5 w-3.5" />
                   )}
                 </Button>
               )}
               <Button
                 variant="secondary"
                 size="icon"
-                className="h-9 w-9 sm:h-10 sm:w-10"
+                className="h-8 w-8"
                 onClick={onRefresh}
                 disabled={isLoading}
               >
-                <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} />
               </Button>
               <Button
                 variant="secondary"
                 size="icon"
-                className="h-9 w-9 sm:h-10 sm:w-10"
+                className="h-8 w-8"
                 onClick={onLogout}
               >
-                <LogOut className="h-4 w-4" />
+                <LogOut className="h-3.5 w-3.5" />
               </Button>
             </div>
           </div>
           {/* Language Selector Row */}
-          <div className="flex justify-end pt-2 border-t border-primary-foreground/20 mt-2">
+          <div className="flex justify-end pt-1.5 border-t border-primary-foreground/20 mt-1.5">
             <LanguageSelector
               currentLanguage={languagePreference}
               onLanguageChange={onLanguageChange}
@@ -506,29 +752,29 @@ export const TeamJobList = ({
 
       {/* Tabs for Jobs, Diary and Workload */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'jobs' | 'diary' | 'workload')} className="w-full">
-        <div className="border-b border-border bg-background sticky top-[calc(68px+env(safe-area-inset-top,0px))] z-[5] safe-area-left safe-area-right">
+        <div className="border-b border-border bg-background sticky top-[calc(60px+env(safe-area-inset-top,0px))] z-[5] safe-area-left safe-area-right">
           <TabsList className="w-full justify-start rounded-none h-auto p-0 bg-transparent">
             <TabsTrigger 
               value="jobs" 
-              className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-3"
+              className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-2.5 text-xs"
             >
-              <Briefcase className="h-4 w-4 mr-2" />
+              <Briefcase className="h-3.5 w-3.5 mr-1.5" />
               Jobs ({activeJobs.length})
             </TabsTrigger>
             {isOpsManager && (
               <TabsTrigger 
                 value="workload" 
-                className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-3"
+                className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-2.5 text-xs"
               >
-                <Users className="h-4 w-4 mr-2" />
+                <Users className="h-3.5 w-3.5 mr-1.5" />
                 Teams
               </TabsTrigger>
             )}
             <TabsTrigger 
               value="diary" 
-              className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-3"
+              className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-2.5 text-xs"
             >
-              <CalendarDays className="h-4 w-4 mr-2" />
+              <CalendarDays className="h-3.5 w-3.5 mr-1.5" />
               {isOpsManager ? 'All Teams' : 'My Diary'}
             </TabsTrigger>
           </TabsList>
@@ -536,9 +782,9 @@ export const TeamJobList = ({
 
         {/* Team Workload Tab (Ops Manager only) */}
         {isOpsManager && (
-          <TabsContent value="workload" className="p-3 sm:p-4 mt-0">
-            <div className="space-y-3">
-              <h2 className="text-xs sm:text-sm font-semibold text-muted-foreground uppercase tracking-wider px-1">
+          <TabsContent value="workload" className="p-3 mt-0">
+            <div className="space-y-2">
+              <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
                 Team Workload
               </h2>
               {teamFilter && (
@@ -546,13 +792,13 @@ export const TeamJobList = ({
                   variant="outline" 
                   size="sm" 
                   onClick={() => { setTeamFilter(null); setActiveTab('jobs'); }} 
-                  className="mb-2"
+                  className="mb-2 h-7 text-xs"
                 >
                   <Minus className="h-3 w-3 mr-1" />
                   Clear filter: {teamFilter}
                 </Button>
               )}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 {Array.from(teamWorkloadCounts.entries()).map(([team, counts]) => {
                   const teamColor = getTeamColor(team);
                   return (
@@ -562,34 +808,34 @@ export const TeamJobList = ({
                         "cursor-pointer hover:opacity-90 transition-all overflow-hidden",
                         teamFilter === team && "ring-2 ring-primary"
                       )}
-                      style={teamColor ? { borderLeftWidth: '4px', borderLeftColor: teamColor } : undefined}
+                      style={teamColor ? { borderLeftWidth: '3px', borderLeftColor: teamColor } : undefined}
                       onClick={() => { setTeamFilter(team); setActiveTab('jobs'); }}
                     >
-                      <CardContent className="p-3 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
+                      <CardContent className="p-2 flex flex-col gap-1">
+                        <div className="flex items-center gap-1.5">
                           <div 
-                            className="h-6 w-6 rounded-full flex items-center justify-center flex-shrink-0"
+                            className="h-5 w-5 rounded-full flex items-center justify-center flex-shrink-0"
                             style={{ 
                               backgroundColor: teamColor || 'hsl(var(--muted))',
                               color: teamColor ? getContrastTextColor(teamColor) : 'hsl(var(--muted-foreground))'
                             }}
                           >
-                            <Users className="h-3.5 w-3.5" />
+                            <Users className="h-3 w-3" />
                           </div>
-                          <span className="font-medium text-sm truncate">{team}</span>
+                          <span className="font-medium text-xs truncate">{team}</span>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex gap-1">
                           <Badge 
-                            className="text-xs"
+                            className="text-[10px] px-1"
                             style={teamColor ? { 
                               backgroundColor: teamColor, 
                               color: getContrastTextColor(teamColor) 
                             } : undefined}
                           >
-                            {counts.active} active
+                            {counts.active}
                           </Badge>
-                          <Badge variant="secondary" className="text-xs">
-                            {counts.completed} done
+                          <Badge variant="secondary" className="text-[10px] px-1">
+                            ✓{counts.completed}
                           </Badge>
                         </div>
                       </CardContent>
@@ -601,704 +847,254 @@ export const TeamJobList = ({
           </TabsContent>
         )}
 
-        <TabsContent value="diary" className="p-3 sm:p-4 mt-0">
+        <TabsContent value="diary" className="p-3 mt-0">
           <TeamDiary teamId={teamId} teamName={teamName} />
         </TabsContent>
 
         <TabsContent value="jobs" className="mt-0">
-          {/* Job List - Mobile optimized */}
-          <div className="p-3 sm:p-4 space-y-3">
-            {/* Ops Manager: Team filter indicator + expand/collapse controls */}
-            {isOpsManager && (
-              <div className="flex flex-wrap items-center gap-2 mb-2">
-                {teamFilter && (
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => setTeamFilter(null)} 
-                    className="text-xs"
-                  >
-                    <Minus className="h-3 w-3 mr-1" />
-                    {teamFilter}
-                  </Button>
-                )}
-                <div className="flex-1" />
-                <Button variant="ghost" size="sm" onClick={expandAllDateGroups} className="text-xs h-7 px-2">
-                  <Plus className="h-3 w-3 mr-1" />
-                  Expand All
-                </Button>
-                <Button variant="ghost" size="sm" onClick={collapseAllDateGroups} className="text-xs h-7 px-2">
+          {/* Job List - Mobile optimized with month/day grouping */}
+          <div className="p-3 space-y-2">
+            {/* Controls */}
+            <div className="flex flex-wrap items-center gap-1.5 mb-2">
+              {teamFilter && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setTeamFilter(null)} 
+                  className="text-xs h-7 px-2"
+                >
                   <Minus className="h-3 w-3 mr-1" />
-                  Collapse
+                  {teamFilter}
                 </Button>
-                {allActiveDateKeys.includes(todayKey) && (
-                  <Button variant="ghost" size="sm" onClick={jumpToToday} className="text-xs h-7 px-2">
-                    <ArrowUp className="h-3 w-3 mr-1" />
-                    Today
-                  </Button>
-                )}
-              </div>
-            )}
+              )}
+              <div className="flex-1" />
+              <Button variant="ghost" size="sm" onClick={expandAllGroups} className="text-xs h-6 px-2">
+                <Plus className="h-3 w-3 mr-0.5" />
+                All
+              </Button>
+              <Button variant="ghost" size="sm" onClick={collapseAllGroups} className="text-xs h-6 px-2">
+                <Minus className="h-3 w-3 mr-0.5" />
+                Close
+              </Button>
+              <Button variant="ghost" size="sm" onClick={jumpToToday} className="text-xs h-6 px-2">
+                <ArrowUp className="h-3 w-3 mr-0.5" />
+                Today
+              </Button>
+            </div>
 
             {isLoading && jobs.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
-                <p className="text-muted-foreground">Loading jobs...</p>
+                <p className="text-muted-foreground text-sm">Loading jobs...</p>
               </div>
             ) : filteredJobs.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12">
-                <Briefcase className="h-12 w-12 text-muted-foreground/50 mb-4" />
-                <p className="text-lg font-medium text-muted-foreground">
+                <Briefcase className="h-10 w-10 text-muted-foreground/50 mb-3" />
+                <p className="text-base font-medium text-muted-foreground">
                   {teamFilter ? `No jobs for ${teamFilter}` : 'No jobs assigned'}
                 </p>
-                <p className="text-sm text-muted-foreground/80 text-center px-4">
+                <p className="text-xs text-muted-foreground/80 text-center px-4">
                   {teamFilter ? 'Try clearing the filter' : 'Jobs assigned to your team will appear here'}
                 </p>
                 {teamFilter && (
-                  <Button variant="outline" size="sm" className="mt-3" onClick={() => setTeamFilter(null)}>
+                  <Button variant="outline" size="sm" className="mt-3 h-7 text-xs" onClick={() => setTeamFilter(null)}>
                     Clear Filter
                   </Button>
                 )}
               </div>
-            ) : isOpsManager && groupedActiveJobs ? (
+            ) : (
               <>
-                {/* Ops Manager View - Jobs grouped by date in collapsible sections */}
+                {/* Active Jobs - Grouped by Month then Day */}
                 {activeJobs.length > 0 && (
                   <div className="space-y-2">
-                    <h2 className="text-xs sm:text-sm font-semibold text-muted-foreground uppercase tracking-wider px-1">
-                      Active Jobs ({activeJobs.length})
-                    </h2>
-                    {Array.from(groupedActiveJobs.entries()).map(([dateKey, dateJobs]) => (
-                      <Collapsible 
-                        key={dateKey} 
-                        open={expandedDateGroups.has(dateKey)}
-                        onOpenChange={() => toggleDateGroup(dateKey)}
-                      >
-                        <CollapsibleTrigger asChild>
-                          <Card className="cursor-pointer hover:bg-muted/50 transition-colors">
-                            <CardContent className="p-3 flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                {expandedDateGroups.has(dateKey) ? (
-                                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                                ) : (
-                                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                                )}
-                                <CalendarDays className="h-4 w-4 text-primary" />
-                                <span className="font-medium text-sm">{formatDateHeader(dateKey)}</span>
-                              </div>
-                              <Badge variant="secondary" className="text-xs">
-                                {dateJobs.length} job{dateJobs.length !== 1 ? 's' : ''}
-                              </Badge>
-                            </CardContent>
-                          </Card>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent className="space-y-2 mt-2 ml-2 border-l-2 border-primary/20 pl-2">
-                          {dateJobs.map((job) => (
-                            <Collapsible key={job.id} open={expandedJobs.has(job.id)}>
-                              <Card className="border-l-4 border-l-primary bg-card shadow-md hover:shadow-lg transition-all">
-                                <CardContent className="p-0">
-                                  <div 
-                                    className="p-3 sm:p-4 cursor-pointer active:bg-muted/50 transition-colors"
-                                    onClick={() => onSelectJob(job)}
-                                  >
-                                    <div className="flex items-start gap-2 sm:gap-3">
-                                      <CollapsibleTrigger asChild>
-                                        <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          className="h-8 w-8 flex-shrink-0 -ml-1"
-                                          onClick={(e) => toggleExpand(job.id, e)}
-                                        >
-                                          {expandedJobs.has(job.id) ? (
-                                            <ChevronDown className="h-4 w-4" />
-                                          ) : (
-                                            <ChevronRight className="h-4 w-4" />
-                                          )}
-                                        </Button>
-                                      </CollapsibleTrigger>
-                                      <div className="flex-1 min-w-0">
-                                        <div className="flex flex-wrap items-center gap-1.5 mb-1">
-                                          <Badge variant="outline" className="text-xs font-mono px-1.5 py-0">
-                                            {job.jobNumber}
-                                          </Badge>
-                                          <Badge 
-                                            style={{ backgroundColor: getStatusColor(job.status), color: 'white' }}
-                                            className="text-xs px-1.5 py-0"
-                                          >
-                                            {getStatusLabel(job.status)}
-                                          </Badge>
-                                          {job.team && (
-                                            <Badge 
-                                              className="text-xs px-1.5 py-0"
-                                              style={getTeamColor(job.team) ? {
-                                                backgroundColor: getTeamColor(job.team),
-                                                color: getContrastTextColor(getTeamColor(job.team)!)
-                                              } : undefined}
-                                              variant={getTeamColor(job.team) ? undefined : "secondary"}
-                                            >
-                                              <Users className="h-3 w-3 mr-1" />
-                                              {job.team}
-                                            </Badge>
-                                          )}
-                                          {job.team2 && (
-                                            <Badge 
-                                              className="text-xs px-1.5 py-0"
-                                              style={getTeamColor(job.team2) ? {
-                                                backgroundColor: getTeamColor(job.team2),
-                                                color: getContrastTextColor(getTeamColor(job.team2)!)
-                                              } : undefined}
-                                              variant={getTeamColor(job.team2) ? undefined : "secondary"}
-                                            >
-                                              <Users className="h-3 w-3 mr-1" />
-                                              {job.team2}
-                                            </Badge>
-                                          )}
-                                        </div>
-                                        <h3 className="font-semibold text-sm sm:text-base text-foreground line-clamp-2">
-                                          {job.name}
-                                        </h3>
-                                        <div className="mt-2">
-                                          <div className="flex items-center justify-between text-xs mb-1">
-                                            <span className="text-muted-foreground">Progress</span>
-                                            <span className="font-medium">{job.progress}%</span>
-                                          </div>
-                                          <Progress value={job.progress} className="h-1.5 sm:h-2" />
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                  <CollapsibleContent>
-                                    <div className="px-3 sm:px-4 pb-3 sm:pb-4 pt-0 space-y-2 border-t border-border/50">
-                                      <div className="pt-3 space-y-2">
-                                        {job.address && (
-                                          <a 
-                                            href={`https://maps.google.com/?q=${encodeURIComponent(job.address)}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="flex items-start gap-2 text-xs sm:text-sm text-primary hover:underline"
-                                            onClick={(e) => e.stopPropagation()}
-                                          >
-                                            <MapPin className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
-                                            <span className="line-clamp-2">{job.address}</span>
-                                          </a>
-                                        )}
-                                        {job.phoneNumber && (
-                                          <a 
-                                            href={`tel:${job.phoneNumber}`}
-                                            className="flex items-center gap-2 text-xs sm:text-sm text-primary hover:underline"
-                                            onClick={(e) => e.stopPropagation()}
-                                          >
-                                            <Phone className="h-3.5 w-3.5" />
-                                            <span>{job.phoneNumber}</span>
-                                          </a>
-                                        )}
-                                        {job.summaryOfWorks && (
-                                          <div className="mt-2 bg-muted/50 p-2 rounded">
-                                            {isTranslatingList && !translatedSummaries[job.id] && languagePreference !== 'en' && (
-                                              <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
-                                                <Loader2 className="h-3 w-3 animate-spin" />
-                                                <span>Translating...</span>
-                                              </div>
-                                            )}
-                                            <p className="text-xs sm:text-sm text-muted-foreground">
-                                              {languagePreference !== 'en' && translatedSummaries[job.id]
-                                                ? translatedSummaries[job.id]
-                                                : job.summaryOfWorks}
-                                            </p>
-                                          </div>
-                                        )}
-                                        <div className="flex gap-2 mt-2">
-                                          <Button className="flex-1" size="sm" onClick={() => onSelectJob(job)}>
-                                            View & Update Job
-                                          </Button>
-                                          {onRemoveJob && !isOpsManager && (
-                                            <Button 
-                                              variant="outline" 
-                                              size="sm" 
-                                              className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                                              onClick={(e) => handleRemoveJobClick(job, e)}
-                                              disabled={removingJobId === job.id}
-                                            >
-                                              {removingJobId === job.id ? (
-                                                <Loader2 className="h-4 w-4 animate-spin" />
-                                              ) : (
-                                                <EyeOff className="h-4 w-4" />
-                                              )}
-                                            </Button>
-                                          )}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </CollapsibleContent>
-                                </CardContent>
-                              </Card>
-                            </Collapsible>
-                          ))}
-                        </CollapsibleContent>
-                      </Collapsible>
-                    ))}
-                  </div>
-                )}
-
-                {/* Completed Jobs - Grouped by date */}
-                {completedJobs.length > 0 && groupedCompletedJobs && (
-                  <div className="space-y-2 mt-6">
-                    <h2 className="text-xs sm:text-sm font-semibold text-muted-foreground uppercase tracking-wider px-1">
-                      Completed ({completedJobs.length})
-                    </h2>
-                    {Array.from(groupedCompletedJobs.entries()).slice(0, 5).map(([dateKey, dateJobs]) => (
-                      <Collapsible 
-                        key={`completed-${dateKey}`} 
-                        open={expandedDateGroups.has(`completed-${dateKey}`)}
-                        onOpenChange={() => toggleDateGroup(`completed-${dateKey}`)}
-                      >
-                        <CollapsibleTrigger asChild>
-                          <Card className="cursor-pointer hover:bg-success/10 transition-colors opacity-80">
-                            <CardContent className="p-3 flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                {expandedDateGroups.has(`completed-${dateKey}`) ? (
-                                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                                ) : (
-                                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                                )}
-                                <CalendarDays className="h-4 w-4 text-success" />
-                                <span className="font-medium text-sm">{formatDateHeader(dateKey)}</span>
-                              </div>
-                              <Badge className="text-xs bg-success text-success-foreground">
-                                {dateJobs.length} completed
-                              </Badge>
-                            </CardContent>
-                          </Card>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent className="space-y-2 mt-2 ml-2 border-l-2 border-success/20 pl-2">
-                          {dateJobs.map((job) => (
-                            <Card 
-                              key={job.id}
-                              className="border-l-4 border-l-success bg-success/5 opacity-80 hover:opacity-100 transition-all cursor-pointer"
-                              onClick={() => onSelectJob(job)}
-                            >
-                              <CardContent className="p-3">
-                                <div className="flex flex-wrap items-center gap-1.5 mb-1">
-                                  <Badge variant="outline" className="text-xs font-mono px-1.5 py-0">
-                                    {job.jobNumber}
-                                  </Badge>
-                                  <Badge className="text-xs px-1.5 py-0 bg-success text-success-foreground">
-                                    Complete
-                                  </Badge>
-                                  {job.team && (
-                                    <Badge 
-                                      className="text-xs px-1.5 py-0"
-                                      style={getTeamColor(job.team) ? {
-                                        backgroundColor: getTeamColor(job.team),
-                                        color: getContrastTextColor(getTeamColor(job.team)!)
-                                      } : undefined}
-                                      variant={getTeamColor(job.team) ? undefined : "secondary"}
-                                    >
-                                      <Users className="h-3 w-3 mr-1" />
-                                      {job.team}
-                                    </Badge>
-                                  )}
-                                  {job.team2 && (
-                                    <Badge 
-                                      className="text-xs px-1.5 py-0"
-                                      style={getTeamColor(job.team2) ? {
-                                        backgroundColor: getTeamColor(job.team2),
-                                        color: getContrastTextColor(getTeamColor(job.team2)!)
-                                      } : undefined}
-                                      variant={getTeamColor(job.team2) ? undefined : "secondary"}
-                                    >
-                                      <Users className="h-3 w-3 mr-1" />
-                                      {job.team2}
-                                    </Badge>
-                                  )}
-                                </div>
-                                <h3 className="font-medium text-sm text-foreground truncate">{job.name}</h3>
-                              </CardContent>
-                            </Card>
-                          ))}
-                        </CollapsibleContent>
-                      </Collapsible>
-                    ))}
-                  </div>
-                )}
-              </>
-            ) : teamGroupedJobs ? (
-              <>
-                {/* Regular Team View - Jobs grouped by booked date */}
-                {/* Expand/Collapse controls for regular team */}
-                {activeJobs.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-2 mb-2">
-                    <div className="flex-1" />
-                    <Button variant="ghost" size="sm" onClick={expandAllDateGroups} className="text-xs h-7 px-2">
-                      <Plus className="h-3 w-3 mr-1" />
-                      Expand All
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={collapseAllDateGroups} className="text-xs h-7 px-2">
-                      <Minus className="h-3 w-3 mr-1" />
-                      Collapse
-                    </Button>
-                    {allActiveDateKeys.includes(todayKey) && (
-                      <Button variant="ghost" size="sm" onClick={jumpToToday} className="text-xs h-7 px-2">
-                        <ArrowUp className="h-3 w-3 mr-1" />
-                        Today
-                      </Button>
-                    )}
-                  </div>
-                )}
-
-                {activeJobs.length > 0 && (
-                  <div className="space-y-2">
-                    <h2 className="text-xs sm:text-sm font-semibold text-muted-foreground uppercase tracking-wider px-1">
+                    <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
                       Active Jobs ({activeJobs.length})
                     </h2>
                     
-                    {/* Jobs grouped by booked date */}
-                    {Array.from(teamGroupedJobs.grouped.entries()).map(([dateKey, dateJobs]) => (
+                    {/* Month groups */}
+                    {groupedActiveJobs.map((monthGroup) => (
                       <Collapsible 
-                        key={dateKey} 
-                        open={expandedDateGroups.has(dateKey)}
-                        onOpenChange={() => toggleDateGroup(dateKey)}
+                        key={monthGroup.monthKey} 
+                        open={expandedMonths.has(monthGroup.monthKey)}
+                        onOpenChange={() => toggleMonth(monthGroup.monthKey)}
                       >
                         <CollapsibleTrigger asChild>
-                          <Card className="cursor-pointer hover:bg-muted/50 transition-colors">
-                            <CardContent className="p-3 flex items-center justify-between">
+                          <Card className="cursor-pointer hover:bg-muted/50 transition-colors bg-primary/5 border-primary/20">
+                            <CardContent className="p-2.5 flex items-center justify-between">
                               <div className="flex items-center gap-2">
-                                {expandedDateGroups.has(dateKey) ? (
-                                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                {expandedMonths.has(monthGroup.monthKey) ? (
+                                  <ChevronDown className="h-4 w-4 text-primary" />
                                 ) : (
-                                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                  <ChevronRight className="h-4 w-4 text-primary" />
                                 )}
-                                <Calendar className="h-4 w-4 text-primary" />
-                                <span className="font-medium text-sm">{formatDateHeader(dateKey)}</span>
+                                <FolderOpen className="h-4 w-4 text-primary" />
+                                <span className="font-semibold text-sm">{monthGroup.monthLabel}</span>
                               </div>
-                              <Badge variant="secondary" className="text-xs">
-                                {dateJobs.length} job{dateJobs.length !== 1 ? 's' : ''}
+                              <Badge className="text-xs bg-primary/20 text-primary hover:bg-primary/20">
+                                {monthGroup.totalJobs} job{monthGroup.totalJobs !== 1 ? 's' : ''}
                               </Badge>
                             </CardContent>
                           </Card>
                         </CollapsibleTrigger>
-                        <CollapsibleContent className="space-y-2 mt-2 ml-2 border-l-2 border-primary/20 pl-2">
-                          {dateJobs.map((job) => (
-                            <Collapsible key={job.id} open={expandedJobs.has(job.id)}>
-                              <Card className="border-l-4 border-l-primary bg-card shadow-md hover:shadow-lg transition-all">
-                                <CardContent className="p-0">
-                                  <div 
-                                    className="p-3 sm:p-4 cursor-pointer active:bg-muted/50 transition-colors"
-                                    onClick={() => onSelectJob(job)}
-                                  >
-                                    <div className="flex items-start gap-2 sm:gap-3">
-                                      <CollapsibleTrigger asChild>
-                                        <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          className="h-8 w-8 flex-shrink-0 -ml-1"
-                                          onClick={(e) => toggleExpand(job.id, e)}
-                                        >
-                                          {expandedJobs.has(job.id) ? (
-                                            <ChevronDown className="h-4 w-4" />
-                                          ) : (
-                                            <ChevronRight className="h-4 w-4" />
-                                          )}
-                                        </Button>
-                                      </CollapsibleTrigger>
-                                      <div className="flex-1 min-w-0">
-                                        <div className="flex flex-wrap items-center gap-1.5 mb-1">
-                                          <Badge variant="outline" className="text-xs font-mono px-1.5 py-0">
-                                            {job.jobNumber}
-                                          </Badge>
-                                          <Badge 
-                                            style={{ backgroundColor: getStatusColor(job.status), color: 'white' }}
-                                            className="text-xs px-1.5 py-0"
-                                          >
-                                            {getStatusLabel(job.status)}
-                                          </Badge>
-                                          {job.isOngoing && (
-                                            <Badge className="text-xs px-1.5 py-0 bg-amber-500 text-white">
-                                              Ongoing
-                                            </Badge>
-                                          )}
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                          <h3 className="font-semibold text-sm sm:text-base text-foreground line-clamp-1">
-                                            {job.name}
-                                          </h3>
-                                          {job.bookedDate && (
-                                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 flex-shrink-0 bg-primary/10">
-                                              <Calendar className="h-3 w-3 mr-1" />
-                                              {format(new Date(job.bookedDate), 'EEE d MMM')}
-                                            </Badge>
-                                          )}
-                                        </div>
-                                        <div className="mt-2">
-                                          <div className="flex items-center justify-between text-xs mb-1">
-                                            <span className="text-muted-foreground">Progress</span>
-                                            <span className="font-medium">{job.progress}%</span>
-                                          </div>
-                                          <Progress value={job.progress} className="h-1.5 sm:h-2" />
-                                        </div>
-                                      </div>
+                        <CollapsibleContent className="space-y-1.5 mt-1.5 ml-2 border-l-2 border-primary/30 pl-2">
+                          {/* Day groups within month */}
+                          {Array.from(monthGroup.days.entries()).map(([dayKey, dayJobs]) => (
+                            <Collapsible 
+                              key={dayKey} 
+                              open={expandedDays.has(dayKey)}
+                              onOpenChange={() => toggleDay(dayKey)}
+                            >
+                              <CollapsibleTrigger asChild>
+                                <Card className={cn(
+                                  "cursor-pointer hover:bg-muted/50 transition-colors",
+                                  isToday(parseISO(dayKey)) && "bg-primary/10 border-primary/30"
+                                )}>
+                                  <CardContent className="p-2 flex items-center justify-between">
+                                    <div className="flex items-center gap-1.5">
+                                      {expandedDays.has(dayKey) ? (
+                                        <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                                      ) : (
+                                        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                                      )}
+                                      <Calendar className="h-3.5 w-3.5 text-primary" />
+                                      <span className="font-medium text-xs">{formatDayHeader(dayKey)}</span>
                                     </div>
-                                  </div>
-                                  <CollapsibleContent>
-                                    <div className="px-3 sm:px-4 pb-3 sm:pb-4 pt-0 space-y-2 border-t border-border/50">
-                                      <div className="pt-3 space-y-2">
-                                        {job.address && (
-                                          <a 
-                                            href={`https://maps.google.com/?q=${encodeURIComponent(job.address)}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="flex items-start gap-2 text-xs sm:text-sm text-primary hover:underline"
-                                            onClick={(e) => e.stopPropagation()}
-                                          >
-                                            <MapPin className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
-                                            <span className="line-clamp-2">{job.address}</span>
-                                          </a>
-                                        )}
-                                        {job.phoneNumber && (
-                                          <a 
-                                            href={`tel:${job.phoneNumber}`}
-                                            className="flex items-center gap-2 text-xs sm:text-sm text-primary hover:underline"
-                                            onClick={(e) => e.stopPropagation()}
-                                          >
-                                            <Phone className="h-3.5 w-3.5" />
-                                            <span>{job.phoneNumber}</span>
-                                          </a>
-                                        )}
-                                        {job.summaryOfWorks && (
-                                          <div className="mt-2 bg-muted/50 p-2 rounded">
-                                            {isTranslatingList && !translatedSummaries[job.id] && languagePreference !== 'en' && (
-                                              <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
-                                                <Loader2 className="h-3 w-3 animate-spin" />
-                                                <span>Translating...</span>
-                                              </div>
-                                            )}
-                                            <p className="text-xs sm:text-sm text-muted-foreground">
-                                              {languagePreference !== 'en' && translatedSummaries[job.id]
-                                                ? translatedSummaries[job.id]
-                                                : job.summaryOfWorks}
-                                            </p>
-                                          </div>
-                                        )}
-                                        <div className="flex gap-2 mt-2">
-                                          <Button className="flex-1" size="sm" onClick={() => onSelectJob(job)}>
-                                            View & Update Job
-                                          </Button>
-                                          {onRemoveJob && !isOpsManager && (
-                                            <Button 
-                                              variant="outline" 
-                                              size="sm" 
-                                              className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                                            onClick={(e) => handleRemoveJobClick(job, e)}
-                                              disabled={removingJobId === job.id}
-                                            >
-                                              {removingJobId === job.id ? (
-                                                <Loader2 className="h-4 w-4 animate-spin" />
-                                              ) : (
-                                                <EyeOff className="h-4 w-4" />
-                                              )}
-                                            </Button>
-                                          )}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </CollapsibleContent>
-                                </CardContent>
-                              </Card>
+                                    <Badge 
+                                      variant="secondary" 
+                                      className={cn("text-[10px] px-1.5", getDayBadgeStyle(dayKey))}
+                                    >
+                                      {dayJobs.length}
+                                    </Badge>
+                                  </CardContent>
+                                </Card>
+                              </CollapsibleTrigger>
+                              <CollapsibleContent className="space-y-1.5 mt-1.5 ml-2 border-l border-muted pl-2">
+                                {dayJobs.map((job) => renderJobCard(job, isOpsManager))}
+                              </CollapsibleContent>
                             </Collapsible>
                           ))}
                         </CollapsibleContent>
                       </Collapsible>
                     ))}
 
-                    {/* Unscheduled jobs section */}
-                    {teamGroupedJobs.unscheduled.length > 0 && (
+                    {/* Unscheduled jobs section (for regular teams) */}
+                    {unscheduledJobs.length > 0 && (
                       <Collapsible 
-                        open={expandedDateGroups.has('unscheduled')}
-                        onOpenChange={() => toggleDateGroup('unscheduled')}
+                        open={expandedDays.has('unscheduled')}
+                        onOpenChange={() => toggleDay('unscheduled')}
                       >
                         <CollapsibleTrigger asChild>
                           <Card className="cursor-pointer hover:bg-muted/50 transition-colors border-dashed">
-                            <CardContent className="p-3 flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                {expandedDateGroups.has('unscheduled') ? (
-                                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                            <CardContent className="p-2 flex items-center justify-between">
+                              <div className="flex items-center gap-1.5">
+                                {expandedDays.has('unscheduled') ? (
+                                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
                                 ) : (
-                                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
                                 )}
-                                <Briefcase className="h-4 w-4 text-muted-foreground" />
-                                <span className="font-medium text-sm text-muted-foreground">Unscheduled</span>
+                                <Briefcase className="h-3.5 w-3.5 text-muted-foreground" />
+                                <span className="font-medium text-xs text-muted-foreground">Unscheduled</span>
                               </div>
-                              <Badge variant="outline" className="text-xs">
-                                {teamGroupedJobs.unscheduled.length} job{teamGroupedJobs.unscheduled.length !== 1 ? 's' : ''}
+                              <Badge variant="outline" className="text-[10px] px-1.5">
+                                {unscheduledJobs.length}
                               </Badge>
                             </CardContent>
                           </Card>
                         </CollapsibleTrigger>
-                        <CollapsibleContent className="space-y-2 mt-2 ml-2 border-l-2 border-muted/40 pl-2">
-                          {teamGroupedJobs.unscheduled.map((job) => (
-                            <Collapsible key={job.id} open={expandedJobs.has(job.id)}>
-                              <Card className="border-l-4 border-l-muted bg-card shadow-md hover:shadow-lg transition-all">
-                                <CardContent className="p-0">
-                                  <div 
-                                    className="p-3 sm:p-4 cursor-pointer active:bg-muted/50 transition-colors"
-                                    onClick={() => onSelectJob(job)}
-                                  >
-                                    <div className="flex items-start gap-2 sm:gap-3">
-                                      <CollapsibleTrigger asChild>
-                                        <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          className="h-8 w-8 flex-shrink-0 -ml-1"
-                                          onClick={(e) => toggleExpand(job.id, e)}
-                                        >
-                                          {expandedJobs.has(job.id) ? (
-                                            <ChevronDown className="h-4 w-4" />
-                                          ) : (
-                                            <ChevronRight className="h-4 w-4" />
-                                          )}
-                                        </Button>
-                                      </CollapsibleTrigger>
-                                      <div className="flex-1 min-w-0">
-                                        <div className="flex flex-wrap items-center gap-1.5 mb-1">
-                                          <Badge variant="outline" className="text-xs font-mono px-1.5 py-0">
-                                            {job.jobNumber}
-                                          </Badge>
-                                          <Badge 
-                                            style={{ backgroundColor: getStatusColor(job.status), color: 'white' }}
-                                            className="text-xs px-1.5 py-0"
-                                          >
-                                            {getStatusLabel(job.status)}
-                                          </Badge>
-                                          {job.isOngoing && (
-                                            <Badge className="text-xs px-1.5 py-0 bg-amber-500 text-white">
-                                              Ongoing
-                                            </Badge>
-                                          )}
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                          <h3 className="font-semibold text-sm sm:text-base text-foreground line-clamp-1">
-                                            {job.name}
-                                          </h3>
-                                        </div>
-                                        <div className="mt-2">
-                                          <div className="flex items-center justify-between text-xs mb-1">
-                                            <span className="text-muted-foreground">Progress</span>
-                                            <span className="font-medium">{job.progress}%</span>
-                                          </div>
-                                          <Progress value={job.progress} className="h-1.5 sm:h-2" />
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                  <CollapsibleContent>
-                                    <div className="px-3 sm:px-4 pb-3 sm:pb-4 pt-0 space-y-2 border-t border-border/50">
-                                      <div className="pt-3 space-y-2">
-                                        {job.address && (
-                                          <a 
-                                            href={`https://maps.google.com/?q=${encodeURIComponent(job.address)}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="flex items-start gap-2 text-xs sm:text-sm text-primary hover:underline"
-                                            onClick={(e) => e.stopPropagation()}
-                                          >
-                                            <MapPin className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
-                                            <span className="line-clamp-2">{job.address}</span>
-                                          </a>
-                                        )}
-                                        {job.phoneNumber && (
-                                          <a 
-                                            href={`tel:${job.phoneNumber}`}
-                                            className="flex items-center gap-2 text-xs sm:text-sm text-primary hover:underline"
-                                            onClick={(e) => e.stopPropagation()}
-                                          >
-                                            <Phone className="h-3.5 w-3.5" />
-                                            <span>{job.phoneNumber}</span>
-                                          </a>
-                                        )}
-                                        {job.summaryOfWorks && (
-                                          <div className="mt-2 bg-muted/50 p-2 rounded">
-                                            {isTranslatingList && !translatedSummaries[job.id] && languagePreference !== 'en' && (
-                                              <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
-                                                <Loader2 className="h-3 w-3 animate-spin" />
-                                                <span>Translating...</span>
-                                              </div>
-                                            )}
-                                            <p className="text-xs sm:text-sm text-muted-foreground">
-                                              {languagePreference !== 'en' && translatedSummaries[job.id]
-                                                ? translatedSummaries[job.id]
-                                                : job.summaryOfWorks}
-                                            </p>
-                                          </div>
-                                        )}
-                                        <div className="flex gap-2 mt-2">
-                                          <Button className="flex-1" size="sm" onClick={() => onSelectJob(job)}>
-                                            View & Update Job
-                                          </Button>
-                                          {onRemoveJob && !isOpsManager && (
-                                            <Button 
-                                              variant="outline" 
-                                              size="sm" 
-                                              className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                                              onClick={(e) => handleRemoveJobClick(job, e)}
-                                              disabled={removingJobId === job.id}
-                                            >
-                                              {removingJobId === job.id ? (
-                                                <Loader2 className="h-4 w-4 animate-spin" />
-                                              ) : (
-                                                <EyeOff className="h-4 w-4" />
-                                              )}
-                                            </Button>
-                                          )}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </CollapsibleContent>
-                                </CardContent>
-                              </Card>
-                            </Collapsible>
-                          ))}
+                        <CollapsibleContent className="space-y-1.5 mt-1.5 ml-2 border-l border-muted/40 pl-2">
+                          {unscheduledJobs.map((job) => renderJobCard(job, false))}
                         </CollapsibleContent>
                       </Collapsible>
                     )}
                   </div>
                 )}
 
-                {/* Completed Jobs - Regular team view */}
+                {/* Completed Jobs */}
                 {completedJobs.length > 0 && (
-                  <div className="space-y-3 mt-6">
-                    <h2 className="text-xs sm:text-sm font-semibold text-muted-foreground uppercase tracking-wider px-1">
+                  <div className="space-y-2 mt-4">
+                    <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
                       Completed ({completedJobs.length})
                     </h2>
-                    {completedJobs.slice(0, 10).map((job) => (
-                      <Card 
-                        key={job.id}
-                        className="border-l-4 border-l-success bg-success/5 opacity-80 hover:opacity-100 transition-all cursor-pointer"
-                        onClick={() => onSelectJob(job)}
+                    
+                    {groupedCompletedJobs.slice(0, 3).map((monthGroup) => (
+                      <Collapsible 
+                        key={`completed-${monthGroup.monthKey}`} 
+                        open={expandedMonths.has(`completed-${monthGroup.monthKey}`)}
+                        onOpenChange={() => toggleMonth(`completed-${monthGroup.monthKey}`)}
                       >
-                        <CardContent className="p-3 sm:p-4">
-                          <div className="flex flex-wrap items-center gap-1.5 mb-1">
-                            <Badge variant="outline" className="text-xs font-mono px-1.5 py-0">
-                              {job.jobNumber}
-                            </Badge>
-                            <Badge className="text-xs px-1.5 py-0 bg-success text-success-foreground">
-                              Complete
-                            </Badge>
-                          </div>
-                          <h3 className="font-medium text-sm sm:text-base text-foreground truncate">
-                            {job.name}
-                          </h3>
-                          {job.completionDate && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Completed: {format(new Date(job.completionDate), 'MMM d, yyyy')}
-                            </p>
-                          )}
-                        </CardContent>
-                      </Card>
+                        <CollapsibleTrigger asChild>
+                          <Card className="cursor-pointer hover:bg-success/10 transition-colors opacity-80 bg-success/5">
+                            <CardContent className="p-2.5 flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                {expandedMonths.has(`completed-${monthGroup.monthKey}`) ? (
+                                  <ChevronDown className="h-4 w-4 text-success" />
+                                ) : (
+                                  <ChevronRight className="h-4 w-4 text-success" />
+                                )}
+                                <FolderOpen className="h-4 w-4 text-success" />
+                                <span className="font-semibold text-sm">{monthGroup.monthLabel}</span>
+                              </div>
+                              <Badge className="text-xs bg-success/20 text-success hover:bg-success/20">
+                                {monthGroup.totalJobs} done
+                              </Badge>
+                            </CardContent>
+                          </Card>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="space-y-1.5 mt-1.5 ml-2 border-l-2 border-success/20 pl-2">
+                          {Array.from(monthGroup.days.entries()).slice(0, 5).map(([dayKey, dayJobs]) => (
+                            <Collapsible 
+                              key={`completed-${dayKey}`} 
+                              open={expandedDays.has(`completed-${dayKey}`)}
+                              onOpenChange={() => toggleDay(`completed-${dayKey}`)}
+                            >
+                              <CollapsibleTrigger asChild>
+                                <Card className="cursor-pointer hover:bg-success/10 transition-colors opacity-80">
+                                  <CardContent className="p-2 flex items-center justify-between">
+                                    <div className="flex items-center gap-1.5">
+                                      {expandedDays.has(`completed-${dayKey}`) ? (
+                                        <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                                      ) : (
+                                        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                                      )}
+                                      <Calendar className="h-3.5 w-3.5 text-success" />
+                                      <span className="font-medium text-xs">{formatDayHeader(dayKey)}</span>
+                                    </div>
+                                    <Badge variant="secondary" className="text-[10px] px-1.5 bg-success/20 text-success">
+                                      {dayJobs.length}
+                                    </Badge>
+                                  </CardContent>
+                                </Card>
+                              </CollapsibleTrigger>
+                              <CollapsibleContent className="space-y-1.5 mt-1.5 ml-2 border-l border-success/20 pl-2">
+                                {dayJobs.map((job) => (
+                                  <Card 
+                                    key={job.id}
+                                    className="border-l-3 border-l-success bg-success/5 opacity-80 hover:opacity-100 transition-all cursor-pointer"
+                                    onClick={() => onSelectJob(job)}
+                                  >
+                                    <CardContent className="p-2">
+                                      <div className="flex flex-wrap items-center gap-1 mb-0.5">
+                                        <Badge variant="outline" className="text-[10px] font-mono px-1 py-0">
+                                          {job.jobNumber}
+                                        </Badge>
+                                        <Badge className="text-[10px] px-1 py-0 bg-success text-success-foreground">
+                                          Complete
+                                        </Badge>
+                                      </div>
+                                      <h3 className="font-medium text-xs text-foreground truncate">{job.name}</h3>
+                                    </CardContent>
+                                  </Card>
+                                ))}
+                              </CollapsibleContent>
+                            </Collapsible>
+                          ))}
+                        </CollapsibleContent>
+                      </Collapsible>
                     ))}
                   </div>
                 )}
               </>
-            ) : null}
+            )}
           </div>
         </TabsContent>
       </Tabs>
