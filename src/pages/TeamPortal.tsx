@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTeamAuth } from '@/hooks/useTeamAuth';
 import { useOfflineStorage } from '@/hooks/useOfflineStorage';
+import { useNewJobNotification } from '@/hooks/useNewJobNotification';
 import { TeamLoginForm } from '@/components/team-portal/TeamLoginForm';
 import { TeamJobList } from '@/components/team-portal/TeamJobList';
 import { TeamJobDetail } from '@/components/team-portal/TeamJobDetail';
@@ -28,11 +29,13 @@ const TeamPortal = () => {
     removeJobFromTeam,
   } = useTeamAuth();
   const { isOnline, pendingSyncCount, lastSyncTime, cacheJobs, getCachedJobs, getPendingSyncItems, markSynced } = useOfflineStorage(session?.teamId);
+  const { notifyNewJob } = useNewJobNotification();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [isLoadingJobs, setIsLoadingJobs] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isManualRefreshing, setIsManualRefreshing] = useState(false);
+  const [justSynced, setJustSynced] = useState(false);
   const { toast } = useToast();
 
   // Set status bar color on native platforms
@@ -353,6 +356,8 @@ const TeamPortal = () => {
               if (prev.some(j => j.id === mappedJob.id)) return prev;
               return [mappedJob, ...prev];
             });
+            // Play notification sound and vibrate
+            notifyNewJob();
             toast({
               title: '🆕 New Job Assigned',
               description: `Job #${newJob.job_number} - ${newJob.name}`,
@@ -388,6 +393,8 @@ const TeamPortal = () => {
               if (prev.some(j => j.id === mappedJob.id)) return prev;
               return [mappedJob, ...prev];
             });
+            // Play notification sound and vibrate
+            notifyNewJob();
             toast({
               title: '🆕 New Job Assigned',
               description: `Job #${changedJob.job_number} - ${changedJob.name}`,
@@ -477,6 +484,9 @@ const TeamPortal = () => {
           setIsManualRefreshing(true);
           try {
             await loadJobs();
+            // Trigger sync animation
+            setJustSynced(true);
+            setTimeout(() => setJustSynced(false), 2500);
             toast({
               title: 'Refreshed',
               description: 'Jobs updated successfully.',
@@ -486,6 +496,7 @@ const TeamPortal = () => {
           }
         }}
         isRefreshing={isManualRefreshing}
+        justSynced={justSynced}
       />
       
       {selectedJob ? (
