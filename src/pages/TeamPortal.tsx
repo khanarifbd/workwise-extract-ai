@@ -27,11 +27,12 @@ const TeamPortal = () => {
     updateLanguagePreference,
     removeJobFromTeam,
   } = useTeamAuth();
-  const { isOnline, pendingSyncCount, cacheJobs, getCachedJobs, getPendingSyncItems, markSynced } = useOfflineStorage();
+  const { isOnline, pendingSyncCount, lastSyncTime, cacheJobs, getCachedJobs, getPendingSyncItems, markSynced } = useOfflineStorage(session?.teamId);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [isLoadingJobs, setIsLoadingJobs] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isManualRefreshing, setIsManualRefreshing] = useState(false);
   const { toast } = useToast();
 
   // Set status bar color on native platforms
@@ -125,8 +126,8 @@ const TeamPortal = () => {
         const mappedJobs = (data || []).map((row: any) => mapDatabaseJobToJob(row));
         setJobs(mappedJobs);
         
-        // Cache for offline use
-        await cacheJobs(mappedJobs);
+        // Cache for offline use with team name for sync time tracking
+        await cacheJobs(mappedJobs, session.teamName);
         
         // Handle deep link after jobs are loaded
         handleDeepLink(mappedJobs);
@@ -470,7 +471,21 @@ const TeamPortal = () => {
         isOnline={isOnline} 
         pendingSyncCount={pendingSyncCount}
         isSyncing={isSyncing}
+        lastSyncTime={lastSyncTime}
         onSync={syncPendingUpdates}
+        onManualRefresh={async () => {
+          setIsManualRefreshing(true);
+          try {
+            await loadJobs();
+            toast({
+              title: 'Refreshed',
+              description: 'Jobs updated successfully.',
+            });
+          } finally {
+            setIsManualRefreshing(false);
+          }
+        }}
+        isRefreshing={isManualRefreshing}
       />
       
       {selectedJob ? (

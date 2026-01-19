@@ -2,10 +2,11 @@ import { useState, useEffect, useCallback } from 'react';
 import { Job } from '@/types/job';
 
 const DB_NAME = 'teamPortalDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Bumped version for new store
 const JOBS_STORE = 'jobs';
 const SYNC_QUEUE_STORE = 'syncQueue';
 const DRAFTS_STORE = 'drafts';
+const METADATA_STORE = 'metadata';
 
 interface SyncQueueItem {
   id: string;
@@ -22,6 +23,12 @@ interface Draft {
   teamId: string;
   data: any;
   savedAt: string;
+}
+
+interface SyncMetadata {
+  id: string;
+  teamId: string;
+  lastSyncTime: string;
 }
 
 let db: IDBDatabase | null = null;
@@ -61,6 +68,11 @@ const openDB = (): Promise<IDBDatabase> => {
         const draftsStore = database.createObjectStore(DRAFTS_STORE, { keyPath: 'id' });
         draftsStore.createIndex('jobId', 'jobId', { unique: false });
       }
+
+      // Metadata store for sync tracking
+      if (!database.objectStoreNames.contains(METADATA_STORE)) {
+        database.createObjectStore(METADATA_STORE, { keyPath: 'id' });
+      }
     };
   });
 };
@@ -68,6 +80,7 @@ const openDB = (): Promise<IDBDatabase> => {
 export const useOfflineStorage = (teamId?: string) => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
+  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -82,11 +95,18 @@ export const useOfflineStorage = (teamId?: string) => {
     };
   }, []);
 
-  // Initialize DB on mount
+  // Initialize DB on mount and load last sync time
   useEffect(() => {
-    openDB().catch(console.error);
-    updatePendingSyncCount();
-  }, []);
+    const init = async () => {
+      await openDB();
+      updatePendingSyncCount();
+      if (teamId) {
+        const syncTime = await getLastSyncTime(teamId);
+        setLastSyncTime(syncTime);
+      }
+    };
+    init().catch(console.error);
+  }, [teamId]);
 
   const updatePendingSyncCount = async () => {
     try {
@@ -104,8 +124,58 @@ export const useOfflineStorage = (teamId?: string) => {
     }
   };
 
+  // Get last sync time for a team
+  const getLastSyncTime = async (team: string): Promise<Date | null> => {
+    try {
+      const database = await openDB();
+      const tx = database.transaction(METADATA_STORE, 'readonly');
+      const store = tx.objectStore(METADATA_STORE);
+      const request = store.get(`sync-${team}`);
+
+      return new Promise((resolve, reject) => {
+        request.onsuccess = () => {
+          const data = request.result as SyncMetadata | undefined;
+          resolve(data?.lastSyncTime ? new Date(data.lastSyncTime) : null);
+        };
+        request.onerror = () => reject(request.error);
+      });
+    } catch (error) {
+      console.error('Error getting last sync time:', error);
+      return null;
+    }
+  };
+
+  // Update last sync time for a team
+  const updateLastSyncTime = useCallback(async (team: string) => {
+    try {
+      const database = await openDB();
+      const tx = database.transaction(METADATA_STORE, 'readwrite');
+      const store = tx.objectStore(METADATA_STORE);
+      const now = new Date();
+
+      const metadata: SyncMetadata = {
+        id: `sync-${team}`,
+        teamId: team,
+        lastSyncTime: now.toISOString(),
+      };
+
+      store.put(metadata);
+
+      return new Promise<void>((resolve, reject) => {
+        tx.oncomplete = () => {
+          setLastSyncTime(now);
+          resolve();
+        };
+        tx.onerror = () => reject(tx.error);
+      });
+    } catch (error) {
+      console.error('Error updating last sync time:', error);
+      throw error;
+    }
+  }, []);
+
   // Cache jobs for offline use
-  const cacheJobs = useCallback(async (jobs: Job[]) => {
+  const cacheJobs = useCallback(async (jobs: Job[], team?: string) => {
     try {
       const database = await openDB();
       const tx = database.transaction(JOBS_STORE, 'readwrite');
@@ -116,14 +186,24 @@ export const useOfflineStorage = (teamId?: string) => {
       }
 
       return new Promise<void>((resolve, reject) => {
-        tx.oncomplete = () => resolve();
+        tx.oncomplete = async () => {
+          // Update last sync time when caching jobs
+          if (team) {
+            try {
+              await updateLastSyncTime(team);
+            } catch (e) {
+              console.error('Error updating sync time:', e);
+            }
+          }
+          resolve();
+        };
         tx.onerror = () => reject(tx.error);
       });
     } catch (error) {
       console.error('Error caching jobs:', error);
       throw error;
     }
-  }, []);
+  }, [updateLastSyncTime]);
 
   // Get cached jobs for a team
   const getCachedJobs = useCallback(async (team: string): Promise<Job[]> => {
@@ -287,6 +367,7 @@ export const useOfflineStorage = (teamId?: string) => {
   return {
     isOnline,
     pendingSyncCount,
+    lastSyncTime,
     cacheJobs,
     getCachedJobs,
     addToSyncQueue,
@@ -295,5 +376,6 @@ export const useOfflineStorage = (teamId?: string) => {
     saveDraft,
     getDraft,
     clearDraft,
+    updateLastSyncTime,
   };
 };
