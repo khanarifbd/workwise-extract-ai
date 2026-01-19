@@ -29,12 +29,14 @@ import {
   EyeOff,
   Languages,
   FolderOpen,
+  AlertTriangle,
 } from 'lucide-react';
 import { format, parseISO, isValid, isSameMonth, isSameDay, startOfMonth, isToday, isTomorrow, isYesterday } from 'date-fns';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useCapacitorPush } from '@/hooks/useCapacitorPush';
 import { useTeamSettings } from '@/hooks/useTeamSettings';
 import { useTranslation } from '@/hooks/useTranslation';
+import { shouldShowOngoingAlert } from '@/hooks/useJobAlerts';
 import { TeamDiary } from './TeamDiary';
 import { LanguageSelector } from './LanguageSelector';
 import { RemoveJobConfirmModal } from './RemoveJobConfirmModal';
@@ -523,9 +525,19 @@ export const TeamJobList = ({
   };
 
   // Render a single job card
-  const renderJobCard = (job: Job, showTeamBadge: boolean = false) => (
+  const renderJobCard = (job: Job, showTeamBadge: boolean = false) => {
+    // Check if job is overdue
+    const alertInfo = shouldShowOngoingAlert(job, false);
+    const isOverdue = alertInfo.showAlert && alertInfo.isAutoTriggered;
+    
+    return (
     <Collapsible key={job.id} open={expandedJobs.has(job.id)}>
-      <Card className="border-l-4 border-l-primary bg-card shadow-sm hover:shadow-md transition-all">
+      <Card className={cn(
+        "border-l-4 bg-card shadow-sm hover:shadow-md transition-all",
+        isOverdue 
+          ? "border-l-red-500 bg-red-50/50 dark:bg-red-950/20" 
+          : "border-l-primary"
+      )}>
         <CardContent className="p-0">
           <div 
             className="p-3 cursor-pointer active:bg-muted/50 transition-colors"
@@ -557,7 +569,15 @@ export const TeamJobList = ({
                   >
                     {getStatusLabel(job.status)}
                   </Badge>
-                  {job.isOngoing && (
+                  {/* OVERDUE badge - prominent red styling */}
+                  {isOverdue && (
+                    <Badge className="text-[10px] px-1.5 py-0 bg-red-600 text-white animate-pulse flex items-center gap-0.5">
+                      <AlertTriangle className="h-2.5 w-2.5" />
+                      OVERDUE
+                    </Badge>
+                  )}
+                  {/* Ongoing badge - only show if manually marked and not already showing overdue */}
+                  {job.isOngoing && !isOverdue && (
                     <Badge className="text-[10px] px-1 py-0 bg-amber-500 text-white">
                       Ongoing
                     </Badge>
@@ -656,6 +676,7 @@ export const TeamJobList = ({
       </Card>
     </Collapsible>
   );
+  };
 
   return (
     <div className="pb-20 min-h-screen safe-area-bottom">
