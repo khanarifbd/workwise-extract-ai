@@ -774,7 +774,13 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                         onUpdate={(fanInfo) => onUpdateJob({ ...job, fanInfo })}
                         job={job}
                         fanCategoryId={fanCategoryId}
-                        onJobUpdated={(updates) => onUpdateJob({ ...job, ...updates })}
+                        onJobUpdated={(updates) => {
+                          onUpdateJob({ ...job, ...updates });
+                          // Trigger fan category refresh when fan job is created/updated
+                          if (updates.linkedFanJobId) {
+                            onFanJobCreated?.();
+                          }
+                        }}
                       />
                       {job.linkedFanJobId && (
                         <Badge variant="outline" className="text-xs bg-green-500/10 text-green-700 dark:text-green-400">
