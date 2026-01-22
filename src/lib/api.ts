@@ -21,9 +21,67 @@ const getAuthHeaders = async (): Promise<Record<string, string>> => {
   };
 };
 
+// Retry configuration for rate-limited requests
+interface RetryConfig {
+  maxRetries: number;
+  baseDelayMs: number;
+  maxDelayMs: number;
+}
+
+const DEFAULT_RETRY_CONFIG: RetryConfig = {
+  maxRetries: 3,
+  baseDelayMs: 2000,
+  maxDelayMs: 30000,
+};
+
+// Sleep helper
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Exponential backoff with jitter
+const getRetryDelay = (attempt: number, config: RetryConfig): number => {
+  const exponentialDelay = config.baseDelayMs * Math.pow(2, attempt);
+  const jitter = Math.random() * 1000;
+  return Math.min(exponentialDelay + jitter, config.maxDelayMs);
+};
+
+// Check if error is rate limit related
+const isRateLimitError = (error: any): boolean => {
+  if (error?.message?.includes('429')) return true;
+  if (error?.message?.includes('rate limit')) return true;
+  if (error?.status === 429) return true;
+  return false;
+};
+
+// Wrapper for functions with retry logic
+const withRetry = async <T>(
+  fn: () => Promise<T>,
+  config: RetryConfig = DEFAULT_RETRY_CONFIG
+): Promise<T> => {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt <= config.maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      lastError = error;
+      
+      if (isRateLimitError(error) && attempt < config.maxRetries) {
+        const delay = getRetryDelay(attempt, config);
+        console.log(`Rate limited, retrying in ${Math.round(delay / 1000)}s (attempt ${attempt + 1}/${config.maxRetries})`);
+        await sleep(delay);
+        continue;
+      }
+      
+      throw error;
+    }
+  }
+  
+  throw lastError;
+};
+
 // Extract fans from job description
 export const extractFansWithAI = async (description: string, workItems: WorkItem[]): Promise<{ hasFans: boolean; fans: FanInfo[]; totalFanCount: number } | null> => {
-  try {
+  return withRetry(async () => {
     const headers = await getAuthHeaders();
     const { data, error } = await supabase.functions.invoke('extract-fans', {
       body: { 
@@ -43,14 +101,11 @@ export const extractFansWithAI = async (description: string, workItems: WorkItem
     }
 
     return data.data;
-  } catch (error) {
-    console.error('Error extracting fans:', error);
-    throw error;
-  }
+  });
 };
 
 export const extractPDFWithAI = async (pdfText: string): Promise<Partial<Job> | null> => {
-  try {
+  return withRetry(async () => {
     const headers = await getAuthHeaders();
     const { data, error } = await supabase.functions.invoke('extract-pdf', {
       body: { 
@@ -66,18 +121,21 @@ export const extractPDFWithAI = async (pdfText: string): Promise<Partial<Job> | 
     }
 
     if (!data?.success) {
-      throw new Error(data?.error || 'Failed to extract PDF');
+      const errorMsg = data?.error || 'Failed to extract PDF';
+      if (errorMsg.includes('Rate limit') || errorMsg.includes('429')) {
+        const rateLimitError = new Error(errorMsg);
+        (rateLimitError as any).status = 429;
+        throw rateLimitError;
+      }
+      throw new Error(errorMsg);
     }
 
     return data.data;
-  } catch (error) {
-    console.error('Error extracting PDF:', error);
-    throw error;
-  }
+  });
 };
 
 export const extractImageWithAI = async (imageBase64: string, mimeType: string): Promise<Partial<Job> | null> => {
-  try {
+  return withRetry(async () => {
     const headers = await getAuthHeaders();
     const { data, error } = await supabase.functions.invoke('extract-image', {
       body: { 
@@ -94,14 +152,17 @@ export const extractImageWithAI = async (imageBase64: string, mimeType: string):
     }
 
     if (!data?.success) {
-      throw new Error(data?.error || 'Failed to extract image');
+      const errorMsg = data?.error || 'Failed to extract image';
+      if (errorMsg.includes('Rate limit') || errorMsg.includes('429')) {
+        const rateLimitError = new Error(errorMsg);
+        (rateLimitError as any).status = 429;
+        throw rateLimitError;
+      }
+      throw new Error(errorMsg);
     }
 
     return data.data;
-  } catch (error) {
-    console.error('Error extracting image:', error);
-    throw error;
-  }
+  });
 };
 
 export const convertDescriptionToWorkItems = async (description: string): Promise<WorkItem[]> => {
