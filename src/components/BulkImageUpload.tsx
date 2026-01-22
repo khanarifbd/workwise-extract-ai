@@ -84,14 +84,20 @@ export const BulkImageUpload = ({ onJobsExtracted, onClose }: BulkImageUploadPro
     });
   };
 
+  const [rateLimitInfo, setRateLimitInfo] = useState<{ waitTime: number; isWaiting: boolean }>({ waitTime: 0, isWaiting: false });
+
   const processFiles = async () => {
     if (files.length === 0) return;
 
     setIsProcessing(true);
+    setRateLimitInfo({ waitTime: 0, isWaiting: false });
     const extractedJobs: Omit<Job, 'id'>[] = [];
     const updatedFiles = [...files];
 
-    // Process files sequentially to avoid overwhelming the API
+    // Longer delay between files to prevent rate limiting (3 seconds)
+    const DELAY_BETWEEN_FILES = 3000;
+
+    // Process files sequentially with adequate spacing
     for (let i = 0; i < files.length; i++) {
       updatedFiles[i] = { ...updatedFiles[i], status: 'processing' };
       setFiles([...updatedFiles]);
@@ -149,20 +155,36 @@ export const BulkImageUpload = ({ onJobsExtracted, onClose }: BulkImageUploadPro
         } else {
           throw new Error('No data extracted');
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error(`Error processing ${files[i].file.name}:`, error);
+        
+        // Check if it's a rate limit error and provide better feedback
+        const isRateLimited = error?.message?.includes('Rate limit') || 
+                              error?.message?.includes('429') ||
+                              error?.status === 429;
+        
         updatedFiles[i] = { 
           ...updatedFiles[i], 
           status: 'error',
-          error: error instanceof Error ? error.message : 'Extraction failed'
+          error: isRateLimited 
+            ? 'Rate limited - will retry automatically' 
+            : (error instanceof Error ? error.message : 'Extraction failed')
         };
       }
 
       setFiles([...updatedFiles]);
       
-      // Small delay between API calls to prevent rate limiting
+      // Longer delay between API calls to prevent rate limiting
       if (i < files.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 500));
+        const remainingFiles = files.length - i - 1;
+        const waitTime = DELAY_BETWEEN_FILES;
+        
+        // Show waiting indicator
+        setRateLimitInfo({ waitTime: waitTime / 1000, isWaiting: true });
+        
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        
+        setRateLimitInfo({ waitTime: 0, isWaiting: false });
       }
     }
 
@@ -238,10 +260,17 @@ export const BulkImageUpload = ({ onJobsExtracted, onClose }: BulkImageUploadPro
           {isProcessing && (
             <div className="space-y-2">
               <div className="flex justify-between text-xs">
-                <span>Processing images...</span>
+                <span>
+                  {rateLimitInfo.isWaiting 
+                    ? `Waiting ${rateLimitInfo.waitTime}s to avoid rate limits...` 
+                    : 'Processing files...'}
+                </span>
                 <span>{progress}%</span>
               </div>
-              <Progress value={progress} />
+              <Progress value={progress} className={rateLimitInfo.isWaiting ? 'animate-pulse' : ''} />
+              <p className="text-xs text-muted-foreground">
+                Processing with 3s delay between files to avoid rate limits
+              </p>
             </div>
           )}
 
