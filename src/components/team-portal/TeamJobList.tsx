@@ -634,19 +634,28 @@ export const TeamJobList = ({
                     <span>{job.phoneNumber}</span>
                   </a>
                 )}
-                {job.summaryOfWorks && (
-                  <div className="mt-1.5 bg-muted/50 p-1.5 rounded">
+                {(job.summaryOfWorks || job.description) && (
+                  <div className="mt-1.5 bg-muted/50 p-1.5 rounded space-y-1">
                     {isTranslatingList && !translatedSummaries[job.id] && languagePreference !== 'en' && (
                       <div className="flex items-center gap-1 text-[10px] text-muted-foreground mb-0.5">
                         <Loader2 className="h-2.5 w-2.5 animate-spin" />
                         <span>Translating...</span>
                       </div>
                     )}
-                    <p className="text-xs text-muted-foreground line-clamp-3">
-                      {languagePreference !== 'en' && translatedSummaries[job.id]
-                        ? translatedSummaries[job.id]
-                        : job.summaryOfWorks}
-                    </p>
+                    {job.summaryOfWorks && (
+                      <p className="text-xs text-muted-foreground line-clamp-3">
+                        {languagePreference !== 'en' && translatedSummaries[job.id]
+                          ? translatedSummaries[job.id]
+                          : job.summaryOfWorks}
+                      </p>
+                    )}
+                    {job.description && (
+                      <div className="border-t border-border/50 pt-1">
+                        <p className="text-xs text-muted-foreground/80 line-clamp-4 whitespace-pre-wrap">
+                          {job.description}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
                 <div className="flex gap-2 mt-2">
