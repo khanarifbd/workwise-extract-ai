@@ -316,35 +316,54 @@ export const deleteJob = async (id: string): Promise<void> => {
 };
 
 // Helper functions to map between frontend and database formats
-export const mapDatabaseJobToJob = (dbJob: any): Job => ({
-  id: dbJob.id,
-  jobNumber: dbJob.job_number,
-  name: dbJob.name,
-  address: dbJob.address || '',
-  phoneNumber: dbJob.phone_number || '',
-  summaryOfWorks: dbJob.summary_of_works || '',
-  description: dbJob.description || '',
-  workItems: dbJob.work_items || [],
-  additionalWorks: dbJob.additional_works || [],
-  team: dbJob.team || null,
-  team2: dbJob.team2 || null,
-  progress: dbJob.progress || 0,
-  progressNotes: dbJob.progress_notes || '',
-  isCompleted: dbJob.is_completed || false,
-  isOngoing: dbJob.is_ongoing || false,
-  createdAt: dbJob.created_at ? new Date(dbJob.created_at) : new Date(),
-  dateIssued: dbJob.date_issued ? new Date(dbJob.date_issued) : new Date(),
-  bookedDate: dbJob.booked_date ? new Date(dbJob.booked_date) : null,
-  isFlexibleBooking: dbJob.is_flexible_booking || false,
-  bookingNotes: dbJob.booking_notes || '',
-  completionDate: dbJob.completion_date ? new Date(dbJob.completion_date) : null,
-  attachments: dbJob.attachments || [],
-  status: dbJob.status || 'pending',
-  fanInfo: dbJob.fan_info || null,
-  linkedFanJobId: dbJob.linked_fan_job_id || null,
-  costs: dbJob.costs || null,
-  privateNotes: dbJob.private_notes || '',
-});
+export function mapDatabaseJobToJob(dbJob: any): Job {
+  return {
+    id: dbJob.id,
+    jobNumber: dbJob.job_number,
+    name: dbJob.name,
+    address: dbJob.address || '',
+    phoneNumber: dbJob.phone_number || '',
+    summaryOfWorks: dbJob.summary_of_works || '',
+    description: dbJob.description || '',
+    workItems: dbJob.work_items || [],
+    additionalWorks: dbJob.additional_works || [],
+    team: dbJob.team || null,
+    team2: dbJob.team2 || null,
+    progress: dbJob.progress || 0,
+    progressNotes: dbJob.progress_notes || '',
+    isCompleted: dbJob.is_completed || false,
+    isOngoing: dbJob.is_ongoing || false,
+    createdAt: dbJob.created_at ? new Date(dbJob.created_at) : new Date(),
+    dateIssued: dbJob.date_issued ? new Date(dbJob.date_issued) : new Date(),
+    bookedDate: dbJob.booked_date ? new Date(dbJob.booked_date) : null,
+    isFlexibleBooking: dbJob.is_flexible_booking || false,
+    bookingNotes: dbJob.booking_notes || '',
+    completionDate: dbJob.completion_date ? new Date(dbJob.completion_date) : null,
+    attachments: dbJob.attachments || [],
+    status: dbJob.status || 'pending',
+    fanInfo: dbJob.fan_info || null,
+    linkedFanJobId: dbJob.linked_fan_job_id || null,
+    costs: dbJob.costs || null,
+    privateNotes: dbJob.private_notes || '',
+  };
+}
+
+// Check for duplicate job number across ALL categories
+export const checkDuplicateJobNumber = async (jobNumber: string): Promise<Job | null> => {
+  const { data, error } = await supabase
+    .from('jobs')
+    .select('*')
+    .ilike('job_number', jobNumber)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error checking duplicate job:', error);
+    return null;
+  }
+
+  return data ? mapDatabaseJobToJob(data) : null;
+};
 
 export const mapJobToDatabase = (job: Partial<Job>): any => {
   const dbJob: any = {};

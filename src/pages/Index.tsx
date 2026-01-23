@@ -32,7 +32,7 @@ import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { useCategories } from '@/hooks/useCategories';
 import { useSignOffStatus } from '@/hooks/useSignOffStatus';
 import { useFuzzySearch } from '@/hooks/useFuzzySearch';
-import { extractPDFWithAI, extractImageWithAI } from '@/lib/api';
+import { extractPDFWithAI, extractImageWithAI, checkDuplicateJobNumber } from '@/lib/api';
 import { extractTextFromPDF } from '@/lib/pdfUtils';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -136,7 +136,7 @@ const Index = () => {
       };
       
       // Check for duplicates before adding
-      const existing = findDuplicateJob(newJob.jobNumber);
+      const existing = await findDuplicateJobAsync(newJob.jobNumber);
       if (existing) {
         setDuplicateCheck({
           newJob,
@@ -330,9 +330,14 @@ const Index = () => {
     }
   }, [jobs, editJob, toast]);
 
-  // Duplicate check helper
-  const findDuplicateJob = useCallback((jobNumber: string) => {
-    return jobs.find(j => j.jobNumber.toLowerCase() === jobNumber.toLowerCase());
+  // Duplicate check helper - checks ALL categories in database
+  const findDuplicateJobAsync = useCallback(async (jobNumber: string): Promise<Job | null> => {
+    // First check local jobs for quick response
+    const localMatch = jobs.find(j => j.jobNumber.toLowerCase() === jobNumber.toLowerCase());
+    if (localMatch) return localMatch;
+    
+    // Then check database for jobs in other categories
+    return await checkDuplicateJobNumber(jobNumber);
   }, [jobs]);
 
   const handleBulkJobsExtracted = useCallback(async (newJobs: Omit<Job, 'id'>[]) => {
@@ -345,7 +350,7 @@ const Index = () => {
       }
 
       const currentJob = remaining[0];
-      const existing = findDuplicateJob(currentJob.jobNumber);
+      const existing = await findDuplicateJobAsync(currentJob.jobNumber);
       
       if (existing) {
         setDuplicateCheck({
@@ -361,7 +366,7 @@ const Index = () => {
     };
 
     await processNext();
-  }, [findDuplicateJob, addJob]);
+  }, [findDuplicateJobAsync, addJob]);
 
   const handleDuplicateKeepBoth = async () => {
     if (!duplicateCheck) return;
@@ -1105,7 +1110,7 @@ const Index = () => {
         onOpenChange={setShowManualEntry}
         onJobCreate={async (newJob) => {
           // Check for duplicates before adding
-          const existing = findDuplicateJob(newJob.jobNumber);
+          const existing = await findDuplicateJobAsync(newJob.jobNumber);
           if (existing) {
             setDuplicateCheck({
               newJob,

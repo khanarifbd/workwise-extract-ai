@@ -31,7 +31,7 @@ import { ContactCell } from './ContactCell';
 import { BookedDateCell } from './BookedDateCell';
 import { SignOffStatusIndicator } from './SignOffStatusIndicator';
 import { SignOffHistoryModal } from './SignOffHistoryModal';
-import { extractFansWithAI, createLinkedFanJob } from '@/lib/api';
+import { extractFansWithAI, createLinkedFanJob, syncLinkedFanJob } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { useTeamSettings } from '@/hooks/useTeamSettings';
 import { useTeamAvailability } from '@/hooks/useTeamAvailability';
@@ -258,17 +258,28 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
         onUpdateJob({ ...job, fanInfo: fanInfoToSave });
         
         if (result.hasFans && result.fans.length > 0) {
-          // Auto-create linked fan job if category exists and not already linked
-          if (fanCategoryId && !job.linkedFanJobId) {
+          // Auto-create or update linked fan job if category exists
+          if (fanCategoryId) {
             try {
-              await createLinkedFanJob(job, result.fans, fanCategoryId);
-              onFanJobCreated?.();
-              toast({
-                title: "Fans Found & Job Created!",
-                description: `Found ${result.totalFanCount} fan(s) - linked fan job created.`,
-              });
+              if (job.linkedFanJobId) {
+                // Update existing linked fan job using syncLinkedFanJob
+                await syncLinkedFanJob(job, result.fans, fanCategoryId);
+                onFanJobCreated?.();
+                toast({
+                  title: "Fans Updated!",
+                  description: `Found ${result.totalFanCount} fan(s) - linked fan job updated.`,
+                });
+              } else {
+                // Create new linked fan job
+                await createLinkedFanJob(job, result.fans, fanCategoryId);
+                onFanJobCreated?.();
+                toast({
+                  title: "Fans Found & Job Created!",
+                  description: `Found ${result.totalFanCount} fan(s) - linked fan job created.`,
+                });
+              }
             } catch (createError) {
-              console.error('Failed to create linked fan job:', createError);
+              console.error('Failed to create/update linked fan job:', createError);
               toast({
                 title: "Fans Found!",
                 description: `Found ${result.totalFanCount} fan(s) in ${result.fans.length} type(s).`,
@@ -332,13 +343,17 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
             onUpdateJob({ ...job, fanInfo: result.fans });
             fansFoundCount += result.totalFanCount;
             
-            // Auto-create linked fan job if category exists and not already linked
-            if (fanCategoryId && !job.linkedFanJobId) {
+            // Auto-create or update linked fan job if category exists
+            if (fanCategoryId) {
               try {
-                await createLinkedFanJob(job, result.fans, fanCategoryId);
+                if (job.linkedFanJobId) {
+                  await syncLinkedFanJob(job, result.fans, fanCategoryId);
+                } else {
+                  await createLinkedFanJob(job, result.fans, fanCategoryId);
+                }
                 onFanJobCreated?.();
               } catch (createError) {
-                console.error('Failed to create linked fan job:', createError);
+                console.error('Failed to create/update linked fan job:', createError);
               }
             }
           } else {
