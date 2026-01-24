@@ -165,6 +165,51 @@ export const extractImageWithAI = async (imageBase64: string, mimeType: string):
   });
 };
 
+// Extract multiple insulation jobs from a single document (PDF, Excel, spreadsheet)
+export interface ExtractedInsulationJob {
+  jobNumber: string;
+  name: string;
+  address: string;
+  phoneNumber: string;
+  description: string;
+  workItems: WorkItem[];
+  insulationInfo: InsulationInfo[];
+}
+
+export const extractInsulationJobsFromDocument = async (
+  documentText: string,
+  documentType: 'pdf' | 'excel' | 'spreadsheet' | 'text' = 'pdf'
+): Promise<{ jobCount: number; jobs: ExtractedInsulationJob[] }> => {
+  return withRetry(async () => {
+    const headers = await getAuthHeaders();
+    const { data, error } = await supabase.functions.invoke('extract-insulation-jobs', {
+      body: { 
+        documentText,
+        documentType,
+        sorCodesContext: getSORCodesContext()
+      },
+      headers
+    });
+
+    if (error) {
+      console.error('Error calling extract-insulation-jobs function:', error);
+      throw error;
+    }
+
+    if (!data?.success) {
+      const errorMsg = data?.error || 'Failed to extract insulation jobs';
+      if (errorMsg.includes('Rate limit') || errorMsg.includes('429')) {
+        const rateLimitError = new Error(errorMsg);
+        (rateLimitError as any).status = 429;
+        throw rateLimitError;
+      }
+      throw new Error(errorMsg);
+    }
+
+    return data.data;
+  });
+};
+
 export const convertDescriptionToWorkItems = async (description: string): Promise<WorkItem[]> => {
   try {
     const headers = await getAuthHeaders();

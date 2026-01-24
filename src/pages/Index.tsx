@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Job } from '@/types/job';
 import { FileDropZone } from '@/components/FileDropZone';
+import { InsulationFileDropZone, InsulationFileType } from '@/components/InsulationFileDropZone';
 import { BulkImageUpload } from '@/components/BulkImageUpload';
 import { JobTable } from '@/components/JobTable';
 import { Header } from '@/components/Header';
@@ -32,7 +33,7 @@ import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { useCategories } from '@/hooks/useCategories';
 import { useSignOffStatus } from '@/hooks/useSignOffStatus';
 import { useFuzzySearch } from '@/hooks/useFuzzySearch';
-import { extractPDFWithAI, extractImageWithAI, checkDuplicateJobNumber } from '@/lib/api';
+import { extractPDFWithAI, extractImageWithAI, checkDuplicateJobNumber, extractInsulationJobsFromDocument } from '@/lib/api';
 import { extractTextFromPDF } from '@/lib/pdfUtils';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -87,6 +88,100 @@ const Index = () => {
   const handleFileUpload = async (file: File, type: FileType) => {
     setIsProcessing(true);
     try {
+      // For Insulation category, use the multi-job extractor
+      if (isInsulationCategory) {
+        let documentText = '';
+        let documentType: 'pdf' | 'excel' | 'text' = 'pdf';
+        
+        if (type === 'pdf') {
+          documentText = await extractTextFromPDF(file);
+          documentType = 'pdf';
+        } else if (type === 'image') {
+          // For images, convert to base64 and use regular extraction
+          const base64 = await fileToBase64(file);
+          const extractedData = await extractImageWithAI(base64, file.type);
+          if (extractedData) {
+            documentText = JSON.stringify(extractedData);
+            documentType = 'text';
+          }
+        }
+        
+        console.log('Extracting insulation jobs from document, length:', documentText.length);
+        
+        const result = await extractInsulationJobsFromDocument(documentText, documentType);
+        console.log(`Extracted ${result.jobCount} insulation jobs`);
+        
+        if (result.jobCount === 0 || result.jobs.length === 0) {
+          throw new Error('No jobs found in document');
+        }
+        
+        // Convert extracted jobs to our Job format
+        const newJobs: Omit<Job, 'id'>[] = result.jobs.map(extractedJob => ({
+          jobNumber: extractedJob.jobNumber || `INS-${Date.now().toString().slice(-6)}`,
+          name: extractedJob.name || 'Unknown',
+          address: extractedJob.address || '',
+          phoneNumber: extractedJob.phoneNumber || '',
+          summaryOfWorks: '',
+          description: extractedJob.description || '',
+          workItems: (extractedJob.workItems || []).map((item: any) => ({
+            ...item,
+            id: crypto.randomUUID(),
+          })),
+          additionalWorks: [],
+          team: null,
+          team2: null,
+          progress: 0,
+          progressNotes: '',
+          isCompleted: false,
+          isOngoing: false,
+          createdAt: new Date(),
+          dateIssued: new Date(),
+          bookedDate: null,
+          isFlexibleBooking: false,
+          bookingNotes: '',
+          completionDate: null,
+          attachments: [],
+          status: 'pending',
+          fanInfo: null,
+          linkedFanJobId: null,
+          insulationInfo: extractedJob.insulationInfo || null,
+          linkedInsulationJobId: null,
+          costs: null,
+          privateNotes: '',
+        }));
+        
+        // Process jobs with duplicate checking
+        if (newJobs.length === 1) {
+          const existing = await findDuplicateJobAsync(newJobs[0].jobNumber);
+          if (existing) {
+            setDuplicateCheck({
+              newJob: newJobs[0],
+              existingJob: existing,
+              pendingJobs: []
+            });
+            setIsProcessing(false);
+            return;
+          }
+          await addJob(newJobs[0]);
+          toast({
+            title: "Insulation Job Added",
+            description: `Job #${newJobs[0].jobNumber} with ${newJobs[0].insulationInfo?.length || 0} insulation units.`,
+          });
+        } else {
+          // Multiple jobs - use batch processing
+          await handleBulkJobsExtracted(newJobs);
+          toast({
+            title: "Jobs Extracted Successfully",
+            description: `${result.jobCount} insulation jobs extracted from document.`,
+          });
+        }
+        
+        setUploadExpanded(false);
+        setIsProcessing(false);
+        return;
+      }
+      
+      // Standard extraction for other categories
       let extractedData: Partial<Job> | null = null;
 
       if (type === 'pdf') {
@@ -170,6 +265,112 @@ const Index = () => {
   const handleMultipleFilesUpload = async (files: Array<{ file: File; type: FileType }>) => {
     // Use bulk upload modal for multiple files
     setShowBulkUpload(true);
+  };
+
+  // Handler for Insulation category file uploads (supports Excel, CSV, PDF)
+  const handleInsulationFileUpload = async (file: File, type: InsulationFileType, textContent?: string) => {
+    setIsProcessing(true);
+    try {
+      let documentText = textContent || '';
+      let documentType: 'pdf' | 'excel' | 'text' = 'pdf';
+      
+      if (type === 'excel') {
+        documentType = 'excel';
+        // textContent is already parsed from Excel by the component
+      } else if (type === 'pdf') {
+        documentText = await extractTextFromPDF(file);
+        documentType = 'pdf';
+      } else if (type === 'image') {
+        // For images, convert to base64 and use regular extraction
+        const base64 = await fileToBase64(file);
+        const extractedData = await extractImageWithAI(base64, file.type);
+        if (extractedData) {
+          documentText = JSON.stringify(extractedData);
+          documentType = 'text';
+        }
+      }
+      
+      console.log('Extracting insulation jobs, document length:', documentText.length);
+      
+      const result = await extractInsulationJobsFromDocument(documentText, documentType);
+      console.log(`Extracted ${result.jobCount} insulation jobs`);
+      
+      if (result.jobCount === 0 || result.jobs.length === 0) {
+        throw new Error('No jobs found in document');
+      }
+      
+      // Convert extracted jobs to our Job format
+      const newJobs: Omit<Job, 'id'>[] = result.jobs.map(extractedJob => ({
+        jobNumber: extractedJob.jobNumber || `INS-${Date.now().toString().slice(-6)}`,
+        name: extractedJob.name || 'Unknown',
+        address: extractedJob.address || '',
+        phoneNumber: extractedJob.phoneNumber || '',
+        summaryOfWorks: '',
+        description: extractedJob.description || '',
+        workItems: (extractedJob.workItems || []).map((item: any) => ({
+          ...item,
+          id: crypto.randomUUID(),
+        })),
+        additionalWorks: [],
+        team: null,
+        team2: null,
+        progress: 0,
+        progressNotes: '',
+        isCompleted: false,
+        isOngoing: false,
+        createdAt: new Date(),
+        dateIssued: new Date(),
+        bookedDate: null,
+        isFlexibleBooking: false,
+        bookingNotes: '',
+        completionDate: null,
+        attachments: [],
+        status: 'pending',
+        fanInfo: null,
+        linkedFanJobId: null,
+        insulationInfo: extractedJob.insulationInfo || null,
+        linkedInsulationJobId: null,
+        costs: null,
+        privateNotes: '',
+      }));
+      
+      // Process jobs with duplicate checking
+      if (newJobs.length === 1) {
+        const existing = await findDuplicateJobAsync(newJobs[0].jobNumber);
+        if (existing) {
+          setDuplicateCheck({
+            newJob: newJobs[0],
+            existingJob: existing,
+            pendingJobs: []
+          });
+          setIsProcessing(false);
+          return;
+        }
+        await addJob(newJobs[0]);
+        toast({
+          title: "Insulation Job Added",
+          description: `Job #${newJobs[0].jobNumber} with ${newJobs[0].insulationInfo?.length || 0} insulation units.`,
+        });
+      } else {
+        // Multiple jobs - use batch processing
+        await handleBulkJobsExtracted(newJobs);
+        toast({
+          title: "Jobs Extracted Successfully",
+          description: `${result.jobCount} insulation jobs extracted from document.`,
+        });
+      }
+      
+      setUploadExpanded(false);
+    } catch (error) {
+      console.error('Insulation extraction error:', error);
+      toast({
+        title: "Extraction Failed",
+        description: error instanceof Error ? error.message : "Could not extract insulation jobs from the file.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const fileToBase64 = (file: File): Promise<string> => {
@@ -436,6 +637,12 @@ const Index = () => {
   const isFanCategory = useMemo(() => {
     const activeCat = categories.find(c => c.id === activeCategory);
     return activeCat?.name.toLowerCase().includes('fan') || false;
+  }, [categories, activeCategory]);
+
+  // Check if current category is "Insulation"
+  const isInsulationCategory = useMemo(() => {
+    const activeCat = categories.find(c => c.id === activeCategory);
+    return activeCat?.name.toLowerCase().includes('insulation') || false;
   }, [categories, activeCategory]);
 
   const filteredJobs = useMemo(() => {
@@ -898,23 +1105,37 @@ const Index = () => {
                   </div>
                 </div>
                 
-                <FileDropZone 
-                  onFileUpload={handleFileUpload} 
-                  onMultipleFilesUpload={handleMultipleFilesUpload}
-                  isProcessing={isProcessing} 
-                  allowMultiple={true}
-                />
-                <div className="flex justify-center">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowBulkUpload(true)}
-                    className="text-xs text-muted-foreground hover:text-foreground"
-                  >
-                    <Images className="w-3 h-3 mr-1" />
-                    Bulk Image Upload
-                  </Button>
-                </div>
+                {isInsulationCategory ? (
+                  <>
+                    <InsulationFileDropZone 
+                      onFileUpload={handleInsulationFileUpload}
+                      isProcessing={isProcessing} 
+                    />
+                    <p className="text-xs text-center text-muted-foreground">
+                      Upload PDFs, Excel sheets, or CSV files containing job lists. Each job will be created separately.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <FileDropZone 
+                      onFileUpload={handleFileUpload} 
+                      onMultipleFilesUpload={handleMultipleFilesUpload}
+                      isProcessing={isProcessing} 
+                      allowMultiple={true}
+                    />
+                    <div className="flex justify-center">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowBulkUpload(true)}
+                        className="text-xs text-muted-foreground hover:text-foreground"
+                      >
+                        <Images className="w-3 h-3 mr-1" />
+                        Bulk Image Upload
+                      </Button>
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </section>

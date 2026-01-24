@@ -15,6 +15,12 @@ verify_jwt = true
 [functions.extract-fans]
 verify_jwt = true
 
+[functions.extract-insulation]
+verify_jwt = true
+
+[functions.extract-insulation-jobs]
+verify_jwt = true
+
 [functions.get-vapid-key]
 verify_jwt = false
 
@@ -30,6 +36,9 @@ verify_jwt = false
 [functions.update-team-job]
 verify_jwt = false
 
+[functions.remove-team-job]
+verify_jwt = false
+
 [functions.geocode-addresses]
 verify_jwt = true
 
@@ -40,4 +49,13 @@ verify_jwt = true
 verify_jwt = false
 
 [functions.send-fcm-notification]
+verify_jwt = false
+
+[functions.translate-text]
+verify_jwt = false
+
+[functions.update-team-language]
+verify_jwt = false
+
+[functions.job-notification-trigger]
 verify_jwt = false
