@@ -131,6 +131,8 @@ const Index = () => {
         status: 'pending',
         fanInfo: null,
         linkedFanJobId: null,
+        insulationInfo: null,
+        linkedInsulationJobId: null,
         costs: null,
         privateNotes: '',
       };

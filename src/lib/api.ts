@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { Job, WorkItem, FanInfo } from "@/types/job";
+import { Job, WorkItem, FanInfo, InsulationInfo } from "@/types/job";
 import { SOR_CODES_DATABASE } from "@/data/sorCodes";
 import { Json } from "@/integrations/supabase/types";
 
@@ -343,6 +343,8 @@ export function mapDatabaseJobToJob(dbJob: any): Job {
     status: dbJob.status || 'pending',
     fanInfo: dbJob.fan_info || null,
     linkedFanJobId: dbJob.linked_fan_job_id || null,
+    insulationInfo: dbJob.insulation_info || null,
+    linkedInsulationJobId: dbJob.linked_insulation_job_id || null,
     costs: dbJob.costs || null,
     privateNotes: dbJob.private_notes || '',
   };
@@ -391,6 +393,8 @@ export const mapJobToDatabase = (job: Partial<Job>): any => {
   if (job.status !== undefined) dbJob.status = job.status;
   if (job.fanInfo !== undefined) dbJob.fan_info = job.fanInfo;
   if (job.linkedFanJobId !== undefined) dbJob.linked_fan_job_id = job.linkedFanJobId;
+  if ((job as any).insulationInfo !== undefined) dbJob.insulation_info = (job as any).insulationInfo;
+  if ((job as any).linkedInsulationJobId !== undefined) dbJob.linked_insulation_job_id = (job as any).linkedInsulationJobId;
   if (job.costs !== undefined) dbJob.costs = job.costs;
   if (job.privateNotes !== undefined) dbJob.private_notes = job.privateNotes;
   
@@ -432,6 +436,8 @@ export const createLinkedFanJob = async (
     status: 'pending',
     fanInfo: fanInfo,
     linkedFanJobId: null,
+    insulationInfo: null,
+    linkedInsulationJobId: null,
     costs: null,
     privateNotes: '',
   };
@@ -520,6 +526,8 @@ export const syncLinkedFanJob = async (
     status: 'pending',
     fanInfo: fanInfo,
     linkedFanJobId: null,
+    insulationInfo: null,
+    linkedInsulationJobId: null,
     costs: null,
     privateNotes: '',
   };
@@ -548,6 +556,99 @@ export const syncLinkedFanJob = async (
     .eq('id', sourceJob.id);
 
   return { linkedFanJobId: data.id, created: true };
+};
+
+// Sync (create or update) a linked insulation job based on manual edits
+export const syncLinkedInsulationJob = async (
+  sourceJob: Job,
+  insulationInfo: InsulationInfo[],
+  insulationCategoryId: string
+): Promise<{ linkedInsulationJobId: string; created: boolean }> => {
+  const insulationDescription = insulationInfo.map(unit => 
+    `${unit.type} x${unit.quantity}${unit.location ? ` - ${unit.location}` : ''}${unit.thickness ? ` (${unit.thickness})` : ''}`
+  ).join('\n');
+
+  // Check if a linked insulation job already exists
+  if (sourceJob.linkedInsulationJobId) {
+    // Update existing insulation job
+    const { error } = await supabase
+      .from('jobs')
+      .update({
+        insulation_info: insulationInfo as unknown as Json,
+        description: insulationDescription,
+      })
+      .eq('id', sourceJob.linkedInsulationJobId);
+
+    if (error) {
+      console.error('Error updating linked insulation job:', error);
+      throw error;
+    }
+
+    // Also update the source job's insulation_info
+    await supabase
+      .from('jobs')
+      .update({ insulation_info: insulationInfo as unknown as Json })
+      .eq('id', sourceJob.id);
+
+    return { linkedInsulationJobId: sourceJob.linkedInsulationJobId, created: false };
+  }
+
+  // Create new insulation job
+  const insulationJob: Omit<Job, 'id'> = {
+    jobNumber: `${sourceJob.jobNumber}-INS`,
+    name: sourceJob.name,
+    address: sourceJob.address,
+    phoneNumber: sourceJob.phoneNumber,
+    summaryOfWorks: `Insulation from ${sourceJob.jobNumber}`,
+    description: insulationDescription,
+    workItems: [],
+    additionalWorks: [],
+    team: null,
+    team2: null,
+    progress: 0,
+    progressNotes: '',
+    isCompleted: false,
+    isOngoing: false,
+    createdAt: new Date(),
+    dateIssued: new Date(),
+    bookedDate: null,
+    isFlexibleBooking: false,
+    bookingNotes: '',
+    completionDate: null,
+    attachments: [],
+    status: 'pending',
+    fanInfo: null,
+    linkedFanJobId: null,
+    insulationInfo: insulationInfo,
+    linkedInsulationJobId: null,
+    costs: null,
+    privateNotes: '',
+  };
+
+  const dbJob = mapJobToDatabase(insulationJob);
+  dbJob.category_id = insulationCategoryId;
+
+  const { data, error } = await supabase
+    .from('jobs')
+    .insert(dbJob)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating linked insulation job:', error);
+    throw error;
+  }
+
+  // Update the source job to link to the insulation job
+  await supabase
+    .from('jobs')
+    .update({ 
+      linked_insulation_job_id: data.id,
+      insulation_info: insulationInfo as unknown as Json 
+    })
+    .eq('id', sourceJob.id);
+
+  return { linkedInsulationJobId: data.id, created: true };
 };
 
 // Notification history functions
