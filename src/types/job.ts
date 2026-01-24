@@ -43,6 +43,15 @@ export interface FanInfo {
   manualOverride?: boolean; // When true, auto-scan should not overwrite this
 }
 
+export interface InsulationInfo {
+  type: string;
+  quantity: number;
+  location: string;
+  thickness?: string;
+  material?: string;
+  manualOverride?: boolean;
+}
+
 export interface JobCosts {
   materials: number;
   labour: number;
@@ -80,6 +89,8 @@ export interface Job {
   status: JobStatus;
   fanInfo: FanInfo[] | null;
   linkedFanJobId: string | null;
+  insulationInfo: InsulationInfo[] | null;
+  linkedInsulationJobId: string | null;
   costs: JobCosts | null;
   privateNotes: string; // Admin-only notes, not visible in team portal
 }

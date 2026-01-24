@@ -133,11 +133,13 @@ export type Database = {
           description: string | null
           fan_info: Json | null
           id: string
+          insulation_info: Json | null
           is_completed: boolean | null
           is_flexible_booking: boolean
           is_ongoing: boolean
           job_number: string
           linked_fan_job_id: string | null
+          linked_insulation_job_id: string | null
           name: string
           phone_number: string | null
           private_notes: string | null
@@ -165,11 +167,13 @@ export type Database = {
           description?: string | null
           fan_info?: Json | null
           id?: string
+          insulation_info?: Json | null
           is_completed?: boolean | null
           is_flexible_booking?: boolean
           is_ongoing?: boolean
           job_number: string
           linked_fan_job_id?: string | null
+          linked_insulation_job_id?: string | null
           name: string
           phone_number?: string | null
           private_notes?: string | null
@@ -197,11 +201,13 @@ export type Database = {
           description?: string | null
           fan_info?: Json | null
           id?: string
+          insulation_info?: Json | null
           is_completed?: boolean | null
           is_flexible_booking?: boolean
           is_ongoing?: boolean
           job_number?: string
           linked_fan_job_id?: string | null
+          linked_insulation_job_id?: string | null
           name?: string
           phone_number?: string | null
           private_notes?: string | null
