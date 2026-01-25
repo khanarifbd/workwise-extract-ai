@@ -206,12 +206,13 @@ export const CompletedJobsPDFButton = ({ jobs, categoryName = 'Damp & Mold' }: C
                     {startDate ? format(startDate, 'dd/MM/yyyy') : 'Pick date'}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
+                <PopoverContent className="w-auto p-0 pointer-events-auto" align="start">
                   <CalendarComponent
                     mode="single"
                     selected={startDate}
                     onSelect={setStartDate}
                     initialFocus
+                    className="pointer-events-auto"
                   />
                 </PopoverContent>
               </Popover>
@@ -226,12 +227,13 @@ export const CompletedJobsPDFButton = ({ jobs, categoryName = 'Damp & Mold' }: C
                     {endDate ? format(endDate, 'dd/MM/yyyy') : 'Pick date'}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
+                <PopoverContent className="w-auto p-0 pointer-events-auto" align="start">
                   <CalendarComponent
                     mode="single"
                     selected={endDate}
                     onSelect={setEndDate}
                     initialFocus
+                    className="pointer-events-auto"
                   />
                 </PopoverContent>
               </Popover>
