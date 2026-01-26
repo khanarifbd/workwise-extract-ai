@@ -19,7 +19,8 @@ import {
   AlertTriangle,
   Copy,
   ArrowRightLeft,
-  Clock
+  Clock,
+  CheckCircle2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TeamSelector } from './TeamSelector';
@@ -869,12 +870,40 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                   </td>
                   {/* Sign-Off Status Column */}
                   <td onClick={(e) => e.stopPropagation()} className="relative z-20">
-                    <SignOffStatusIndicator
-                      jobId={job.id}
-                      team1={job.team}
-                      team2={job.team2}
-                      onClick={() => setSignOffHistoryJob(job)}
-                    />
+                    <div className="flex items-center gap-1.5">
+                      <SignOffStatusIndicator
+                        jobId={job.id}
+                        team1={job.team}
+                        team2={job.team2}
+                        onClick={() => setSignOffHistoryJob(job)}
+                      />
+                      {/* Admin Complete Button */}
+                      {!readOnly && !job.isCompleted && onUpdateJob && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground hover:text-success hover:bg-success/10"
+                          title="Mark as Complete"
+                          onClick={() => {
+                            if (window.confirm(`Mark job #${job.jobNumber} as complete?`)) {
+                              onUpdateJob({
+                                ...job,
+                                isCompleted: true,
+                                status: 'complete' as JobStatus,
+                                progress: 100,
+                                completionDate: new Date(),
+                              });
+                              toast({
+                                title: "Job Completed",
+                                description: `Job #${job.jobNumber} has been marked as complete.`,
+                              });
+                            }
+                          }}
+                        >
+                          <CheckCircle2 className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
                   </td>
                   {!readOnly && (
                     <td onClick={(e) => e.stopPropagation()}>
