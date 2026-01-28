@@ -161,9 +161,11 @@ export const FileDropZone = ({ onFileUpload, onMultipleFilesUpload, isProcessing
               )} />
             </div>
             <div>
-              <p className="font-semibold text-foreground">Drop your file here</p>
+              <p className="font-semibold text-foreground">
+                {allowMultiple ? 'Drop your files here' : 'Drop your file here'}
+              </p>
               <p className="text-sm text-muted-foreground mt-1">
-                or click to browse files
+                or click to browse {allowMultiple ? '(supports multiple files)' : ''}
               </p>
             </div>
             <div className="flex items-center gap-4 text-xs text-muted-foreground">
@@ -176,6 +178,11 @@ export const FileDropZone = ({ onFileUpload, onMultipleFilesUpload, isProcessing
                 Images (JPG, PNG, WebP)
               </span>
             </div>
+            {allowMultiple && (
+              <p className="text-xs text-muted-foreground bg-muted/50 px-3 py-1 rounded-full">
+                💡 Select multiple files for bulk processing
+              </p>
+            )}
           </>
         )}
       </div>
