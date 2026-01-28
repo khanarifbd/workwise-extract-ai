@@ -645,27 +645,34 @@ const Index = () => {
     return activeCat?.name.toLowerCase().includes('insulation') || false;
   }, [categories, activeCategory]);
 
+  // Check if search is active (for global search across all tabs)
+  const hasActiveSearch = filters.search && filters.search.trim().length > 0;
+
   const filteredJobs = useMemo(() => {
     let result = jobs.filter(job => {
-      // Database tab filter (booked/completed/all)
-      if (activeDatabaseTab === 'booked') {
-        // Show only booked jobs that are NOT completed
-        if (!job.bookedDate || job.isCompleted || job.progress === 100) return false;
-        
-        // Filter by selected booked date if any
-        if (selectedBookedDate) {
-          const bookedDate = job.bookedDate instanceof Date ? job.bookedDate : parseISO(job.bookedDate as any);
-          if (!isValid(bookedDate)) return false;
-          const jobDateKey = format(bookedDate, 'yyyy-MM-dd');
-          if (jobDateKey !== selectedBookedDate) return false;
+      // When search is active, search across ALL jobs (booked, unbooked, completed)
+      // This enables global search functionality
+      if (!hasActiveSearch) {
+        // Database tab filter (booked/completed/all) - only applied when NOT searching
+        if (activeDatabaseTab === 'booked') {
+          // Show only booked jobs that are NOT completed
+          if (!job.bookedDate || job.isCompleted || job.progress === 100) return false;
+          
+          // Filter by selected booked date if any
+          if (selectedBookedDate) {
+            const bookedDate = job.bookedDate instanceof Date ? job.bookedDate : parseISO(job.bookedDate as any);
+            if (!isValid(bookedDate)) return false;
+            const jobDateKey = format(bookedDate, 'yyyy-MM-dd');
+            if (jobDateKey !== selectedBookedDate) return false;
+          }
+        } else if (activeDatabaseTab === 'completed') {
+          // Show only completed jobs
+          if (!job.isCompleted && job.progress !== 100) return false;
+        } else {
+          // In main "all" tab, exclude booked and completed jobs
+          if (job.bookedDate) return false;
+          if (job.isCompleted || job.progress === 100) return false;
         }
-      } else if (activeDatabaseTab === 'completed') {
-        // Show only completed jobs
-        if (!job.isCompleted && job.progress !== 100) return false;
-      } else {
-        // In main "all" tab, exclude booked and completed jobs
-        if (job.bookedDate) return false;
-        if (job.isCompleted || job.progress === 100) return false;
       }
 
       // Monthly folder filter

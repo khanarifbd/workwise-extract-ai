@@ -817,7 +817,7 @@ export const TeamJobDetail = ({
                   </div>
                 )}
 
-                {job.summaryOfWorks && (
+{job.summaryOfWorks && (
                   <div className="pt-2 border-t">
                     <div className="flex items-center justify-between mb-1">
                       <p className="text-xs text-muted-foreground">Summary</p>
@@ -841,6 +841,25 @@ export const TeamJobDetail = ({
                     <p className="text-xs sm:text-sm">
                       {showOriginal || !translatedSummary ? job.summaryOfWorks : translatedSummary}
                     </p>
+                  </div>
+                )}
+
+                {/* Full Job Description from database */}
+                {job.description && (
+                  <div className="pt-2 border-t">
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-xs text-muted-foreground font-medium">Job Description</p>
+                      {languagePreference !== 'en' && (
+                        <div className="flex items-center gap-1">
+                          {isTranslatingContent && (
+                            <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <div className="bg-muted/30 p-2 rounded text-xs sm:text-sm whitespace-pre-wrap max-h-48 overflow-y-auto">
+                      {showOriginal || !translatedDescription ? job.description : translatedDescription}
+                    </div>
                   </div>
                 )}
               </CardContent>
