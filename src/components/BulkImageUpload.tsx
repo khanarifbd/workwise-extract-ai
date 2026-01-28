@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { Upload, Image, X, Loader2, Check, AlertCircle, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -8,9 +8,17 @@ import { extractImageWithAI, extractPDFWithAI } from '@/lib/api';
 import { extractTextFromPDF } from '@/lib/pdfUtils';
 import { useToast } from '@/hooks/use-toast';
 
+type FileType = 'pdf' | 'image';
+
+interface InitialFile {
+  file: File;
+  type: FileType;
+}
+
 interface BulkImageUploadProps {
   onJobsExtracted: (jobs: Omit<Job, 'id'>[]) => void;
   onClose: () => void;
+  initialFiles?: InitialFile[];
 }
 
 interface FileStatus {
@@ -24,11 +32,23 @@ interface FileStatus {
 const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 const ACCEPTED_PDF_TYPE = 'application/pdf';
 
-export const BulkImageUpload = ({ onJobsExtracted, onClose }: BulkImageUploadProps) => {
+export const BulkImageUpload = ({ onJobsExtracted, onClose, initialFiles }: BulkImageUploadProps) => {
   const [files, setFiles] = useState<FileStatus[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const { toast } = useToast();
+
+  // Initialize with provided files
+  useEffect(() => {
+    if (initialFiles && initialFiles.length > 0) {
+      const initialFileStatuses: FileStatus[] = initialFiles.map(f => ({
+        file: f.file,
+        status: 'pending' as const,
+        fileType: f.type === 'pdf' ? 'pdf' as const : 'image' as const,
+      }));
+      setFiles(initialFileStatuses);
+    }
+  }, [initialFiles]);
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = e.target.files;

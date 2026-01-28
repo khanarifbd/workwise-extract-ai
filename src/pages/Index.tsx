@@ -60,6 +60,7 @@ const Index = () => {
   const [showExport, setShowExport] = useState(false);
   const [showOverdueDashboard, setShowOverdueDashboard] = useState(false);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
+  const [bulkUploadInitialFiles, setBulkUploadInitialFiles] = useState<Array<{ file: File; type: FileType }>>([]);
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [uploadExpanded, setUploadExpanded] = useState(false);
   const [viewType, setViewType] = useState<ViewType>('table');
@@ -263,7 +264,8 @@ const Index = () => {
   };
 
   const handleMultipleFilesUpload = async (files: Array<{ file: File; type: FileType }>) => {
-    // Use bulk upload modal for multiple files
+    // Pass files directly to bulk upload modal (pre-populated)
+    setBulkUploadInitialFiles(files);
     setShowBulkUpload(true);
   };
 
@@ -1123,25 +1125,12 @@ const Index = () => {
                     </p>
                   </>
                 ) : (
-                  <>
-                    <FileDropZone 
-                      onFileUpload={handleFileUpload} 
-                      onMultipleFilesUpload={handleMultipleFilesUpload}
-                      isProcessing={isProcessing} 
-                      allowMultiple={true}
-                    />
-                    <div className="flex justify-center">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setShowBulkUpload(true)}
-                        className="text-xs text-muted-foreground hover:text-foreground"
-                      >
-                        <Images className="w-3 h-3 mr-1" />
-                        Bulk Image Upload
-                      </Button>
-                    </div>
-                  </>
+                  <FileDropZone 
+                    onFileUpload={handleFileUpload} 
+                    onMultipleFilesUpload={handleMultipleFilesUpload}
+                    isProcessing={isProcessing} 
+                    allowMultiple={true}
+                  />
                 )}
               </div>
             )}
@@ -1331,7 +1320,11 @@ const Index = () => {
       {showBulkUpload && (
         <BulkImageUpload
           onJobsExtracted={handleBulkJobsExtracted}
-          onClose={() => setShowBulkUpload(false)}
+          onClose={() => {
+            setShowBulkUpload(false);
+            setBulkUploadInitialFiles([]);
+          }}
+          initialFiles={bulkUploadInitialFiles}
         />
       )}
 
