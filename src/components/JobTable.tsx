@@ -27,6 +27,7 @@ import { TeamSelector } from './TeamSelector';
 import { JobDetailsModal } from './JobDetailsModal';
 import { InlineDescriptionEditor } from './InlineDescriptionEditor';
 import { FanEditor } from './FanEditor';
+import { FanBookingDateDialog } from './FanBookingDateDialog';
 import { PrivateNotesEditor } from './PrivateNotesEditor';
 import { ContactCell } from './ContactCell';
 import { BookedDateCell } from './BookedDateCell';
@@ -91,6 +92,13 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
   const [isBulkScanning, setIsBulkScanning] = useState(false);
   const [duplicateActionJob, setDuplicateActionJob] = useState<Job | null>(null);
   const [signOffHistoryJob, setSignOffHistoryJob] = useState<Job | null>(null);
+  // Fan booking date dialog state
+  const [fanBookingDialogData, setFanBookingDialogData] = useState<{
+    job: Job;
+    fanInfo: FanInfo[];
+    totalFanCount: number;
+    isUpdate: boolean;
+  } | null>(null);
   const { toast } = useToast();
   const { settings: teamSettings } = useTeamSettings();
   const { hasAvailabilityConflict } = useTeamAvailability();
@@ -259,33 +267,14 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
         onUpdateJob({ ...job, fanInfo: fanInfoToSave });
         
         if (result.hasFans && result.fans.length > 0) {
-          // Auto-create or update linked fan job if category exists
+          // Show the booking date dialog if we have a fan category
           if (fanCategoryId) {
-            try {
-              if (job.linkedFanJobId) {
-                // Update existing linked fan job using syncLinkedFanJob
-                await syncLinkedFanJob(job, result.fans, fanCategoryId);
-                onFanJobCreated?.();
-                toast({
-                  title: "Fans Updated!",
-                  description: `Found ${result.totalFanCount} fan(s) - linked fan job updated.`,
-                });
-              } else {
-                // Create new linked fan job
-                await createLinkedFanJob(job, result.fans, fanCategoryId);
-                onFanJobCreated?.();
-                toast({
-                  title: "Fans Found & Job Created!",
-                  description: `Found ${result.totalFanCount} fan(s) - linked fan job created.`,
-                });
-              }
-            } catch (createError) {
-              console.error('Failed to create/update linked fan job:', createError);
-              toast({
-                title: "Fans Found!",
-                description: `Found ${result.totalFanCount} fan(s) in ${result.fans.length} type(s).`,
-              });
-            }
+            setFanBookingDialogData({
+              job: { ...job, fanInfo: fanInfoToSave },
+              fanInfo: result.fans,
+              totalFanCount: result.totalFanCount,
+              isUpdate: !!job.linkedFanJobId,
+            });
           } else {
             toast({
               title: "Fans Found!",
@@ -315,6 +304,41 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
       });
     } finally {
       setScanningFanJobId(null);
+    }
+  };
+
+  // Handle fan booking date confirmation from dialog
+  const handleFanBookingConfirm = async (bookedDate: Date | null) => {
+    if (!fanBookingDialogData || !fanCategoryId) return;
+
+    const { job, fanInfo, totalFanCount, isUpdate } = fanBookingDialogData;
+
+    try {
+      if (isUpdate && job.linkedFanJobId) {
+        // Update existing linked fan job
+        await syncLinkedFanJob(job, fanInfo, fanCategoryId, bookedDate);
+        onFanJobCreated?.();
+        toast({
+          title: "Fan Job Updated!",
+          description: `${totalFanCount} fan(s) updated${bookedDate ? ` - booked for ${bookedDate.toLocaleDateString()}` : ''}.`,
+        });
+      } else {
+        // Create new linked fan job
+        await createLinkedFanJob(job, fanInfo, fanCategoryId, bookedDate);
+        onFanJobCreated?.();
+        toast({
+          title: "Fan Job Created!",
+          description: `${totalFanCount} fan(s) linked${bookedDate ? ` - booked for ${bookedDate.toLocaleDateString()}` : ''}.`,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to create/update linked fan job:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create/update fan job. Please try again.",
+        variant: "destructive",
+      });
+      throw error;
     }
   };
 
@@ -1136,6 +1160,20 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
             </div>
           </div>
         </div>
+      )}
+
+      {/* Fan Booking Date Dialog */}
+      {fanBookingDialogData && (
+        <FanBookingDateDialog
+          open={!!fanBookingDialogData}
+          onOpenChange={(open) => {
+            if (!open) setFanBookingDialogData(null);
+          }}
+          job={fanBookingDialogData.job}
+          fanInfo={fanBookingDialogData.fanInfo}
+          totalFanCount={fanBookingDialogData.totalFanCount}
+          onConfirm={handleFanBookingConfirm}
+        />
       )}
     </>
   );

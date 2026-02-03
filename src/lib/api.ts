@@ -450,7 +450,8 @@ export const mapJobToDatabase = (job: Partial<Job>): any => {
 export const createLinkedFanJob = async (
   sourceJob: Job,
   fanInfo: FanInfo[],
-  fanCategoryId: string
+  fanCategoryId: string,
+  bookedDate?: Date | null
 ): Promise<Job> => {
   const fanDescription = fanInfo.map(fan => 
     `${fan.type} x${fan.quantity}${fan.location ? ` - ${fan.location}` : ''}`
@@ -473,7 +474,7 @@ export const createLinkedFanJob = async (
     isOngoing: false,
     createdAt: new Date(),
     dateIssued: new Date(),
-    bookedDate: null,
+    bookedDate: bookedDate || null,
     isFlexibleBooking: false,
     bookingNotes: '',
     completionDate: null,
@@ -514,7 +515,8 @@ export const createLinkedFanJob = async (
 export const syncLinkedFanJob = async (
   sourceJob: Job,
   fanInfo: FanInfo[],
-  fanCategoryId: string
+  fanCategoryId: string,
+  bookedDate?: Date | null
 ): Promise<{ linkedFanJobId: string; created: boolean }> => {
   const fanDescription = fanInfo.map(fan => 
     `${fan.type} x${fan.quantity}${fan.location ? ` - ${fan.location}` : ''}`
@@ -522,13 +524,20 @@ export const syncLinkedFanJob = async (
 
   // Check if a linked fan job already exists
   if (sourceJob.linkedFanJobId) {
-    // Update existing fan job
+    // Update existing fan job - also update booked_date if provided
+    const updateData: any = {
+      fan_info: fanInfo as unknown as Json,
+      description: fanDescription,
+    };
+    
+    // Only update booked_date if it was explicitly provided
+    if (bookedDate !== undefined) {
+      updateData.booked_date = bookedDate;
+    }
+
     const { error } = await supabase
       .from('jobs')
-      .update({
-        fan_info: fanInfo as unknown as Json,
-        description: fanDescription,
-      })
+      .update(updateData)
       .eq('id', sourceJob.linkedFanJobId);
 
     if (error) {
@@ -563,7 +572,7 @@ export const syncLinkedFanJob = async (
     isOngoing: false,
     createdAt: new Date(),
     dateIssued: new Date(),
-    bookedDate: null,
+    bookedDate: bookedDate || null,
     isFlexibleBooking: false,
     bookingNotes: '',
     completionDate: null,
