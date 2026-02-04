@@ -612,12 +612,23 @@ export const PhotoFolderUpload = ({
         {/* Uncategorized photos with drag support */}
         {uncategorizedPhotos.length > 0 && (
           <div className="border rounded-lg p-3 bg-muted/20">
-            <div className="flex items-center gap-2 mb-3">
-              <ImageIcon className="w-4 h-4 text-muted-foreground" />
-              <span className="font-medium text-sm text-muted-foreground">Other Photos</span>
-              <Badge variant="secondary" className="text-xs">
-                {uncategorizedPhotos.length}
-              </Badge>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <ImageIcon className="w-4 h-4 text-muted-foreground" />
+                <span className="font-medium text-sm text-muted-foreground">Other Photos</span>
+                <Badge variant="secondary" className="text-xs">
+                  {uncategorizedPhotos.length}
+                </Badge>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-primary hover:text-primary"
+                onClick={() => setDownloadFolder({ id: 'uncategorized', name: 'Other Photos' })}
+                title="Download photos"
+              >
+                <Download className="w-4 h-4" />
+              </Button>
             </div>
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
               {uncategorizedPhotos.map((photo) => (
@@ -650,7 +661,7 @@ export const PhotoFolderUpload = ({
         {downloadFolder && (
           <BulkMediaDownload
             folderName={downloadFolder.name}
-            photos={getFolderPhotos(downloadFolder.id)}
+            photos={downloadFolder.id === 'uncategorized' ? uncategorizedPhotos : getFolderPhotos(downloadFolder.id)}
             displayUrls={displayUrls}
             onClose={() => setDownloadFolder(null)}
           />
