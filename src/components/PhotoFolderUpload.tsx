@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Upload, FolderPlus, Image as ImageIcon, X, Loader2, Trash2, Edit2, Check, ChevronDown, ChevronRight, Ban, GripVertical } from 'lucide-react';
+import { Upload, FolderPlus, Image as ImageIcon, X, Loader2, Trash2, Edit2, Check, ChevronDown, ChevronRight, Ban, GripVertical, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Attachment } from '@/types/job';
 import { compressImages, formatBytes, calculateSavings } from '@/lib/imageCompression';
+import { BulkMediaDownload } from './BulkMediaDownload';
 import {
   Collapsible,
   CollapsibleContent,
@@ -78,6 +79,7 @@ export const PhotoFolderUpload = ({
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [displayUrls, setDisplayUrls] = useState<Record<string, string>>({});
   const [draggedPhoto, setDraggedPhoto] = useState<Attachment | null>(null);
+  const [downloadFolder, setDownloadFolder] = useState<{ id: string; name: string } | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const activeFolderRef = useRef<string | null>(null);
@@ -602,6 +604,7 @@ export const PhotoFolderUpload = ({
               onCancelUpload={cancelUpload}
               onDeleteFolder={() => deleteFolder(folder.id)}
               onRemovePhoto={removePhoto}
+              onOpenDownload={() => setDownloadFolder({ id: folder.id, name: folder.name })}
             />
           ))}
         </div>
@@ -642,10 +645,22 @@ export const PhotoFolderUpload = ({
             </div>
           )}
         </DragOverlay>
+
+        {/* Bulk download modal */}
+        {downloadFolder && (
+          <BulkMediaDownload
+            folderName={downloadFolder.name}
+            photos={getFolderPhotos(downloadFolder.id)}
+            displayUrls={displayUrls}
+            onClose={() => setDownloadFolder(null)}
+          />
+        )}
       </div>
     </DndContext>
   );
 };
+
+
 
 // Droppable folder section component
 interface DroppableFolderSectionProps {
@@ -671,6 +686,7 @@ interface DroppableFolderSectionProps {
   onCancelUpload: () => void;
   onDeleteFolder: () => void;
   onRemovePhoto: (photo: Attachment) => void;
+  onOpenDownload: () => void;
 }
 
 const DroppableFolderSection = ({
@@ -696,6 +712,7 @@ const DroppableFolderSection = ({
   onCancelUpload,
   onDeleteFolder,
   onRemovePhoto,
+  onOpenDownload,
 }: DroppableFolderSectionProps) => {
   const { setNodeRef, isOver } = useDroppable({
     id: folder.id,
@@ -783,6 +800,20 @@ const DroppableFolderSection = ({
                     <Upload className="w-3 h-3" />
                   )}
                 </Button>
+                {photos.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-primary hover:text-primary"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenDownload();
+                    }}
+                    title="Download photos"
+                  >
+                    <Download className="w-3 h-3" />
+                  </Button>
+                )}
                 {photos.length === 0 && (
                   <Button
                     variant="ghost"
