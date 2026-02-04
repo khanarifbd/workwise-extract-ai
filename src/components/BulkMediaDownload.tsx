@@ -52,16 +52,55 @@ export const BulkMediaDownload = ({
     try {
       const url = displayUrls[photo.id] || photo.url;
       
-      // Fetch the file
-      const response = await fetch(url);
-      if (!response.ok) throw new Error('Failed to fetch');
+      let blob: Blob;
+      let mimeType = 'image/jpeg';
       
-      const blob = await response.blob();
+      // Handle data URLs (base64)
+      if (url.startsWith('data:')) {
+        const [meta, base64Data] = url.split(',');
+        const mimeMatch = meta.match(/^data:(.*?);/);
+        mimeType = mimeMatch?.[1] || 'image/jpeg';
+        
+        // Convert base64 to binary using chunked approach to avoid stack overflow
+        const binaryString = atob(base64Data);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        blob = new Blob([bytes], { type: mimeType });
+      } else {
+        // Fetch regular URL
+        const response = await fetch(url, { mode: 'cors' });
+        if (!response.ok) throw new Error(`Failed to fetch: ${response.status}`);
+        
+        // Get the actual content type from response
+        const contentType = response.headers.get('content-type');
+        if (contentType) {
+          mimeType = contentType.split(';')[0].trim();
+        }
+        
+        const arrayBuffer = await response.arrayBuffer();
+        blob = new Blob([arrayBuffer], { type: mimeType });
+      }
       
-      // Generate a clean filename
-      const extension = photo.name?.split('.').pop() || 'jpg';
-      const baseName = photo.name?.replace(/\.[^/.]+$/, '') || photo.id;
+      // Determine correct extension based on MIME type
+      const extensionMap: Record<string, string> = {
+        'image/jpeg': 'jpg',
+        'image/jpg': 'jpg',
+        'image/png': 'png',
+        'image/gif': 'gif',
+        'image/webp': 'webp',
+        'image/heic': 'heic',
+        'video/mp4': 'mp4',
+        'video/quicktime': 'mov',
+        'video/webm': 'webm',
+      };
+      
+      const extension = extensionMap[mimeType] || photo.name?.split('.').pop() || 'jpg';
+      const baseName = photo.name?.replace(/\.[^/.]+$/, '') || `photo_${photo.id.slice(0, 8)}`;
       const cleanName = `${baseName}.${extension}`;
+      
+      console.log(`Prepared file: ${cleanName} (${mimeType}, ${(blob.size / 1024).toFixed(1)}KB)`);
       
       return { name: cleanName, blob };
     } catch (error) {
@@ -85,18 +124,17 @@ export const BulkMediaDownload = ({
     // For single file, download directly
     if (selectedPhotos.length === 1) {
       const photo = selectedPhotos[0];
-      const url = displayUrls[photo.id] || photo.url;
       
       try {
         setIsDownloading(true);
         setDownloadProgress(50);
         
-        const response = await fetch(url);
-        const blob = await response.blob();
+        const result = await downloadSingleFile(photo);
+        if (!result) throw new Error('Failed to process file');
         
         const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = photo.name || 'photo.jpg';
+        link.href = URL.createObjectURL(result.blob);
+        link.download = result.name;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -105,11 +143,12 @@ export const BulkMediaDownload = ({
         setDownloadProgress(100);
         toast({
           title: "Download complete",
-          description: `Downloaded ${photo.name}`,
+          description: `Downloaded ${result.name}`,
         });
         
         setTimeout(onClose, 500);
       } catch (error) {
+        console.error('Single file download error:', error);
         toast({
           title: "Download failed",
           description: "Could not download the file",
