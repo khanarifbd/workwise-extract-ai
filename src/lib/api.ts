@@ -518,23 +518,144 @@ const calculateAddressSimilarity = (addr1: string, addr2: string): number => {
   return matches / Math.max(words1.length, words2.length);
 };
 
+// Hardwired post-extraction validation for insulation jobs
+// Extracts team, EPC, and other data from description if not properly mapped
+export const validateAndFixInsulationJob = (job: Partial<Job>): Partial<Job> => {
+  const fixed = { ...job };
+  const description = job.description || '';
+  
+  // HARDWIRED RULE 1: Extract Team from description if team field is empty
+  if (!fixed.team || fixed.team === '') {
+    const teamMatch = description.match(/Team:\s*(\w+)/i);
+    if (teamMatch) {
+      fixed.team = teamMatch[1];
+      console.log(`[Validation] Extracted team "${fixed.team}" from description`);
+    }
+  }
+  
+  // HARDWIRED RULE 2: Extract EPC data from description to privateNotes if empty
+  if (!fixed.privateNotes || fixed.privateNotes === '') {
+    const epcParts: string[] = [];
+    
+    // EPC Booking
+    const epcBookingMatch = description.match(/EPC Booking:\s*([^;|\n]+)/i);
+    if (epcBookingMatch && epcBookingMatch[1].trim().toLowerCase() !== 'no') {
+      epcParts.push(`EPC Booking: ${epcBookingMatch[1].trim()}`);
+    }
+    
+    // EPC Status
+    const epcStatusMatch = description.match(/EPC Status[^:]*:\s*([^;|\n]+)/i);
+    if (epcStatusMatch && epcStatusMatch[1].trim().toLowerCase() !== 'no') {
+      epcParts.push(`EPC Status: ${epcStatusMatch[1].trim()}`);
+    }
+    
+    if (epcParts.length > 0) {
+      fixed.privateNotes = epcParts.join(' | ');
+      console.log(`[Validation] Extracted EPC data to privateNotes: "${fixed.privateNotes}"`);
+    }
+  }
+  
+  // HARDWIRED RULE 3: Extract Action/Contact data to progressNotes if empty
+  if (!fixed.progressNotes || fixed.progressNotes === '') {
+    const actionMatch = description.match(/Action:\s*([^;|\n]+)/i) ||
+                       description.match(/Contact:\s*([^;|\n]+)/i);
+    if (actionMatch) {
+      fixed.progressNotes = actionMatch[1].trim();
+      console.log(`[Validation] Extracted action to progressNotes: "${fixed.progressNotes}"`);
+    }
+  }
+  
+  // HARDWIRED RULE 4: Validate phone number format (UK)
+  if (fixed.phoneNumber) {
+    // Clean phone number - remove spaces and normalize
+    fixed.phoneNumber = fixed.phoneNumber.replace(/\s+/g, '').replace(/[^\d+]/g, '');
+    // Ensure UK format
+    if (fixed.phoneNumber.startsWith('44')) {
+      fixed.phoneNumber = '0' + fixed.phoneNumber.substring(2);
+    }
+  }
+  
+  // HARDWIRED RULE 5: Validate address has postcode
+  if (fixed.address) {
+    const hasPostcode = /[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}/i.test(fixed.address);
+    if (!hasPostcode) {
+      console.log(`[Validation Warning] Address may be missing postcode: "${fixed.address}"`);
+    }
+  }
+  
+  return fixed;
+};
+
+// Check for duplicate jobs in database by fuzzy address matching
+export const checkInsulationDuplicates = async (
+  address: string,
+  categoryId: string
+): Promise<{ isDuplicate: boolean; matchedJob?: Job }> => {
+  if (!address || address.trim().length < 5) {
+    return { isDuplicate: false };
+  }
+  
+  // Extract postcode and house number for matching
+  const postcodeMatch = address.match(/([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})/i);
+  const houseNumberMatch = address.match(/^(\d+[A-Za-z]?)\s/);
+  
+  if (!postcodeMatch) {
+    return { isDuplicate: false };
+  }
+  
+  const postcode = postcodeMatch[1].replace(/\s+/g, '').toUpperCase();
+  const houseNumber = houseNumberMatch ? houseNumberMatch[1] : '';
+  
+  // Query jobs with similar postcode
+  const { data: existingJobs } = await supabase
+    .from('jobs')
+    .select('*')
+    .eq('category_id', categoryId)
+    .ilike('address', `%${postcode.substring(0, 4)}%`);
+  
+  if (!existingJobs || existingJobs.length === 0) {
+    return { isDuplicate: false };
+  }
+  
+  // Find exact match by postcode + house number
+  for (const job of existingJobs) {
+    const jobAddress = job.address || '';
+    const jobPostcodeMatch = jobAddress.match(/([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})/i);
+    const jobHouseMatch = jobAddress.match(/^(\d+[A-Za-z]?)\s/);
+    
+    if (jobPostcodeMatch && jobHouseMatch) {
+      const jobPostcode = jobPostcodeMatch[1].replace(/\s+/g, '').toUpperCase();
+      const jobHouseNumber = jobHouseMatch[1];
+      
+      if (postcode === jobPostcode && houseNumber === jobHouseNumber) {
+        return { isDuplicate: true, matchedJob: mapDatabaseJobToJob(job) };
+      }
+    }
+  }
+  
+  return { isDuplicate: false };
+};
+
 // Merge new job data into existing job (for insulation updates)
 export const mergeJobData = async (
   existingJob: Job,
   newData: Partial<Job>
 ): Promise<Job> => {
+  // Apply hardwired validation to incoming data
+  const validatedData = validateAndFixInsulationJob(newData);
+  
   // Merge work items (add new ones, don't duplicate)
   const existingWorkItemDescriptions = new Set(
     (existingJob.workItems || []).map(w => w.description.toLowerCase().trim())
   );
-  const newWorkItems = (newData.workItems || []).filter(
+  const newWorkItems = (validatedData.workItems || []).filter(
     w => !existingWorkItemDescriptions.has(w.description.toLowerCase().trim())
   );
   const mergedWorkItems = [...(existingJob.workItems || []), ...newWorkItems];
 
   // Merge insulation info (add new types, update quantities for existing)
   const existingInsulation = existingJob.insulationInfo || [];
-  const newInsulation = newData.insulationInfo || [];
+  const newInsulation = validatedData.insulationInfo || [];
   const mergedInsulation = [...existingInsulation];
   
   for (const newIns of newInsulation) {
@@ -560,23 +681,29 @@ export const mergeJobData = async (
 
   // Build description appendix for any unmapped data
   let descriptionAppendix = '';
-  if (newData.description && newData.description.trim()) {
+  if (validatedData.description && validatedData.description.trim()) {
     const existingDesc = (existingJob.description || '').toLowerCase();
-    const newDesc = newData.description.trim();
+    const newDesc = validatedData.description.trim();
     if (!existingDesc.includes(newDesc.toLowerCase().substring(0, 50))) {
       descriptionAppendix = `\n\n--- Additional Notes (${new Date().toLocaleDateString()}) ---\n${newDesc}`;
     }
   }
 
-  // Prepare update
+  // Prepare update with hardwired field mapping
   const updates: Partial<Job> = {
     workItems: mergedWorkItems,
     insulationInfo: mergedInsulation,
     description: (existingJob.description || '') + descriptionAppendix,
     // Update phone if we have new one and existing is empty
-    phoneNumber: existingJob.phoneNumber || newData.phoneNumber || '',
+    phoneNumber: existingJob.phoneNumber || validatedData.phoneNumber || '',
     // Update name if existing is generic
-    name: (existingJob.name === 'Unknown' || !existingJob.name) ? (newData.name || existingJob.name) : existingJob.name,
+    name: (existingJob.name === 'Unknown' || !existingJob.name) ? (validatedData.name || existingJob.name) : existingJob.name,
+    // HARDWIRED: Team from extraction (if not already set)
+    team: existingJob.team || validatedData.team || null,
+    // HARDWIRED: Progress notes from Action/Contact columns
+    progressNotes: existingJob.progressNotes || validatedData.progressNotes || '',
+    // HARDWIRED: Private notes from EPC bookings
+    privateNotes: existingJob.privateNotes || validatedData.privateNotes || '',
   };
 
   const dbUpdates = mapJobToDatabase(updates);
