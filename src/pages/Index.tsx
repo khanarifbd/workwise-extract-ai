@@ -10,7 +10,7 @@ import { FanStatsCards } from '@/components/FanStatsCards';
 import { InsulationStatsCards } from '@/components/InsulationStatsCards';
 import { InsulationAnalyticsReport } from '@/components/InsulationAnalyticsReport';
 import { ExportPanel } from '@/components/ExportPanel';
-import { DMJobFilters, FanJobFilters, FilterState, getDefaultFilterState } from '@/components/filters';
+import { DMJobFilters, FanJobFilters, InsulationJobFilters, FilterState, getDefaultFilterState } from '@/components/filters';
 import { CategoryTabs } from '@/components/CategoryTabs';
 import { KanbanBoard } from '@/components/KanbanBoard';
 import { CalendarView } from '@/components/CalendarView';
@@ -74,6 +74,7 @@ const Index = () => {
   const [bookedSortOrder, setBookedSortOrder] = useState<BookedSortOrder>('newest');
   const [completedSortOrder, setCompletedSortOrder] = useState<CompletedSortOrder>('newest');
   const [selectedBookedDate, setSelectedBookedDate] = useState<string | null>(null);
+  const [showAnalyticsReport, setShowAnalyticsReport] = useState(false);
   const [duplicateCheck, setDuplicateCheck] = useState<{
     newJob: Omit<Job, 'id'>;
     existingJob: Job;
@@ -1084,10 +1085,7 @@ const Index = () => {
         {/* Compact Stats Row */}
         <div className="flex items-center justify-between gap-4 bg-section-stats rounded-lg p-3">
           {isInsulationCategory ? (
-            <>
-              <InsulationStatsCards jobs={displayedJobs} />
-              <InsulationAnalyticsReport jobs={jobs} />
-            </>
+            <InsulationStatsCards jobs={displayedJobs} />
           ) : isFanCategory ? (
             <FanStatsCards jobs={displayedJobs} />
           ) : (
@@ -1097,7 +1095,17 @@ const Index = () => {
 
         {/* Search and Filters - Category Specific */}
         <div className="bg-section-filters rounded-lg p-3">
-          {isFanCategory ? (
+          {isInsulationCategory ? (
+            <InsulationJobFilters
+              filters={filters}
+              onFiltersChange={setFilters}
+              availableSorCodes={availableSorCodes}
+              onExportPDF={handleExportPDF}
+              onExportExcel={handleExportExcel}
+              jobs={jobs}
+              onOpenAnalyticsReport={() => setShowAnalyticsReport(true)}
+            />
+          ) : isFanCategory ? (
             <FanJobFilters
               filters={filters}
               onFiltersChange={setFilters}
@@ -1115,6 +1123,15 @@ const Index = () => {
             />
           )}
         </div>
+        
+        {/* Analytics Report Modal for Insulation */}
+        {isInsulationCategory && showAnalyticsReport && (
+          <InsulationAnalyticsReport 
+            jobs={jobs} 
+            isOpen={showAnalyticsReport}
+            onClose={() => setShowAnalyticsReport(false)}
+          />
+        )}
 
         {/* Collapsible Upload Section - only show for admins */}
         {canEdit && (

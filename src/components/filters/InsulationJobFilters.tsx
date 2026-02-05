@@ -22,10 +22,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Search, SlidersHorizontal, X, Save, CalendarIcon, ChevronDown, Trash2, FileDown, FileSpreadsheet, Home } from 'lucide-react';
+import { Search, SlidersHorizontal, X, Save, CalendarIcon, ChevronDown, Trash2, FileDown, FileSpreadsheet, Home, BarChart3 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { FilterState, FilterPreset, STORAGE_KEY, getDefaultFilterState } from './filterTypes';
+import { Job } from '@/types/job';
 
 // Insulation Teams
 const INSULATION_TEAMS = [
@@ -40,6 +41,8 @@ interface InsulationJobFiltersProps {
   availableSorCodes?: string[];
   onExportPDF?: () => void;
   onExportExcel?: () => void;
+  jobs?: Job[];
+  onOpenAnalyticsReport?: () => void;
 }
 
 export const InsulationJobFilters = ({
@@ -48,6 +51,8 @@ export const InsulationJobFilters = ({
   availableSorCodes = [],
   onExportPDF,
   onExportExcel,
+  jobs,
+  onOpenAnalyticsReport,
 }: InsulationJobFiltersProps) => {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [presets, setPresets] = useState<FilterPreset[]>([]);
@@ -207,6 +212,19 @@ export const InsulationJobFilters = ({
           <Button variant="outline" size="sm" onClick={onExportExcel}>
             <FileSpreadsheet className="w-4 h-4 mr-1" />
             Excel
+          </Button>
+        )}
+        
+        {/* Analytics Report button */}
+        {onOpenAnalyticsReport && (
+          <Button 
+            variant="default" 
+            size="sm" 
+            onClick={onOpenAnalyticsReport}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+          >
+            <BarChart3 className="w-4 h-4 mr-1" />
+            Analytics Report
           </Button>
         )}
       </div>

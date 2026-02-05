@@ -8,6 +8,8 @@ import autoTable from 'jspdf-autotable';
 
 interface InsulationAnalyticsReportProps {
   jobs: Job[];
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
 interface InsulationStats {
@@ -37,11 +39,8 @@ const calculateStats = (jobs: Job[]): InsulationStats => {
   const sixMonthsAgo = new Date(now);
   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
-  // Filter jobs with insulation info
-  const insulationJobs = jobs.filter(j => {
-    const info = (j as any).insulationInfo;
-    return info && Array.isArray(info) && info.length > 0;
-  });
+  // Include ALL jobs in the insulation category, not just those with insulationInfo
+  const insulationJobs = jobs;
 
   // Categorize by property type (house vs building based on keywords)
   const categorizeProperty = (job: Job): 'house' | 'building' => {
@@ -191,9 +190,24 @@ const calculateStats = (jobs: Job[]): InsulationStats => {
   };
 };
 
-export const InsulationAnalyticsReport = ({ jobs }: InsulationAnalyticsReportProps) => {
-  const [isOpen, setIsOpen] = useState(false);
+export const InsulationAnalyticsReport = ({ jobs, isOpen: externalIsOpen, onClose }: InsulationAnalyticsReportProps) => {
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+
+  // Use external control if provided, otherwise use internal state
+  const isOpen = externalIsOpen !== undefined ? externalIsOpen : internalIsOpen;
+  const handleClose = () => {
+    if (onClose) {
+      onClose();
+    } else {
+      setInternalIsOpen(false);
+    }
+  };
+  const handleOpen = () => {
+    if (externalIsOpen === undefined) {
+      setInternalIsOpen(true);
+    }
+  };
 
   const stats = calculateStats(jobs);
 
@@ -401,28 +415,33 @@ export const InsulationAnalyticsReport = ({ jobs }: InsulationAnalyticsReportPro
     }
   };
 
+  // Only render standalone button if not controlled externally
+  const showStandaloneButton = externalIsOpen === undefined;
+
   return (
     <>
-      <Button
-        onClick={() => setIsOpen(true)}
-        variant="outline"
-        size="sm"
-        className="gap-2"
-      >
-        <BarChart3 className="w-4 h-4" />
-        Analytics Report
-      </Button>
+      {showStandaloneButton && (
+        <Button
+          onClick={handleOpen}
+          variant="outline"
+          size="sm"
+          className="gap-2"
+        >
+          <BarChart3 className="w-4 h-4" />
+          Analytics Report
+        </Button>
+      )}
 
       {isOpen && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden animate-scale-in">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-emerald-500/10">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-primary/10">
               <div className="flex items-center gap-3">
-                <BarChart3 className="w-6 h-6 text-emerald-500" />
+                <BarChart3 className="w-6 h-6 text-primary" />
                 <h2 className="text-lg font-semibold">Insulation Analytics Report</h2>
               </div>
               <button
-                onClick={() => setIsOpen(false)}
+                onClick={handleClose}
                 className="p-2 hover:bg-muted rounded-lg transition-colors"
               >
                 <X className="w-5 h-5" />
