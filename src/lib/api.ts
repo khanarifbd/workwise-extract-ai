@@ -171,7 +171,10 @@ export interface ExtractedInsulationJob {
   name: string;
   address: string;
   phoneNumber: string;
-  description: string;
+  team: string; // From Team column -> maps to Assigned
+  status: string; // From Action/Contact columns
+  description: string; // To be collected, Loft rubbish, Issue, Vent, Type, Tenant contact
+  privateNotes: string; // EPC bookings and sensitive data
   workItems: WorkItem[];
   insulationInfo: InsulationInfo[];
 }

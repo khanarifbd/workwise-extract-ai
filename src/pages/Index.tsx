@@ -119,7 +119,7 @@ const Index = () => {
           throw new Error('No jobs found in document');
         }
         
-        // Convert extracted jobs to our Job format
+        // Convert extracted jobs to our Job format - use extracted team/status/privateNotes
         const newJobs: Omit<Job, 'id'>[] = result.jobs.map(extractedJob => ({
           jobNumber: extractedJob.jobNumber || `INS-${Date.now().toString().slice(-6)}`,
           name: extractedJob.name || 'Unknown',
@@ -132,10 +132,10 @@ const Index = () => {
             id: crypto.randomUUID(),
           })),
           additionalWorks: [],
-          team: null,
+          team: extractedJob.team || null, // From Team column -> Assigned
           team2: null,
           progress: 0,
-          progressNotes: '',
+          progressNotes: extractedJob.status || '', // Action/Contact data goes to progress notes for visibility
           isCompleted: false,
           isOngoing: false,
           createdAt: new Date(),
@@ -151,7 +151,7 @@ const Index = () => {
           insulationInfo: extractedJob.insulationInfo || null,
           linkedInsulationJobId: null,
           costs: null,
-          privateNotes: '',
+          privateNotes: extractedJob.privateNotes || '', // EPC bookings and sensitive data
         }));
         
         // Process jobs with duplicate checking
@@ -321,7 +321,7 @@ const Index = () => {
             : null;
 
           if (existingJob) {
-            // Merge data into existing job
+            // Merge data into existing job - include new extraction fields
             console.log(`Merging data into existing job: ${existingJob.jobNumber} (matched by ${existingJob.address})`);
             
             await mergeJobData(existingJob, {
@@ -333,11 +333,14 @@ const Index = () => {
               description: extractedJob.description || '',
               phoneNumber: extractedJob.phoneNumber || '',
               name: extractedJob.name || '',
+              team: extractedJob.team || '', // From Team column
+              progressNotes: extractedJob.status || '', // Action/Contact data
+              privateNotes: extractedJob.privateNotes || '', // EPC bookings
             });
             
             mergedCount++;
           } else {
-            // Create new job
+            // Create new job - use extracted team/status/privateNotes
             const newJob: Omit<Job, 'id'> = {
               jobNumber,
               name: extractedJob.name || 'Unknown',
@@ -350,10 +353,10 @@ const Index = () => {
                 id: crypto.randomUUID(),
               })),
               additionalWorks: [],
-              team: null,
+              team: extractedJob.team || null, // From Team column -> Assigned
               team2: null,
               progress: 0,
-              progressNotes: '',
+              progressNotes: extractedJob.status || '', // Action/Contact data for visibility
               isCompleted: false,
               isOngoing: false,
               createdAt: new Date(),
@@ -369,7 +372,7 @@ const Index = () => {
               insulationInfo: extractedJob.insulationInfo || null,
               linkedInsulationJobId: null,
               costs: null,
-              privateNotes: '',
+              privateNotes: extractedJob.privateNotes || '', // EPC bookings
             };
             
             await addJob(newJob);
