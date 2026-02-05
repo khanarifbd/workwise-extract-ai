@@ -35,7 +35,7 @@ import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { useCategories } from '@/hooks/useCategories';
 import { useSignOffStatus } from '@/hooks/useSignOffStatus';
 import { useFuzzySearch } from '@/hooks/useFuzzySearch';
-import { extractPDFWithAI, extractImageWithAI, checkDuplicateJobNumber, extractInsulationJobsFromDocument, findExistingJobByAddressOrNumber, mergeJobData } from '@/lib/api';
+import { extractPDFWithAI, extractImageWithAI, checkDuplicateJobNumber, extractInsulationJobsFromDocument, findExistingJobByAddressOrNumber, mergeJobData, validateAndFixInsulationJob, checkInsulationDuplicates } from '@/lib/api';
 import { extractTextFromPDF } from '@/lib/pdfUtils';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -119,40 +119,45 @@ const Index = () => {
           throw new Error('No jobs found in document');
         }
         
-        // Convert extracted jobs to our Job format - use extracted team/status/privateNotes
-        const newJobs: Omit<Job, 'id'>[] = result.jobs.map(extractedJob => ({
-          jobNumber: extractedJob.jobNumber || `INS-${Date.now().toString().slice(-6)}`,
-          name: extractedJob.name || 'Unknown',
-          address: extractedJob.address || '',
-          phoneNumber: extractedJob.phoneNumber || '',
-          summaryOfWorks: '',
-          description: extractedJob.description || '',
-          workItems: (extractedJob.workItems || []).map((item: any) => ({
-            ...item,
-            id: crypto.randomUUID(),
-          })),
-          additionalWorks: [],
-          team: extractedJob.team || null, // From Team column -> Assigned
-          team2: null,
-          progress: 0,
-          progressNotes: extractedJob.status || '', // Action/Contact data goes to progress notes for visibility
-          isCompleted: false,
-          isOngoing: false,
-          createdAt: new Date(),
-          dateIssued: new Date(),
-          bookedDate: null,
-          isFlexibleBooking: false,
-          bookingNotes: '',
-          completionDate: null,
-          attachments: [],
-          status: 'pending',
-          fanInfo: null,
-          linkedFanJobId: null,
-          insulationInfo: extractedJob.insulationInfo || null,
-          linkedInsulationJobId: null,
-          costs: null,
-          privateNotes: extractedJob.privateNotes || '', // EPC bookings and sensitive data
-        }));
+        // Convert extracted jobs to our Job format and apply hardwired validation
+        const newJobs: Omit<Job, 'id'>[] = result.jobs.map(extractedJob => {
+          const rawJob: Partial<Job> = {
+            jobNumber: extractedJob.jobNumber || `INS-${Date.now().toString().slice(-6)}`,
+            name: extractedJob.name || 'Unknown',
+            address: extractedJob.address || '',
+            phoneNumber: extractedJob.phoneNumber || '',
+            summaryOfWorks: '',
+            description: extractedJob.description || '',
+            workItems: (extractedJob.workItems || []).map((item: any) => ({
+              ...item,
+              id: crypto.randomUUID(),
+            })),
+            additionalWorks: [],
+            team: extractedJob.team || null, // From Team column -> Assigned
+            team2: null,
+            progress: 0,
+            progressNotes: extractedJob.status || '', // Action/Contact data goes to progress notes for visibility
+            isCompleted: false,
+            isOngoing: false,
+            createdAt: new Date(),
+            dateIssued: new Date(),
+            bookedDate: null,
+            isFlexibleBooking: false,
+            bookingNotes: '',
+            completionDate: null,
+            attachments: [],
+            status: 'pending',
+            fanInfo: null,
+            linkedFanJobId: null,
+            insulationInfo: extractedJob.insulationInfo || null,
+            linkedInsulationJobId: null,
+            costs: null,
+            privateNotes: extractedJob.privateNotes || '', // EPC bookings and sensitive data
+          };
+          
+          // HARDWIRED VALIDATION: Extract missing data from description
+          return validateAndFixInsulationJob(rawJob) as Omit<Job, 'id'>;
+        });
         
         // Process jobs with duplicate checking
         if (newJobs.length === 1) {
@@ -340,8 +345,8 @@ const Index = () => {
             
             mergedCount++;
           } else {
-            // Create new job - use extracted team/status/privateNotes
-            const newJob: Omit<Job, 'id'> = {
+            // Create new job - apply hardwired validation before saving
+            const rawJob: Partial<Job> = {
               jobNumber,
               name: extractedJob.name || 'Unknown',
               address,
@@ -375,7 +380,10 @@ const Index = () => {
               privateNotes: extractedJob.privateNotes || '', // EPC bookings
             };
             
-            await addJob(newJob);
+            // HARDWIRED VALIDATION: Ensure data integrity
+            const validatedJob = validateAndFixInsulationJob(rawJob) as Omit<Job, 'id'>;
+            
+            await addJob(validatedJob);
             addedCount++;
           }
         } catch (jobError) {
