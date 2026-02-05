@@ -569,3 +569,5 @@ export const InsulationAnalyticsReport = ({ jobs }: InsulationAnalyticsReportPro
     </>
   );
 };
+
+export default InsulationAnalyticsReport;
