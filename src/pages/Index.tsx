@@ -7,6 +7,8 @@ import { JobTable } from '@/components/JobTable';
 import { Header } from '@/components/Header';
 import { StatsCards } from '@/components/StatsCards';
 import { FanStatsCards } from '@/components/FanStatsCards';
+import { InsulationStatsCards } from '@/components/InsulationStatsCards';
+import { InsulationAnalyticsReport } from '@/components/InsulationAnalyticsReport';
 import { ExportPanel } from '@/components/ExportPanel';
 import { DMJobFilters, FanJobFilters, FilterState, getDefaultFilterState } from '@/components/filters';
 import { CategoryTabs } from '@/components/CategoryTabs';
@@ -1081,7 +1083,12 @@ const Index = () => {
 
         {/* Compact Stats Row */}
         <div className="flex items-center justify-between gap-4 bg-section-stats rounded-lg p-3">
-          {isFanCategory ? (
+          {isInsulationCategory ? (
+            <>
+              <InsulationStatsCards jobs={displayedJobs} />
+              <InsulationAnalyticsReport jobs={jobs} />
+            </>
+          ) : isFanCategory ? (
             <FanStatsCards jobs={displayedJobs} />
           ) : (
             <StatsCards jobs={displayedJobs} allJobs={jobs} />
