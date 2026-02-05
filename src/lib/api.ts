@@ -412,6 +412,187 @@ export const checkDuplicateJobNumber = async (jobNumber: string): Promise<Job | 
   return data ? mapDatabaseJobToJob(data) : null;
 };
 
+// Normalize address for comparison (remove extra spaces, normalize case)
+const normalizeAddress = (address: string): string => {
+  return address
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .replace(/,\s*/g, ', ')
+    .trim();
+};
+
+// Extract postcode from UK address
+const extractPostcode = (address: string): string | null => {
+  const postcodeRegex = /([A-Z]{1,2}\d{1,2}[A-Z]?\s*\d[A-Z]{2})/i;
+  const match = address.match(postcodeRegex);
+  return match ? match[1].toUpperCase().replace(/\s+/g, ' ') : null;
+};
+
+// Find existing job by address OR job number within a category
+export const findExistingJobByAddressOrNumber = async (
+  jobNumber: string,
+  address: string,
+  categoryId: string
+): Promise<Job | null> => {
+  // First try exact job number match
+  const { data: byNumber, error: numError } = await supabase
+    .from('jobs')
+    .select('*')
+    .eq('category_id', categoryId)
+    .ilike('job_number', jobNumber)
+    .limit(1)
+    .maybeSingle();
+
+  if (numError) {
+    console.error('Error finding job by number:', numError);
+  }
+
+  if (byNumber) {
+    return mapDatabaseJobToJob(byNumber);
+  }
+
+  // If no match by number and we have an address, try address matching
+  if (address && address.trim().length > 5) {
+    const normalizedNewAddress = normalizeAddress(address);
+    const newPostcode = extractPostcode(address);
+
+    // Fetch all jobs in category to compare addresses
+    const { data: categoryJobs, error: addrError } = await supabase
+      .from('jobs')
+      .select('*')
+      .eq('category_id', categoryId)
+      .not('address', 'is', null);
+
+    if (addrError) {
+      console.error('Error finding jobs by address:', addrError);
+      return null;
+    }
+
+    if (categoryJobs) {
+      for (const job of categoryJobs) {
+        const existingAddress = job.address || '';
+        const normalizedExisting = normalizeAddress(existingAddress);
+        const existingPostcode = extractPostcode(existingAddress);
+
+        // Match by postcode first (most reliable for UK addresses)
+        if (newPostcode && existingPostcode && newPostcode === existingPostcode) {
+          // Check if house number / first part matches too
+          const newFirstPart = normalizedNewAddress.split(/[,\s]/)[0];
+          const existingFirstPart = normalizedExisting.split(/[,\s]/)[0];
+          if (newFirstPart === existingFirstPart || normalizedNewAddress.includes(normalizedExisting.substring(0, 20))) {
+            return mapDatabaseJobToJob(job);
+          }
+        }
+
+        // Fuzzy match on full address (if 80%+ similar)
+        const similarity = calculateAddressSimilarity(normalizedNewAddress, normalizedExisting);
+        if (similarity > 0.8) {
+          return mapDatabaseJobToJob(job);
+        }
+      }
+    }
+  }
+
+  return null;
+};
+
+// Simple address similarity calculation
+const calculateAddressSimilarity = (addr1: string, addr2: string): number => {
+  if (!addr1 || !addr2) return 0;
+  
+  const words1 = addr1.split(/\s+/).filter(w => w.length > 2);
+  const words2 = addr2.split(/\s+/).filter(w => w.length > 2);
+  
+  if (words1.length === 0 || words2.length === 0) return 0;
+  
+  let matches = 0;
+  for (const word of words1) {
+    if (words2.some(w => w.includes(word) || word.includes(w))) {
+      matches++;
+    }
+  }
+  
+  return matches / Math.max(words1.length, words2.length);
+};
+
+// Merge new job data into existing job (for insulation updates)
+export const mergeJobData = async (
+  existingJob: Job,
+  newData: Partial<Job>
+): Promise<Job> => {
+  // Merge work items (add new ones, don't duplicate)
+  const existingWorkItemDescriptions = new Set(
+    (existingJob.workItems || []).map(w => w.description.toLowerCase().trim())
+  );
+  const newWorkItems = (newData.workItems || []).filter(
+    w => !existingWorkItemDescriptions.has(w.description.toLowerCase().trim())
+  );
+  const mergedWorkItems = [...(existingJob.workItems || []), ...newWorkItems];
+
+  // Merge insulation info (add new types, update quantities for existing)
+  const existingInsulation = existingJob.insulationInfo || [];
+  const newInsulation = newData.insulationInfo || [];
+  const mergedInsulation = [...existingInsulation];
+  
+  for (const newIns of newInsulation) {
+    const existingIdx = mergedInsulation.findIndex(
+      e => e.type.toLowerCase() === newIns.type.toLowerCase() && 
+           (e.location || '').toLowerCase() === (newIns.location || '').toLowerCase()
+    );
+    if (existingIdx >= 0) {
+      // Update existing - add quantities if not manually overridden
+      if (!mergedInsulation[existingIdx].manualOverride) {
+        mergedInsulation[existingIdx] = {
+          ...mergedInsulation[existingIdx],
+          quantity: mergedInsulation[existingIdx].quantity + newIns.quantity,
+          thickness: newIns.thickness || mergedInsulation[existingIdx].thickness,
+          material: newIns.material || mergedInsulation[existingIdx].material,
+        };
+      }
+    } else {
+      // Add new insulation type
+      mergedInsulation.push(newIns);
+    }
+  }
+
+  // Build description appendix for any unmapped data
+  let descriptionAppendix = '';
+  if (newData.description && newData.description.trim()) {
+    const existingDesc = (existingJob.description || '').toLowerCase();
+    const newDesc = newData.description.trim();
+    if (!existingDesc.includes(newDesc.toLowerCase().substring(0, 50))) {
+      descriptionAppendix = `\n\n--- Additional Notes (${new Date().toLocaleDateString()}) ---\n${newDesc}`;
+    }
+  }
+
+  // Prepare update
+  const updates: Partial<Job> = {
+    workItems: mergedWorkItems,
+    insulationInfo: mergedInsulation,
+    description: (existingJob.description || '') + descriptionAppendix,
+    // Update phone if we have new one and existing is empty
+    phoneNumber: existingJob.phoneNumber || newData.phoneNumber || '',
+    // Update name if existing is generic
+    name: (existingJob.name === 'Unknown' || !existingJob.name) ? (newData.name || existingJob.name) : existingJob.name,
+  };
+
+  const dbUpdates = mapJobToDatabase(updates);
+  
+  const { data, error } = await supabase
+    .from('jobs')
+    .update(dbUpdates)
+    .eq('id', existingJob.id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error merging job data:', error);
+    throw error;
+  }
+
+  return mapDatabaseJobToJob(data);
+};
+
 export const mapJobToDatabase = (job: Partial<Job>): any => {
   const dbJob: any = {};
   

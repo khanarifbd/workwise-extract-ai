@@ -78,78 +78,81 @@ serve(async (req) => {
     console.log(`Processing ${documentType} for insulation jobs extraction for user ${user.id}...`);
     console.log('Document length:', documentText.length);
 
-    const systemPrompt = `You are an expert job data extraction specialist for UK property maintenance and insulation work. Your task is to intelligently analyze documents and extract ALL individual jobs from the content.
+    const systemPrompt = `You are an expert job data extraction specialist for UK property maintenance and insulation work. Your task is to THOROUGHLY and ACCURATELY analyze documents and extract ALL individual jobs from the content.
 
-CRITICAL: The document may contain ONE job or MULTIPLE separate jobs. You MUST identify each distinct job and extract it separately.
+CRITICAL ACCURACY REQUIREMENTS:
+1. READ EVERY SINGLE ROW/ENTRY in the document - do not skip any data
+2. Extract EXACT values as written - do not modify or summarize
+3. Map data to the CORRECT fields based on column headers or context
+4. Preserve ALL information - if unsure where data belongs, include it in description
 
 HOW TO IDENTIFY SEPARATE JOBS:
 - Different job numbers/reference numbers indicate separate jobs
-- Different property addresses indicate separate jobs
-- Different customer names with separate addresses indicate separate jobs
-- Row-by-row data in spreadsheets/tables where each row is a job
-- Clear section breaks or headers like "Job 1", "Order 2", etc.
-- Different dates with different addresses/customers
+- Different property addresses indicate separate jobs (MOST RELIABLE identifier)
+- Different customer/tenant names with separate addresses
+- Row-by-row data in spreadsheets where each row represents a property
+- Section breaks or numbered entries
 
-FOR EACH JOB IDENTIFIED, EXTRACT:
-1. jobNumber: Job reference number, order number, works order number (look for patterns like WO123456, JOB-001, REF:12345, etc.)
-2. name: Customer/tenant name
-3. address: Full property address including postcode
-4. phoneNumber: Contact phone number (mobile or landline)
-5. description: Full description of works required
-6. workItems: Array of individual work items with:
-   - description: Work item description
-   - sorCode: SOR code if identifiable from: ${sorCodesContext || 'N/A'}
-   - qty: Quantity (default 1)
-   - cost: Cost if mentioned (default 0)
-7. insulationInfo: Array of insulation units found:
-   - type: Type of insulation (Loft, Cavity Wall, EWI, Pipe Lagging, etc.)
-   - quantity: Number of units
-   - location: Room/area if mentioned
-   - thickness: Depth/thickness if mentioned (e.g., "100mm", "270mm")
-   - material: Material type if mentioned (mineral wool, PIR, etc.)
+FIELD MAPPING - Extract these with PRECISION:
+1. jobNumber: Job/Order/Works/Reference number (patterns: WO123456, JOB-001, REF:12345, ORD-XXX)
+   - If no job number found, use format "INS-[first 4 chars of postcode]-[row number]"
+2. name: Customer/Tenant name (look for: Name, Tenant, Customer, Occupant columns)
+3. address: COMPLETE property address WITH postcode (most critical field for matching)
+   - Include house number, street, town/city, postcode
+   - UK postcodes follow patterns like: SW1A 1AA, M1 1AA, B1 1AA
+4. phoneNumber: Contact number (mobile: 07xxx, landline: 01xxx, 02xxx)
+5. description: ALL work details, notes, special instructions - combine if spread across columns
 
-INSULATION TYPES TO RECOGNIZE:
-- Loft insulation / Roof insulation / Attic insulation
-- Cavity wall insulation / CWI
-- External wall insulation / EWI
-- Internal wall insulation / IWI
-- Floor insulation / Underfloor insulation
-- Pipe insulation / Pipe lagging / Tank jacket
-- Draught proofing
-- Any other thermal insulation
+INSULATION DATA - Extract with full detail:
+6. insulationInfo: For EACH insulation item found:
+   - type: Exact insulation type (Loft Insulation, Cavity Wall Insulation, EWI, Pipe Lagging, etc.)
+   - quantity: Number of units/areas (default 1)
+   - location: Specific room/area (bedroom 1, hallway, loft hatch area, etc.)
+   - thickness: Depth in mm (100mm, 200mm, 270mm, 300mm)
+   - material: Material type (Mineral Wool, Glass Wool, PIR Board, Rockwool, etc.)
 
-DOCUMENT TYPE HANDLING:
-- PDF: Look for structured sections, headers, and formatted data
-- Excel/Spreadsheet: Treat each row as potentially a separate job, columns as fields
-- Text lists: Parse line by line, identify patterns
+7. workItems: Individual work tasks with SOR codes if identifiable from: ${sorCodesContext || 'N/A'}
 
-Return ONLY valid JSON in this exact format:
+SPREADSHEET/EXCEL HANDLING (CRITICAL):
+- Each row with a valid address = one separate job
+- Column headers tell you what each field contains - map accordingly
+- Common header variations:
+  * Address/Property/Location -> address
+  * Name/Tenant/Customer -> name
+  * Phone/Tel/Contact/Mobile -> phoneNumber
+  * Ref/Reference/Job No/WO -> jobNumber
+  * Notes/Comments/Description/Works -> description
+  * Type/Insulation Type -> insulationInfo.type
+  * Depth/Thickness/mm -> insulationInfo.thickness
+  * Qty/Quantity/Amount -> insulationInfo.quantity
+
+UNMAPPED DATA HANDLING:
+- Any data that doesn't fit a specific field goes into description
+- Format: "[Column Name]: [Value]"
+- Include dates, statuses, additional references in description
+
+Return ONLY valid JSON:
 {
-  "jobCount": <number of jobs found>,
+  "jobCount": <exact number of jobs extracted>,
   "jobs": [
     {
       "jobNumber": "string",
       "name": "string",
-      "address": "string",
+      "address": "string (MUST include postcode if available)",
       "phoneNumber": "string",
-      "description": "string",
-      "workItems": [
-        {"description": "string", "sorCode": "string", "qty": 1, "cost": 0}
-      ],
-      "insulationInfo": [
-        {"type": "string", "quantity": 1, "location": "string", "thickness": "string", "material": "string"}
-      ]
+      "description": "string (all additional details)",
+      "workItems": [{"description": "string", "sorCode": "string", "qty": 1, "cost": 0}],
+      "insulationInfo": [{"type": "string", "quantity": 1, "location": "string", "thickness": "string", "material": "string"}]
     }
   ]
 }
 
-RULES:
-- If a field is not found, use empty string "" or empty array []
-- Always return an array of jobs, even if only 1 job is found
-- Be thorough - extract ALL jobs from the document
-- For spreadsheets, each populated row typically represents one job
-- Preserve exact job numbers as written in the document
-- Include ALL details mentioned, don't summarize`;
+VALIDATION RULES:
+- Empty fields = "" or []
+- Always return jobs array even for single job
+- jobCount MUST match actual jobs array length
+- Every row with valid address = separate job entry
+- DO NOT merge or combine rows with different addresses`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',

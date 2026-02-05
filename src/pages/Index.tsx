@@ -33,7 +33,7 @@ import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { useCategories } from '@/hooks/useCategories';
 import { useSignOffStatus } from '@/hooks/useSignOffStatus';
 import { useFuzzySearch } from '@/hooks/useFuzzySearch';
-import { extractPDFWithAI, extractImageWithAI, checkDuplicateJobNumber, extractInsulationJobsFromDocument } from '@/lib/api';
+import { extractPDFWithAI, extractImageWithAI, checkDuplicateJobNumber, extractInsulationJobsFromDocument, findExistingJobByAddressOrNumber, mergeJobData } from '@/lib/api';
 import { extractTextFromPDF } from '@/lib/pdfUtils';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -269,7 +269,7 @@ const Index = () => {
     setShowBulkUpload(true);
   };
 
-  // Handler for Insulation category file uploads (supports Excel, CSV, PDF)
+  // Handler for Insulation category file uploads (supports Excel, CSV, PDF) - INTELLIGENT MERGE
   const handleInsulationFileUpload = async (file: File, type: InsulationFileType, textContent?: string) => {
     setIsProcessing(true);
     try {
@@ -295,71 +295,106 @@ const Index = () => {
       console.log('Extracting insulation jobs, document length:', documentText.length);
       
       const result = await extractInsulationJobsFromDocument(documentText, documentType);
-      console.log(`Extracted ${result.jobCount} insulation jobs`);
+      console.log(`Extracted ${result.jobCount} insulation jobs from document`);
       
       if (result.jobCount === 0 || result.jobs.length === 0) {
         throw new Error('No jobs found in document');
       }
-      
-      // Convert extracted jobs to our Job format
-      const newJobs: Omit<Job, 'id'>[] = result.jobs.map(extractedJob => ({
-        jobNumber: extractedJob.jobNumber || `INS-${Date.now().toString().slice(-6)}`,
-        name: extractedJob.name || 'Unknown',
-        address: extractedJob.address || '',
-        phoneNumber: extractedJob.phoneNumber || '',
-        summaryOfWorks: '',
-        description: extractedJob.description || '',
-        workItems: (extractedJob.workItems || []).map((item: any) => ({
-          ...item,
-          id: crypto.randomUUID(),
-        })),
-        additionalWorks: [],
-        team: null,
-        team2: null,
-        progress: 0,
-        progressNotes: '',
-        isCompleted: false,
-        isOngoing: false,
-        createdAt: new Date(),
-        dateIssued: new Date(),
-        bookedDate: null,
-        isFlexibleBooking: false,
-        bookingNotes: '',
-        completionDate: null,
-        attachments: [],
-        status: 'pending',
-        fanInfo: null,
-        linkedFanJobId: null,
-        insulationInfo: extractedJob.insulationInfo || null,
-        linkedInsulationJobId: null,
-        costs: null,
-        privateNotes: '',
-      }));
-      
-      // Process jobs with duplicate checking
-      if (newJobs.length === 1) {
-        const existing = await findDuplicateJobAsync(newJobs[0].jobNumber);
-        if (existing) {
-          setDuplicateCheck({
-            newJob: newJobs[0],
-            existingJob: existing,
-            pendingJobs: []
-          });
-          setIsProcessing(false);
-          return;
+
+      // Process with intelligent merge logic
+      let addedCount = 0;
+      let mergedCount = 0;
+      let skippedCount = 0;
+      const errors: string[] = [];
+
+      for (const extractedJob of result.jobs) {
+        try {
+          const jobNumber = extractedJob.jobNumber || `INS-${Date.now().toString().slice(-6)}-${addedCount}`;
+          const address = extractedJob.address || '';
+          
+          // Check for existing job by address OR job number
+          const existingJob = activeCategory 
+            ? await findExistingJobByAddressOrNumber(jobNumber, address, activeCategory)
+            : null;
+
+          if (existingJob) {
+            // Merge data into existing job
+            console.log(`Merging data into existing job: ${existingJob.jobNumber} (matched by ${existingJob.address})`);
+            
+            await mergeJobData(existingJob, {
+              workItems: (extractedJob.workItems || []).map((item: any) => ({
+                ...item,
+                id: crypto.randomUUID(),
+              })),
+              insulationInfo: extractedJob.insulationInfo || [],
+              description: extractedJob.description || '',
+              phoneNumber: extractedJob.phoneNumber || '',
+              name: extractedJob.name || '',
+            });
+            
+            mergedCount++;
+          } else {
+            // Create new job
+            const newJob: Omit<Job, 'id'> = {
+              jobNumber,
+              name: extractedJob.name || 'Unknown',
+              address,
+              phoneNumber: extractedJob.phoneNumber || '',
+              summaryOfWorks: '',
+              description: extractedJob.description || '',
+              workItems: (extractedJob.workItems || []).map((item: any) => ({
+                ...item,
+                id: crypto.randomUUID(),
+              })),
+              additionalWorks: [],
+              team: null,
+              team2: null,
+              progress: 0,
+              progressNotes: '',
+              isCompleted: false,
+              isOngoing: false,
+              createdAt: new Date(),
+              dateIssued: new Date(),
+              bookedDate: null,
+              isFlexibleBooking: false,
+              bookingNotes: '',
+              completionDate: null,
+              attachments: [],
+              status: 'pending',
+              fanInfo: null,
+              linkedFanJobId: null,
+              insulationInfo: extractedJob.insulationInfo || null,
+              linkedInsulationJobId: null,
+              costs: null,
+              privateNotes: '',
+            };
+            
+            await addJob(newJob);
+            addedCount++;
+          }
+        } catch (jobError) {
+          console.error('Error processing job:', jobError);
+          errors.push(extractedJob.jobNumber || extractedJob.address || 'Unknown');
+          skippedCount++;
         }
-        await addJob(newJobs[0]);
-        toast({
-          title: "Insulation Job Added",
-          description: `Job #${newJobs[0].jobNumber} with ${newJobs[0].insulationInfo?.length || 0} insulation units.`,
-        });
-      } else {
-        // Multiple jobs - use batch processing
-        await handleBulkJobsExtracted(newJobs);
-        toast({
-          title: "Jobs Extracted Successfully",
-          description: `${result.jobCount} insulation jobs extracted from document.`,
-        });
+      }
+
+      // Refresh to show updates
+      await refreshJobs();
+      
+      // Build summary message
+      const summaryParts: string[] = [];
+      if (addedCount > 0) summaryParts.push(`${addedCount} new job${addedCount > 1 ? 's' : ''} created`);
+      if (mergedCount > 0) summaryParts.push(`${mergedCount} existing job${mergedCount > 1 ? 's' : ''} updated`);
+      if (skippedCount > 0) summaryParts.push(`${skippedCount} skipped due to errors`);
+      
+      toast({
+        title: "Import Complete",
+        description: summaryParts.join(', ') + '.',
+      });
+      
+      if (errors.length > 0) {
+        console.warn('Jobs with errors:', errors);
       }
       
       setUploadExpanded(false);
