@@ -93,34 +93,69 @@ HOW TO IDENTIFY SEPARATE JOBS:
 - Row-by-row data in spreadsheets where each row represents a property
 - Section breaks or numbered entries
 
-FIELD MAPPING - Extract these with PRECISION:
+=== MANDATORY FIELD MAPPING RULES (ALWAYS APPLY) ===
+
 1. jobNumber: Job/Order/Works/Reference number (patterns: WO123456, JOB-001, REF:12345, ORD-XXX)
    - If no job number found, use format "INS-[first 4 chars of postcode]-[row number]"
+
 2. name: Customer/Tenant name (look for: Name, Tenant, Customer, Occupant columns)
+
 3. address: COMPLETE property address WITH postcode (most critical field for matching)
    - Include house number, street, town/city, postcode
    - UK postcodes follow patterns like: SW1A 1AA, M1 1AA, B1 1AA
+
 4. phoneNumber: Contact number (mobile: 07xxx, landline: 01xxx, 02xxx)
-5. description: ALL work details, notes, special instructions - combine if spread across columns
+   - Extract from Phone/Tel/Contact/Mobile columns
+
+5. team: CRITICAL - Look for "Team" column in spreadsheet
+   - Team member names found in "Team" column MUST populate this field
+   - This maps to the "Assigned" column in the database
+   - Examples: "John", "Sarah Team", "Installation Crew A"
+
+6. status: Look for "Action" or "Contact" columns
+   - Contact details and action items should populate this field
+   - Examples: "Call back", "Awaiting response", "Scheduled"
+
+7. description: MUST include ALL of the following data types when present:
+   - "To be collected" information - include verbatim
+   - "Loft rubbish" data - include any loft rubbish notes/details
+   - "Issue" column data - include all issue information
+   - "Vent" column data - include all vent-related information
+   - "Tenants contact details" - include tenant phone/email/notes
+   - "Type" column data - include the type classification
+   - Format each as: "[Category]: [Value]" for clarity
+   - Example: "To be collected: 3 bags | Loft rubbish: Yes, needs clearing | Issue: Access restricted | Type: Standard install"
+
+8. privateNotes: For sensitive/important data requiring admin attention:
+   - "EPC bookings" data - include EPC booking dates/references/status
+   - Format: "EPC Booking: [date/reference/details]"
 
 INSULATION DATA - Extract with full detail:
-6. insulationInfo: For EACH insulation item found:
+9. insulationInfo: For EACH insulation item found:
    - type: Exact insulation type (Loft Insulation, Cavity Wall Insulation, EWI, Pipe Lagging, etc.)
    - quantity: Number of units/areas (default 1)
    - location: Specific room/area (bedroom 1, hallway, loft hatch area, etc.)
    - thickness: Depth in mm (100mm, 200mm, 270mm, 300mm)
    - material: Material type (Mineral Wool, Glass Wool, PIR Board, Rockwool, etc.)
 
-7. workItems: Individual work tasks with SOR codes if identifiable from: ${sorCodesContext || 'N/A'}
+10. workItems: Individual work tasks with SOR codes if identifiable from: ${sorCodesContext || 'N/A'}
 
-SPREADSHEET/EXCEL HANDLING (CRITICAL):
+SPREADSHEET/EXCEL COLUMN MAPPING (CRITICAL):
 - Each row with a valid address = one separate job
-- Column headers tell you what each field contains - map accordingly
-- Common header variations:
+- Column headers tell you what each field contains - map accordingly:
   * Address/Property/Location -> address
   * Name/Tenant/Customer -> name
   * Phone/Tel/Contact/Mobile -> phoneNumber
   * Ref/Reference/Job No/WO -> jobNumber
+  * Team/Assigned/Installer -> team (MAPS TO ASSIGNED COLUMN)
+  * Action/Contact/Status -> status
+  * To be collected -> description (prefix with "To be collected:")
+  * Loft rubbish/Rubbish -> description (prefix with "Loft rubbish:")
+  * Issue/Issues/Problems -> description (prefix with "Issue:")
+  * Vent/Vents/Ventilation -> description (prefix with "Vent:")
+  * Type/Job Type/Work Type -> description (prefix with "Type:")
+  * Tenant Contact/Tenant Phone -> description (prefix with "Tenant contact:")
+  * EPC/EPC Booking/EPC Date -> privateNotes (prefix with "EPC Booking:")
   * Notes/Comments/Description/Works -> description
   * Type/Insulation Type -> insulationInfo.type
   * Depth/Thickness/mm -> insulationInfo.thickness
@@ -140,7 +175,10 @@ Return ONLY valid JSON:
       "name": "string",
       "address": "string (MUST include postcode if available)",
       "phoneNumber": "string",
-      "description": "string (all additional details)",
+      "team": "string (from Team column - maps to Assigned)",
+      "status": "string (from Action/Contact columns)",
+      "description": "string (To be collected, Loft rubbish, Issue, Vent, Type, Tenant contact - all combined)",
+      "privateNotes": "string (EPC bookings and sensitive data)",
       "workItems": [{"description": "string", "sorCode": "string", "qty": 1, "cost": 0}],
       "insulationInfo": [{"type": "string", "quantity": 1, "location": "string", "thickness": "string", "material": "string"}]
     }
@@ -152,7 +190,11 @@ VALIDATION RULES:
 - Always return jobs array even for single job
 - jobCount MUST match actual jobs array length
 - Every row with valid address = separate job entry
-- DO NOT merge or combine rows with different addresses`;
+- DO NOT merge or combine rows with different addresses
+- Team column data MUST go to team field (for Assigned column)
+- Contact/Action data MUST go to status field
+- To be collected, Loft rubbish, Issue, Vent, Type, Tenant contact MUST go to description
+- EPC bookings MUST go to privateNotes`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -235,13 +277,16 @@ VALIDATION RULES:
       extractedData.jobCount = extractedData.jobs.length;
     }
 
-    // Ensure each job has required fields
+    // Ensure each job has required fields including new mapping fields
     extractedData.jobs = extractedData.jobs.map((job: any, index: number) => ({
       jobNumber: job.jobNumber || `INS-${Date.now()}-${index + 1}`,
       name: job.name || '',
       address: job.address || '',
       phoneNumber: job.phoneNumber || '',
-      description: job.description || '',
+      team: job.team || '', // From Team column -> Assigned
+      status: job.status || '', // From Action/Contact columns
+      description: job.description || '', // To be collected, Loft rubbish, Issue, Vent, Type, Tenant contact
+      privateNotes: job.privateNotes || '', // EPC bookings and sensitive data
       workItems: Array.isArray(job.workItems) ? job.workItems.map((item: any) => ({
         id: crypto.randomUUID(),
         description: item.description || '',
