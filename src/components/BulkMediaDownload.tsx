@@ -48,6 +48,24 @@ export const BulkMediaDownload = ({
     setSelectedIds(new Set());
   };
 
+  // Chunked base64 to Blob conversion to prevent stack overflow for large files
+  const base64ToBlob = (base64: string, mimeType: string): Blob => {
+    const binaryString = atob(base64);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    
+    // Process in chunks of 8KB to prevent stack overflow on very large files
+    const chunkSize = 8192;
+    for (let offset = 0; offset < len; offset += chunkSize) {
+      const end = Math.min(offset + chunkSize, len);
+      for (let i = offset; i < end; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+    }
+    
+    return new Blob([bytes], { type: mimeType });
+  };
+
   const downloadSingleFile = async (photo: Attachment): Promise<{ name: string; blob: Blob } | null> => {
     try {
       const url = displayUrls[photo.id] || photo.url;
@@ -62,38 +80,56 @@ export const BulkMediaDownload = ({
         mimeType = mimeMatch?.[1] || 'image/jpeg';
         
         // Convert base64 to binary using chunked approach to avoid stack overflow
-        const binaryString = atob(base64Data);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
-        }
-        blob = new Blob([bytes], { type: mimeType });
+        blob = base64ToBlob(base64Data, mimeType);
       } else {
-        // Fetch regular URL
-        const response = await fetch(url, { mode: 'cors' });
-        if (!response.ok) throw new Error(`Failed to fetch: ${response.status}`);
+        // Fetch regular URL with timeout to prevent hanging
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
         
-        // Get the actual content type from response
-        const contentType = response.headers.get('content-type');
-        if (contentType) {
-          mimeType = contentType.split(';')[0].trim();
+        try {
+          const response = await fetch(url, { 
+            mode: 'cors',
+            signal: controller.signal 
+          });
+          clearTimeout(timeoutId);
+          
+          if (!response.ok) throw new Error(`Failed to fetch: ${response.status}`);
+          
+          // Get the actual content type from response
+          const contentType = response.headers.get('content-type');
+          if (contentType) {
+            mimeType = contentType.split(';')[0].trim();
+          }
+          
+          const arrayBuffer = await response.arrayBuffer();
+          blob = new Blob([arrayBuffer], { type: mimeType });
+        } catch (fetchError) {
+          clearTimeout(timeoutId);
+          throw fetchError;
         }
-        
-        const arrayBuffer = await response.arrayBuffer();
-        blob = new Blob([arrayBuffer], { type: mimeType });
       }
       
-      // Determine correct extension based on MIME type
+      // Comprehensive MIME type to extension mapping
       const extensionMap: Record<string, string> = {
         'image/jpeg': 'jpg',
         'image/jpg': 'jpg',
+        'image/pjpeg': 'jpg',
         'image/png': 'png',
         'image/gif': 'gif',
         'image/webp': 'webp',
         'image/heic': 'heic',
+        'image/heif': 'heif',
+        'image/bmp': 'bmp',
+        'image/tiff': 'tiff',
+        'image/svg+xml': 'svg',
         'video/mp4': 'mp4',
         'video/quicktime': 'mov',
         'video/webm': 'webm',
+        'video/x-msvideo': 'avi',
+        'video/mpeg': 'mpeg',
+        'application/pdf': 'pdf',
+        'application/msword': 'doc',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
       };
       
       const extension = extensionMap[mimeType] || photo.name?.split('.').pop() || 'jpg';
