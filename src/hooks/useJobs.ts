@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Job } from '@/types/job';
 import { fetchJobs, createJob, updateJob, deleteJob } from '@/lib/api';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,12 +8,53 @@ export const useJobs = (categoryId?: string) => {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  
+  // Refs to prevent race conditions
+  const loadingRef = useRef(false);
+  const pendingUpdatesRef = useRef<Set<string>>(new Set());
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const lastFetchRef = useRef<number>(0);
 
-  const loadJobs = useCallback(async () => {
+  const loadJobs = useCallback(async (force = false) => {
+    // Prevent concurrent fetches unless forced
+    if (loadingRef.current && !force) {
+      console.log('Skipping fetch - already loading');
+      return;
+    }
+    
+    // Debounce rapid fetches (minimum 500ms between fetches)
+    const now = Date.now();
+    if (!force && now - lastFetchRef.current < 500) {
+      console.log('Skipping fetch - too soon since last fetch');
+      return;
+    }
+
     try {
+      loadingRef.current = true;
       setIsLoading(true);
+      lastFetchRef.current = Date.now();
+      
       const data = await fetchJobs(categoryId);
-      setJobs(data);
+      
+      // Only update state if no pending optimistic updates
+      // This prevents overwriting optimistic updates with stale server data
+      setJobs(prevJobs => {
+        if (pendingUpdatesRef.current.size > 0) {
+          console.log('Merging with pending optimistic updates:', pendingUpdatesRef.current.size);
+          // Merge: keep optimistic updates for pending IDs, use server data for others
+          const serverJobsMap = new Map(data.map(j => [j.id, j]));
+          const prevJobsMap = new Map(prevJobs.map(j => [j.id, j]));
+          
+          return data.map(serverJob => {
+            if (pendingUpdatesRef.current.has(serverJob.id)) {
+              // Keep the optimistic version for pending updates
+              return prevJobsMap.get(serverJob.id) || serverJob;
+            }
+            return serverJob;
+          });
+        }
+        return data;
+      });
     } catch (error) {
       console.error('Error loading jobs:', error);
       toast({
@@ -22,14 +63,31 @@ export const useJobs = (categoryId?: string) => {
         variant: "destructive",
       });
     } finally {
+      loadingRef.current = false;
       setIsLoading(false);
     }
   }, [categoryId, toast]);
 
-  useEffect(() => {
-    loadJobs();
+  // Debounced reload for realtime events
+  const debouncedReload = useCallback(() => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    
+    debounceTimerRef.current = setTimeout(() => {
+      // Only reload if no pending updates (to prevent overwriting optimistic state)
+      if (pendingUpdatesRef.current.size === 0) {
+        loadJobs();
+      } else {
+        console.log('Skipping realtime reload - pending updates exist');
+      }
+    }, 1000); // 1 second debounce for realtime events
+  }, [loadJobs]);
 
-    // Set up realtime subscription
+  useEffect(() => {
+    loadJobs(true); // Force initial load
+
+    // Set up realtime subscription with debounced reload
     const channel = supabase
       .channel(`jobs-changes-${categoryId || 'all'}`)
       .on(
@@ -40,16 +98,43 @@ export const useJobs = (categoryId?: string) => {
           table: 'jobs'
         },
         (payload) => {
-          console.log('Realtime update:', payload);
-          loadJobs(); // Reload jobs on any change
+          const newRecord = payload.new as Record<string, unknown> | null;
+          const oldRecord = payload.old as Record<string, unknown> | null;
+          console.log('Realtime update received:', payload.eventType, newRecord?.id || oldRecord?.id);
+          
+          // For DELETE events, update state immediately
+          if (payload.eventType === 'DELETE' && oldRecord) {
+            const deletedId = oldRecord.id as string;
+            if (deletedId) {
+              setJobs(prev => prev.filter(j => j.id !== deletedId));
+            }
+            return;
+          }
+          
+          // For INSERT/UPDATE, check if this is our own optimistic update
+          if (newRecord) {
+            const newJobId = newRecord.id as string;
+            
+            // If this update was from our optimistic update, ignore it
+            if (newJobId && pendingUpdatesRef.current.has(newJobId)) {
+              console.log('Ignoring realtime update for pending optimistic job:', newJobId);
+              return;
+            }
+          }
+          
+          // Debounce reload for other users' changes
+          debouncedReload();
         }
       )
       .subscribe();
 
     return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
       supabase.removeChannel(channel);
     };
-  }, [categoryId, loadJobs]);
+  }, [categoryId, loadJobs, debouncedReload]);
 
   const addJob = async (job: Omit<Job, 'id'>) => {
     try {
@@ -87,48 +172,56 @@ export const useJobs = (categoryId?: string) => {
       // Check if status changed
       const isStatusChanged = 'status' in updates && newStatus && newStatus !== previousStatus;
       
+      // Mark this job as having a pending update to prevent realtime overwrite
+      pendingUpdatesRef.current.add(id);
+      
       // Optimistic update - immediately update local state for responsive UI
       const optimisticJob = { ...currentJob, ...updates };
       setJobs(prev => prev.map(j => j.id === id ? optimisticJob : j));
       
       try {
         const updated = await updateJob(id, updates);
+        
+        // Clear pending flag after successful server update
+        pendingUpdatesRef.current.delete(id);
+        
         // Replace optimistic update with server response
         setJobs(prev => prev.map(j => j.id === id ? updated : j));
       
-      // Send push notification if primary team was just assigned
-      if (isNewTeam1Assignment && newTeam) {
-        sendTeamNotification(newTeam, updated, 'assigned');
-      }
-      
-      // Send push notification if secondary team was just assigned
-      if (isNewTeam2Assignment && newTeam2) {
-        sendTeamNotification(newTeam2, updated, 'assigned');
-      }
-      
-      // Send push notification if primary team was unassigned
-      if (isTeam1Unassigned && previousTeam) {
-        sendTeamNotification(previousTeam, { ...updated, team: previousTeam }, 'unassigned');
-      }
-      
-      // Send push notification if secondary team was unassigned
-      if (isTeam2Unassigned && previousTeam2) {
-        sendTeamNotification(previousTeam2, { ...updated, team: previousTeam2 }, 'unassigned');
-      }
-      
-      // Send push notification if status changed (to both assigned teams)
-      if (isStatusChanged) {
-        if (updated.team) {
-          sendTeamNotification(updated.team, updated, 'status_changed', newStatus);
+        // Send push notification if primary team was just assigned
+        if (isNewTeam1Assignment && newTeam) {
+          sendTeamNotification(newTeam, updated, 'assigned');
         }
-        if (updated.team2) {
-          sendTeamNotification(updated.team2, updated, 'status_changed', newStatus);
+        
+        // Send push notification if secondary team was just assigned
+        if (isNewTeam2Assignment && newTeam2) {
+          sendTeamNotification(newTeam2, updated, 'assigned');
         }
-      }
-      
-      return updated;
+        
+        // Send push notification if primary team was unassigned
+        if (isTeam1Unassigned && previousTeam) {
+          sendTeamNotification(previousTeam, { ...updated, team: previousTeam }, 'unassigned');
+        }
+        
+        // Send push notification if secondary team was unassigned
+        if (isTeam2Unassigned && previousTeam2) {
+          sendTeamNotification(previousTeam2, { ...updated, team: previousTeam2 }, 'unassigned');
+        }
+        
+        // Send push notification if status changed (to both assigned teams)
+        if (isStatusChanged) {
+          if (updated.team) {
+            sendTeamNotification(updated.team, updated, 'status_changed', newStatus);
+          }
+          if (updated.team2) {
+            sendTeamNotification(updated.team2, updated, 'status_changed', newStatus);
+          }
+        }
+        
+        return updated;
       } catch (serverError) {
-        // Rollback optimistic update on server error
+        // Clear pending flag and rollback optimistic update on server error
+        pendingUpdatesRef.current.delete(id);
         setJobs(prev => prev.map(j => j.id === id ? currentJob : j));
         throw serverError;
       }
@@ -214,10 +307,17 @@ export const useJobs = (categoryId?: string) => {
   };
 
   const removeJob = async (id: string) => {
+    // Store current state for rollback
+    const currentJobs = [...jobs];
+    
     try {
-      await deleteJob(id);
+      // Optimistic delete
       setJobs(prev => prev.filter(j => j.id !== id));
+      
+      await deleteJob(id);
     } catch (error) {
+      // Rollback on error
+      setJobs(currentJobs);
       console.error('Error deleting job:', error);
       throw error;
     }
@@ -239,6 +339,6 @@ export const useJobs = (categoryId?: string) => {
     editJob,
     removeJob,
     toggleComplete,
-    refreshJobs: loadJobs
+    refreshJobs: () => loadJobs(true) // Force refresh
   };
 };
