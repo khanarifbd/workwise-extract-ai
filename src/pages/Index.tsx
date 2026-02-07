@@ -705,9 +705,13 @@ const Index = () => {
       // This enables global search functionality
       if (!hasActiveSearch) {
         // Database tab filter (booked/completed/all) - only applied when NOT searching
+        // UNIFIED COMPLETED DEFINITION: status === 'complete' OR isCompleted === true
+        // When status is set to 'complete', isCompleted is automatically set to true
+        const isJobCompleted = job.status === 'complete' || job.isCompleted;
+        
         if (activeDatabaseTab === 'booked') {
           // Show only booked jobs that are NOT completed
-          if (!job.bookedDate || job.isCompleted || job.progress === 100) return false;
+          if (!job.bookedDate || isJobCompleted) return false;
           
           // Filter by selected booked date if any
           if (selectedBookedDate) {
@@ -718,11 +722,11 @@ const Index = () => {
           }
         } else if (activeDatabaseTab === 'completed') {
           // Show only completed jobs
-          if (!job.isCompleted && job.progress !== 100) return false;
+          if (!isJobCompleted) return false;
         } else {
           // In main "all" tab, exclude booked and completed jobs
           if (job.bookedDate) return false;
-          if (job.isCompleted || job.progress === 100) return false;
+          if (isJobCompleted) return false;
         }
       }
 
@@ -840,14 +844,15 @@ const Index = () => {
   // Use fuzzy results if search is active, otherwise use filtered jobs
   const displayedJobs = hasSearch ? fuzzyFilteredJobs : filteredJobs;
 
+  // UNIFIED COMPLETED DEFINITION: status === 'complete' OR isCompleted === true
   // Count booked jobs for badge (exclude completed)
   const bookedJobsCount = useMemo(() => {
-    return jobs.filter(j => !!j.bookedDate && !j.isCompleted && j.progress !== 100).length;
+    return jobs.filter(j => !!j.bookedDate && j.status !== 'complete' && !j.isCompleted).length;
   }, [jobs]);
 
-  // Count completed jobs for badge
+  // Count completed jobs for badge - consistent with StatsCards and CompletedJobsPDFButton
   const completedJobsCount = useMemo(() => {
-    return jobs.filter(j => j.isCompleted || j.progress === 100).length;
+    return jobs.filter(j => j.status === 'complete' || j.isCompleted).length;
   }, [jobs]);
 
   // Build sign-off statuses map for overdue calculation
