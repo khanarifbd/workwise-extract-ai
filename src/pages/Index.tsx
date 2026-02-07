@@ -24,6 +24,7 @@ import { ManualJobEntry } from '@/components/ManualJobEntry';
 import { OverdueJobsDashboard } from '@/components/OverdueJobsDashboard';
 import { useJobAlerts } from '@/hooks/useJobAlerts';
 import { useOverdueNotifications } from '@/hooks/useOverdueNotifications';
+import { useUrlState } from '@/hooks/useUrlState';
 
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -42,16 +43,30 @@ import autoTable from 'jspdf-autotable';
 import ExcelJS from 'exceljs';
 
 type FileType = 'pdf' | 'image';
-type ViewType = 'table' | 'kanban' | 'calendar';
 type KanbanGroupBy = 'team' | 'status';
-type DatabaseTab = 'all' | 'booked' | 'completed';
 type BookedSortOrder = 'newest' | 'oldest';
 type CompletedSortOrder = 'newest' | 'oldest';
 
 const Index = () => {
   const { canEdit } = useAdminAuth();
   const { categories, isLoading: categoriesLoading, addCategory, updateCategory, deleteCategory } = useCategories();
-  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  
+  // URL-persisted state for navigation that survives tab switches
+  const {
+    activeDatabaseTab,
+    setActiveDatabaseTab,
+    selectedBookedDate,
+    setSelectedBookedDate,
+    viewType,
+    setViewType,
+    activeCategory: urlCategory,
+    setActiveCategory: setUrlCategory,
+  } = useUrlState();
+  
+  // Use URL category or fall back to first category
+  const activeCategory = urlCategory;
+  const setActiveCategory = setUrlCategory;
+  
   const { jobs, isLoading: jobsLoading, addJob, editJob, removeJob, toggleComplete, refreshJobs } = useJobs(activeCategory ?? undefined);
   
   // Get job IDs for sign-off status
@@ -65,15 +80,12 @@ const Index = () => {
   const [bulkUploadInitialFiles, setBulkUploadInitialFiles] = useState<Array<{ file: File; type: FileType }>>([]);
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [uploadExpanded, setUploadExpanded] = useState(false);
-  const [viewType, setViewType] = useState<ViewType>('table');
   const [kanbanGroupBy, setKanbanGroupBy] = useState<KanbanGroupBy>('team');
   const [selectedJobForModal, setSelectedJobForModal] = useState<Job | null>(null);
   const [filters, setFilters] = useState<FilterState>(getDefaultFilterState());
   const [activeMonthFolder, setActiveMonthFolder] = useState<string | null>(null);
-  const [activeDatabaseTab, setActiveDatabaseTab] = useState<DatabaseTab>('all');
   const [bookedSortOrder, setBookedSortOrder] = useState<BookedSortOrder>('newest');
   const [completedSortOrder, setCompletedSortOrder] = useState<CompletedSortOrder>('newest');
-  const [selectedBookedDate, setSelectedBookedDate] = useState<string | null>(null);
   const [showAnalyticsReport, setShowAnalyticsReport] = useState(false);
   const [duplicateCheck, setDuplicateCheck] = useState<{
     newJob: Omit<Job, 'id'>;
@@ -82,12 +94,12 @@ const Index = () => {
   } | null>(null);
   const { toast } = useToast();
 
-  // Set first category as active when loaded
+  // Set first category as active when loaded (only if no URL category)
   useEffect(() => {
     if (categories.length > 0 && !activeCategory) {
       setActiveCategory(categories[0].id);
     }
-  }, [categories, activeCategory]);
+  }, [categories, activeCategory, setActiveCategory]);
 
   const handleFileUpload = async (file: File, type: FileType) => {
     setIsProcessing(true);
