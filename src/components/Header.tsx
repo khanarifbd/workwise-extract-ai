@@ -1,4 +1,4 @@
-import { FileDown, Moon, Sun, Settings, History, KeyRound, Users, LogOut, ChevronDown, CalendarDays, CheckCircle2, Briefcase, AlertTriangle } from 'lucide-react';
+import { FileDown, Moon, Sun, Settings, History, KeyRound, Users, LogOut, ChevronDown, CalendarDays, CheckCircle2, Briefcase, AlertTriangle, Mic } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
@@ -9,7 +9,9 @@ import { TeamAvailabilityModal } from './TeamAvailabilityModal';
 import { SignOffNotificationBell } from './SignOffNotificationBell';
 import { GlobalSignOffHistoryModal } from './GlobalSignOffHistoryModal';
 import { AdminTeamJobsModal } from './AdminTeamJobsModal';
+import { OpsNotesModal } from './OpsNotesModal';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
+import { supabase } from '@/integrations/supabase/client';
 import logo from '@/assets/logo.png';
 import {
   DropdownMenu,
@@ -43,7 +45,39 @@ export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount
   const [showAvailability, setShowAvailability] = useState(false);
   const [showSignOffHistory, setShowSignOffHistory] = useState(false);
   const [showTeamJobs, setShowTeamJobs] = useState(false);
+  const [showOpsNotes, setShowOpsNotes] = useState(false);
+  const [opsNotesCount, setOpsNotesCount] = useState(0);
   const { signOut, user } = useAdminAuth();
+
+  // Fetch unresolved ops notes count
+  useEffect(() => {
+    const fetchOpsNotesCount = async () => {
+      const { count, error } = await supabase
+        .from('ops_manager_notes')
+        .select('*', { count: 'exact', head: true })
+        .eq('is_resolved', false);
+      
+      if (!error && count !== null) {
+        setOpsNotesCount(count);
+      }
+    };
+
+    fetchOpsNotesCount();
+
+    // Subscribe to realtime updates
+    const channel = supabase
+      .channel('ops-notes-count')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'ops_manager_notes' },
+        () => fetchOpsNotesCount()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   // Apply theme on mount and when isDark changes
   useEffect(() => {
@@ -143,6 +177,22 @@ export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount
                 </span>
               </Button>
             )}
+            {/* OP NOTES Button */}
+            <Button 
+              variant="outline" 
+              size="icon" 
+              className="relative md:w-auto md:px-4"
+              onClick={() => setShowOpsNotes(true)}
+              title="Operations Manager Notes"
+            >
+              <Mic className="w-4 h-4 md:mr-2" />
+              <span className="hidden md:inline">OP NOTES</span>
+              {opsNotesCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-[10px] font-bold rounded-full h-4 min-w-4 flex items-center justify-center px-1">
+                  {opsNotesCount > 99 ? '99+' : opsNotesCount}
+                </span>
+              )}
+            </Button>
             <SignOffNotificationBell onJobClick={onJobClick} />
             <Button variant="outline" size="icon" className="md:w-auto md:px-4" onClick={onExport}>
               <FileDown className="w-4 h-4 md:mr-2" />
@@ -198,6 +248,12 @@ export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount
         isOpen={showTeamJobs}
         onClose={() => setShowTeamJobs(false)}
         onJobRemoved={onRefresh}
+      />
+
+      <OpsNotesModal
+        isOpen={showOpsNotes}
+        onClose={() => setShowOpsNotes(false)}
+        onJobClick={onJobClick}
       />
     </header>
   );
