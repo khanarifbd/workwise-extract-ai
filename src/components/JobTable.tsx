@@ -28,7 +28,7 @@ import { JobDetailsModal } from './JobDetailsModal';
 import { InlineDescriptionEditor } from './InlineDescriptionEditor';
 import { FanEditor } from './FanEditor';
 import { FanBookingDateDialog } from './FanBookingDateDialog';
-import { PrivateNotesEditor } from './PrivateNotesEditor';
+import { OngoingNotesEditor } from './OngoingNotesEditor';
 import { ContactCell } from './ContactCell';
 import { BookedDateCell } from './BookedDateCell';
 import { SignOffStatusIndicator } from './SignOffStatusIndicator';
@@ -563,7 +563,7 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
               <th className="w-28">Status</th>
               <th className="min-w-[200px]">Description</th>
               <th className="w-24">Fan</th>
-              <th className="w-40">Private Notes</th>
+              <th className="w-40">Ongoing Notes</th>
               <th className="w-36">Booked/End</th>
               <th className="w-20">Files</th>
               <th className="w-20">Sign-Off</th>
@@ -865,11 +865,27 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                       )}
                     </div>
                   </td>
-                  {/* Private Notes Column - Admin only */}
-                  <td onClick={(e) => e.stopPropagation()}>
-                    <PrivateNotesEditor
+                  {/* Ongoing Notes Column - illuminated when job is ongoing */}
+                  <td 
+                    onClick={(e) => e.stopPropagation()} 
+                    className={cn(
+                      "relative z-20 transition-all",
+                      job.isOngoing && "bg-amber-100/50 dark:bg-amber-900/30"
+                    )}
+                  >
+                    <OngoingNotesEditor
                       notes={job.privateNotes || ''}
-                      onUpdate={(notes) => onUpdateJob({ ...job, privateNotes: notes })}
+                      progressNotes={job.progressNotes || ''}
+                      ongoingReason={job.ongoingReason || ''}
+                      scheduledTrades={job.scheduledTrades || []}
+                      isOngoing={job.isOngoing || false}
+                      onUpdate={(updates) => {
+                        onUpdateJob({
+                          ...job,
+                          privateNotes: updates.privateNotes ?? job.privateNotes,
+                          scheduledTrades: updates.scheduledTrades ?? job.scheduledTrades,
+                        });
+                      }}
                     />
                   </td>
                   <td>

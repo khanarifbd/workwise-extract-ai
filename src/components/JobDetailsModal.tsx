@@ -303,32 +303,51 @@ export const JobDetailsModal = ({ job, onClose, onUpdate }: JobDetailsModalProps
               {/* Ongoing Toggle - Enhanced & Prominent */}
               <div 
                 className={cn(
-                  "flex items-center justify-between p-4 rounded-xl border-2 transition-all cursor-pointer",
+                  "p-4 rounded-xl border-2 transition-all",
                   editedJob.isOngoing 
                     ? "bg-amber-500/20 border-amber-500 shadow-lg shadow-amber-500/20" 
                     : "bg-muted/30 border-border hover:border-amber-500/50"
                 )}
-                onClick={() => setEditedJob({ ...editedJob, isOngoing: !editedJob.isOngoing })}
               >
-                <div className="flex items-center gap-3">
-                  <div className={cn(
-                    "w-12 h-12 rounded-xl flex items-center justify-center transition-all",
-                    editedJob.isOngoing 
-                      ? "bg-amber-500 text-white animate-pulse" 
-                      : "bg-muted text-muted-foreground"
-                  )}>
-                    <Clock className="w-6 h-6" />
+                <div 
+                  className="flex items-center justify-between cursor-pointer"
+                  onClick={() => setEditedJob({ ...editedJob, isOngoing: !editedJob.isOngoing })}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={cn(
+                      "w-12 h-12 rounded-xl flex items-center justify-center transition-all",
+                      editedJob.isOngoing 
+                        ? "bg-amber-500 text-white animate-pulse" 
+                        : "bg-muted text-muted-foreground"
+                    )}>
+                      <Clock className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <label className="text-base font-semibold cursor-pointer">Mark as Ongoing</label>
+                      <p className="text-sm text-muted-foreground">Flag this job as work in progress / pending completion</p>
+                    </div>
                   </div>
-                  <div>
-                    <label className="text-base font-semibold cursor-pointer">Mark as Ongoing</label>
-                    <p className="text-sm text-muted-foreground">Flag this job as work in progress / pending completion</p>
-                  </div>
+                  <Switch
+                    checked={editedJob.isOngoing || false}
+                    onCheckedChange={(checked) => setEditedJob({ ...editedJob, isOngoing: checked, ongoingReason: checked ? editedJob.ongoingReason : '' })}
+                    className="data-[state=checked]:bg-amber-500"
+                  />
                 </div>
-                <Switch
-                  checked={editedJob.isOngoing || false}
-                  onCheckedChange={(checked) => setEditedJob({ ...editedJob, isOngoing: checked })}
-                  className="data-[state=checked]:bg-amber-500"
-                />
+                
+                {/* WHY JOB IS ONGOING - shown when toggle is on */}
+                {editedJob.isOngoing && (
+                  <div className="mt-4 pt-4 border-t border-amber-300 dark:border-amber-700">
+                    <label className="text-xs font-bold text-amber-700 dark:text-amber-300 mb-2 block uppercase tracking-wide">
+                      Why Job Is Ongoing
+                    </label>
+                    <Textarea
+                      value={editedJob.ongoingReason || ''}
+                      onChange={(e) => setEditedJob({ ...editedJob, ongoingReason: e.target.value })}
+                      placeholder="Explain why this job is marked as ongoing (e.g., waiting for parts, needs follow-up work, etc.)"
+                      className="min-h-[60px] text-sm bg-amber-50/50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700"
+                    />
+                  </div>
+                )}
               </div>
 
               <div>

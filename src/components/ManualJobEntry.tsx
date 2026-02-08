@@ -149,6 +149,8 @@ export const ManualJobEntry = forwardRef<HTMLDivElement, ManualJobEntryProps>(({
         progressNotes: '',
         isCompleted: false,
         isOngoing: false,
+        ongoingReason: '',
+        scheduledTrades: [],
         createdAt: new Date(),
         dateIssued: new Date(),
         bookedDate: null,

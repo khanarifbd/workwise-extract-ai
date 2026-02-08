@@ -237,6 +237,8 @@ const Index = () => {
         progressNotes: '',
         isCompleted: false,
         isOngoing: false,
+        ongoingReason: '',
+        scheduledTrades: [],
         createdAt: new Date(),
         dateIssued: new Date(),
         bookedDate: extractedData.bookedDate || null,

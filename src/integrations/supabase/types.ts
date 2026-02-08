@@ -141,10 +141,12 @@ export type Database = {
           linked_fan_job_id: string | null
           linked_insulation_job_id: string | null
           name: string
+          ongoing_reason: string | null
           phone_number: string | null
           private_notes: string | null
           progress: number | null
           progress_notes: string | null
+          scheduled_trades: Json | null
           start_date: string | null
           status: string | null
           summary_of_works: string | null
@@ -175,10 +177,12 @@ export type Database = {
           linked_fan_job_id?: string | null
           linked_insulation_job_id?: string | null
           name: string
+          ongoing_reason?: string | null
           phone_number?: string | null
           private_notes?: string | null
           progress?: number | null
           progress_notes?: string | null
+          scheduled_trades?: Json | null
           start_date?: string | null
           status?: string | null
           summary_of_works?: string | null
@@ -209,10 +213,12 @@ export type Database = {
           linked_fan_job_id?: string | null
           linked_insulation_job_id?: string | null
           name?: string
+          ongoing_reason?: string | null
           phone_number?: string | null
           private_notes?: string | null
           progress?: number | null
           progress_notes?: string | null
+          scheduled_trades?: Json | null
           start_date?: string | null
           status?: string | null
           summary_of_works?: string | null

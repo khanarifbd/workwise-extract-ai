@@ -12,6 +12,7 @@ import { Progress } from '@/components/ui/progress';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useOfflineStorage } from '@/hooks/useOfflineStorage';
 import { useToast } from '@/hooks/use-toast';
@@ -50,6 +51,7 @@ export const TeamJobDetail = ({
   const [notes, setNotes] = useState(job.progressNotes || '');
   const [status, setStatus] = useState<JobStatus>(job.status);
   const [isOngoing, setIsOngoing] = useState(job.isOngoing || false);
+  const [ongoingReason, setOngoingReason] = useState(job.ongoingReason || '');
   const [isSaving, setIsSaving] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
   const [showSignOffModal, setShowSignOffModal] = useState(false);
@@ -301,12 +303,13 @@ export const TeamJobDetail = ({
       notes !== (job.progressNotes || '') ||
       status !== job.status ||
       isOngoing !== (job.isOngoing || false) ||
+      ongoingReason !== (job.ongoingReason || '') ||
       newPhotos.length > 0 ||
       newVideos.length > 0 ||
       newDocuments.length > 0 ||
       Object.keys(workItemUpdates).length > 0;
     setHasUnsavedChanges(changed);
-  }, [progress, notes, status, isOngoing, newPhotos, newVideos, newDocuments, workItemUpdates, job]);
+  }, [progress, notes, status, isOngoing, ongoingReason, newPhotos, newVideos, newDocuments, workItemUpdates, job]);
 
   // Get work item with team updates applied
   const getWorkItemWithUpdates = (item: WorkItem) => {
@@ -344,6 +347,7 @@ export const TeamJobDetail = ({
       progress,
       notes,
       isOngoing,
+      ongoingReason: isOngoing ? ongoingReason : '', // Only save reason if ongoing
       photos: uploadedPhotos.length > 0 ? uploadedPhotos : undefined,
       videos: uploadedVideos.length > 0 ? uploadedVideos : undefined,
       documents: uploadedDocs.length > 0 ? uploadedDocs : undefined,
@@ -385,6 +389,7 @@ export const TeamJobDetail = ({
           progressNotes: notes,
           status,
           isOngoing,
+          ongoingReason: isOngoing ? ongoingReason : '',
           isCompleted: status === 'complete',
           completionDate: status === 'complete' ? new Date() : null,
           workItems: updatedWorkItems,
@@ -1011,19 +1016,45 @@ export const TeamJobDetail = ({
                 </div>
 
                 {/* Ongoing/Unfinished Job Toggle */}
-                <div className="flex items-center justify-between p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 text-amber-600" />
-                    <div>
-                      <label className="text-xs sm:text-sm font-medium text-amber-800 dark:text-amber-200">Mark as Ongoing Job</label>
-                      <p className="text-[10px] sm:text-xs text-amber-600 dark:text-amber-400">Track unfinished work that needs follow-up</p>
+                <div className={cn(
+                  "p-3 rounded-lg border transition-all",
+                  isOngoing 
+                    ? "bg-amber-100 dark:bg-amber-900/40 border-amber-300 dark:border-amber-700"
+                    : "bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800"
+                )}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className={cn(
+                        "h-4 w-4",
+                        isOngoing ? "text-amber-600 animate-pulse" : "text-amber-600"
+                      )} />
+                      <div>
+                        <label className="text-xs sm:text-sm font-medium text-amber-800 dark:text-amber-200">Mark as Ongoing Job</label>
+                        <p className="text-[10px] sm:text-xs text-amber-600 dark:text-amber-400">Track unfinished work that needs follow-up</p>
+                      </div>
                     </div>
+                    <Checkbox
+                      checked={isOngoing}
+                      onCheckedChange={(checked) => setIsOngoing(!!checked)}
+                      className="h-5 w-5 border-amber-400 data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-500"
+                    />
                   </div>
-                  <Checkbox
-                    checked={isOngoing}
-                    onCheckedChange={(checked) => setIsOngoing(!!checked)}
-                    className="h-5 w-5 border-amber-400 data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-500"
-                  />
+                  
+                  {/* WHY JOB IS ONGOING - shown when toggle is on */}
+                  {isOngoing && (
+                    <div className="mt-3 pt-3 border-t border-amber-300 dark:border-amber-700">
+                      <label className="text-xs font-bold text-amber-800 dark:text-amber-200 mb-1.5 block uppercase tracking-wide">
+                        Why Job Is Ongoing
+                      </label>
+                      <Textarea
+                        value={ongoingReason}
+                        onChange={(e) => setOngoingReason(e.target.value)}
+                        placeholder="Explain why this job is marked as ongoing..."
+                        rows={2}
+                        className="text-xs bg-white dark:bg-amber-900/30 border-amber-300 dark:border-amber-700 placeholder:text-amber-400"
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <div>

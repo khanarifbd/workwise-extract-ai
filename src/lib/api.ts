@@ -381,6 +381,8 @@ export function mapDatabaseJobToJob(dbJob: any): Job {
     progressNotes: dbJob.progress_notes || '',
     isCompleted: dbJob.is_completed || false,
     isOngoing: dbJob.is_ongoing || false,
+    ongoingReason: dbJob.ongoing_reason || '',
+    scheduledTrades: dbJob.scheduled_trades || [],
     createdAt: dbJob.created_at ? new Date(dbJob.created_at) : new Date(),
     dateIssued: dbJob.date_issued ? new Date(dbJob.date_issued) : new Date(),
     bookedDate: dbJob.booked_date ? new Date(dbJob.booked_date) : null,
@@ -740,6 +742,8 @@ export const mapJobToDatabase = (job: Partial<Job>): any => {
   if (job.progressNotes !== undefined) dbJob.progress_notes = job.progressNotes;
   if (job.isCompleted !== undefined) dbJob.is_completed = job.isCompleted;
   if (job.isOngoing !== undefined) dbJob.is_ongoing = job.isOngoing;
+  if (job.ongoingReason !== undefined) dbJob.ongoing_reason = job.ongoingReason;
+  if (job.scheduledTrades !== undefined) dbJob.scheduled_trades = job.scheduledTrades;
   if (job.dateIssued !== undefined) dbJob.date_issued = job.dateIssued;
   if (job.bookedDate !== undefined) dbJob.booked_date = job.bookedDate;
   if (job.isFlexibleBooking !== undefined) dbJob.is_flexible_booking = job.isFlexibleBooking;
@@ -783,6 +787,8 @@ export const createLinkedFanJob = async (
     progressNotes: '',
     isCompleted: false,
     isOngoing: false,
+    ongoingReason: '',
+    scheduledTrades: [],
     createdAt: new Date(),
     dateIssued: new Date(),
     bookedDate: bookedDate || null,
@@ -881,6 +887,8 @@ export const syncLinkedFanJob = async (
     progressNotes: '',
     isCompleted: false,
     isOngoing: false,
+    ongoingReason: '',
+    scheduledTrades: [],
     createdAt: new Date(),
     dateIssued: new Date(),
     bookedDate: bookedDate || null,
@@ -974,6 +982,8 @@ export const syncLinkedInsulationJob = async (
     progressNotes: '',
     isCompleted: false,
     isOngoing: false,
+    ongoingReason: '',
+    scheduledTrades: [],
     createdAt: new Date(),
     dateIssued: new Date(),
     bookedDate: null,

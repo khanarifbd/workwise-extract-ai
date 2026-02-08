@@ -59,6 +59,14 @@ export interface JobCosts {
   notes: string;
 }
 
+// Scheduled trade for ongoing job tracking
+export interface ScheduledTrade {
+  id: string;
+  trade: string;
+  tradesman: string;
+  date: string; // ISO date string
+}
+
 export interface Job {
   id: string;
   jobNumber: string;
@@ -75,6 +83,8 @@ export interface Job {
   progressNotes: string;
   isCompleted: boolean;
   isOngoing: boolean; // Flag for unfinished/ongoing jobs that need tracking
+  ongoingReason: string; // WHY JOB IS ONGOING - reason input
+  scheduledTrades: ScheduledTrade[]; // Trades/tradesmen scheduled for ongoing job completion
   /**
    * Created timestamp from the database.
    * Used for Ops Manager ordering/grouping to match backend ordering.
