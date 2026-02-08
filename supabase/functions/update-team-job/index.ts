@@ -32,6 +32,7 @@ interface UpdateJobRequest {
     workItemUpdates?: Record<string, WorkItemUpdate>;
     isCompletion?: boolean; // Flag to indicate this is a job completion/sign-off
     isOngoing?: boolean; // Flag to mark job as ongoing/unfinished
+    ongoingReason?: string; // Why the job is ongoing
   };
 }
 
@@ -304,9 +305,22 @@ Deno.serve(async (req) => {
       jobUpdates.progress = updates.progress;
     }
 
-    // Handle ongoing/unfinished flag
+    // Handle ongoing/unfinished flag and reason
     if (updates.isOngoing !== undefined) {
       jobUpdates.is_ongoing = updates.isOngoing;
+      // Also update the ongoing reason
+      if (updates.ongoingReason !== undefined) {
+        // Translate ongoing reason to English if not already
+        let reasonToSave = updates.ongoingReason;
+        if (languagePreference && languagePreference !== 'en' && reasonToSave) {
+          console.log(`Translating ongoing reason from ${languagePreference} to English`);
+          reasonToSave = await translateToEnglish(updates.ongoingReason, languagePreference);
+        }
+        jobUpdates.ongoing_reason = reasonToSave;
+      } else if (!updates.isOngoing) {
+        // Clear reason if no longer ongoing
+        jobUpdates.ongoing_reason = '';
+      }
     }
     
     if (updates.notes) {
