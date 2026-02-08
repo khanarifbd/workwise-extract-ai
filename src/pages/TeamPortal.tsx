@@ -315,16 +315,20 @@ const TeamPortal = () => {
   }, [isAuthenticated, session]);
 
   // Separate effect for auto-refresh to prevent recreation on every render
+  // Ops Managers get faster 15s polling for real-time visibility of assignments
   useEffect(() => {
     if (!isAuthenticated || !session) return;
     
-    // Refresh jobs every 60 seconds (increased from 30s to reduce server load)
+    const isOpsManager = session.isOpsManager === true;
+    // Ops Managers: 15s for near real-time, Regular teams: 30s
+    const pollInterval = isOpsManager ? 15000 : 30000;
+    
     const refreshInterval = setInterval(() => {
       if (navigator.onLine) {
-        console.log('[TeamPortal] Auto-refreshing jobs...');
+        console.log(`[TeamPortal] Auto-refreshing jobs (${isOpsManager ? 'Ops Manager' : 'Team'})...`);
         loadJobsRef.current();
       }
-    }, 60000);
+    }, pollInterval);
     
     return () => clearInterval(refreshInterval);
   }, [isAuthenticated, session]);
