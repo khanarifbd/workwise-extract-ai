@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, forwardRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -32,14 +32,15 @@ interface OngoingNotesEditorProps {
   }) => void;
 }
 
-export const OngoingNotesEditor = ({ 
-  notes, 
-  progressNotes,
-  ongoingReason,
-  scheduledTrades = [],
-  isOngoing,
-  onUpdate 
-}: OngoingNotesEditorProps) => {
+export const OngoingNotesEditor = forwardRef<HTMLButtonElement, OngoingNotesEditorProps>(
+  ({ 
+    notes, 
+    progressNotes,
+    ongoingReason,
+    scheduledTrades = [],
+    isOngoing,
+    onUpdate 
+  }, ref) => {
   const [isOpen, setIsOpen] = useState(false);
   const [editedNotes, setEditedNotes] = useState(notes);
   const [showTradeForm, setShowTradeForm] = useState(false);
@@ -97,6 +98,7 @@ export const OngoingNotesEditor = ({
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
         <Button
+          ref={ref}
           variant="ghost"
           size="sm"
           className={cn(
@@ -323,4 +325,6 @@ export const OngoingNotesEditor = ({
       </PopoverContent>
     </Popover>
   );
-};
+});
+
+OngoingNotesEditor.displayName = 'OngoingNotesEditor';

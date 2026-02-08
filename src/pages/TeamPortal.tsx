@@ -303,39 +303,56 @@ const TeamPortal = () => {
     bindPendingToken();
   }, [session?.teamId, toast, saveFcmTokenToTeam]);
 
-  // Load jobs when authenticated and refresh periodically
+  // Stable reference for loadJobs to prevent recreating intervals
+  const loadJobsRef = useRef(loadJobs);
+  loadJobsRef.current = loadJobs;
+
+  // Load jobs when authenticated
   useEffect(() => {
     if (isAuthenticated && session) {
-      loadJobs();
-      
-      // Refresh jobs every 30 seconds to ensure data stays in sync
-      const refreshInterval = setInterval(() => {
-        if (isOnline) {
-          console.log('[TeamPortal] Auto-refreshing jobs...');
-          loadJobs();
-        }
-      }, 30000);
-      
-      return () => clearInterval(refreshInterval);
+      loadJobsRef.current();
     }
-  }, [isAuthenticated, session, isOnline]);
+  }, [isAuthenticated, session]);
 
-  // Sync when coming online
+  // Separate effect for auto-refresh to prevent recreation on every render
+  useEffect(() => {
+    if (!isAuthenticated || !session) return;
+    
+    // Refresh jobs every 60 seconds (increased from 30s to reduce server load)
+    const refreshInterval = setInterval(() => {
+      if (navigator.onLine) {
+        console.log('[TeamPortal] Auto-refreshing jobs...');
+        loadJobsRef.current();
+      }
+    }, 60000);
+    
+    return () => clearInterval(refreshInterval);
+  }, [isAuthenticated, session]);
+
+  // Sync when coming online - use stable refs
+  const syncPendingUpdatesRef = useRef(syncPendingUpdates);
+  syncPendingUpdatesRef.current = syncPendingUpdates;
+
   useEffect(() => {
     if (isOnline && isAuthenticated) {
-      syncPendingUpdates();
-      // Also reload jobs when coming back online
-      loadJobs();
+      syncPendingUpdatesRef.current();
+      loadJobsRef.current();
     }
   }, [isOnline, isAuthenticated]);
+
+  // Use refs to avoid recreating subscriptions on every state change
+  const selectedJobRef = useRef(selectedJob);
+  selectedJobRef.current = selectedJob;
 
   // Set up realtime subscription - listen to all job changes for IMMEDIATE updates
   // Jobs should appear immediately when assigned in the dashboard
   useEffect(() => {
     if (!isAuthenticated || !session?.teamName) return;
+    
+    const teamName = session.teamName;
 
     const channel = supabase
-      .channel('team-jobs-realtime')
+      .channel(`team-jobs-realtime-${teamName}`)
       .on(
         'postgres_changes',
         {
@@ -346,7 +363,7 @@ const TeamPortal = () => {
         (payload) => {
           const newJob = payload.new as any;
           // Check if this team is assigned
-          const isAssigned = newJob?.team === session.teamName || newJob?.team2 === session.teamName;
+          const isAssigned = newJob?.team === teamName || newJob?.team2 === teamName;
           
           if (isAssigned) {
             // Immediately add the new job
@@ -377,13 +394,13 @@ const TeamPortal = () => {
           const oldJob = payload.old as any;
           
           // Check if team was previously assigned as team or team2
-          const wasAssignedAsTeam1 = oldJob?.team === session.teamName;
-          const wasAssignedAsTeam2 = oldJob?.team2 === session.teamName;
+          const wasAssignedAsTeam1 = oldJob?.team === teamName;
+          const wasAssignedAsTeam2 = oldJob?.team2 === teamName;
           const wasAssigned = wasAssignedAsTeam1 || wasAssignedAsTeam2;
           
           // Check if team is currently assigned as team or team2
-          const isAssignedAsTeam1 = changedJob?.team === session.teamName;
-          const isAssignedAsTeam2 = changedJob?.team2 === session.teamName;
+          const isAssignedAsTeam1 = changedJob?.team === teamName;
+          const isAssignedAsTeam2 = changedJob?.team2 === teamName;
           const isAssigned = isAssignedAsTeam1 || isAssignedAsTeam2;
           
           // NEWLY ASSIGNED - add immediately
@@ -404,7 +421,8 @@ const TeamPortal = () => {
           else if (wasAssigned && !isAssigned) {
             setJobs(prev => prev.filter(j => j.id !== changedJob.id));
             
-            if (selectedJob?.id === changedJob.id) {
+            const currentSelectedJob = selectedJobRef.current;
+            if (currentSelectedJob?.id === changedJob.id) {
               setSelectedJob(null);
               toast({
                 title: '⚠️ Job Unassigned',
@@ -424,7 +442,8 @@ const TeamPortal = () => {
             setJobs(prev => prev.map(j => j.id === mappedJob.id ? mappedJob : j));
             
             // Update selected job if it's the one that changed
-            if (selectedJob?.id === mappedJob.id) {
+            const currentSelectedJob = selectedJobRef.current;
+            if (currentSelectedJob?.id === mappedJob.id) {
               setSelectedJob(mappedJob);
             }
           }
@@ -442,7 +461,8 @@ const TeamPortal = () => {
           // Remove from list if it was in our list
           setJobs(prev => prev.filter(j => j.id !== deletedJob.id));
           
-          if (selectedJob?.id === deletedJob.id) {
+          const currentSelectedJob = selectedJobRef.current;
+          if (currentSelectedJob?.id === deletedJob.id) {
             setSelectedJob(null);
             toast({
               title: 'Job Deleted',
@@ -458,7 +478,7 @@ const TeamPortal = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [isAuthenticated, session?.teamName, selectedJob?.id, toast]);
+  }, [isAuthenticated, session?.teamName, toast, notifyNewJob]);
 
   if (authLoading) {
     return (
