@@ -336,6 +336,9 @@ export const createJob = async (job: Omit<Job, 'id'>, categoryId?: string): Prom
 export const updateJob = async (id: string, updates: Partial<Job>): Promise<Job> => {
   const dbUpdates = mapJobToDatabase(updates);
   
+  // Log the update for debugging
+  console.log('Updating job:', id, 'with fields:', Object.keys(dbUpdates));
+  
   const { data, error } = await supabase
     .from('jobs')
     .update(dbUpdates)
@@ -345,7 +348,16 @@ export const updateJob = async (id: string, updates: Partial<Job>): Promise<Job>
 
   if (error) {
     console.error('Error updating job:', error);
-    throw error;
+    // Create a more descriptive error message
+    const errorMessage = error.message || 'Unknown database error';
+    const detailedError = new Error(`Failed to update job: ${errorMessage}`);
+    (detailedError as any).code = error.code;
+    (detailedError as any).details = error.details;
+    throw detailedError;
+  }
+
+  if (!data) {
+    throw new Error('Job update returned no data - job may not exist');
   }
 
   return mapDatabaseJobToJob(data);
