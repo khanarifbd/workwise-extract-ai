@@ -22,6 +22,7 @@ import {
   CalendarDays,
   Crown,
   Users,
+  CalendarCheck,
   ChevronsUpDown,
   Minus,
   Plus,
@@ -290,6 +291,7 @@ export const TeamJobList = ({
   const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<'jobs' | 'diary' | 'workload'>('jobs');
   const [teamFilter, setTeamFilter] = useState<string | null>(null);
+  const [todayOnlyFilter, setTodayOnlyFilter] = useState(false);
   const [removingJobId, setRemovingJobId] = useState<string | null>(null);
   const [jobToRemove, setJobToRemove] = useState<Job | null>(null);
   
@@ -448,11 +450,28 @@ export const TeamJobList = ({
     return new Map([...counts.entries()].sort((a, b) => b[1].active - a[1].active));
   }, [isOpsManager, jobs]);
 
-  // Filtered jobs (by team if filter is active)
+  // Filtered jobs (by team and/or today filter)
   const filteredJobs = useMemo(() => {
-    if (!teamFilter) return jobs;
-    return jobs.filter(j => (j.team || 'Unassigned') === teamFilter);
-  }, [jobs, teamFilter]);
+    let result = jobs;
+    
+    // Apply team filter
+    if (teamFilter) {
+      result = result.filter(j => (j.team || 'Unassigned') === teamFilter);
+    }
+    
+    // Apply "Today Only" filter for Ops Manager
+    if (todayOnlyFilter && isOpsManager) {
+      const todayStr = format(new Date(), 'yyyy-MM-dd');
+      result = result.filter(j => {
+        if (!j.bookedDate) return false;
+        const jobDate = new Date(j.bookedDate);
+        if (!isValid(jobDate)) return false;
+        return format(jobDate, 'yyyy-MM-dd') === todayStr;
+      });
+    }
+    
+    return result;
+  }, [jobs, teamFilter, todayOnlyFilter, isOpsManager]);
 
   const activeJobs = filteredJobs.filter(j => !j.isCompleted);
   const completedJobs = filteredJobs.filter(j => j.isCompleted);
@@ -739,7 +758,7 @@ export const TeamJobList = ({
                 <div className="flex items-center gap-2">
                   <Crown className="h-4 w-4 text-yellow-300 flex-shrink-0" />
                   <div>
-                    <h1 className="text-base font-bold truncate">Operations Manager</h1>
+                    <h1 className="text-base font-bold truncate">OPERATIONS</h1>
                     <p className="text-primary-foreground/80 text-xs">
                       {totalActiveJobs} active job{totalActiveJobs !== 1 ? 's' : ''} across all teams
                     </p>
@@ -929,6 +948,21 @@ export const TeamJobList = ({
 
             {/* Controls */}
             <div className="flex flex-wrap items-center gap-1.5 mb-2">
+              {/* Ops Manager: Today Only quick filter - prominent button */}
+              {isOpsManager && (
+                <Button 
+                  variant={todayOnlyFilter ? "default" : "outline"}
+                  size="sm" 
+                  onClick={() => setTodayOnlyFilter(!todayOnlyFilter)} 
+                  className={cn(
+                    "text-xs h-7 px-2.5",
+                    todayOnlyFilter && "bg-green-600 hover:bg-green-700 text-white"
+                  )}
+                >
+                  <CalendarCheck className="h-3 w-3 mr-1" />
+                  Today Only
+                </Button>
+              )}
               {teamFilter && (
                 <Button 
                   variant="outline" 

@@ -37,18 +37,28 @@ serve(async (req) => {
     console.log(`Audio data length: ${audioBase64.length} characters`);
 
     // Step 1: Transcribe the audio using Gemini's multimodal capabilities
-    const transcriptionPrompt = `You are a professional transcription assistant. Please transcribe the following audio recording VERBATIM and COMPLETELY. 
-The audio is from an Operations Manager in a construction/building trades company.
+    // CRITICAL: This must be WORD-FOR-WORD transcription with ZERO abbreviation or summarization
+    const transcriptionPrompt = `You are a court stenographer who must transcribe EVERY SINGLE WORD spoken in this audio recording with 100% accuracy.
 
-CRITICAL REQUIREMENTS:
-- Transcribe EVERY word spoken, do not summarize or abbreviate
-- Include ALL names of people, places, addresses, and numbers exactly as spoken
-- Include ALL quantities, measurements, and specific details
-- Preserve natural speech patterns and pauses
-- If numbers are spoken (like tradesman counts, addresses, job numbers), write them out
+ABSOLUTELY CRITICAL - YOU MUST:
+1. Write out EVERY word spoken - NO summarization, NO abbreviation, NO paraphrasing
+2. Capture ALL names EXACTLY as spoken (e.g., "Mrs Johnson", "Mr Ahmed", "John Smith")
+3. Capture ALL addresses COMPLETELY (e.g., "45 Oak Street", "123 High Road, London")  
+4. Capture ALL numbers EXACTLY (e.g., "2 plasterers", "3 electricians", "house number 42")
+5. Capture ALL quantities and measurements (e.g., "three meters", "two rolls of cable")
+6. Include filler words like "um", "uh", "so", "and" - these are part of the speech
+7. If the speaker says "Send two plasterers to Mrs Johnson at 45 Oak Street tomorrow morning" 
+   - CORRECT: "Send two plasterers to Mrs Johnson at 45 Oak Street tomorrow morning"
+   - WRONG: "Send plasterers to address" (this loses critical details!)
 
-Output the COMPLETE raw transcription text, nothing else. No explanations, no formatting.
-If you cannot understand parts of the audio, indicate with [inaudible].`;
+DO NOT:
+- Summarize or shorten anything
+- Skip any names, addresses, or numbers
+- Paraphrase what was said
+- Abbreviate any words
+
+Output the COMPLETE word-for-word transcription. If parts are unclear, write [inaudible].
+No explanations, no formatting, just the raw transcription.`;
 
     const transcriptionResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -105,42 +115,40 @@ If you cannot understand parts of the audio, indicate with [inaudible].`;
     console.log(`Transcribed text: ${transcribedText.substring(0, 100)}...`);
 
     // Step 2: Enhance, categorize, and extract metadata from the transcription
-    const enhancePrompt = `You are an expert assistant for a construction/building trades Operations Manager.
-Analyze the following voice note transcription and provide structured output.
+    // CRITICAL: The enhanced text must preserve ALL details - names, addresses, numbers, quantities
+    const enhancePrompt = `You are processing a voice note from an Operations Manager at a construction company.
 
-TRANSCRIPTION:
+VERBATIM TRANSCRIPTION:
 "${transcribedText}"
 
-Your task:
-1. PRESERVE ALL DETAILS from the transcription - do NOT over-summarize
-   - Keep ALL names (people, addresses, locations) exactly as mentioned
-   - Keep ALL numbers (quantities, tradesman counts, job numbers, house numbers)
-   - Keep ALL specific instructions or actions mentioned
-   - Format professionally but retain FULL information content
-2. Generate a concise title (max 60 chars) that captures the main action
-3. Determine urgency level: "immediate", "high", "normal", or "low"
-4. Identify team association if mentioned (look for names like Indika, Bartek, Shakhti, Abraham, Jess, Alindo, Ramesh, Kumar, Billy, Argen, Leci, Sam, Eleanor, Mrs)
-5. Identify job number if mentioned (format: numbers like 12345)
-6. Categorize: "issue", "instruction", "reminder", "feedback", or "general"
-7. Add appropriate emoji symbols that convey urgency/emotion
+YOUR TASK - Format this note professionally while PRESERVING EVERY DETAIL:
 
-CRITICAL: The enhanced_text MUST include ALL specific details from the transcription:
-- Every person name mentioned
-- Every address or location mentioned  
-- Every quantity or number mentioned
-- Every specific instruction or action required
+RULE 1 - COPY ALL SPECIFIC INFORMATION INTO enhanced_text:
+- ALL person names (Mrs Johnson, Mr Ahmed, Karen, etc.) - COPY EXACTLY
+- ALL addresses (45 Oak Street, 123 High Road, etc.) - COPY COMPLETELY  
+- ALL numbers/quantities (2 plasterers, 3 electricians, house 42) - COPY EXACTLY
+- ALL instructions/actions mentioned - COPY FULLY
 
-Example - if transcription says "Send 2 plasterers to Mrs Johnson at 45 Oak Street":
-- Good: "📋 Send 2 plasterers to Mrs Johnson at 45 Oak Street"
-- Bad: "Send plasterers to property" (missing details!)
+RULE 2 - DO NOT LOSE ANY INFORMATION:
+If transcription says: "Send 2 plasterers to Mrs Johnson at 45 Oak Street tomorrow morning and 3 electricians to Mr Ahmed at 123 High Road"
+- CORRECT enhanced_text: "📋 Send 2 plasterers to Mrs Johnson at 45 Oak Street tomorrow morning. Send 3 electricians to Mr Ahmed at 123 High Road."
+- WRONG: "Send tradesmen to properties" (LOST: names, quantities, addresses, times!)
 
-Output ONLY valid JSON in this exact format:
+RULE 3 - The enhanced_text should be LONGER than a summary, almost as long as the original but formatted cleanly.
+
+Identify:
+- urgency: "immediate" (ASAP/urgent), "high" (today/soon), "normal" (standard), "low" (when possible)
+- team_association: Look for team names (Indika, Bartek, Shakthi, Abraham, Jess, Alindo, Ramesh, Kumar, Billy, Argen, Leci, Sam, Eleanor, Core, Gupi) or null
+- job_number: Any job/reference numbers mentioned, or null
+- category: "issue" (problem), "instruction" (task/action), "reminder", "feedback", "general"
+
+Output ONLY valid JSON:
 {
-  "enhanced_text": "The cleaned up, professional version retaining ALL names, addresses, quantities and details with relevant emoji",
-  "title": "Concise title with emoji",
+  "enhanced_text": "Professionally formatted text with ALL original names, addresses, numbers, and details preserved - add relevant emoji",
+  "title": "Short title under 60 chars with emoji",
   "urgency": "immediate|high|normal|low",
   "team_association": "team name or null",
-  "job_number": "job number or null",
+  "job_number": "number or null",
   "category": "issue|instruction|reminder|feedback|general"
 }`;
 
