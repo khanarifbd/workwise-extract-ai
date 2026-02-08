@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, forwardRef } from 'react';
 import { Job, WorkItem, JOB_STATUS_OPTIONS, JobStatus } from '@/types/job';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -47,7 +47,7 @@ interface JobDetailsModalProps {
   onUpdate: (job: Job) => void;
 }
 
-export const JobDetailsModal = ({ job, onClose, onUpdate }: JobDetailsModalProps) => {
+export const JobDetailsModal = forwardRef<HTMLDivElement, JobDetailsModalProps>(({ job, onClose, onUpdate }, ref) => {
   const [editedJob, setEditedJob] = useState<Job>({ ...job });
   const [showAIConverter, setShowAIConverter] = useState(false);
   const [showAdditionalAI, setShowAdditionalAI] = useState(false);
@@ -198,7 +198,7 @@ export const JobDetailsModal = ({ job, onClose, onUpdate }: JobDetailsModalProps
   };
 
   return (
-    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div ref={ref} className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden animate-scale-in">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-muted/30">
@@ -543,4 +543,6 @@ export const JobDetailsModal = ({ job, onClose, onUpdate }: JobDetailsModalProps
       </div>
     </div>
   );
-};
+});
+
+JobDetailsModal.displayName = 'JobDetailsModal';

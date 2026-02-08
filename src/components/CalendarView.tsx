@@ -218,7 +218,7 @@ export const CalendarView = ({ jobs, onJobClick, onToggleComplete }: CalendarVie
 
       {/* Expanded Day Dialog */}
       <Dialog open={!!expandedDay} onOpenChange={() => setExpandedDay(null)}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between">
               <span>Jobs for {expandedDay && format(expandedDay.date, 'EEEE, MMMM d, yyyy')}</span>

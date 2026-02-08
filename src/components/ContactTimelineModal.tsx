@@ -116,7 +116,7 @@ export function ContactTimelineModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-lg max-h-[90vh] flex flex-col overflow-hidden">
+      <DialogContent className="max-w-lg max-h-[90vh] flex flex-col overflow-hidden" aria-describedby={undefined}>
         <DialogHeader className="space-y-3">
           <DialogTitle className="flex items-center gap-2">
             <Phone className="w-5 h-5" />
