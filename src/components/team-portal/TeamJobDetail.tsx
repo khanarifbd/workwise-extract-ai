@@ -20,6 +20,7 @@ import { useTeamAuth } from '@/hooks/useTeamAuth';
 import { SignOffConfirmationModal } from './SignOffConfirmationModal';
 import { useTranslation, SUPPORTED_LANGUAGES } from '@/hooks/useTranslation';
 import { useBatchUpload } from '@/hooks/useBatchUpload';
+import { AIWritingAssistant } from './AIWritingAssistant';
 
 interface TeamJobDetailProps {
   job: Job;
@@ -1072,11 +1073,20 @@ export const TeamJobDetail = ({
                 </div>
 
                 <div>
-                  <label className="text-xs sm:text-sm text-muted-foreground mb-2 block">Notes</label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs sm:text-sm text-muted-foreground">Notes</label>
+                    <AIWritingAssistant
+                      currentText={notes}
+                      onAccept={(enhancedText) => setNotes(enhancedText)}
+                      userLanguage={languagePreference}
+                      jobContext={job.summaryOfWorks || job.name}
+                      placeholder="Write your notes here in any language. The AI will help create a clear, professional English version..."
+                    />
+                  </div>
                   <Textarea
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Add progress notes, issues, or updates..."
+                    placeholder="Add progress notes, issues, or updates... Use AI Assist button above for help writing in any language"
                     rows={3}
                     className="text-sm"
                   />

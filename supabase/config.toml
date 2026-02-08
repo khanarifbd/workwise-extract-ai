@@ -59,3 +59,6 @@ verify_jwt = false
 
 [functions.job-notification-trigger]
 verify_jwt = false
+
+[functions.enhance-notes]
+verify_jwt = false
