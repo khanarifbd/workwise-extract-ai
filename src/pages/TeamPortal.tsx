@@ -117,23 +117,41 @@ const TeamPortal = () => {
     }
   }, [jobs, toast]);
 
-  // Load jobs for the authenticated team using secure edge function
-  const loadJobs = async () => {
+  // Load jobs for the authenticated team using secure backend function
+  // Supports delta polling: when "since" is provided, we merge updated jobs into local state.
+  const lastJobsSyncRef = useRef<string | null>(null);
+
+  const loadJobs = async (opts?: { since?: string; silent?: boolean }) => {
     if (!session?.teamName) return;
 
-    setIsLoadingJobs(true);
+    const since = opts?.since;
+
+    if (!opts?.silent) setIsLoadingJobs(true);
+
     try {
       if (isOnline) {
-        // Use edge function for secure job fetching
-        const data = await fetchTeamJobs();
+        const { jobs: data, serverTime } = await fetchTeamJobs(since);
         const mappedJobs = (data || []).map((row: any) => mapDatabaseJobToJob(row));
-        setJobs(mappedJobs);
-        
-        // Cache for offline use with team name for sync time tracking
-        await cacheJobs(mappedJobs, session.teamName);
-        
-        // Handle deep link after jobs are loaded
-        handleDeepLink(mappedJobs);
+
+        if (since) {
+          // Delta merge: upsert updated jobs into the existing list.
+          if (mappedJobs.length > 0) {
+            setJobs((prev) => {
+              const map = new Map(prev.map((j) => [j.id, j] as const));
+              for (const j of mappedJobs) map.set(j.id, j);
+              return Array.from(map.values());
+            });
+          }
+        } else {
+          setJobs(mappedJobs);
+          // Cache for offline use with team name for sync time tracking
+          await cacheJobs(mappedJobs, session.teamName);
+          // Handle deep link after jobs are loaded
+          handleDeepLink(mappedJobs);
+        }
+
+        // Advance watermark (prefer server time; fallback to now)
+        lastJobsSyncRef.current = serverTime || new Date().toISOString();
       } else {
         // Load from cache
         const cachedJobs = await getCachedJobs(session.teamName);
@@ -146,19 +164,22 @@ const TeamPortal = () => {
       }
     } catch (error) {
       console.error('Error loading jobs:', error);
-      // Try to load from cache on error
-      const cachedJobs = await getCachedJobs(session.teamName);
-      if (cachedJobs.length > 0) {
-        setJobs(cachedJobs);
-        handleDeepLink(cachedJobs);
-        toast({
-          title: 'Connection Issue',
-          description: 'Showing cached jobs.',
-          variant: 'destructive',
-        });
+
+      if (!since) {
+        // Try to load from cache on full-load errors
+        const cachedJobs = await getCachedJobs(session.teamName);
+        if (cachedJobs.length > 0) {
+          setJobs(cachedJobs);
+          handleDeepLink(cachedJobs);
+          toast({
+            title: 'Connection Issue',
+            description: 'Showing cached jobs.',
+            variant: 'destructive',
+          });
+        }
       }
     } finally {
-      setIsLoadingJobs(false);
+      if (!opts?.silent) setIsLoadingJobs(false);
     }
   };
 
@@ -315,22 +336,39 @@ const TeamPortal = () => {
   }, [isAuthenticated, session]);
 
   // Separate effect for auto-refresh to prevent recreation on every render
-  // Ops Managers get faster 15s polling for real-time visibility of assignments
+  // Ops Managers get fast delta polling for near real-time visibility of assignments
   useEffect(() => {
     if (!isAuthenticated || !session) return;
-    
+
     const isOpsManager = session.isOpsManager === true;
-    // Ops Managers: 15s for near real-time, Regular teams: 30s
-    const pollInterval = isOpsManager ? 15000 : 30000;
-    
-    const refreshInterval = setInterval(() => {
-      if (navigator.onLine) {
-        console.log(`[TeamPortal] Auto-refreshing jobs (${isOpsManager ? 'Ops Manager' : 'Team'})...`);
-        loadJobsRef.current();
-      }
-    }, pollInterval);
-    
-    return () => clearInterval(refreshInterval);
+
+    // Ops Managers: delta poll every 5s while app is visible; fallback 15s
+    const visiblePollInterval = isOpsManager ? 5000 : 30000;
+    const hiddenPollInterval = isOpsManager ? 15000 : 30000;
+
+    let intervalId: number | undefined;
+
+    const startInterval = (ms: number) => {
+      if (intervalId) window.clearInterval(intervalId);
+      intervalId = window.setInterval(() => {
+        if (!navigator.onLine) return;
+        const since = lastJobsSyncRef.current || undefined;
+        loadJobsRef.current({ since, silent: true });
+      }, ms);
+    };
+
+    const handleVisibility = () => {
+      const isVisible = document.visibilityState === 'visible';
+      startInterval(isVisible ? visiblePollInterval : hiddenPollInterval);
+    };
+
+    handleVisibility();
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      if (intervalId) window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, [isAuthenticated, session]);
 
   // Sync when coming online - use stable refs
