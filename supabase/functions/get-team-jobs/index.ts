@@ -8,6 +8,8 @@ const corsHeaders = {
 interface GetJobsRequest {
   teamId: string;
   teamName: string;
+  // Optional: return only jobs updated after this timestamp (ISO string)
+  since?: string;
 }
 
 // Rate limiting configuration
@@ -17,7 +19,7 @@ interface RateLimitEntry {
 }
 
 const rateLimitStore = new Map<string, RateLimitEntry>();
-const RATE_LIMIT_MAX_REQUESTS = 100; // 100 requests per team per hour
+const RATE_LIMIT_MAX_REQUESTS = 2000; // 2000 requests per team per hour (supports delta polling)
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 
 function checkRateLimit(teamId: string): { allowed: boolean; remaining: number; resetAt: number } {
@@ -69,7 +71,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { teamId, teamName } = body;
+    const { teamId, teamName, since } = body;
 
     // Validate input
     if (!teamId || !teamName) {
@@ -151,18 +153,32 @@ Deno.serve(async (req) => {
 
     const isOpsManager = teamData.is_ops_manager === true;
 
-    // Fetch jobs - Operations Manager sees only ASSIGNED jobs, regular teams see jobs where they are team or team2
+    // Optional delta mode
+    let sinceDate: Date | null = null;
+    if (since) {
+      const d = new Date(since);
+      if (!Number.isNaN(d.getTime())) sinceDate = d;
+    }
+
+    // Fetch jobs
+    // - Ops Managers: any job assigned to ANY team (team or team2)
+    // - Regular Teams: jobs where they are team OR team2
     let jobs = [];
-    
+
     if (isOpsManager) {
-      // Ops managers see all assigned jobs
-      const { data, error } = await supabase
+      let query = supabase
         .from("jobs")
         .select("*")
-        .not("team", "is", null)
-        .neq("team", "")
-        .order("created_at", { ascending: false });
-      
+        // Must include assignments via either team field
+        .or("team.not.is.null,team2.not.is.null")
+        .order("updated_at", { ascending: false });
+
+      if (sinceDate) {
+        query = query.gt("updated_at", sinceDate.toISOString());
+      }
+
+      const { data, error } = await query;
+
       if (error) {
         console.error("Failed to fetch jobs:", error.message);
         return new Response(
@@ -170,15 +186,22 @@ Deno.serve(async (req) => {
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      jobs = data || [];
+
+      // Post-filter empty strings (can't express cleanly in the OR clause)
+      jobs = (data || []).filter((j: any) => (j?.team && String(j.team).trim() !== "") || (j?.team2 && String(j.team2).trim() !== ""));
     } else {
-      // Regular teams see jobs where they are assigned as team or team2
-      const { data, error } = await supabase
+      let query = supabase
         .from("jobs")
         .select("*")
         .or(`team.eq.${teamName},team2.eq.${teamName}`)
-        .order("created_at", { ascending: false });
-      
+        .order("updated_at", { ascending: false });
+
+      if (sinceDate) {
+        query = query.gt("updated_at", sinceDate.toISOString());
+      }
+
+      const { data, error } = await query;
+
       if (error) {
         console.error("Failed to fetch jobs:", error.message);
         return new Response(
@@ -186,20 +209,27 @@ Deno.serve(async (req) => {
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+
       jobs = data || [];
     }
 
-    console.log(`Fetched ${jobs?.length || 0} jobs for ${isOpsManager ? 'ops manager' : 'team'}: ${teamName}`);
+    console.log(
+      `Fetched ${jobs?.length || 0} ${sinceDate ? 'delta' : 'full'} jobs for ${isOpsManager ? 'ops manager' : 'team'}: ${teamName}`
+    );
 
     return new Response(
-      JSON.stringify({ success: true, jobs: jobs || [] }),
-      { 
-        status: 200, 
-        headers: { 
-          ...corsHeaders, 
+      JSON.stringify({
+        success: true,
+        jobs: jobs || [],
+        serverTime: new Date().toISOString(),
+      }),
+      {
+        status: 200,
+        headers: {
+          ...corsHeaders,
           "Content-Type": "application/json",
-          "X-RateLimit-Remaining": String(rateLimit.remaining)
-        } 
+          "X-RateLimit-Remaining": String(rateLimit.remaining),
+        },
       }
     );
   } catch (error) {

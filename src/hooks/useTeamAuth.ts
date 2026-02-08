@@ -91,29 +91,37 @@ export const useTeamAuth = () => {
     setSession(null);
   }, []);
 
-  // Function to fetch jobs through edge function
-  const fetchTeamJobs = useCallback(async () => {
-    if (!session) {
-      throw new Error('Not authenticated');
-    }
+  // Function to fetch jobs through backend function
+  // Optional "since" enables delta polling (only jobs updated since that timestamp).
+  const fetchTeamJobs = useCallback(
+    async (since?: string) => {
+      if (!session) {
+        throw new Error('Not authenticated');
+      }
 
-    const { data, error: fnError } = await supabase.functions.invoke('get-team-jobs', {
-      body: { 
-        teamId: session.teamId, 
-        teamName: session.teamName 
-      },
-    });
+      const { data, error: fnError } = await supabase.functions.invoke('get-team-jobs', {
+        body: {
+          teamId: session.teamId,
+          teamName: session.teamName,
+          ...(since ? { since } : {}),
+        },
+      });
 
-    if (fnError) {
-      throw new Error('Failed to fetch jobs');
-    }
+      if (fnError) {
+        throw new Error('Failed to fetch jobs');
+      }
 
-    if (!data?.success) {
-      throw new Error(data?.error || 'Failed to fetch jobs');
-    }
+      if (!data?.success) {
+        throw new Error(data?.error || 'Failed to fetch jobs');
+      }
 
-    return data.jobs;
-  }, [session]);
+      return {
+        jobs: data.jobs as any[],
+        serverTime: (data.serverTime as string | undefined) || undefined,
+      };
+    },
+    [session]
+  );
 
   // Function to update job through edge function
   const updateTeamJob = useCallback(async (
