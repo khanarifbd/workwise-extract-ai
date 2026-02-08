@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, forwardRef } from 'react';
 import { Job } from '@/types/job';
 import { format, isToday, isTomorrow, isThisWeek, isThisMonth, parseISO, isValid, startOfDay } from 'date-fns';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -22,7 +22,8 @@ interface DateGroup {
   isSpecial?: 'today' | 'tomorrow' | 'thisWeek';
 }
 
-export const BookedDateSidebar = ({ jobs, selectedDate, onDateSelect, isFanCategory = false }: BookedDateSidebarProps) => {
+export const BookedDateSidebar = forwardRef<HTMLDivElement, BookedDateSidebarProps>(
+  ({ jobs, selectedDate, onDateSelect, isFanCategory = false }, ref) => {
   const dateGroups = useMemo(() => {
     const groups = new Map<string, { date: Date; count: number }>();
     
@@ -71,7 +72,7 @@ export const BookedDateSidebar = ({ jobs, selectedDate, onDateSelect, isFanCateg
 
   if (dateGroups.length === 0) {
     return (
-      <div className="w-48 border-r border-border bg-muted/30 p-3">
+      <div ref={ref} className="w-48 border-r border-border bg-muted/30 p-3">
         <div className="text-sm text-muted-foreground text-center py-4">
           No booked dates
         </div>
@@ -80,7 +81,7 @@ export const BookedDateSidebar = ({ jobs, selectedDate, onDateSelect, isFanCateg
   }
 
   return (
-    <div className="w-52 border-r border-border bg-muted/20 flex flex-col">
+    <div ref={ref} className="w-52 border-r border-border bg-muted/20 flex flex-col">
       <div className="p-3 border-b border-border">
         <h3 className="text-sm font-semibold flex items-center gap-2">
           <Calendar className="w-4 h-4" />
@@ -163,4 +164,6 @@ export const BookedDateSidebar = ({ jobs, selectedDate, onDateSelect, isFanCateg
       </ScrollArea>
     </div>
   );
-};
+});
+
+BookedDateSidebar.displayName = 'BookedDateSidebar';
