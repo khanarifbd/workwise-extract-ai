@@ -37,9 +37,17 @@ serve(async (req) => {
     console.log(`Audio data length: ${audioBase64.length} characters`);
 
     // Step 1: Transcribe the audio using Gemini's multimodal capabilities
-    const transcriptionPrompt = `You are a professional transcription assistant. Please transcribe the following audio recording accurately. 
+    const transcriptionPrompt = `You are a professional transcription assistant. Please transcribe the following audio recording VERBATIM and COMPLETELY. 
 The audio is from an Operations Manager in a construction/building trades company.
-Output ONLY the raw transcription text, nothing else. No explanations, no formatting.
+
+CRITICAL REQUIREMENTS:
+- Transcribe EVERY word spoken, do not summarize or abbreviate
+- Include ALL names of people, places, addresses, and numbers exactly as spoken
+- Include ALL quantities, measurements, and specific details
+- Preserve natural speech patterns and pauses
+- If numbers are spoken (like tradesman counts, addresses, job numbers), write them out
+
+Output the COMPLETE raw transcription text, nothing else. No explanations, no formatting.
 If you cannot understand parts of the audio, indicate with [inaudible].`;
 
     const transcriptionResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -104,17 +112,31 @@ TRANSCRIPTION:
 "${transcribedText}"
 
 Your task:
-1. Clean up and enhance the text into clear, professional notes
-2. Generate a concise title (max 60 chars)
+1. PRESERVE ALL DETAILS from the transcription - do NOT over-summarize
+   - Keep ALL names (people, addresses, locations) exactly as mentioned
+   - Keep ALL numbers (quantities, tradesman counts, job numbers, house numbers)
+   - Keep ALL specific instructions or actions mentioned
+   - Format professionally but retain FULL information content
+2. Generate a concise title (max 60 chars) that captures the main action
 3. Determine urgency level: "immediate", "high", "normal", or "low"
-4. Identify team association if mentioned (look for names like Indika, Bartek, Shakhti, Abraham, Jess, Alindo, Ramesh, Kumar, Billy, Argen, Leci, Sam)
+4. Identify team association if mentioned (look for names like Indika, Bartek, Shakhti, Abraham, Jess, Alindo, Ramesh, Kumar, Billy, Argen, Leci, Sam, Eleanor, Mrs)
 5. Identify job number if mentioned (format: numbers like 12345)
 6. Categorize: "issue", "instruction", "reminder", "feedback", or "general"
 7. Add appropriate emoji symbols that convey urgency/emotion
 
+CRITICAL: The enhanced_text MUST include ALL specific details from the transcription:
+- Every person name mentioned
+- Every address or location mentioned  
+- Every quantity or number mentioned
+- Every specific instruction or action required
+
+Example - if transcription says "Send 2 plasterers to Mrs Johnson at 45 Oak Street":
+- Good: "📋 Send 2 plasterers to Mrs Johnson at 45 Oak Street"
+- Bad: "Send plasterers to property" (missing details!)
+
 Output ONLY valid JSON in this exact format:
 {
-  "enhanced_text": "The cleaned up, professional version of the note with relevant emoji symbols",
+  "enhanced_text": "The cleaned up, professional version retaining ALL names, addresses, quantities and details with relevant emoji",
   "title": "Concise title with emoji",
   "urgency": "immediate|high|normal|low",
   "team_association": "team name or null",
