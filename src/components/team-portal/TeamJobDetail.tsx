@@ -1044,13 +1044,22 @@ export const TeamJobDetail = ({
                   {/* WHY JOB IS ONGOING - shown when toggle is on */}
                   {isOngoing && (
                     <div className="mt-3 pt-3 border-t border-amber-300 dark:border-amber-700">
-                      <label className="text-xs font-bold text-amber-800 dark:text-amber-200 mb-1.5 block uppercase tracking-wide">
-                        Why Job Is Ongoing
-                      </label>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-xs font-bold text-amber-800 dark:text-amber-200 uppercase tracking-wide">
+                          Why Job Is Ongoing
+                        </label>
+                        <AIWritingAssistant
+                          currentText={ongoingReason}
+                          onAccept={(enhancedText) => setOngoingReason(enhancedText)}
+                          userLanguage={languagePreference}
+                          jobContext={job.summaryOfWorks || job.name}
+                          placeholder="Explain why this job is ongoing in your own language..."
+                        />
+                      </div>
                       <Textarea
                         value={ongoingReason}
                         onChange={(e) => setOngoingReason(e.target.value)}
-                        placeholder="Explain why this job is marked as ongoing..."
+                        placeholder="Explain why this job is marked as ongoing... Use AI Assist button above for help writing in any language"
                         rows={2}
                         className="text-xs bg-white dark:bg-amber-900/30 border-amber-300 dark:border-amber-700 placeholder:text-amber-400"
                       />
