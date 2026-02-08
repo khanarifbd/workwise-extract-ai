@@ -225,9 +225,14 @@ export const useJobs = (categoryId?: string) => {
         setJobs(prev => prev.map(j => j.id === id ? currentJob : j));
         throw serverError;
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating job:', error);
-      throw error;
+      // Re-throw with preserved error details
+      const errorMessage = error?.message || 'Failed to update job';
+      const detailedError = new Error(errorMessage);
+      (detailedError as any).details = error?.details;
+      (detailedError as any).code = error?.code;
+      throw detailedError;
     }
   };
 

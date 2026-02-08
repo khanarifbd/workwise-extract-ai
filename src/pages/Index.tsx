@@ -458,10 +458,12 @@ const Index = () => {
         title: "Job Updated",
         description: `Job #${updatedJob.jobNumber} has been updated.`,
       });
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Job update failed:', error);
+      const errorMessage = error?.message || error?.details || 'Could not update the job.';
       toast({
         title: "Update Failed",
-        description: "Could not update the job.",
+        description: errorMessage,
         variant: "destructive",
       });
     }
