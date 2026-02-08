@@ -345,14 +345,18 @@ const TeamPortal = () => {
   selectedJobRef.current = selectedJob;
 
   // Set up realtime subscription - listen to all job changes for IMMEDIATE updates
-  // Jobs should appear immediately when assigned in the dashboard
+  // For Ops Managers: listen to ALL jobs where any team is assigned
+  // For Regular Teams: listen only to jobs assigned to their team
   useEffect(() => {
     if (!isAuthenticated || !session?.teamName) return;
     
     const teamName = session.teamName;
+    const isOpsManager = session.isOpsManager === true;
+    
+    console.log(`[TeamPortal] Setting up realtime subscription for ${isOpsManager ? 'Ops Manager' : `Team ${teamName}`}`);
 
     const channel = supabase
-      .channel(`team-jobs-realtime-${teamName}`)
+      .channel(`team-jobs-realtime-${teamName}-${isOpsManager ? 'ops' : 'team'}`)
       .on(
         'postgres_changes',
         {
@@ -362,23 +366,28 @@ const TeamPortal = () => {
         },
         (payload) => {
           const newJob = payload.new as any;
-          // Check if this team is assigned
-          const isAssigned = newJob?.team === teamName || newJob?.team2 === teamName;
           
-          if (isAssigned) {
-            // Immediately add the new job
+          // For Ops Manager: show all jobs with any team assigned
+          // For Regular Team: only show if this team is assigned
+          const hasAnyTeam = newJob?.team || newJob?.team2;
+          const isAssignedToThisTeam = newJob?.team === teamName || newJob?.team2 === teamName;
+          const shouldShow = isOpsManager ? hasAnyTeam : isAssignedToThisTeam;
+          
+          if (shouldShow) {
             const mappedJob = mapDatabaseJobToJob(newJob);
             setJobs(prev => {
-              // Avoid duplicates
               if (prev.some(j => j.id === mappedJob.id)) return prev;
               return [mappedJob, ...prev];
             });
-            // Play notification sound and vibrate
-            notifyNewJob();
-            toast({
-              title: '🆕 New Job Assigned',
-              description: `Job #${newJob.job_number} - ${newJob.name}`,
-            });
+            
+            // Play notification and show toast
+            if (isAssignedToThisTeam || isOpsManager) {
+              notifyNewJob();
+              toast({
+                title: isOpsManager ? '📋 New Job Added' : '🆕 New Job Assigned',
+                description: `Job #${newJob.job_number} - ${newJob.name}${isOpsManager && newJob.team ? ` → ${newJob.team}` : ''}`,
+              });
+            }
           }
         }
       )
@@ -393,58 +402,95 @@ const TeamPortal = () => {
           const changedJob = payload.new as any;
           const oldJob = payload.old as any;
           
-          // Check if team was previously assigned as team or team2
-          const wasAssignedAsTeam1 = oldJob?.team === teamName;
-          const wasAssignedAsTeam2 = oldJob?.team2 === teamName;
-          const wasAssigned = wasAssignedAsTeam1 || wasAssignedAsTeam2;
+          // For Ops Manager: track all jobs with any team assigned
+          const oldHasAnyTeam = oldJob?.team || oldJob?.team2;
+          const newHasAnyTeam = changedJob?.team || changedJob?.team2;
           
-          // Check if team is currently assigned as team or team2
-          const isAssignedAsTeam1 = changedJob?.team === teamName;
-          const isAssignedAsTeam2 = changedJob?.team2 === teamName;
-          const isAssigned = isAssignedAsTeam1 || isAssignedAsTeam2;
+          // For Regular Team: check assignment to this specific team
+          const wasAssignedToThisTeam = oldJob?.team === teamName || oldJob?.team2 === teamName;
+          const isAssignedToThisTeam = changedJob?.team === teamName || changedJob?.team2 === teamName;
           
-          // NEWLY ASSIGNED - add immediately
-          if (isAssigned && !wasAssigned) {
-            const mappedJob = mapDatabaseJobToJob(changedJob);
-            setJobs(prev => {
-              if (prev.some(j => j.id === mappedJob.id)) return prev;
-              return [mappedJob, ...prev];
-            });
-            // Play notification sound and vibrate
-            notifyNewJob();
-            toast({
-              title: '🆕 New Job Assigned',
-              description: `Job #${changedJob.job_number} - ${changedJob.name}`,
-            });
-          }
-          // UNASSIGNED - remove immediately
-          else if (wasAssigned && !isAssigned) {
-            setJobs(prev => prev.filter(j => j.id !== changedJob.id));
-            
-            const currentSelectedJob = selectedJobRef.current;
-            if (currentSelectedJob?.id === changedJob.id) {
-              setSelectedJob(null);
-              toast({
-                title: '⚠️ Job Unassigned',
-                description: `Job #${changedJob.job_number} has been removed from your team by admin.`,
-                variant: 'destructive',
+          if (isOpsManager) {
+            // OPS MANAGER LOGIC - immediate updates for all team-assigned jobs
+            if (newHasAnyTeam && !oldHasAnyTeam) {
+              // Job newly assigned to a team - add it
+              const mappedJob = mapDatabaseJobToJob(changedJob);
+              setJobs(prev => {
+                if (prev.some(j => j.id === mappedJob.id)) return prev;
+                return [mappedJob, ...prev];
               });
-            } else {
+              notifyNewJob();
               toast({
-                title: 'Job Removed',
-                description: `Job #${changedJob.job_number} has been unassigned from your team.`,
+                title: '📋 Team Assignment',
+                description: `Job #${changedJob.job_number} → ${changedJob.team}`,
               });
+            } else if (oldHasAnyTeam && !newHasAnyTeam) {
+              // Job unassigned from all teams - remove it
+              setJobs(prev => prev.filter(j => j.id !== changedJob.id));
+              
+              const currentSelectedJob = selectedJobRef.current;
+              if (currentSelectedJob?.id === changedJob.id) {
+                setSelectedJob(null);
+              }
+            } else if (newHasAnyTeam) {
+              // Job still has team assigned - update in place
+              const mappedJob = mapDatabaseJobToJob(changedJob);
+              setJobs(prev => prev.map(j => j.id === mappedJob.id ? mappedJob : j));
+              
+              const currentSelectedJob = selectedJobRef.current;
+              if (currentSelectedJob?.id === mappedJob.id) {
+                setSelectedJob(mappedJob);
+              }
+              
+              // If team assignment changed, show a toast
+              if (oldJob?.team !== changedJob?.team || oldJob?.team2 !== changedJob?.team2) {
+                toast({
+                  title: '🔄 Team Updated',
+                  description: `Job #${changedJob.job_number} → ${changedJob.team}${changedJob.team2 ? ` + ${changedJob.team2}` : ''}`,
+                });
+              }
             }
-          }
-          // STILL ASSIGNED - update in place
-          else if (isAssigned && wasAssigned) {
-            const mappedJob = mapDatabaseJobToJob(changedJob);
-            setJobs(prev => prev.map(j => j.id === mappedJob.id ? mappedJob : j));
-            
-            // Update selected job if it's the one that changed
-            const currentSelectedJob = selectedJobRef.current;
-            if (currentSelectedJob?.id === mappedJob.id) {
-              setSelectedJob(mappedJob);
+          } else {
+            // REGULAR TEAM LOGIC
+            if (isAssignedToThisTeam && !wasAssignedToThisTeam) {
+              // NEWLY ASSIGNED - add immediately
+              const mappedJob = mapDatabaseJobToJob(changedJob);
+              setJobs(prev => {
+                if (prev.some(j => j.id === mappedJob.id)) return prev;
+                return [mappedJob, ...prev];
+              });
+              notifyNewJob();
+              toast({
+                title: '🆕 New Job Assigned',
+                description: `Job #${changedJob.job_number} - ${changedJob.name}`,
+              });
+            } else if (wasAssignedToThisTeam && !isAssignedToThisTeam) {
+              // UNASSIGNED - remove immediately
+              setJobs(prev => prev.filter(j => j.id !== changedJob.id));
+              
+              const currentSelectedJob = selectedJobRef.current;
+              if (currentSelectedJob?.id === changedJob.id) {
+                setSelectedJob(null);
+                toast({
+                  title: '⚠️ Job Unassigned',
+                  description: `Job #${changedJob.job_number} has been removed from your team by admin.`,
+                  variant: 'destructive',
+                });
+              } else {
+                toast({
+                  title: 'Job Removed',
+                  description: `Job #${changedJob.job_number} has been unassigned from your team.`,
+                });
+              }
+            } else if (isAssignedToThisTeam && wasAssignedToThisTeam) {
+              // STILL ASSIGNED - update in place
+              const mappedJob = mapDatabaseJobToJob(changedJob);
+              setJobs(prev => prev.map(j => j.id === mappedJob.id ? mappedJob : j));
+              
+              const currentSelectedJob = selectedJobRef.current;
+              if (currentSelectedJob?.id === mappedJob.id) {
+                setSelectedJob(mappedJob);
+              }
             }
           }
         }
@@ -458,6 +504,7 @@ const TeamPortal = () => {
         },
         (payload) => {
           const deletedJob = payload.old as any;
+          
           // Remove from list if it was in our list
           setJobs(prev => prev.filter(j => j.id !== deletedJob.id));
           
@@ -478,7 +525,7 @@ const TeamPortal = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [isAuthenticated, session?.teamName, toast, notifyNewJob]);
+  }, [isAuthenticated, session?.teamName, session?.isOpsManager, toast, notifyNewJob]);
 
   if (authLoading) {
     return (

@@ -318,6 +318,71 @@ export type Database = {
         }
         Relationships: []
       }
+      ops_manager_notes: {
+        Row: {
+          category: string | null
+          created_at: string
+          created_by: string
+          created_by_name: string
+          enhanced_text: string
+          id: string
+          is_resolved: boolean
+          job_id: string | null
+          job_number: string | null
+          original_audio_url: string | null
+          resolved_at: string | null
+          team_association: string | null
+          title: string
+          transcribed_text: string
+          updated_at: string
+          urgency: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          created_by: string
+          created_by_name: string
+          enhanced_text: string
+          id?: string
+          is_resolved?: boolean
+          job_id?: string | null
+          job_number?: string | null
+          original_audio_url?: string | null
+          resolved_at?: string | null
+          team_association?: string | null
+          title: string
+          transcribed_text: string
+          updated_at?: string
+          urgency?: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          created_by?: string
+          created_by_name?: string
+          enhanced_text?: string
+          id?: string
+          is_resolved?: boolean
+          job_id?: string | null
+          job_number?: string | null
+          original_audio_url?: string | null
+          resolved_at?: string | null
+          team_association?: string | null
+          title?: string
+          transcribed_text?: string
+          updated_at?: string
+          urgency?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_manager_notes_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       photo_folders: {
         Row: {
           created_at: string

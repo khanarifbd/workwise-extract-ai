@@ -40,6 +40,7 @@ import { shouldShowOngoingAlert } from '@/hooks/useJobAlerts';
 import { TeamDiary } from './TeamDiary';
 import { LanguageSelector } from './LanguageSelector';
 import { RemoveJobConfirmModal } from './RemoveJobConfirmModal';
+import { OpsManagerNotes } from './OpsManagerNotes';
 import { cn } from '@/lib/utils';
 
 // Helper to get contrasting text color (white or black) for a given background color
@@ -884,6 +885,11 @@ export const TeamJobList = ({
         <TabsContent value="jobs" className="mt-0">
           {/* Job List - Mobile optimized with month/day grouping */}
           <div className="p-3 space-y-2">
+            {/* Ops Manager Voice Notes - shown above controls */}
+            {isOpsManager && (
+              <OpsManagerNotes teamId={teamId} teamName={teamName} />
+            )}
+
             {/* Controls */}
             <div className="flex flex-wrap items-center gap-1.5 mb-2">
               {teamFilter && (
