@@ -84,8 +84,18 @@ const getJobBookedDate = (job: Job): Date | null => {
   return null;
 };
 
-// Get job created date for ops manager view
-const getJobGroupDate = (job: Job): Date => {
+// Get job group date for ops manager view - prioritize booked date over created date
+const getJobGroupDate = (job: Job): Date | null => {
+  // First try booked date - this is the scheduling date
+  if (job.bookedDate) {
+    const date = new Date(job.bookedDate);
+    if (isValid(date)) return date;
+  }
+  return null;
+};
+
+// Get job fallback date (created date) for jobs without booked date
+const getJobFallbackDate = (job: Job): Date => {
   const createdAt = job.createdAt instanceof Date ? job.createdAt : new Date(job.createdAt as any);
   if (isValid(createdAt)) return createdAt;
 
@@ -160,44 +170,70 @@ const groupJobsByMonthAndDay = (jobs: Job[]): { months: MonthGroup[], unschedule
   return { months, unscheduled };
 };
 
-// Group jobs by month, then by day - for ops manager (by created date, descending)
-const groupJobsByMonthAndDayDesc = (jobs: Job[]): MonthGroup[] => {
+// Group jobs by month, then by day - for ops manager (by BOOKED date, descending)
+// Jobs without booked dates go into an "Unscheduled" section
+const groupJobsByMonthAndDayDesc = (jobs: Job[]): { months: MonthGroup[], unscheduled: Job[] } => {
   const monthMap = new Map<string, Map<string, Job[]>>();
+  const unscheduled: Job[] = [];
 
   for (const job of jobs) {
-    const date = getJobGroupDate(job);
-    const monthKey = format(date, 'yyyy-MM');
-    const dayKey = format(date, 'yyyy-MM-dd');
+    const bookedDate = getJobGroupDate(job);
     
-    if (!monthMap.has(monthKey)) {
-      monthMap.set(monthKey, new Map());
+    if (bookedDate) {
+      const monthKey = format(bookedDate, 'yyyy-MM');
+      const dayKey = format(bookedDate, 'yyyy-MM-dd');
+      
+      if (!monthMap.has(monthKey)) {
+        monthMap.set(monthKey, new Map());
+      }
+      const daysMap = monthMap.get(monthKey)!;
+      if (!daysMap.has(dayKey)) {
+        daysMap.set(dayKey, []);
+      }
+      daysMap.get(dayKey)!.push(job);
+    } else {
+      // Jobs without booked dates go to unscheduled
+      unscheduled.push(job);
     }
-    const daysMap = monthMap.get(monthKey)!;
-    if (!daysMap.has(dayKey)) {
-      daysMap.set(dayKey, []);
-    }
-    daysMap.get(dayKey)!.push(job);
   }
 
-  // Sort jobs within each day by created date (newest first)
+  // Sort jobs within each day by booked date time
   for (const [_, daysMap] of monthMap.entries()) {
     for (const [dayKey, dayJobs] of daysMap.entries()) {
       dayJobs.sort((a, b) => {
-        const at = getJobGroupDate(a).getTime();
-        const bt = getJobGroupDate(b).getTime();
-        return bt - at;
+        const at = new Date(a.bookedDate!).getTime();
+        const bt = new Date(b.bookedDate!).getTime();
+        return at - bt;
       });
     }
   }
 
-  // Convert to sorted array of MonthGroup (newest first)
+  // Sort unscheduled by created date (newest first)
+  unscheduled.sort((a, b) => {
+    const at = getJobFallbackDate(a).getTime();
+    const bt = getJobFallbackDate(b).getTime();
+    return bt - at;
+  });
+
+  // Convert to sorted array of MonthGroup
+  // Sort months chronologically with current/future months first, then past months
   const months: MonthGroup[] = [];
-  const sortedMonthKeys = Array.from(monthMap.keys()).sort((a, b) => b.localeCompare(a));
+  const currentMonth = format(new Date(), 'yyyy-MM');
+  const allMonthKeys = Array.from(monthMap.keys());
+  
+  // Separate into current/future and past months
+  const futureMonths = allMonthKeys.filter(k => k >= currentMonth).sort((a, b) => a.localeCompare(b));
+  const pastMonths = allMonthKeys.filter(k => k < currentMonth).sort((a, b) => b.localeCompare(a));
+  
+  // Order: current month first, then future months, then past months (newest first)
+  const sortedMonthKeys = [...futureMonths, ...pastMonths];
   
   for (const monthKey of sortedMonthKeys) {
     const daysMap = monthMap.get(monthKey)!;
     const sortedDays = new Map<string, Job[]>();
-    const sortedDayKeys = Array.from(daysMap.keys()).sort((a, b) => b.localeCompare(a));
+    
+    // Sort days within month chronologically
+    const sortedDayKeys = Array.from(daysMap.keys()).sort((a, b) => a.localeCompare(b));
     
     let totalJobs = 0;
     for (const dayKey of sortedDayKeys) {
@@ -215,7 +251,7 @@ const groupJobsByMonthAndDayDesc = (jobs: Job[]): MonthGroup[] => {
     });
   }
 
-  return months;
+  return { months, unscheduled };
 };
 
 export const TeamJobList = ({
@@ -423,27 +459,28 @@ export const TeamJobList = ({
   const totalActiveJobs = jobs.filter(j => !j.isCompleted).length;
 
   // Grouped jobs by month/day
-  const groupedActiveJobs = useMemo(() => {
+  const { groupedActiveMonths, activeUnscheduled } = useMemo(() => {
     if (isOpsManager) {
-      return groupJobsByMonthAndDayDesc(activeJobs);
+      const result = groupJobsByMonthAndDayDesc(activeJobs);
+      return { groupedActiveMonths: result.months, activeUnscheduled: result.unscheduled };
     } else {
-      return groupJobsByMonthAndDay(activeJobs).months;
+      const result = groupJobsByMonthAndDay(activeJobs);
+      return { groupedActiveMonths: result.months, activeUnscheduled: result.unscheduled };
     }
   }, [isOpsManager, activeJobs]);
 
-  const groupedCompletedJobs = useMemo(() => {
+  const { groupedCompletedMonths, completedUnscheduled } = useMemo(() => {
     if (isOpsManager) {
-      return groupJobsByMonthAndDayDesc(completedJobs);
+      const result = groupJobsByMonthAndDayDesc(completedJobs);
+      return { groupedCompletedMonths: result.months, completedUnscheduled: result.unscheduled };
     } else {
-      return groupJobsByMonthAndDay(completedJobs).months;
+      const result = groupJobsByMonthAndDay(completedJobs);
+      return { groupedCompletedMonths: result.months, completedUnscheduled: result.unscheduled };
     }
   }, [isOpsManager, completedJobs]);
 
-  // Unscheduled jobs (only for regular teams)
-  const unscheduledJobs = useMemo(() => {
-    if (isOpsManager) return [];
-    return groupJobsByMonthAndDay(activeJobs).unscheduled;
-  }, [isOpsManager, activeJobs]);
+  // Unscheduled jobs (both views now support unscheduled)
+  const unscheduledJobs = activeUnscheduled;
 
   const todayKey = format(new Date(), 'yyyy-MM-dd');
   const currentMonthKey = format(new Date(), 'yyyy-MM');
@@ -458,12 +495,12 @@ export const TeamJobList = ({
 
   // Get all keys for expand/collapse functionality
   const allMonthKeys = useMemo(() => {
-    return groupedActiveJobs.map(m => m.monthKey);
-  }, [groupedActiveJobs]);
+    return groupedActiveMonths.map(m => m.monthKey);
+  }, [groupedActiveMonths]);
 
   const allDayKeys = useMemo(() => {
     const keys: string[] = [];
-    for (const month of groupedActiveJobs) {
+    for (const month of groupedActiveMonths) {
       for (const dayKey of month.days.keys()) {
         keys.push(dayKey);
       }
@@ -472,7 +509,7 @@ export const TeamJobList = ({
       keys.push('unscheduled');
     }
     return keys;
-  }, [groupedActiveJobs, unscheduledJobs]);
+  }, [groupedActiveMonths, unscheduledJobs]);
 
   // Expand/Collapse all
   const expandAllGroups = useCallback(() => {
@@ -948,7 +985,7 @@ export const TeamJobList = ({
                     </h2>
                     
                     {/* Month groups */}
-                    {groupedActiveJobs.map((monthGroup) => (
+                    {groupedActiveMonths.map((monthGroup) => (
                       <Collapsible 
                         key={monthGroup.monthKey} 
                         open={expandedMonths.has(monthGroup.monthKey)}
@@ -1052,7 +1089,7 @@ export const TeamJobList = ({
                       Completed ({completedJobs.length})
                     </h2>
                     
-                    {groupedCompletedJobs.slice(0, 3).map((monthGroup) => (
+                    {groupedCompletedMonths.slice(0, 3).map((monthGroup) => (
                       <Collapsible 
                         key={`completed-${monthGroup.monthKey}`} 
                         open={expandedMonths.has(`completed-${monthGroup.monthKey}`)}
