@@ -173,7 +173,7 @@ export const CategoryTabs = ({
             Add Category
           </Button>
         </DialogTrigger>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>Add New Category</DialogTitle>
           </DialogHeader>
