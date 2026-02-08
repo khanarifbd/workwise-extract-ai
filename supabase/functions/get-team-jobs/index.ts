@@ -161,17 +161,20 @@ Deno.serve(async (req) => {
     }
 
     // Fetch jobs
-    // - Ops Managers: any job assigned to ANY team (team or team2)
+    // - Ops Managers: ONLY jobs that are BOOKED (have booked_date) AND assigned to a team
     // - Regular Teams: jobs where they are team OR team2
     let jobs = [];
 
     if (isOpsManager) {
+      // Ops manager sees only BOOKED + ASSIGNED jobs
       let query = supabase
         .from("jobs")
         .select("*")
-        // Must include assignments via either team field
+        // Must have a booked_date (i.e., job is BOOKED)
+        .not("booked_date", "is", null)
+        // Must be assigned to at least one team
         .or("team.not.is.null,team2.not.is.null")
-        .order("updated_at", { ascending: false });
+        .order("booked_date", { ascending: true });
 
       if (sinceDate) {
         query = query.gt("updated_at", sinceDate.toISOString());
