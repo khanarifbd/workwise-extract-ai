@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
-type DatabaseTab = 'all' | 'booked' | 'completed';
+type DatabaseTab = 'all' | 'booked' | 'completed' | 'refer_back';
 type ViewType = 'table' | 'kanban' | 'calendar';
 
 interface UrlState {

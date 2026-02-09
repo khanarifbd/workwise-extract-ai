@@ -165,6 +165,9 @@ export const ManualJobEntry = forwardRef<HTMLDivElement, ManualJobEntryProps>(({
         linkedInsulationJobId: null,
         costs: null,
         privateNotes: '',
+        referBack: false,
+        referBackReason: '',
+        referBackDate: null,
       };
 
       await onJobCreate(newJob);

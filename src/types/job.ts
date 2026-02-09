@@ -103,6 +103,9 @@ export interface Job {
   linkedInsulationJobId: string | null;
   costs: JobCosts | null;
   privateNotes: string; // Admin-only notes, not visible in team portal
+  referBack: boolean; // Job referred back to NPH as uncompletable
+  referBackReason: string; // Reason for refer back
+  referBackDate: Date | null; // When it was referred back
 }
 
 export interface Attachment {

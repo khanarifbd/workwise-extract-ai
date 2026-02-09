@@ -171,6 +171,9 @@ export const BulkImageUpload = ({ onJobsExtracted, onClose, initialFiles }: Bulk
             linkedInsulationJobId: null,
             costs: null,
             privateNotes: '',
+            referBack: false,
+            referBackReason: '',
+            referBackDate: null,
           };
 
           extractedJobs.push(newJob);
