@@ -170,6 +170,7 @@ Deno.serve(async (req) => {
       let query = supabase
         .from("jobs")
         .select("*")
+        .is("deleted_at", null)
         // Must have a booked_date (i.e., job is BOOKED)
         .not("booked_date", "is", null)
         // Must be assigned to at least one team
@@ -197,6 +198,7 @@ Deno.serve(async (req) => {
         .from("jobs")
         .select("*")
         .or(`team.eq.${teamName},team2.eq.${teamName}`)
+        .is("deleted_at", null)
         .order("updated_at", { ascending: false });
 
       if (sinceDate) {
