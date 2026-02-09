@@ -297,6 +297,7 @@ export const fetchJobs = async (categoryId?: string): Promise<Job[]> => {
   let query = supabase
     .from('jobs')
     .select('*')
+    .is('deleted_at', null)
     .order('date_issued', { ascending: false });
 
   if (categoryId) {
@@ -366,11 +367,23 @@ export const updateJob = async (id: string, updates: Partial<Job>): Promise<Job>
 export const deleteJob = async (id: string): Promise<void> => {
   const { error } = await supabase
     .from('jobs')
-    .delete()
+    .update({ deleted_at: new Date().toISOString() })
     .eq('id', id);
 
   if (error) {
-    console.error('Error deleting job:', error);
+    console.error('Error soft-deleting job:', error);
+    throw error;
+  }
+};
+
+export const restoreJob = async (id: string): Promise<void> => {
+  const { error } = await supabase
+    .from('jobs')
+    .update({ deleted_at: null })
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error restoring job:', error);
     throw error;
   }
 };

@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, createElement } from 'react';
 import { Job } from '@/types/job';
-import { fetchJobs, createJob, updateJob, deleteJob } from '@/lib/api';
+import { fetchJobs, createJob, updateJob, deleteJob, restoreJob } from '@/lib/api';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { ToastAction } from '@/components/ui/toast';
 
 export const useJobs = (categoryId?: string) => {
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -312,17 +313,41 @@ export const useJobs = (categoryId?: string) => {
   };
 
   const removeJob = async (id: string) => {
-    // Store current state for rollback
-    const currentJobs = [...jobs];
+    // Store the job for undo
+    const deletedJob = jobs.find(j => j.id === id);
     
     try {
-      // Optimistic delete
+      // Optimistic delete from UI
       setJobs(prev => prev.filter(j => j.id !== id));
       
       await deleteJob(id);
+
+      // Show undo toast
+      if (deletedJob) {
+        toast({
+          title: "Job deleted",
+          description: `${deletedJob.jobNumber} - ${deletedJob.name}`,
+          action: createElement(ToastAction, {
+            altText: 'Undo delete',
+            onClick: async () => {
+              try {
+                await restoreJob(id);
+                setJobs(prev => [deletedJob, ...prev]);
+                toast({ title: "Job restored", description: `${deletedJob.jobNumber} has been restored` });
+              } catch (err) {
+                console.error('Error restoring job:', err);
+                toast({ title: "Error", description: "Failed to restore job", variant: "destructive" });
+              }
+            }
+          } as any, 'Undo') as any,
+          duration: 10000,
+        });
+      }
     } catch (error) {
       // Rollback on error
-      setJobs(currentJobs);
+      if (deletedJob) {
+        setJobs(prev => [deletedJob, ...prev]);
+      }
       console.error('Error deleting job:', error);
       throw error;
     }

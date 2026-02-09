@@ -130,6 +130,7 @@ export type Database = {
           costs: Json | null
           created_at: string
           date_issued: string | null
+          deleted_at: string | null
           description: string | null
           fan_info: Json | null
           id: string
@@ -169,6 +170,7 @@ export type Database = {
           costs?: Json | null
           created_at?: string
           date_issued?: string | null
+          deleted_at?: string | null
           description?: string | null
           fan_info?: Json | null
           id?: string
@@ -208,6 +210,7 @@ export type Database = {
           costs?: Json | null
           created_at?: string
           date_issued?: string | null
+          deleted_at?: string | null
           description?: string | null
           fan_info?: Json | null
           id?: string
