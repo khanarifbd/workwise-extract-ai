@@ -20,7 +20,8 @@ import {
   Copy,
   ArrowRightLeft,
   Clock,
-  CheckCircle2
+  CheckCircle2,
+  RotateCcw,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TeamSelector } from './TeamSelector';
@@ -57,6 +58,7 @@ interface JobTableProps {
   onBatchUpdateTeam?: (jobIds: string[], teamName: string | null) => void;
   onTransferJob?: (jobId: string, targetCategoryId: string) => void;
   onDuplicateToCategory?: (jobId: string, targetCategoryId: string, teamId: string) => void;
+  onReferBack?: (job: Job, reason?: string) => void;
   fanCategoryId?: string;
   onFanJobCreated?: () => void;
   isFanCategory?: boolean;
@@ -81,7 +83,7 @@ const findDuplicates = (jobs: Job[]): Set<string> => {
   return duplicates;
 };
 
-export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onBatchUpdateTeam, onTransferJob, onDuplicateToCategory, fanCategoryId, onFanJobCreated, isFanCategory = false, currentCategoryId, categories = [], readOnly = false }, ref) => {
+export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onBatchUpdateTeam, onTransferJob, onDuplicateToCategory, onReferBack, fanCategoryId, onFanJobCreated, isFanCategory = false, currentCategoryId, categories = [], readOnly = false }, ref) => {
   const [showTeamSelector, setShowTeamSelector] = useState<string | null>(null);
   const [showTransferModal, setShowTransferModal] = useState<Job | null>(null);
   const [showJobDetails, setShowJobDetails] = useState<Job | null>(null);
@@ -963,6 +965,20 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                               <DropdownMenuItem onClick={() => setShowTransferModal(job)}>
                                 <ArrowRightLeft className="w-4 h-4 mr-2" />
                                 Transfer to...
+                              </DropdownMenuItem>
+                            )}
+                            {onReferBack && !job.referBack && (
+                              <DropdownMenuItem 
+                                className="text-red-600 dark:text-red-400"
+                                onClick={() => {
+                                  const reason = window.prompt('Reason for referring back to NPH:');
+                                  if (reason !== null) {
+                                    onReferBack(job, reason || 'Manual refer back');
+                                  }
+                                }}
+                              >
+                                <RotateCcw className="w-4 h-4 mr-2" />
+                                Refer Back to NPH
                               </DropdownMenuItem>
                             )}
                             {onDeleteJob && (

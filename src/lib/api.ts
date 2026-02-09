@@ -409,6 +409,9 @@ export function mapDatabaseJobToJob(dbJob: any): Job {
     linkedInsulationJobId: dbJob.linked_insulation_job_id || null,
     costs: dbJob.costs || null,
     privateNotes: dbJob.private_notes || '',
+    referBack: dbJob.refer_back || false,
+    referBackReason: dbJob.refer_back_reason || '',
+    referBackDate: dbJob.refer_back_date ? new Date(dbJob.refer_back_date) : null,
   };
 }
 
@@ -769,6 +772,9 @@ export const mapJobToDatabase = (job: Partial<Job>): any => {
   if ((job as any).linkedInsulationJobId !== undefined) dbJob.linked_insulation_job_id = (job as any).linkedInsulationJobId;
   if (job.costs !== undefined) dbJob.costs = job.costs;
   if (job.privateNotes !== undefined) dbJob.private_notes = job.privateNotes;
+  if (job.referBack !== undefined) dbJob.refer_back = job.referBack;
+  if (job.referBackReason !== undefined) dbJob.refer_back_reason = job.referBackReason;
+  if (job.referBackDate !== undefined) dbJob.refer_back_date = job.referBackDate;
   
   return dbJob;
 };
@@ -815,6 +821,9 @@ export const createLinkedFanJob = async (
     linkedInsulationJobId: null,
     costs: null,
     privateNotes: '',
+    referBack: false,
+    referBackReason: '',
+    referBackDate: null,
   };
 
   const dbJob = mapJobToDatabase(fanJob);
@@ -915,6 +924,9 @@ export const syncLinkedFanJob = async (
     linkedInsulationJobId: null,
     costs: null,
     privateNotes: '',
+    referBack: false,
+    referBackReason: '',
+    referBackDate: null,
   };
 
   const dbJob = mapJobToDatabase(fanJob);
@@ -1010,6 +1022,9 @@ export const syncLinkedInsulationJob = async (
     linkedInsulationJobId: null,
     costs: null,
     privateNotes: '',
+    referBack: false,
+    referBackReason: '',
+    referBackDate: null,
   };
 
   const dbJob = mapJobToDatabase(insulationJob);

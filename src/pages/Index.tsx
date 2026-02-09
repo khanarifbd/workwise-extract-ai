@@ -22,6 +22,7 @@ import { DuplicateJobAlert } from '@/components/DuplicateJobAlert';
 import { CompletedJobsPDFButton } from '@/components/CompletedJobsPDFButton';
 import { ManualJobEntry } from '@/components/ManualJobEntry';
 import { OverdueJobsDashboard } from '@/components/OverdueJobsDashboard';
+import { ReferBackPDFButton } from '@/components/ReferBackPDFButton';
 import { useJobAlerts } from '@/hooks/useJobAlerts';
 import { useOverdueNotifications } from '@/hooks/useOverdueNotifications';
 import { useUrlState } from '@/hooks/useUrlState';
@@ -36,6 +37,7 @@ import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { useCategories } from '@/hooks/useCategories';
 import { useSignOffStatus } from '@/hooks/useSignOffStatus';
 import { useFuzzySearch } from '@/hooks/useFuzzySearch';
+import { useAllContactHistory } from '@/hooks/useContactHistory';
 import { extractPDFWithAI, extractImageWithAI, checkDuplicateJobNumber, extractInsulationJobsFromDocument, findExistingJobByAddressOrNumber, mergeJobData, validateAndFixInsulationJob, checkInsulationDuplicates } from '@/lib/api';
 import { extractTextFromPDF } from '@/lib/pdfUtils';
 import jsPDF from 'jspdf';
@@ -73,6 +75,10 @@ const Index = () => {
   const jobIds = useMemo(() => jobs.map(j => j.id), [jobs]);
   const { getSignOffStatus } = useSignOffStatus(jobIds);
   
+  // Get contact history for refer back jobs (for PDF generation)
+  const referBackJobIds = useMemo(() => jobs.filter(j => j.referBack).map(j => j.id), [jobs]);
+  const { historyMap: referBackContactHistoryMap } = useAllContactHistory(referBackJobIds);
+
   const [isProcessing, setIsProcessing] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [showOverdueDashboard, setShowOverdueDashboard] = useState(false);
@@ -253,6 +259,9 @@ const Index = () => {
         linkedInsulationJobId: null,
         costs: null,
         privateNotes: '',
+        referBack: false,
+        referBackReason: '',
+        referBackDate: null,
       };
       
       // Check for duplicates before adding
@@ -538,6 +547,26 @@ const Index = () => {
     }
   };
 
+  const handleReferBack = async (job: Job, reason?: string) => {
+    try {
+      await editJob(job.id, {
+        referBack: true,
+        referBackReason: reason || 'Manual refer back',
+        referBackDate: new Date(),
+      });
+      toast({
+        title: "Referred Back",
+        description: `Job #${job.jobNumber} has been moved to Refer Back.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Refer Back Failed",
+        description: "Could not refer back the job.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleDuplicateToCategory = async (jobId: string, targetCategoryId: string, teamName: string) => {
     const job = jobs.find(j => j.id === jobId);
     if (!job) return;
@@ -739,10 +768,14 @@ const Index = () => {
         } else if (activeDatabaseTab === 'completed') {
           // Show only completed jobs
           if (!isJobCompleted) return false;
+        } else if (activeDatabaseTab === 'refer_back') {
+          // Show only refer back jobs
+          if (!job.referBack) return false;
         } else {
-          // In main "all" tab, exclude booked and completed jobs
+          // In main "all" tab, exclude booked, completed, and refer back jobs
           if (job.bookedDate) return false;
           if (isJobCompleted) return false;
+          if (job.referBack) return false;
         }
       }
 
@@ -869,6 +902,11 @@ const Index = () => {
   // Count completed jobs for badge - consistent with StatsCards and CompletedJobsPDFButton
   const completedJobsCount = useMemo(() => {
     return jobs.filter(j => j.status === 'complete' || j.isCompleted).length;
+  }, [jobs]);
+
+  // Count refer back jobs for badge
+  const referBackJobsCount = useMemo(() => {
+    return jobs.filter(j => j.referBack).length;
   }, [jobs]);
 
   // Build sign-off statuses map for overdue calculation
@@ -1288,6 +1326,25 @@ const Index = () => {
                 </span>
               )}
             </button>
+            <button
+              onClick={() => setActiveDatabaseTab('refer_back')}
+              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-2 ${
+                activeDatabaseTab === 'refer_back'
+                  ? 'bg-red-500 text-white'
+                  : 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/60'
+              }`}
+            >
+              REFER BACK
+              {referBackJobsCount > 0 && (
+                <span className={`px-1.5 py-0.5 text-xs font-bold rounded-full ${
+                  activeDatabaseTab === 'refer_back'
+                    ? 'bg-white/20 text-white'
+                    : 'bg-red-500 text-white'
+                }`}>
+                  {referBackJobsCount}
+                </span>
+              )}
+            </button>
           </div>
 
           <div className="flex items-center justify-between mb-3">
@@ -1297,12 +1354,14 @@ const Index = () => {
                   ? 'Booked Jobs' 
                   : activeDatabaseTab === 'completed'
                     ? 'Completed Jobs'
-                    : isFanCategory 
-                      ? 'Fan Installations' 
-                      : 'Jobs Database'}
+                    : activeDatabaseTab === 'refer_back'
+                      ? 'Refer Back to NPH'
+                      : isFanCategory 
+                        ? 'Fan Installations' 
+                        : 'Jobs Database'}
               </h2>
               <p className="text-xs text-muted-foreground">
-                {displayedJobs.length} of {activeDatabaseTab === 'booked' ? bookedJobsCount : activeDatabaseTab === 'completed' ? completedJobsCount : jobs.length} jobs
+                {displayedJobs.length} of {activeDatabaseTab === 'booked' ? bookedJobsCount : activeDatabaseTab === 'completed' ? completedJobsCount : activeDatabaseTab === 'refer_back' ? referBackJobsCount : jobs.length} jobs
                 {activeMonthFolder && (
                   <span className="ml-1">
                     • Showing {format(new Date(activeMonthFolder + '-01'), 'MMMM yyyy')}
@@ -1341,6 +1400,14 @@ const Index = () => {
                   </Select>
                 </>
               )}
+              {/* Refer Back PDF button */}
+              {activeDatabaseTab === 'refer_back' && (
+                <ReferBackPDFButton 
+                  jobs={displayedJobs}
+                  contactHistoryMap={referBackContactHistoryMap}
+                  categoryName={categories.find(c => c.id === activeCategory)?.name || 'Jobs'}
+                />
+              )}
               {viewType === 'kanban' && (
                 <Select value={kanbanGroupBy} onValueChange={(v) => setKanbanGroupBy(v as KanbanGroupBy)}>
                   <SelectTrigger className="w-32 h-8 text-xs">
@@ -1377,6 +1444,7 @@ const Index = () => {
                   onBatchUpdateTeam={canEdit ? handleBatchUpdateTeam : undefined}
                   onTransferJob={canEdit ? handleTransferJob : undefined}
                   onDuplicateToCategory={canEdit ? handleDuplicateToCategory : undefined}
+                  onReferBack={canEdit ? handleReferBack : undefined}
                   fanCategoryId={categories.find(c => c.name.toLowerCase().includes('fan'))?.id}
                   onFanJobCreated={canEdit ? refreshJobs : undefined}
                   isFanCategory={isFanCategory}

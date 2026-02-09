@@ -146,6 +146,9 @@ export type Database = {
           private_notes: string | null
           progress: number | null
           progress_notes: string | null
+          refer_back: boolean
+          refer_back_date: string | null
+          refer_back_reason: string | null
           scheduled_trades: Json | null
           start_date: string | null
           status: string | null
@@ -182,6 +185,9 @@ export type Database = {
           private_notes?: string | null
           progress?: number | null
           progress_notes?: string | null
+          refer_back?: boolean
+          refer_back_date?: string | null
+          refer_back_reason?: string | null
           scheduled_trades?: Json | null
           start_date?: string | null
           status?: string | null
@@ -218,6 +224,9 @@ export type Database = {
           private_notes?: string | null
           progress?: number | null
           progress_notes?: string | null
+          refer_back?: boolean
+          refer_back_date?: string | null
+          refer_back_reason?: string | null
           scheduled_trades?: Json | null
           start_date?: string | null
           status?: string | null
