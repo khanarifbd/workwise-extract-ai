@@ -434,6 +434,7 @@ export const checkDuplicateJobNumber = async (jobNumber: string): Promise<Job | 
     .from('jobs')
     .select('*')
     .ilike('job_number', jobNumber)
+    .is('deleted_at', null)
     .limit(1)
     .maybeSingle();
 
@@ -473,6 +474,7 @@ export const findExistingJobByAddressOrNumber = async (
     .select('*')
     .eq('category_id', categoryId)
     .ilike('job_number', jobNumber)
+    .is('deleted_at', null)
     .limit(1)
     .maybeSingle();
 
@@ -494,6 +496,7 @@ export const findExistingJobByAddressOrNumber = async (
       .from('jobs')
       .select('*')
       .eq('category_id', categoryId)
+      .is('deleted_at', null)
       .not('address', 'is', null);
 
     if (addrError) {
@@ -641,6 +644,7 @@ export const checkInsulationDuplicates = async (
     .from('jobs')
     .select('*')
     .eq('category_id', categoryId)
+    .is('deleted_at', null)
     .ilike('address', `%${postcode.substring(0, 4)}%`);
   
   if (!existingJobs || existingJobs.length === 0) {
