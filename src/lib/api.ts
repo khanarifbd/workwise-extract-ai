@@ -3,6 +3,26 @@ import { Job, WorkItem, FanInfo, InsulationInfo } from "@/types/job";
 import { SOR_CODES_DATABASE } from "@/data/sorCodes";
 import { Json } from "@/integrations/supabase/types";
 
+// Parse a date string as a local date (prevents timezone shift for date-only values)
+const parseDateAsLocal = (dateStr: string | Date): Date => {
+  if (dateStr instanceof Date) return dateStr;
+  const dateOnly = String(dateStr).substring(0, 10);
+  const [year, month, day] = dateOnly.split('-').map(Number);
+  if (!year || !month || !day || isNaN(year) || isNaN(month) || isNaN(day)) {
+    return new Date(dateStr);
+  }
+  return new Date(year, month - 1, day);
+};
+
+// Format a Date as YYYY-MM-DD string using local date components
+const formatDateOnly = (date: Date | string): string => {
+  const d = date instanceof Date ? date : new Date(date);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 // Generate SOR codes context for AI with costs
 const getSORCodesContext = () => {
   return SOR_CODES_DATABASE.map(code => 
@@ -410,7 +430,7 @@ export function mapDatabaseJobToJob(dbJob: any): Job {
     scheduledTrades: dbJob.scheduled_trades || [],
     createdAt: dbJob.created_at ? new Date(dbJob.created_at) : new Date(),
     dateIssued: dbJob.date_issued ? new Date(dbJob.date_issued) : new Date(),
-    bookedDate: dbJob.booked_date ? new Date(dbJob.booked_date) : null,
+    bookedDate: dbJob.booked_date ? parseDateAsLocal(dbJob.booked_date) : null,
     isFlexibleBooking: dbJob.is_flexible_booking || false,
     bookingNotes: dbJob.booking_notes || '',
     completionDate: dbJob.completion_date ? new Date(dbJob.completion_date) : null,
@@ -777,7 +797,7 @@ export const mapJobToDatabase = (job: Partial<Job>): any => {
   if (job.ongoingReason !== undefined) dbJob.ongoing_reason = job.ongoingReason;
   if (job.scheduledTrades !== undefined) dbJob.scheduled_trades = job.scheduledTrades;
   if (job.dateIssued !== undefined) dbJob.date_issued = job.dateIssued;
-  if (job.bookedDate !== undefined) dbJob.booked_date = job.bookedDate;
+  if (job.bookedDate !== undefined) dbJob.booked_date = job.bookedDate ? formatDateOnly(job.bookedDate) : null;
   if (job.isFlexibleBooking !== undefined) dbJob.is_flexible_booking = job.isFlexibleBooking;
   if (job.bookingNotes !== undefined) dbJob.booking_notes = job.bookingNotes;
   if (job.completionDate !== undefined) dbJob.completion_date = job.completionDate;
@@ -887,7 +907,7 @@ export const syncLinkedFanJob = async (
     
     // Only update booked_date if it was explicitly provided
     if (bookedDate !== undefined) {
-      updateData.booked_date = bookedDate;
+      updateData.booked_date = bookedDate ? formatDateOnly(bookedDate) : null;
     }
 
     const { error } = await supabase

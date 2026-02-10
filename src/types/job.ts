@@ -140,7 +140,7 @@ export interface NotificationHistory {
 export const ALLSAINTS_TEAMS: Team[] = [
   { id: '1', name: 'Indika', color: '#F97316', whatsappGroup: 'indika-team' },
   { id: '2', name: 'Bartek', color: '#3B82F6', whatsappGroup: 'bartek-team' },
-  { id: '3', name: 'Shakhti', color: '#10B981', whatsappGroup: 'shakhti-team' },
+  { id: '3', name: 'Shakthi', color: '#10B981', whatsappGroup: 'shakthi-team' },
   { id: '4', name: 'Abraham', color: '#8B5CF6', whatsappGroup: 'abraham-team' },
   { id: '5', name: 'Jess', color: '#EC4899', whatsappGroup: 'jess-team' },
   { id: '6', name: 'Alindo', color: '#F59E0B', whatsappGroup: 'alindo-team' },
