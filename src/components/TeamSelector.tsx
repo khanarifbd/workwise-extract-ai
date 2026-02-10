@@ -245,7 +245,7 @@ export const TeamSelector = ({ job, currentCategoryId, onSelect, onClose, onDupl
           </span>
         </div>
 
-        <ScrollArea className="flex-1 max-h-[min(50vh,400px)]">
+        <ScrollArea className="flex-1 max-h-[min(70vh,600px)]">
           <div className="p-2 space-y-1">
             {view === 'categories' ? (
               <>
