@@ -819,7 +819,7 @@ export const TeamJobDetail = ({
                 {job.bookedDate && (
                   <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
                     <Calendar className="h-4 w-4" />
-                    <span>Booked: {format(job.bookedDate instanceof Date ? job.bookedDate : new Date(job.bookedDate), 'EEE, MMM d, yyyy')}</span>
+                    <span>Booked: {format(job.bookedDate instanceof Date ? job.bookedDate : (() => { const parts = String(job.bookedDate).substring(0, 10).split('-').map(Number); return parts.length === 3 ? new Date(parts[0], parts[1] - 1, parts[2]) : new Date(job.bookedDate); })(), 'EEE, MMM d, yyyy')}</span>
                   </div>
                 )}
 
