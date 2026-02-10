@@ -32,7 +32,17 @@ import {
   FolderOpen,
   AlertTriangle,
 } from 'lucide-react';
-import { format, parseISO, isValid, isSameMonth, isSameDay, startOfMonth, isToday, isTomorrow, isYesterday } from 'date-fns';
+import { format, isValid, isSameMonth, isSameDay, startOfMonth, isToday, isTomorrow, isYesterday } from 'date-fns';
+
+// Parse a date string as local date to prevent timezone shift
+// e.g. "2026-02-10" should be Feb 10 local time, not UTC midnight
+const parseDateKeyAsLocal = (dateStr: string): Date => {
+  const parts = dateStr.split('-').map(Number);
+  if (parts.length >= 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+    return new Date(parts[0], parts[1] - 1, parts[2]);
+  }
+  return new Date(dateStr);
+};
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useCapacitorPush } from '@/hooks/useCapacitorPush';
 import { useTeamSettings } from '@/hooks/useTeamSettings';
@@ -79,8 +89,12 @@ interface MonthGroup {
 // Get job booked date for regular team view
 const getJobBookedDate = (job: Job): Date | null => {
   if (job.bookedDate) {
-    const date = new Date(job.bookedDate);
-    if (isValid(date)) return date;
+    // If already a Date, use it directly; if string, parse as local
+    if (job.bookedDate instanceof Date) {
+      return isValid(job.bookedDate) ? job.bookedDate : null;
+    }
+    const d = parseDateKeyAsLocal(String(job.bookedDate));
+    return isValid(d) ? d : null;
   }
   return null;
 };
@@ -89,8 +103,11 @@ const getJobBookedDate = (job: Job): Date | null => {
 const getJobGroupDate = (job: Job): Date | null => {
   // First try booked date - this is the scheduling date
   if (job.bookedDate) {
-    const date = new Date(job.bookedDate);
-    if (isValid(date)) return date;
+    if (job.bookedDate instanceof Date) {
+      return isValid(job.bookedDate) ? job.bookedDate : null;
+    }
+    const d = parseDateKeyAsLocal(String(job.bookedDate));
+    return isValid(d) ? d : null;
   }
   return null;
 };
@@ -136,8 +153,8 @@ const groupJobsByMonthAndDay = (jobs: Job[]): { months: MonthGroup[], unschedule
   for (const [_, daysMap] of monthMap.entries()) {
     for (const [dayKey, dayJobs] of daysMap.entries()) {
       dayJobs.sort((a, b) => {
-        const at = new Date(a.bookedDate!).getTime();
-        const bt = new Date(b.bookedDate!).getTime();
+        const at = getJobBookedDate(a)?.getTime() || 0;
+        const bt = getJobBookedDate(b)?.getTime() || 0;
         return at - bt;
       });
     }
@@ -159,7 +176,7 @@ const groupJobsByMonthAndDay = (jobs: Job[]): { months: MonthGroup[], unschedule
       totalJobs += jobs.length;
     }
 
-    const monthDate = parseISO(`${monthKey}-01`);
+    const monthDate = parseDateKeyAsLocal(`${monthKey}-01`);
     months.push({
       monthKey,
       monthLabel: format(monthDate, 'MMMM yyyy'),
@@ -202,8 +219,8 @@ const groupJobsByMonthAndDayDesc = (jobs: Job[]): { months: MonthGroup[], unsche
   for (const [_, daysMap] of monthMap.entries()) {
     for (const [dayKey, dayJobs] of daysMap.entries()) {
       dayJobs.sort((a, b) => {
-        const at = new Date(a.bookedDate!).getTime();
-        const bt = new Date(b.bookedDate!).getTime();
+        const at = getJobBookedDate(a)?.getTime() || 0;
+        const bt = getJobBookedDate(b)?.getTime() || 0;
         return at - bt;
       });
     }
@@ -243,7 +260,7 @@ const groupJobsByMonthAndDayDesc = (jobs: Job[]): { months: MonthGroup[], unsche
       totalJobs += jobs.length;
     }
 
-    const monthDate = parseISO(`${monthKey}-01`);
+    const monthDate = parseDateKeyAsLocal(`${monthKey}-01`);
     months.push({
       monthKey,
       monthLabel: format(monthDate, 'MMMM yyyy'),
@@ -464,8 +481,8 @@ export const TeamJobList = ({
       const todayStr = format(new Date(), 'yyyy-MM-dd');
       result = result.filter(j => {
         if (!j.bookedDate) return false;
-        const jobDate = new Date(j.bookedDate);
-        if (!isValid(jobDate)) return false;
+        const jobDate = getJobBookedDate(j);
+        if (!jobDate) return false;
         return format(jobDate, 'yyyy-MM-dd') === todayStr;
       });
     }
@@ -549,7 +566,7 @@ export const TeamJobList = ({
 
   const formatDayHeader = (dateKey: string): string => {
     try {
-      const date = parseISO(dateKey);
+      const date = parseDateKeyAsLocal(dateKey);
       
       if (isToday(date)) {
         return `Today - ${format(date, 'EEEE, d')}`;
@@ -568,7 +585,7 @@ export const TeamJobList = ({
 
   const getDayBadgeStyle = (dateKey: string): string => {
     try {
-      const date = parseISO(dateKey);
+      const date = parseDateKeyAsLocal(dateKey);
       if (isToday(date)) {
         return 'bg-primary text-primary-foreground';
       }
@@ -1054,7 +1071,7 @@ export const TeamJobList = ({
                               <CollapsibleTrigger asChild>
                                 <Card className={cn(
                                   "cursor-pointer hover:bg-muted/50 transition-colors",
-                                  isToday(parseISO(dayKey)) && "bg-primary/10 border-primary/30"
+                                  isToday(parseDateKeyAsLocal(dayKey)) && "bg-primary/10 border-primary/30"
                                 )}>
                                   <CardContent className="p-2 flex items-center justify-between">
                                     <div className="flex items-center gap-1.5">
