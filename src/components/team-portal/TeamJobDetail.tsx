@@ -819,7 +819,7 @@ export const TeamJobDetail = ({
                 {job.bookedDate && (
                   <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
                     <Calendar className="h-4 w-4" />
-                    <span>Booked: {format(new Date(job.bookedDate), 'EEE, MMM d, yyyy')}</span>
+                    <span>Booked: {format(job.bookedDate instanceof Date ? job.bookedDate : new Date(job.bookedDate), 'EEE, MMM d, yyyy')}</span>
                   </div>
                 )}
 

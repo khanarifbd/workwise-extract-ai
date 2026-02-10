@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
-import { ALLSAINTS_TEAMS, FAN_TEAMS } from '@/types/job';
+import { useTeamSettings } from '@/hooks/useTeamSettings';
 import { Search, Filter, X, CalendarDays, Bookmark, Save, FileDown, FileSpreadsheet, Fan, Calendar, ClipboardCheck } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -42,6 +42,7 @@ const STORAGE_KEY = 'job-filter-presets';
 
 export const JobFilters = ({ filters, onFiltersChange, availableSorCodes, onExportPDF, onExportExcel, isFanCategory = false }: JobFiltersProps) => {
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const { settings: teamSettings } = useTeamSettings();
   const [presets, setPresets] = useState<FilterPreset[]>([]);
   const [presetName, setPresetName] = useState('');
   const [showSavePreset, setShowSavePreset] = useState(false);
@@ -268,14 +269,14 @@ export const JobFilters = ({ filters, onFiltersChange, availableSorCodes, onExpo
             <SelectContent>
               <SelectItem value="all">All Teams</SelectItem>
               <SelectItem value="unassigned">Unassigned</SelectItem>
-              {(isFanCategory ? FAN_TEAMS : ALLSAINTS_TEAMS).map((team) => (
-                <SelectItem key={team.id} value={team.name}>
+              {teamSettings.map((team) => (
+                <SelectItem key={team.teamId} value={team.teamName}>
                   <div className="flex items-center gap-2">
                     <div
                       className="w-2 h-2 rounded-full"
-                      style={{ backgroundColor: team.color }}
+                      style={{ backgroundColor: team.color || '#6B7280' }}
                     />
-                    {team.name}
+                    {team.teamName}
                   </div>
                 </SelectItem>
               ))}
