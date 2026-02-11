@@ -125,6 +125,7 @@ const TeamPortal = () => {
     if (!session?.teamName) return;
 
     const since = opts?.since;
+    const isOpsManager = session.isOpsManager === true;
 
     if (!opts?.silent) setIsLoadingJobs(true);
 
@@ -135,10 +136,32 @@ const TeamPortal = () => {
 
         if (since) {
           // Delta merge: upsert updated jobs into the existing list.
+          // For Ops Manager: also remove jobs that no longer qualify
+          // (team removed, booked_date removed, or soft-deleted).
           if (mappedJobs.length > 0) {
             setJobs((prev) => {
               const map = new Map(prev.map((j) => [j.id, j] as const));
-              for (const j of mappedJobs) map.set(j.id, j);
+              for (const j of mappedJobs) {
+                if (isOpsManager) {
+                  // Ops Manager criteria: must have team AND booked_date
+                  const hasTeam = (j.team && String(j.team).trim() !== '') || (j.team2 && String(j.team2).trim() !== '');
+                  const hasBookedDate = !!j.bookedDate;
+                  if (hasTeam && hasBookedDate) {
+                    map.set(j.id, j);
+                  } else {
+                    // No longer qualifies - remove from list
+                    map.delete(j.id);
+                  }
+                } else {
+                  // Regular team: check if still assigned
+                  const isAssigned = j.team === session.teamName || j.team2 === session.teamName;
+                  if (isAssigned) {
+                    map.set(j.id, j);
+                  } else {
+                    map.delete(j.id);
+                  }
+                }
+              }
               return Array.from(map.values());
             });
           }
@@ -409,11 +432,12 @@ const TeamPortal = () => {
         (payload) => {
           const newJob = payload.new as any;
           
-          // For Ops Manager: show all jobs with any team assigned
+          // For Ops Manager: must have BOTH a team AND a booked_date
           // For Regular Team: only show if this team is assigned
-          const hasAnyTeam = newJob?.team || newJob?.team2;
+          const hasAnyTeam = (newJob?.team && String(newJob.team).trim() !== '') || (newJob?.team2 && String(newJob.team2).trim() !== '');
+          const hasBookedDate = !!newJob?.booked_date;
           const isAssignedToThisTeam = newJob?.team === teamName || newJob?.team2 === teamName;
-          const shouldShow = isOpsManager ? hasAnyTeam : isAssignedToThisTeam;
+          const shouldShow = isOpsManager ? (hasAnyTeam && hasBookedDate) : isAssignedToThisTeam;
           
           if (shouldShow) {
             const mappedJob = mapDatabaseJobToJob(newJob);
@@ -444,18 +468,24 @@ const TeamPortal = () => {
           const changedJob = payload.new as any;
           const oldJob = payload.old as any;
           
-          // For Ops Manager: track all jobs with any team assigned
-          const oldHasAnyTeam = oldJob?.team || oldJob?.team2;
-          const newHasAnyTeam = changedJob?.team || changedJob?.team2;
+          // For Ops Manager: job must have BOTH a team AND a booked_date to qualify
+          const oldHasAnyTeam = (oldJob?.team && String(oldJob.team).trim() !== '') || (oldJob?.team2 && String(oldJob.team2).trim() !== '');
+          const newHasAnyTeam = (changedJob?.team && String(changedJob.team).trim() !== '') || (changedJob?.team2 && String(changedJob.team2).trim() !== '');
+          const oldHasBookedDate = !!oldJob?.booked_date;
+          const newHasBookedDate = !!changedJob?.booked_date;
+          
+          // For Ops Manager: qualifies = has team + has booked_date
+          const oldQualifiesForOps = oldHasAnyTeam && oldHasBookedDate;
+          const newQualifiesForOps = newHasAnyTeam && newHasBookedDate;
           
           // For Regular Team: check assignment to this specific team
           const wasAssignedToThisTeam = oldJob?.team === teamName || oldJob?.team2 === teamName;
           const isAssignedToThisTeam = changedJob?.team === teamName || changedJob?.team2 === teamName;
           
           if (isOpsManager) {
-            // OPS MANAGER LOGIC - immediate updates for all team-assigned jobs
-            if (newHasAnyTeam && !oldHasAnyTeam) {
-              // Job newly assigned to a team - add it
+            // OPS MANAGER LOGIC - job must be booked AND assigned to appear
+            if (newQualifiesForOps && !oldQualifiesForOps) {
+              // Job newly qualifies (team assigned + booked) - add it
               const mappedJob = mapDatabaseJobToJob(changedJob);
               setJobs(prev => {
                 if (prev.some(j => j.id === mappedJob.id)) return prev;
@@ -463,19 +493,19 @@ const TeamPortal = () => {
               });
               notifyNewJob();
               toast({
-                title: '📋 Team Assignment',
+                title: '📋 Job Assignment',
                 description: `Job #${changedJob.job_number} → ${changedJob.team}`,
               });
-            } else if (oldHasAnyTeam && !newHasAnyTeam) {
-              // Job unassigned from all teams - remove it
+            } else if (oldQualifiesForOps && !newQualifiesForOps) {
+              // Job no longer qualifies (team removed or booked_date removed) - remove it
               setJobs(prev => prev.filter(j => j.id !== changedJob.id));
               
               const currentSelectedJob = selectedJobRef.current;
               if (currentSelectedJob?.id === changedJob.id) {
                 setSelectedJob(null);
               }
-            } else if (newHasAnyTeam) {
-              // Job still has team assigned - update in place
+            } else if (newQualifiesForOps) {
+              // Job still qualifies - update in place
               const mappedJob = mapDatabaseJobToJob(changedJob);
               setJobs(prev => prev.map(j => j.id === mappedJob.id ? mappedJob : j));
               
