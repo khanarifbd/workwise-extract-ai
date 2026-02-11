@@ -162,47 +162,66 @@ Deno.serve(async (req) => {
 
     // Fetch jobs
     // - Ops Managers: ONLY jobs that are BOOKED (have booked_date) AND assigned to a team
+    //   EXCEPT for delta polls (since): return ALL recently-updated jobs so client
+    //   can detect when a job no longer qualifies and remove it from the list.
     // - Regular Teams: jobs where they are team OR team2
     let jobs = [];
 
     if (isOpsManager) {
-      // Ops manager sees only BOOKED + ASSIGNED jobs
-      let query = supabase
-        .from("jobs")
-        .select("*")
-        .is("deleted_at", null)
-        // Must have a booked_date (i.e., job is BOOKED)
-        .not("booked_date", "is", null)
-        // Must be assigned to at least one team
-        .or("team.not.is.null,team2.not.is.null")
-        .order("booked_date", { ascending: true });
-
       if (sinceDate) {
-        query = query.gt("updated_at", sinceDate.toISOString());
+        // DELTA POLL: return ALL recently-updated jobs (no booked_date/team filter)
+        // so the client can detect removals (unbooked, unassigned, soft-deleted).
+        const { data, error } = await supabase
+          .from("jobs")
+          .select("*")
+          .is("deleted_at", null)
+          .gt("updated_at", sinceDate.toISOString())
+          .order("updated_at", { ascending: false });
+
+        if (error) {
+          console.error("Failed to fetch delta jobs:", error.message);
+          return new Response(
+            JSON.stringify({ error: "Failed to fetch jobs" }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        jobs = data || [];
+      } else {
+        // FULL LOAD: only booked + assigned jobs
+        const { data, error } = await supabase
+          .from("jobs")
+          .select("*")
+          .is("deleted_at", null)
+          .not("booked_date", "is", null)
+          .or("team.not.is.null,team2.not.is.null")
+          .order("booked_date", { ascending: true });
+
+        if (error) {
+          console.error("Failed to fetch jobs:", error.message);
+          return new Response(
+            JSON.stringify({ error: "Failed to fetch jobs" }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        // Post-filter empty strings
+        jobs = (data || []).filter((j: any) => (j?.team && String(j.team).trim() !== "") || (j?.team2 && String(j.team2).trim() !== ""));
       }
-
-      const { data, error } = await query;
-
-      if (error) {
-        console.error("Failed to fetch jobs:", error.message);
-        return new Response(
-          JSON.stringify({ error: "Failed to fetch jobs" }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      // Post-filter empty strings (can't express cleanly in the OR clause)
-      jobs = (data || []).filter((j: any) => (j?.team && String(j.team).trim() !== "") || (j?.team2 && String(j.team2).trim() !== ""));
     } else {
       let query = supabase
         .from("jobs")
         .select("*")
-        .or(`team.eq.${teamName},team2.eq.${teamName}`)
         .is("deleted_at", null)
         .order("updated_at", { ascending: false });
 
       if (sinceDate) {
+        // DELTA POLL for regular teams: return all recently-updated jobs
+        // so the client can detect unassignment
         query = query.gt("updated_at", sinceDate.toISOString());
+      } else {
+        // FULL LOAD: only jobs assigned to this team
+        query = query.or(`team.eq.${teamName},team2.eq.${teamName}`);
       }
 
       const { data, error } = await query;
