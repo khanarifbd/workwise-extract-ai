@@ -54,6 +54,7 @@ import { RemoveJobConfirmModal } from './RemoveJobConfirmModal';
 import { OpsManagerNotes } from './OpsManagerNotes';
 import { OpsAlertsPanel } from './OpsAlertsPanel';
 import { TeamOverdueAlert } from './TeamOverdueAlert';
+import { AwabsComplianceBadge } from '@/components/AwabsComplianceBadge';
 import { cn } from '@/lib/utils';
 
 // Helper to get contrasting text color (white or black) for a given background color
@@ -671,6 +672,7 @@ export const TeamJobList = ({
                       {job.team}
                     </Badge>
                   )}
+                  <AwabsComplianceBadge job={job} hasContactHistory={false} compact />
                 </div>
                 <h3 className="font-semibold text-sm text-foreground line-clamp-1">
                   {job.name}
