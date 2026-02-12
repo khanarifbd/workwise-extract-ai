@@ -52,6 +52,8 @@ import { TeamDiary } from './TeamDiary';
 import { LanguageSelector } from './LanguageSelector';
 import { RemoveJobConfirmModal } from './RemoveJobConfirmModal';
 import { OpsManagerNotes } from './OpsManagerNotes';
+import { OpsAlertsPanel } from './OpsAlertsPanel';
+import { TeamOverdueAlert } from './TeamOverdueAlert';
 import { cn } from '@/lib/utils';
 
 // Helper to get contrasting text color (white or black) for a given background color
@@ -960,7 +962,15 @@ export const TeamJobList = ({
           <div className="p-3 space-y-2">
             {/* Ops Manager Voice Notes - shown above controls */}
             {isOpsManager && (
-              <OpsManagerNotes teamId={teamId} teamName={teamName} />
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                <OpsManagerNotes teamId={teamId} teamName={teamName} />
+                <OpsAlertsPanel jobs={jobs} onJobClick={onSelectJob} />
+              </div>
+            )}
+            
+            {/* Team Overdue Alert - for regular teams */}
+            {!isOpsManager && (
+              <TeamOverdueAlert jobs={jobs} teamName={teamName} onJobClick={onSelectJob} />
             )}
 
             {/* Controls */}
