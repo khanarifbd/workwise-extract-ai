@@ -11,12 +11,15 @@ import {
   ChevronDown, 
   ChevronRight, 
   Users,
-  FileText,
   AlertCircle,
+  Scale,
+  Phone,
+  CalendarClock,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { getGMTNow, getHoursDifferenceGMT } from '@/lib/dateUtils';
+import { getAwabsCompliance, formatTimeRemaining, getContactBreaches, getCompletionBreaches } from '@/lib/awabsCompliance';
 import { cn } from '@/lib/utils';
 
 interface IncompleteSignOff {
@@ -38,6 +41,25 @@ export const OpsAlertsPanel = ({ jobs, onJobClick }: OpsAlertsPanelProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const [incompleteSignOffs, setIncompleteSignOffs] = useState<IncompleteSignOff[]>([]);
+  const [contactHistoryMap, setContactHistoryMap] = useState<Map<string, boolean>>(new Map());
+
+  // Fetch contact history to check which jobs have been contacted
+  const fetchContactHistory = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('contact_history')
+        .select('job_id')
+        .order('contact_date', { ascending: false });
+      
+      if (error) throw error;
+      
+      const map = new Map<string, boolean>();
+      (data || []).forEach(row => map.set(row.job_id, true));
+      setContactHistoryMap(map);
+    } catch (err) {
+      console.error('Error fetching contact history:', err);
+    }
+  }, []);
 
   // Fetch sign-offs missing photos or notes
   const fetchIncompleteSignOffs = useCallback(async () => {
@@ -51,7 +73,6 @@ export const OpsAlertsPanel = ({ jobs, onJobClick }: OpsAlertsPanelProps) => {
 
       if (error) throw error;
 
-      // Filter to only include truly incomplete ones (no photos AND no notes)
       const incomplete: IncompleteSignOff[] = (data || [])
         .filter(row => row.photos_count === 0 || !row.progress_notes || row.progress_notes.trim() === '')
         .map(row => {
@@ -76,26 +97,26 @@ export const OpsAlertsPanel = ({ jobs, onJobClick }: OpsAlertsPanelProps) => {
   useEffect(() => {
     if (isExpanded) {
       fetchIncompleteSignOffs();
+      fetchContactHistory();
     }
-  }, [isExpanded, fetchIncompleteSignOffs]);
+  }, [isExpanded, fetchIncompleteSignOffs, fetchContactHistory]);
 
-  // Subscribe to realtime updates on sign-offs
+  // Subscribe to realtime updates
   useEffect(() => {
     const channel = supabase
       .channel('ops-alerts-signoffs')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'team_sign_offs',
-      }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'team_sign_offs' }, () => {
         if (isExpanded) fetchIncompleteSignOffs();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'contact_history' }, () => {
+        if (isExpanded) fetchContactHistory();
       })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [isExpanded, fetchIncompleteSignOffs]);
+  }, [isExpanded, fetchIncompleteSignOffs, fetchContactHistory]);
 
-  // Calculate overdue jobs (24+ hours past booked date, not complete, not signed off)
+  // Overdue jobs (24+ hours past booked date)
   const overdueJobs = useMemo(() => {
     const now = getGMTNow();
     return jobs.filter(job => {
@@ -111,7 +132,7 @@ export const OpsAlertsPanel = ({ jobs, onJobClick }: OpsAlertsPanelProps) => {
     }).sort((a, b) => {
       const aDate = a.bookedDate instanceof Date ? a.bookedDate : new Date(String(a.bookedDate));
       const bDate = b.bookedDate instanceof Date ? b.bookedDate : new Date(String(b.bookedDate));
-      return aDate.getTime() - bDate.getTime(); // oldest first
+      return aDate.getTime() - bDate.getTime();
     });
   }, [jobs]);
 
@@ -120,15 +141,25 @@ export const OpsAlertsPanel = ({ jobs, onJobClick }: OpsAlertsPanelProps) => {
     return jobs.filter(job => job.isOngoing && !job.isCompleted && job.progress !== 100);
   }, [jobs]);
 
-  const totalAlerts = overdueJobs.length + ongoingJobs.length + incompleteSignOffs.length;
-  const hasUrgent = overdueJobs.length > 0;
+  // AWABS LAW: Jobs not contacted within 24h of upload
+  const awabsContactBreaches = useMemo(() => {
+    return getContactBreaches(jobs, contactHistoryMap);
+  }, [jobs, contactHistoryMap]);
+
+  // AWABS LAW: Jobs not completed within 5 days of upload
+  const awabsCompletionBreaches = useMemo(() => {
+    return getCompletionBreaches(jobs);
+  }, [jobs]);
+
+  const totalAlerts = overdueJobs.length + ongoingJobs.length + incompleteSignOffs.length 
+    + awabsContactBreaches.length + awabsCompletionBreaches.length;
+  const hasUrgent = overdueJobs.length > 0 || awabsContactBreaches.length > 0 || awabsCompletionBreaches.length > 0;
 
   const toggleSection = (section: string) => {
     setExpandedSection(prev => prev === section ? null : section);
   };
 
   if (overdueJobs.length === 0 && ongoingJobs.length === 0 && !isExpanded) {
-    // Still show button but without urgency
     return (
       <Button
         variant="outline"
@@ -141,6 +172,61 @@ export const OpsAlertsPanel = ({ jobs, onJobClick }: OpsAlertsPanelProps) => {
       </Button>
     );
   }
+
+  const renderAlertSection = (
+    id: string,
+    icon: React.ReactNode,
+    label: string,
+    count: number,
+    colorClass: string,
+    badgeClass: string,
+    children: React.ReactNode
+  ) => (
+    <Collapsible open={expandedSection === id} onOpenChange={() => toggleSection(id)}>
+      <CollapsibleTrigger asChild>
+        <div className={cn(
+          "flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors",
+          count > 0 ? `${colorClass} hover:opacity-80` : "bg-muted/50 hover:bg-muted"
+        )}>
+          <div className="flex items-center gap-2">
+            {icon}
+            <span className="font-semibold text-xs">{label}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Badge className={cn("text-xs", count > 0 ? badgeClass : "bg-muted text-muted-foreground")}>
+              {count}
+            </Badge>
+            {expandedSection === id ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+          </div>
+        </div>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="mt-1 space-y-1">
+        {children}
+      </CollapsibleContent>
+    </Collapsible>
+  );
+
+  const renderJobItem = (job: Job, borderColor: string, bgColor: string, extraBadges?: React.ReactNode) => (
+    <div 
+      key={job.id}
+      className={cn(`border-l-3 ${borderColor} ${bgColor} rounded p-2 cursor-pointer hover:opacity-80 transition-colors`)}
+      onClick={() => onJobClick(job)}
+    >
+      <div className="min-w-0">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="font-mono text-[10px] font-bold">#{job.jobNumber}</span>
+          {extraBadges}
+        </div>
+        <p className="text-xs font-medium truncate mt-0.5">{job.name}</p>
+        {job.team && (
+          <span className="text-[10px] text-muted-foreground flex items-center gap-0.5 mt-0.5">
+            <Users className="h-2.5 w-2.5" />{job.team}
+            {job.team2 && ` + ${job.team2}`}
+          </span>
+        )}
+      </div>
+    </div>
+  );
 
   return (
     <div className="w-full">
@@ -156,14 +242,9 @@ export const OpsAlertsPanel = ({ jobs, onJobClick }: OpsAlertsPanelProps) => {
           >
             <AlertTriangle className={cn("h-3.5 w-3.5", hasUrgent ? "text-red-600" : "text-amber-600")} />
             Alerts
-            {(overdueJobs.length + ongoingJobs.length) > 0 && (
-              <Badge 
-                className={cn(
-                  "ml-1 h-5 px-1.5 text-xs",
-                  hasUrgent ? "bg-red-600 text-white" : "bg-amber-500 text-white"
-                )}
-              >
-                {overdueJobs.length + ongoingJobs.length}
+            {totalAlerts > 0 && (
+              <Badge className={cn("ml-1 h-5 px-1.5 text-xs", hasUrgent ? "bg-red-600 text-white" : "bg-amber-500 text-white")}>
+                {totalAlerts}
               </Badge>
             )}
             {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
@@ -172,196 +253,172 @@ export const OpsAlertsPanel = ({ jobs, onJobClick }: OpsAlertsPanelProps) => {
 
         <CollapsibleContent>
           <Card className="mt-2">
-            <CardContent className="p-2 space-y-1.5 max-h-[450px] overflow-y-auto">
-              {/* OVERDUE Section */}
-              <Collapsible open={expandedSection === 'overdue'} onOpenChange={() => toggleSection('overdue')}>
-                <CollapsibleTrigger asChild>
-                  <div className={cn(
-                    "flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors",
-                    overdueJobs.length > 0 ? "bg-red-50 dark:bg-red-900/20 hover:bg-red-100" : "bg-muted/50 hover:bg-muted"
-                  )}>
-                    <div className="flex items-center gap-2">
-                      <AlertCircle className={cn("h-4 w-4", overdueJobs.length > 0 ? "text-red-600" : "text-muted-foreground")} />
-                      <span className="font-semibold text-xs">OVERDUE JOBS</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <Badge className={cn(
-                        "text-xs",
-                        overdueJobs.length > 0 ? "bg-red-600 text-white" : "bg-muted text-muted-foreground"
-                      )}>
-                        {overdueJobs.length}
-                      </Badge>
-                      {expandedSection === 'overdue' ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                    </div>
-                  </div>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="mt-1 space-y-1">
-                  {overdueJobs.length === 0 ? (
-                    <p className="text-xs text-muted-foreground px-2 py-1">No overdue jobs ✓</p>
-                  ) : (
-                    overdueJobs.map(job => {
-                      const bookedDate = job.bookedDate instanceof Date ? job.bookedDate : new Date(String(job.bookedDate));
-                      const hoursOverdue = getHoursDifferenceGMT(getGMTNow(), bookedDate) - 24;
-                      const overdueText = hoursOverdue > 48 
-                        ? `${Math.floor(hoursOverdue / 24)}d overdue` 
-                        : `${Math.round(hoursOverdue)}h overdue`;
+            <CardContent className="p-2 space-y-1.5 max-h-[500px] overflow-y-auto">
 
-                      return (
-                        <div 
-                          key={job.id}
-                          className="border-l-3 border-l-red-500 bg-red-50/80 dark:bg-red-950/30 rounded p-2 cursor-pointer hover:bg-red-100 dark:hover:bg-red-950/50 transition-colors"
-                          onClick={() => onJobClick(job)}
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="font-mono text-[10px] font-bold">#{job.jobNumber}</span>
-                                <Badge className="text-[9px] px-1 py-0 bg-red-600 text-white h-4">
-                                  {overdueText}
-                                </Badge>
-                              </div>
-                              <p className="text-xs font-medium truncate mt-0.5">{job.name}</p>
-                              <div className="flex items-center gap-2 mt-0.5">
-                                {job.team && (
-                                  <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
-                                    <Users className="h-2.5 w-2.5" />{job.team}
-                                    {job.team2 && ` + ${job.team2}`}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </CollapsibleContent>
-              </Collapsible>
+              {/* AWABS LAW: 24h Contact Breach */}
+              {renderAlertSection(
+                'awabs-contact',
+                <Scale className={cn("h-4 w-4", awabsContactBreaches.length > 0 ? "text-purple-600" : "text-muted-foreground")} />,
+                'AWABS: NO CONTACT (24h)',
+                awabsContactBreaches.length,
+                "bg-purple-50 dark:bg-purple-900/20",
+                "bg-purple-600 text-white",
+                awabsContactBreaches.length === 0 ? (
+                  <p className="text-xs text-muted-foreground px-2 py-1">All jobs contacted within 24h ✓</p>
+                ) : (
+                  awabsContactBreaches.slice(0, 30).map(job => {
+                    const compliance = getAwabsCompliance(job, false);
+                    return renderJobItem(
+                      job,
+                      'border-l-purple-500',
+                      'bg-purple-50/80 dark:bg-purple-950/30',
+                      <>
+                        <Badge className="text-[9px] px-1 py-0 bg-purple-600 text-white h-4">
+                          <Phone className="h-2 w-2 mr-0.5" />
+                          {formatTimeRemaining(compliance.contactHoursRemaining)}
+                        </Badge>
+                      </>
+                    );
+                  })
+                )
+              )}
+
+              {/* AWABS LAW: 5-Day Completion Breach */}
+              {renderAlertSection(
+                'awabs-completion',
+                <CalendarClock className={cn("h-4 w-4", awabsCompletionBreaches.length > 0 ? "text-rose-600" : "text-muted-foreground")} />,
+                'AWABS: NOT COMPLETE (5 DAYS)',
+                awabsCompletionBreaches.length,
+                "bg-rose-50 dark:bg-rose-900/20",
+                "bg-rose-600 text-white",
+                awabsCompletionBreaches.length === 0 ? (
+                  <p className="text-xs text-muted-foreground px-2 py-1">All jobs within 5-day window ✓</p>
+                ) : (
+                  awabsCompletionBreaches.slice(0, 30).map(job => {
+                    const compliance = getAwabsCompliance(job, true);
+                    return renderJobItem(
+                      job,
+                      'border-l-rose-500',
+                      'bg-rose-50/80 dark:bg-rose-950/30',
+                      <>
+                        <Badge className="text-[9px] px-1 py-0 bg-rose-600 text-white h-4">
+                          <CalendarClock className="h-2 w-2 mr-0.5" />
+                          {formatTimeRemaining(compliance.completionHoursRemaining)}
+                        </Badge>
+                        <Badge className="text-[9px] px-1 py-0 bg-rose-500/80 text-white h-4">
+                          Day {Math.floor(compliance.daysSinceUpload)}
+                        </Badge>
+                      </>
+                    );
+                  })
+                )
+              )}
+
+              {/* OVERDUE Section */}
+              {renderAlertSection(
+                'overdue',
+                <AlertCircle className={cn("h-4 w-4", overdueJobs.length > 0 ? "text-red-600" : "text-muted-foreground")} />,
+                'OVERDUE JOBS',
+                overdueJobs.length,
+                "bg-red-50 dark:bg-red-900/20",
+                "bg-red-600 text-white",
+                overdueJobs.length === 0 ? (
+                  <p className="text-xs text-muted-foreground px-2 py-1">No overdue jobs ✓</p>
+                ) : (
+                  overdueJobs.map(job => {
+                    const bookedDate = job.bookedDate instanceof Date ? job.bookedDate : new Date(String(job.bookedDate));
+                    const hoursOverdue = getHoursDifferenceGMT(getGMTNow(), bookedDate) - 24;
+                    const overdueText = hoursOverdue > 48 
+                      ? `${Math.floor(hoursOverdue / 24)}d overdue` 
+                      : `${Math.round(hoursOverdue)}h overdue`;
+                    return renderJobItem(
+                      job,
+                      'border-l-red-500',
+                      'bg-red-50/80 dark:bg-red-950/30',
+                      <Badge className="text-[9px] px-1 py-0 bg-red-600 text-white h-4">{overdueText}</Badge>
+                    );
+                  })
+                )
+              )}
 
               {/* ONGOING Section */}
-              <Collapsible open={expandedSection === 'ongoing'} onOpenChange={() => toggleSection('ongoing')}>
-                <CollapsibleTrigger asChild>
-                  <div className={cn(
-                    "flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors",
-                    ongoingJobs.length > 0 ? "bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100" : "bg-muted/50 hover:bg-muted"
-                  )}>
-                    <div className="flex items-center gap-2">
-                      <Clock className={cn("h-4 w-4", ongoingJobs.length > 0 ? "text-amber-600" : "text-muted-foreground")} />
-                      <span className="font-semibold text-xs">ONGOING JOBS</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <Badge className={cn(
-                        "text-xs",
-                        ongoingJobs.length > 0 ? "bg-amber-500 text-white" : "bg-muted text-muted-foreground"
-                      )}>
-                        {ongoingJobs.length}
-                      </Badge>
-                      {expandedSection === 'ongoing' ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                    </div>
-                  </div>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="mt-1 space-y-1">
-                  {ongoingJobs.length === 0 ? (
-                    <p className="text-xs text-muted-foreground px-2 py-1">No ongoing jobs ✓</p>
-                  ) : (
-                    ongoingJobs.map(job => (
+              {renderAlertSection(
+                'ongoing',
+                <Clock className={cn("h-4 w-4", ongoingJobs.length > 0 ? "text-amber-600" : "text-muted-foreground")} />,
+                'ONGOING JOBS',
+                ongoingJobs.length,
+                "bg-amber-50 dark:bg-amber-900/20",
+                "bg-amber-500 text-white",
+                ongoingJobs.length === 0 ? (
+                  <p className="text-xs text-muted-foreground px-2 py-1">No ongoing jobs ✓</p>
+                ) : (
+                  ongoingJobs.map(job => renderJobItem(
+                    job,
+                    'border-l-amber-500',
+                    'bg-amber-50/80 dark:bg-amber-950/30',
+                    <>
+                      <Badge className="text-[9px] px-1 py-0 bg-amber-500 text-white h-4">ONGOING</Badge>
+                      {job.ongoingReason && (
+                        <span className="text-[10px] text-amber-700 dark:text-amber-400 line-clamp-1">
+                          {job.ongoingReason}
+                        </span>
+                      )}
+                    </>
+                  ))
+                )
+              )}
+
+              {/* INCOMPLETE SIGN-OFFS Section */}
+              {renderAlertSection(
+                'incomplete',
+                <Camera className={cn("h-4 w-4", incompleteSignOffs.length > 0 ? "text-orange-600" : "text-muted-foreground")} />,
+                'SIGN-OFFS MISSING DATA',
+                incompleteSignOffs.length,
+                "bg-orange-50 dark:bg-orange-900/20",
+                "bg-orange-500 text-white",
+                incompleteSignOffs.length === 0 ? (
+                  <p className="text-xs text-muted-foreground px-2 py-1">All sign-offs complete ✓</p>
+                ) : (
+                  incompleteSignOffs.slice(0, 30).map((signOff, idx) => {
+                    const job = jobs.find(j => j.id === signOff.jobId);
+                    const missingItems: string[] = [];
+                    if (signOff.photosCount === 0) missingItems.push('No photos');
+                    if (!signOff.hasNotes) missingItems.push('No description');
+
+                    return (
                       <div 
-                        key={job.id}
-                        className="border-l-3 border-l-amber-500 bg-amber-50/80 dark:bg-amber-950/30 rounded p-2 cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-950/50 transition-colors"
-                        onClick={() => onJobClick(job)}
+                        key={`${signOff.jobId}-${signOff.teamName}-${idx}`}
+                        className="border-l-3 border-l-orange-500 bg-orange-50/80 dark:bg-orange-950/30 rounded p-2 cursor-pointer hover:opacity-80 transition-colors"
+                        onClick={() => job && onJobClick(job)}
                       >
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="font-mono text-[10px] font-bold">#{job.jobNumber}</span>
-                            <Badge className="text-[9px] px-1 py-0 bg-amber-500 text-white h-4">ONGOING</Badge>
+                            <span className="font-mono text-[10px] font-bold">#{signOff.jobNumber}</span>
+                            <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 border-orange-400 text-orange-700">
+                              {signOff.teamName}
+                            </Badge>
+                            {missingItems.map(item => (
+                              <Badge key={item} className="text-[9px] px-1 py-0 bg-orange-500 text-white h-4">
+                                {item}
+                              </Badge>
+                            ))}
                           </div>
-                          <p className="text-xs font-medium truncate mt-0.5">{job.name}</p>
-                          {job.ongoingReason && (
-                            <p className="text-[10px] text-amber-700 dark:text-amber-400 mt-0.5 line-clamp-1">
-                              Reason: {job.ongoingReason}
-                            </p>
-                          )}
-                          <div className="flex items-center gap-2 mt-0.5">
-                            {job.team && (
-                              <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
-                                <Users className="h-2.5 w-2.5" />{job.team}
-                                {job.team2 && ` + ${job.team2}`}
-                              </span>
-                            )}
-                          </div>
+                          <p className="text-xs font-medium truncate mt-0.5">{signOff.jobName}</p>
+                          <span className="text-[10px] text-muted-foreground">
+                            Signed off: {format(new Date(signOff.signedOffAt), 'dd MMM HH:mm')}
+                          </span>
                         </div>
                       </div>
-                    ))
-                  )}
-                </CollapsibleContent>
-              </Collapsible>
+                    );
+                  })
+                )
+              )}
 
-              {/* INCOMPLETE SIGN-OFFS Section */}
-              <Collapsible open={expandedSection === 'incomplete'} onOpenChange={() => toggleSection('incomplete')}>
-                <CollapsibleTrigger asChild>
-                  <div className={cn(
-                    "flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors",
-                    incompleteSignOffs.length > 0 ? "bg-orange-50 dark:bg-orange-900/20 hover:bg-orange-100" : "bg-muted/50 hover:bg-muted"
-                  )}>
-                    <div className="flex items-center gap-2">
-                      <Camera className={cn("h-4 w-4", incompleteSignOffs.length > 0 ? "text-orange-600" : "text-muted-foreground")} />
-                      <span className="font-semibold text-xs">SIGN-OFFS MISSING DATA</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <Badge className={cn(
-                        "text-xs",
-                        incompleteSignOffs.length > 0 ? "bg-orange-500 text-white" : "bg-muted text-muted-foreground"
-                      )}>
-                        {incompleteSignOffs.length}
-                      </Badge>
-                      {expandedSection === 'incomplete' ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                    </div>
-                  </div>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="mt-1 space-y-1">
-                  {incompleteSignOffs.length === 0 ? (
-                    <p className="text-xs text-muted-foreground px-2 py-1">All sign-offs complete ✓</p>
-                  ) : (
-                    incompleteSignOffs.slice(0, 30).map((signOff, idx) => {
-                      const job = jobs.find(j => j.id === signOff.jobId);
-                      const missingItems: string[] = [];
-                      if (signOff.photosCount === 0) missingItems.push('No photos');
-                      if (!signOff.hasNotes) missingItems.push('No description');
-
-                      return (
-                        <div 
-                          key={`${signOff.jobId}-${signOff.teamName}-${idx}`}
-                          className="border-l-3 border-l-orange-500 bg-orange-50/80 dark:bg-orange-950/30 rounded p-2 cursor-pointer hover:bg-orange-100 dark:hover:bg-orange-950/50 transition-colors"
-                          onClick={() => job && onJobClick(job)}
-                        >
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="font-mono text-[10px] font-bold">#{signOff.jobNumber}</span>
-                              <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 border-orange-400 text-orange-700">
-                                {signOff.teamName}
-                              </Badge>
-                              {missingItems.map(item => (
-                                <Badge key={item} className="text-[9px] px-1 py-0 bg-orange-500 text-white h-4">
-                                  {item}
-                                </Badge>
-                              ))}
-                            </div>
-                            <p className="text-xs font-medium truncate mt-0.5">{signOff.jobName}</p>
-                            <span className="text-[10px] text-muted-foreground">
-                              Signed off: {format(new Date(signOff.signedOffAt), 'dd MMM HH:mm')}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                  {incompleteSignOffs.length > 30 && (
-                    <p className="text-[10px] text-muted-foreground px-2">
-                      + {incompleteSignOffs.length - 30} more
-                    </p>
-                  )}
-                </CollapsibleContent>
-              </Collapsible>
+              {incompleteSignOffs.length > 30 && (
+                <p className="text-[10px] text-muted-foreground px-2">
+                  + {incompleteSignOffs.length - 30} more
+                </p>
+              )}
             </CardContent>
           </Card>
         </CollapsibleContent>
