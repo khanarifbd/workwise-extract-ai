@@ -739,61 +739,88 @@ export const TeamJobDetail = ({
   };
 
   return (
-    <div className="pb-32 min-h-screen">
-      {/* Header - Mobile optimized */}
-      <div className="bg-primary text-primary-foreground sticky top-0 z-10 shadow-md safe-area-top">
-        <div className="px-3 sm:px-4 py-3">
-          <div className="flex items-center gap-2 sm:gap-3">
+    <div className="pb-32 min-h-screen bg-background">
+      {/* V2 Header — Sticky summary with quick actions */}
+      <div className="bg-gradient-to-r from-primary to-[hsl(38,92%,50%)] text-primary-foreground sticky top-0 z-10 shadow-lg safe-area-top">
+        <div className="px-3 py-2.5">
+          {/* Top row: Back + Job number + Language */}
+          <div className="flex items-center gap-2">
             <Button
               variant="ghost"
               size="icon"
               onClick={onBack}
-              className="text-primary-foreground hover:bg-primary-foreground/20 h-9 w-9"
+              className="text-primary-foreground hover:bg-white/15 h-8 w-8 rounded-lg"
             >
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5 mb-0.5">
-                <Badge variant="secondary" className="text-xs font-mono">
-                  {job.jobNumber}
+                <Badge className="text-[10px] font-mono bg-white/15 text-white border-0 rounded-full px-2">
+                  #{job.jobNumber}
                 </Badge>
                 {languagePreference !== 'en' && (
-                  <Badge variant="secondary" className="text-xs flex items-center gap-1">
-                    <Languages className="h-3 w-3" />
+                  <Badge className="text-[10px] bg-white/15 text-white border-0 rounded-full px-2 flex items-center gap-1">
+                    <Languages className="h-2.5 w-2.5" />
                     {SUPPORTED_LANGUAGES.find(l => l.code === languagePreference)?.flag || languagePreference.toUpperCase()}
                   </Badge>
                 )}
                 {isTranslatingContent && (
-                  <Loader2 className="h-3 w-3 animate-spin text-primary-foreground/70" />
+                  <Loader2 className="h-3 w-3 animate-spin text-white/70" />
                 )}
               </div>
-              <h1 className="text-base sm:text-lg font-semibold truncate">{job.name}</h1>
+              <h1 className="text-sm font-bold truncate">{job.name}</h1>
             </div>
+          </div>
+          
+          {/* Quick info strip: address, phone, progress */}
+          <div className="flex items-center gap-2 mt-1.5 pl-10">
+            {job.address && (
+              <a href={`https://maps.google.com/?q=${encodeURIComponent(job.address)}`} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-0.5 text-[10px] text-white/70 hover:text-white truncate flex-1 min-w-0">
+                <MapPin className="h-3 w-3 flex-shrink-0" />
+                <span className="truncate">{job.address}</span>
+              </a>
+            )}
+            {job.phoneNumber && (
+              <a href={`tel:${job.phoneNumber}`} className="flex items-center gap-0.5 text-[10px] text-white/80 hover:text-white flex-shrink-0 bg-white/10 rounded-full px-2 py-0.5">
+                <Phone className="h-3 w-3" />
+                {job.phoneNumber}
+              </a>
+            )}
+          </div>
+          
+          {/* Progress bar in header */}
+          <div className="flex items-center gap-2 mt-2 pl-10">
+            <div className="flex-1 h-1.5 rounded-full bg-white/20 overflow-hidden">
+              <div className="h-full rounded-full bg-white transition-all duration-500" style={{ width: `${progress}%` }} />
+            </div>
+            <span className="text-[11px] font-bold text-white">{progress}%</span>
           </div>
         </div>
       </div>
 
       {/* Content - Mobile optimized */}
       <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
-        {/* Job Info Card - Collapsible */}
+        {/* V2: Action Card style sections */}
+        {/* Job Details Card */}
         <Collapsible open={expandedSections.details}>
-          <Card>
+          <Card className="rounded-xl overflow-hidden">
             <CollapsibleTrigger asChild>
-              <CardHeader 
-                className="pb-2 cursor-pointer hover:bg-muted/50 transition-colors"
+              <div 
+                className="px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors flex items-center justify-between border-b border-border/50"
                 onClick={() => toggleSection('details')}
               >
-                <CardTitle className="text-sm sm:text-base flex items-center justify-between">
-                  <span className="flex items-center gap-2">
-                    <FileText className="h-4 w-4" />
-                    Job Details
-                  </span>
-                  <ChevronDown className={`h-4 w-4 transition-transform ${expandedSections.details ? 'rotate-180' : ''}`} />
-                </CardTitle>
-              </CardHeader>
+                <div className="flex items-center gap-2.5">
+                  <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <FileText className="h-4 w-4 text-primary" />
+                  </div>
+                  <span className="font-semibold text-sm">Job Details</span>
+                </div>
+                <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${expandedSections.details ? 'rotate-180' : ''}`} />
+              </div>
             </CollapsibleTrigger>
             <CollapsibleContent>
-              <CardContent className="space-y-3 pt-0">
+              <CardContent className="space-y-3 pt-3">
                 {job.address && (
                   <a 
                     href={`https://maps.google.com/?q=${encodeURIComponent(job.address)}`}
@@ -876,17 +903,20 @@ export const TeamJobDetail = ({
         {/* Work Items - Collapsible */}
         {job.workItems && job.workItems.length > 0 && (
           <Collapsible open={expandedSections.workItems}>
-            <Card>
+            <Card className="rounded-xl overflow-hidden">
               <CollapsibleTrigger asChild>
-                <CardHeader 
-                  className="pb-2 cursor-pointer hover:bg-muted/50 transition-colors"
+                <div 
+                  className="px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors flex items-center justify-between border-b border-border/50"
                   onClick={() => toggleSection('workItems')}
                 >
-                  <CardTitle className="text-sm sm:text-base flex items-center justify-between">
-                    <span>Work Items ({job.workItems.length})</span>
-                    <ChevronDown className={`h-4 w-4 transition-transform ${expandedSections.workItems ? 'rotate-180' : ''}`} />
-                  </CardTitle>
-                </CardHeader>
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-8 w-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                      <CheckSquare className="h-4 w-4 text-blue-500" />
+                    </div>
+                    <span className="font-semibold text-sm">Work Items ({job.workItems.length})</span>
+                  </div>
+                  <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${expandedSections.workItems ? 'rotate-180' : ''}`} />
+                </div>
               </CollapsibleTrigger>
               <CollapsibleContent>
                 <CardContent className="pt-0">
@@ -969,20 +999,20 @@ export const TeamJobDetail = ({
 
         {/* Status Update - Collapsible */}
         <Collapsible open={expandedSections.status}>
-          <Card>
+          <Card className="rounded-xl overflow-hidden">
             <CollapsibleTrigger asChild>
-              <CardHeader 
-                className="pb-2 cursor-pointer hover:bg-muted/50 transition-colors"
+              <div 
+                className="px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors flex items-center justify-between border-b border-border/50"
                 onClick={() => toggleSection('status')}
               >
-                <CardTitle className="text-sm sm:text-base flex items-center justify-between">
-                  <span className="flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
-                    Update Status
-                  </span>
-                  <ChevronDown className={`h-4 w-4 transition-transform ${expandedSections.status ? 'rotate-180' : ''}`} />
-                </CardTitle>
-              </CardHeader>
+                <div className="flex items-center gap-2.5">
+                  <div className="h-8 w-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                    <Clock className="h-4 w-4 text-amber-500" />
+                  </div>
+                  <span className="font-semibold text-sm">Update Status</span>
+                </div>
+                <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${expandedSections.status ? 'rotate-180' : ''}`} />
+              </div>
             </CollapsibleTrigger>
             <CollapsibleContent>
               <CardContent className="space-y-4 pt-0">
