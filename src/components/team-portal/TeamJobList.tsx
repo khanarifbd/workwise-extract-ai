@@ -376,7 +376,21 @@ export const TeamJobList = ({
   }, [jobs, teamFilter, todayOnlyFilter]);
 
   const activeJobs = filteredJobs.filter(j => !j.isCompleted);
-  const completedJobs = filteredJobs.filter(j => j.isCompleted);
+  // Show only completed jobs from the last 7 days
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  sevenDaysAgo.setHours(0, 0, 0, 0);
+  const completedJobs = filteredJobs.filter(j => {
+    if (!j.isCompleted) return false;
+    if (j.completionDate) {
+      const completionDate = j.completionDate instanceof Date ? j.completionDate : new Date(j.completionDate as any);
+      return completionDate >= sevenDaysAgo;
+    }
+    // Fallback: check bookedDate if no completionDate
+    const bookedDate = getJobBookedDate(j);
+    if (bookedDate) return bookedDate >= sevenDaysAgo;
+    return false;
+  });
   const totalActiveJobs = jobs.filter(j => !j.isCompleted).length;
 
   const { groupedActiveMonths, activeUnscheduled } = useMemo(() => {
@@ -824,16 +838,22 @@ export const TeamJobList = ({
             ) : filteredJobs.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16">
                 <div className="h-16 w-16 rounded-2xl bg-muted flex items-center justify-center mb-4">
-                  <Briefcase className="h-8 w-8 text-muted-foreground/50" />
+                  {todayOnlyFilter ? (
+                    <CalendarCheck className="h-8 w-8 text-muted-foreground/50" />
+                  ) : (
+                    <Briefcase className="h-8 w-8 text-muted-foreground/50" />
+                  )}
                 </div>
                 <p className="text-base font-medium text-muted-foreground">
-                  {teamFilter ? `No jobs for ${teamFilter}` : 'No jobs assigned'}
+                  {todayOnlyFilter ? 'No jobs scheduled today' : teamFilter ? `No jobs for ${teamFilter}` : 'No jobs assigned'}
                 </p>
                 <p className="text-xs text-muted-foreground/80 text-center px-4 mt-1">
-                  {teamFilter ? 'Try clearing the filter' : 'Jobs assigned to your team will appear here'}
+                  {todayOnlyFilter ? 'You have no jobs booked for today. Enjoy your day!' : teamFilter ? 'Try clearing the filter' : 'Jobs assigned to your team will appear here'}
                 </p>
-                {teamFilter && (
-                  <Button variant="outline" size="sm" className="mt-3 h-7 text-xs rounded-full" onClick={() => setTeamFilter(null)}>Clear Filter</Button>
+                {(teamFilter || todayOnlyFilter) && (
+                  <Button variant="outline" size="sm" className="mt-3 h-7 text-xs rounded-full" onClick={() => { setTeamFilter(null); setTodayOnlyFilter(false); }}>
+                    {todayOnlyFilter ? 'Show All Jobs' : 'Clear Filter'}
+                  </Button>
                 )}
               </div>
             ) : (
@@ -936,7 +956,7 @@ export const TeamJobList = ({
                 {completedJobs.length > 0 && !todayOnlyFilter && (
                   <div className="space-y-2 mt-4">
                     <h2 className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest px-1">
-                      Completed ({completedJobs.length})
+                      Completed — Last 7 Days ({completedJobs.length})
                     </h2>
                     {groupedCompletedMonths.slice(0, 3).map((monthGroup) => (
                       <Collapsible key={`completed-${monthGroup.monthKey}`} open={expandedMonths.has(`completed-${monthGroup.monthKey}`)} onOpenChange={() => toggleMonth(`completed-${monthGroup.monthKey}`)}>
