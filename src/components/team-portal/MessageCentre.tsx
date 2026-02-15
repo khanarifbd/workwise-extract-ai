@@ -155,15 +155,22 @@ export const MessageCentre = ({ teamId, teamName }: MessageCentreProps) => {
       {isOpen && (
         <div className="fixed inset-0 z-[100] bg-background flex flex-col safe-area-all">
           {/* Header */}
-          <div className="bg-gradient-to-r from-primary to-[hsl(38,92%,50%)] text-primary-foreground px-4 py-3 flex items-center gap-3 safe-area-top">
-            <Button variant="ghost" size="icon" className="h-9 w-9 text-primary-foreground hover:bg-white/10 rounded-full shrink-0" onClick={() => setIsOpen(false)}>
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <div className="flex items-center gap-2 flex-1">
-              <MessageSquare className="h-5 w-5" />
-              <div>
-                <h2 className="text-sm font-bold">Messages</h2>
-                <p className="text-[10px] text-primary-foreground/70">{messages.length} message{messages.length !== 1 ? 's' : ''}</p>
+          <div className="bg-gradient-to-r from-primary to-[hsl(38,92%,50%)] text-primary-foreground px-4 py-3 safe-area-top">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                className="h-10 w-10 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full bg-white/20 active:bg-white/30 transition-colors shrink-0"
+                onClick={() => setIsOpen(false)}
+                aria-label="Go back"
+              >
+                <ArrowLeft className="h-5 w-5 text-white" />
+              </button>
+              <div className="flex items-center gap-2 flex-1">
+                <MessageSquare className="h-5 w-5" />
+                <div>
+                  <h2 className="text-sm font-bold">Messages</h2>
+                  <p className="text-[10px] text-primary-foreground/70">{messages.length} message{messages.length !== 1 ? 's' : ''}</p>
+                </div>
               </div>
             </div>
           </div>
