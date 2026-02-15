@@ -363,7 +363,7 @@ export const TeamJobList = ({
   const filteredJobs = useMemo(() => {
     let result = jobs;
     if (teamFilter) result = result.filter(j => (j.team || 'Unassigned') === teamFilter);
-    if (todayOnlyFilter && isOpsManager) {
+    if (todayOnlyFilter) {
       const todayStr = format(new Date(), 'yyyy-MM-dd');
       result = result.filter(j => {
         if (!j.bookedDate) return false;
@@ -373,7 +373,7 @@ export const TeamJobList = ({
       });
     }
     return result;
-  }, [jobs, teamFilter, todayOnlyFilter, isOpsManager]);
+  }, [jobs, teamFilter, todayOnlyFilter]);
 
   const activeJobs = filteredJobs.filter(j => !j.isCompleted);
   const completedJobs = filteredJobs.filter(j => j.isCompleted);
@@ -430,9 +430,14 @@ export const TeamJobList = ({
   }, []);
 
   const jumpToToday = useCallback(() => {
-    setExpandedMonths(new Set([currentMonthKey]));
-    setExpandedDays(new Set([todayKey]));
-  }, [currentMonthKey, todayKey]);
+    // Toggle today-only filter for focused view
+    setTodayOnlyFilter(prev => !prev);
+    // Also ensure today's group is expanded when turning off
+    if (todayOnlyFilter) {
+      setExpandedMonths(new Set([currentMonthKey]));
+      setExpandedDays(new Set([todayKey]));
+    }
+  }, [currentMonthKey, todayKey, todayOnlyFilter]);
 
   const formatDayHeader = (dateKey: string): string => {
     try {
@@ -792,21 +797,23 @@ export const TeamJobList = ({
 
             {/* Controls row */}
             <div className="flex flex-wrap items-center gap-1.5 mb-2">
-              {isOpsManager && (
-                <Button variant={todayOnlyFilter ? "default" : "outline"} size="sm" onClick={() => setTodayOnlyFilter(!todayOnlyFilter)}
-                  className={cn("text-xs h-7 px-2.5 rounded-full", todayOnlyFilter && "bg-[hsl(var(--success))] hover:bg-[hsl(var(--success))]/90 text-white")}>
-                  <CalendarCheck className="h-3 w-3 mr-1" />Today Only
-                </Button>
-              )}
+              <Button variant={todayOnlyFilter ? "default" : "outline"} size="sm" onClick={jumpToToday}
+                className={cn("text-xs h-8 px-3 rounded-full font-semibold", todayOnlyFilter && "bg-[hsl(var(--success))] hover:bg-[hsl(var(--success))]/90 text-white shadow-md")}>
+                <CalendarCheck className="h-3.5 w-3.5 mr-1" />
+                {todayOnlyFilter ? '✓ Today' : 'Today'}
+              </Button>
               {teamFilter && (
                 <Button variant="outline" size="sm" onClick={() => setTeamFilter(null)} className="text-xs h-7 px-2 rounded-full">
                   <Minus className="h-3 w-3 mr-1" />{teamFilter}
                 </Button>
               )}
               <div className="flex-1" />
-              <Button variant="ghost" size="sm" onClick={expandAllGroups} className="text-[10px] h-6 px-2"><Plus className="h-3 w-3 mr-0.5" />All</Button>
-              <Button variant="ghost" size="sm" onClick={collapseAllGroups} className="text-[10px] h-6 px-2"><Minus className="h-3 w-3 mr-0.5" />Close</Button>
-              <Button variant="ghost" size="sm" onClick={jumpToToday} className="text-[10px] h-6 px-2"><ArrowUp className="h-3 w-3 mr-0.5" />Today</Button>
+              {!todayOnlyFilter && (
+                <>
+                  <Button variant="ghost" size="sm" onClick={expandAllGroups} className="text-[10px] h-6 px-2"><Plus className="h-3 w-3 mr-0.5" />All</Button>
+                  <Button variant="ghost" size="sm" onClick={collapseAllGroups} className="text-[10px] h-6 px-2"><Minus className="h-3 w-3 mr-0.5" />Close</Button>
+                </>
+              )}
             </div>
 
             {isLoading && jobs.length === 0 ? (
@@ -834,74 +841,99 @@ export const TeamJobList = ({
                 {/* Active Jobs */}
                 {activeJobs.length > 0 && (
                   <div className="space-y-2">
-                    <h2 className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest px-1">
-                      Active ({activeJobs.length})
-                    </h2>
-                    
-                    {groupedActiveMonths.map((monthGroup) => (
-                      <Collapsible key={monthGroup.monthKey} open={expandedMonths.has(monthGroup.monthKey)} onOpenChange={() => toggleMonth(monthGroup.monthKey)}>
-                        <CollapsibleTrigger asChild>
-                          <div className="cursor-pointer rounded-xl bg-primary/5 border border-primary/15 px-3 py-2 flex items-center justify-between hover:bg-primary/10 transition-colors">
-                            <div className="flex items-center gap-2">
-                              {expandedMonths.has(monthGroup.monthKey) ? <ChevronDown className="h-4 w-4 text-primary" /> : <ChevronRight className="h-4 w-4 text-primary" />}
-                              <FolderOpen className="h-4 w-4 text-primary" />
-                              <span className="font-semibold text-sm">{monthGroup.monthLabel}</span>
-                            </div>
-                            <Badge className="text-[10px] bg-primary/15 text-primary hover:bg-primary/15 rounded-full">
-                              {monthGroup.totalJobs}
-                            </Badge>
+                    {todayOnlyFilter ? (
+                      /* TODAY FOCUS MODE — flat list, no hierarchy */
+                      <>
+                        <div className="flex items-center gap-2 px-1">
+                          <div className="h-7 w-7 rounded-full bg-[hsl(var(--success))]/15 flex items-center justify-center">
+                            <CalendarCheck className="h-4 w-4 text-[hsl(var(--success))]" />
                           </div>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent className="space-y-1.5 mt-1.5 ml-3 border-l-2 border-primary/20 pl-3">
-                          {Array.from(monthGroup.days.entries()).map(([dayKey, dayJobs]) => (
-                            <Collapsible key={dayKey} open={expandedDays.has(dayKey)} onOpenChange={() => toggleDay(dayKey)}>
-                              <CollapsibleTrigger asChild>
-                                <div className={cn(
-                                  "cursor-pointer rounded-lg px-3 py-2 flex items-center justify-between hover:bg-muted/50 transition-colors",
-                                  isToday(parseDateKeyAsLocal(dayKey)) && "bg-primary/8 border border-primary/20"
-                                )}>
-                                  <div className="flex items-center gap-1.5">
-                                    {expandedDays.has(dayKey) ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
-                                    <Calendar className="h-3.5 w-3.5 text-primary/70" />
-                                    <span className="font-medium text-xs">{formatDayHeader(dayKey)}</span>
-                                  </div>
-                                  <Badge variant="secondary" className={cn("text-[10px] px-1.5 rounded-full", getDayBadgeStyle(dayKey))}>
-                                    {dayJobs.length}
-                                  </Badge>
+                          <div>
+                            <h2 className="text-sm font-bold text-foreground">
+                              Today — {format(new Date(), 'EEEE, d MMMM')}
+                            </h2>
+                            <p className="text-[10px] text-muted-foreground">
+                              {activeJobs.length} job{activeJobs.length !== 1 ? 's' : ''} scheduled
+                            </p>
+                          </div>
+                        </div>
+                        <div className="space-y-1.5">
+                          {activeJobs.map((job) => renderJobCard(job, isOpsManager))}
+                        </div>
+                      </>
+                    ) : (
+                      /* NORMAL MODE — month/day hierarchy */
+                      <>
+                        <h2 className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest px-1">
+                          Active ({activeJobs.length})
+                        </h2>
+                        
+                        {groupedActiveMonths.map((monthGroup) => (
+                          <Collapsible key={monthGroup.monthKey} open={expandedMonths.has(monthGroup.monthKey)} onOpenChange={() => toggleMonth(monthGroup.monthKey)}>
+                            <CollapsibleTrigger asChild>
+                              <div className="cursor-pointer rounded-xl bg-primary/5 border border-primary/15 px-3 py-2 flex items-center justify-between hover:bg-primary/10 transition-colors">
+                                <div className="flex items-center gap-2">
+                                  {expandedMonths.has(monthGroup.monthKey) ? <ChevronDown className="h-4 w-4 text-primary" /> : <ChevronRight className="h-4 w-4 text-primary" />}
+                                  <FolderOpen className="h-4 w-4 text-primary" />
+                                  <span className="font-semibold text-sm">{monthGroup.monthLabel}</span>
                                 </div>
-                              </CollapsibleTrigger>
-                              <CollapsibleContent className="space-y-1 mt-1.5 ml-2 pl-2">
-                                {dayJobs.map((job) => renderJobCard(job, isOpsManager))}
-                              </CollapsibleContent>
-                            </Collapsible>
-                          ))}
-                        </CollapsibleContent>
-                      </Collapsible>
-                    ))}
+                                <Badge className="text-[10px] bg-primary/15 text-primary hover:bg-primary/15 rounded-full">
+                                  {monthGroup.totalJobs}
+                                </Badge>
+                              </div>
+                            </CollapsibleTrigger>
+                            <CollapsibleContent className="space-y-1.5 mt-1.5 ml-3 border-l-2 border-primary/20 pl-3">
+                              {Array.from(monthGroup.days.entries()).map(([dayKey, dayJobs]) => (
+                                <Collapsible key={dayKey} open={expandedDays.has(dayKey)} onOpenChange={() => toggleDay(dayKey)}>
+                                  <CollapsibleTrigger asChild>
+                                    <div className={cn(
+                                      "cursor-pointer rounded-lg px-3 py-2 flex items-center justify-between hover:bg-muted/50 transition-colors",
+                                      isToday(parseDateKeyAsLocal(dayKey)) && "bg-primary/8 border border-primary/20"
+                                    )}>
+                                      <div className="flex items-center gap-1.5">
+                                        {expandedDays.has(dayKey) ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+                                        <Calendar className="h-3.5 w-3.5 text-primary/70" />
+                                        <span className="font-medium text-xs">{formatDayHeader(dayKey)}</span>
+                                      </div>
+                                      <Badge variant="secondary" className={cn("text-[10px] px-1.5 rounded-full", getDayBadgeStyle(dayKey))}>
+                                        {dayJobs.length}
+                                      </Badge>
+                                    </div>
+                                  </CollapsibleTrigger>
+                                  <CollapsibleContent className="space-y-1 mt-1.5 ml-2 pl-2">
+                                    {dayJobs.map((job) => renderJobCard(job, isOpsManager))}
+                                  </CollapsibleContent>
+                                </Collapsible>
+                              ))}
+                            </CollapsibleContent>
+                          </Collapsible>
+                        ))}
 
-                    {/* Unscheduled */}
-                    {unscheduledJobs.length > 0 && (
-                      <Collapsible open={expandedDays.has('unscheduled')} onOpenChange={() => toggleDay('unscheduled')}>
-                        <CollapsibleTrigger asChild>
-                          <div className="cursor-pointer rounded-xl border border-dashed border-border px-3 py-2 flex items-center justify-between hover:bg-muted/50 transition-colors">
-                            <div className="flex items-center gap-1.5">
-                              {expandedDays.has('unscheduled') ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
-                              <Briefcase className="h-3.5 w-3.5 text-muted-foreground" />
-                              <span className="font-medium text-xs text-muted-foreground">Unscheduled</span>
-                            </div>
-                            <Badge variant="outline" className="text-[10px] px-1.5 rounded-full">{unscheduledJobs.length}</Badge>
-                          </div>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent className="space-y-1 mt-1.5 ml-3 pl-3">
-                          {unscheduledJobs.map((job) => renderJobCard(job, false))}
-                        </CollapsibleContent>
-                      </Collapsible>
+                        {/* Unscheduled */}
+                        {unscheduledJobs.length > 0 && (
+                          <Collapsible open={expandedDays.has('unscheduled')} onOpenChange={() => toggleDay('unscheduled')}>
+                            <CollapsibleTrigger asChild>
+                              <div className="cursor-pointer rounded-xl border border-dashed border-border px-3 py-2 flex items-center justify-between hover:bg-muted/50 transition-colors">
+                                <div className="flex items-center gap-1.5">
+                                  {expandedDays.has('unscheduled') ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+                                  <Briefcase className="h-3.5 w-3.5 text-muted-foreground" />
+                                  <span className="font-medium text-xs text-muted-foreground">Unscheduled</span>
+                                </div>
+                                <Badge variant="outline" className="text-[10px] px-1.5 rounded-full">{unscheduledJobs.length}</Badge>
+                              </div>
+                            </CollapsibleTrigger>
+                            <CollapsibleContent className="space-y-1 mt-1.5 ml-3 pl-3">
+                              {unscheduledJobs.map((job) => renderJobCard(job, false))}
+                            </CollapsibleContent>
+                          </Collapsible>
+                        )}
+                      </>
                     )}
                   </div>
                 )}
 
-                {/* Completed */}
-                {completedJobs.length > 0 && (
+                {/* Completed — hidden in Today mode for focus */}
+                {completedJobs.length > 0 && !todayOnlyFilter && (
                   <div className="space-y-2 mt-4">
                     <h2 className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest px-1">
                       Completed ({completedJobs.length})
