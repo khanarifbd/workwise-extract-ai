@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MessageSquare, X, Volume2, Check, CheckCheck } from 'lucide-react';
+import { MessageSquare, ArrowLeft, Volume2, Check, CheckCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { format, isToday, isYesterday } from 'date-fns';
@@ -153,19 +153,19 @@ export const MessageCentre = ({ teamId, teamName }: MessageCentreProps) => {
 
       {/* Fullscreen message panel overlay */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 bg-background flex flex-col safe-area-all">
+        <div className="fixed inset-0 z-[100] bg-background flex flex-col safe-area-all">
           {/* Header */}
-          <div className="bg-gradient-to-r from-primary to-[hsl(38,92%,50%)] text-primary-foreground px-4 py-3 flex items-center justify-between safe-area-top">
-            <div className="flex items-center gap-2">
+          <div className="bg-gradient-to-r from-primary to-[hsl(38,92%,50%)] text-primary-foreground px-4 py-3 flex items-center gap-3 safe-area-top">
+            <Button variant="ghost" size="icon" className="h-9 w-9 text-primary-foreground hover:bg-white/10 rounded-full shrink-0" onClick={() => setIsOpen(false)}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div className="flex items-center gap-2 flex-1">
               <MessageSquare className="h-5 w-5" />
               <div>
                 <h2 className="text-sm font-bold">Messages</h2>
                 <p className="text-[10px] text-primary-foreground/70">{messages.length} message{messages.length !== 1 ? 's' : ''}</p>
               </div>
             </div>
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-primary-foreground hover:bg-white/10" onClick={() => setIsOpen(false)}>
-              <X className="h-4 w-4" />
-            </Button>
           </div>
 
           {/* Messages list */}
