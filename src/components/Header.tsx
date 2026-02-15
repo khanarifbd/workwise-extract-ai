@@ -1,4 +1,4 @@
-import { FileDown, Moon, Sun, Settings, History, KeyRound, Users, LogOut, ChevronDown, CalendarDays, CheckCircle2, Briefcase, AlertTriangle, Mic } from 'lucide-react';
+import { FileDown, Moon, Sun, Settings, History, KeyRound, Users, LogOut, ChevronDown, CalendarDays, CheckCircle2, Briefcase, AlertTriangle, Mic, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
@@ -9,6 +9,7 @@ import { TeamAvailabilityModal } from './TeamAvailabilityModal';
 import { SignOffNotificationBell } from './SignOffNotificationBell';
 import { GlobalSignOffHistoryModal } from './GlobalSignOffHistoryModal';
 import { AdminTeamJobsModal } from './AdminTeamJobsModal';
+import { SendTeamMessageModal } from './SendTeamMessageModal';
 import { OpsNotesModal } from './OpsNotesModal';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -46,6 +47,7 @@ export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount
   const [showSignOffHistory, setShowSignOffHistory] = useState(false);
   const [showTeamJobs, setShowTeamJobs] = useState(false);
   const [showOpsNotes, setShowOpsNotes] = useState(false);
+  const [showSendMessage, setShowSendMessage] = useState(false);
   const [opsNotesCount, setOpsNotesCount] = useState(0);
   const { signOut, user } = useAdminAuth();
 
@@ -139,6 +141,10 @@ export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount
                   Manage Team Jobs
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setShowSendMessage(true)} className="flex items-center gap-2 cursor-pointer">
+                  <MessageSquare className="w-4 h-4" />
+                  Send Message to Teams
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setShowSignOffHistory(true)} className="flex items-center gap-2 cursor-pointer">
                   <CheckCircle2 className="w-4 h-4" />
                   Sign-Off History
@@ -254,6 +260,11 @@ export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount
         isOpen={showOpsNotes}
         onClose={() => setShowOpsNotes(false)}
         onJobClick={onJobClick}
+      />
+
+      <SendTeamMessageModal
+        isOpen={showSendMessage}
+        onClose={() => setShowSendMessage(false)}
       />
     </header>
   );

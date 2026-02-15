@@ -597,6 +597,48 @@ export type Database = {
           },
         ]
       }
+      team_messages: {
+        Row: {
+          audio_url: string | null
+          created_at: string
+          id: string
+          is_read: boolean
+          message_text: string | null
+          message_type: string
+          read_at: string | null
+          sender_name: string
+          team_id: string
+          team_name: string
+          updated_at: string
+        }
+        Insert: {
+          audio_url?: string | null
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message_text?: string | null
+          message_type?: string
+          read_at?: string | null
+          sender_name?: string
+          team_id: string
+          team_name: string
+          updated_at?: string
+        }
+        Update: {
+          audio_url?: string | null
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message_text?: string | null
+          message_type?: string
+          read_at?: string | null
+          sender_name?: string
+          team_id?: string
+          team_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       team_notification_settings: {
         Row: {
           category_id: string | null

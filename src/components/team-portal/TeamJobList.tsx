@@ -48,7 +48,7 @@ import { useTeamSettings } from '@/hooks/useTeamSettings';
 import { useTranslation } from '@/hooks/useTranslation';
 import { shouldShowOngoingAlert } from '@/hooks/useJobAlerts';
 import { TeamDiary } from './TeamDiary';
-import { LanguageSelector } from './LanguageSelector';
+import { MessageCentre } from './MessageCentre';
 import { RemoveJobConfirmModal } from './RemoveJobConfirmModal';
 import { OpsManagerNotes } from './OpsManagerNotes';
 import { OpsAlertsPanel } from './OpsAlertsPanel';
@@ -702,7 +702,7 @@ export const TeamJobList = ({
                 onClick={onRefresh} disabled={isLoading}>
                 <RefreshCw className={cn("h-3.5 w-3.5", isLoading && 'animate-spin')} />
               </Button>
-              <LanguageSelector currentLanguage={languagePreference} onLanguageChange={onLanguageChange} />
+              <MessageCentre teamId={teamId} teamName={teamName} />
               <Button variant="ghost" size="icon" className="h-8 w-8 text-primary-foreground/80 hover:text-primary-foreground hover:bg-white/10"
                 onClick={onLogout}>
                 <LogOut className="h-3.5 w-3.5" />
