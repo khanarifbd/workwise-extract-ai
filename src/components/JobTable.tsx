@@ -713,6 +713,7 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                       contactHistory={contactHistoryMap[job.id] || []}
                       onBookJob={(bookedDate, isFlexible) => handleBookedDateChange(job.id, bookedDate, isFlexible)}
                       onDescriptionChange={(newDesc) => handleDescriptionSave(job.id, newDesc)}
+                      onReferBack={onReferBack ? (reason) => onReferBack(job, reason) : undefined}
                     />
                   </td>
                   {/* Assigned Column */}
