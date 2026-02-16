@@ -37,6 +37,7 @@ interface ContactTimelineModalProps {
   bookedDate?: Date | null;
   onBookJob?: (bookedDate: Date, isFlexible: boolean) => void;
   onDescriptionChange?: (description: string) => void;
+  onReferBack?: (reason: string) => void;
 }
 
 export function ContactTimelineModal({
@@ -50,6 +51,7 @@ export function ContactTimelineModal({
   bookedDate: propBookedDate,
   onBookJob,
   onDescriptionChange,
+  onReferBack,
 }: ContactTimelineModalProps) {
   const { history, isLoading, addContactAttempt, deleteContactAttempt } = useContactHistory(jobId);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -97,6 +99,11 @@ export function ContactTimelineModal({
       // If booked or booked_flexible outcome with date, trigger the booking callback
       if ((selectedOutcome === 'booked' || selectedOutcome === 'booked_flexible') && bookedDate && onBookJob) {
         onBookJob(bookedDate, selectedOutcome === 'booked_flexible');
+      }
+      
+      // If referred to NPH, trigger refer back
+      if (selectedOutcome === 'referred_nph' && onReferBack) {
+        onReferBack(notes || 'Referred to NPH via contact history');
       }
       
       // Reset form

@@ -15,6 +15,7 @@ interface ContactCellProps {
   contactHistory: ContactHistory[];
   onBookJob?: (bookedDate: Date, isFlexible: boolean) => void;
   onDescriptionChange?: (description: string) => void;
+  onReferBack?: (reason: string) => void;
 }
 
 export function ContactCell({
@@ -28,6 +29,7 @@ export function ContactCell({
   contactHistory,
   onBookJob,
   onDescriptionChange,
+  onReferBack,
 }: ContactCellProps) {
   const [showTimeline, setShowTimeline] = useState(false);
 
@@ -115,6 +117,7 @@ export function ContactCell({
         bookedDate={bookedDate}
         onBookJob={onBookJob}
         onDescriptionChange={onDescriptionChange}
+        onReferBack={onReferBack}
       />
     </>
   );
