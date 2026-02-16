@@ -229,8 +229,8 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
       const updates: Partial<Job> = { 
         status,
         isCompleted: isComplete,
-        progress: isComplete ? 100 : (job.progress === 100 ? 50 : job.progress),
-        completionDate: isComplete ? new Date() : (job.completionDate && !isComplete ? null : job.completionDate)
+        progress: isComplete ? 100 : (job.progress === 100 ? 0 : job.progress),
+        completionDate: isComplete ? new Date() : null
       };
       onUpdateJob({ ...job, ...updates });
     }
