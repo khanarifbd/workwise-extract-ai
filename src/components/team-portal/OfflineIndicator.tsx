@@ -60,7 +60,7 @@ export const OfflineIndicator = ({
   
   return (
     <div className={cn(
-      "sticky top-0 z-20 px-3 py-2 flex items-center justify-between gap-2 transition-all duration-300 safe-area-top",
+      "px-3 py-2 flex items-center justify-between gap-2 transition-all duration-300 safe-area-top",
       !isOnline 
         ? 'bg-red-50 dark:bg-red-950 border-b border-red-200 dark:border-red-800' 
         : pendingSyncCount > 0 
