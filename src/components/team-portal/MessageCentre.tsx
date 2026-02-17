@@ -33,11 +33,6 @@ export const MessageCentre = ({ teamId, teamName }: MessageCentreProps) => {
 
   const fetchMessages = useCallback(async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('get-team-messages', {
-        body: null,
-        method: 'GET',
-        headers: {},
-      });
       
       // Use fetch directly since invoke doesn't support query params well for GET
       const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-team-messages?teamId=${teamId}`;
