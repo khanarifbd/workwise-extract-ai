@@ -670,7 +670,7 @@ export const TeamJobList = ({
     <div className="pb-20 min-h-screen safe-area-bottom bg-background">
       {/* V2 Header — Single row, compact */}
       <div className={cn(
-        "text-primary-foreground sticky top-0 z-10 shadow-lg safe-area-top safe-area-left safe-area-right",
+        "text-primary-foreground sticky top-[56px] z-20 shadow-lg safe-area-left safe-area-right",
         isOpsManager 
           ? "bg-gradient-to-r from-[hsl(220,25%,10%)] to-[hsl(220,25%,18%)]" 
           : "bg-gradient-to-r from-primary to-[hsl(38,92%,50%)]"
@@ -733,7 +733,7 @@ export const TeamJobList = ({
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'jobs' | 'diary' | 'workload')} className="w-full">
-        <div className="border-b border-border bg-card sticky top-[calc(52px+env(safe-area-inset-top,0px))] z-[5] safe-area-left safe-area-right">
+        <div className="border-b border-border bg-card sticky top-[108px] z-[5] safe-area-left safe-area-right">
           <TabsList className="w-full justify-start rounded-none h-auto p-0 bg-transparent">
             <TabsTrigger value="jobs" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-2.5 text-xs font-medium">
               <Briefcase className="h-3.5 w-3.5 mr-1.5" />

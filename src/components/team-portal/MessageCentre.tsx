@@ -148,9 +148,9 @@ export const MessageCentre = ({ teamId, teamName }: MessageCentreProps) => {
 
       {/* Fullscreen message panel overlay */}
       {isOpen && (
-        <div className="fixed inset-0 z-[100] bg-background flex flex-col safe-area-all">
+        <div className="fixed inset-0 z-[100] bg-background flex flex-col safe-area-bottom safe-area-left safe-area-right">
           {/* Header */}
-          <div className="bg-gradient-to-r from-primary to-[hsl(38,92%,50%)] text-primary-foreground px-4 py-3 safe-area-top">
+          <div className="bg-gradient-to-r from-primary to-[hsl(38,92%,50%)] text-primary-foreground px-4 py-3">
             <div className="flex items-center gap-3">
               <button
                 type="button"

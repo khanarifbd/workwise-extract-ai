@@ -741,7 +741,7 @@ export const TeamJobDetail = ({
   return (
     <div className="pb-32 min-h-screen bg-background">
       {/* V2 Header — Sticky summary with quick actions */}
-      <div className="bg-gradient-to-r from-primary to-[hsl(38,92%,50%)] text-primary-foreground sticky top-0 z-10 shadow-lg safe-area-top">
+      <div className="bg-gradient-to-r from-primary to-[hsl(38,92%,50%)] text-primary-foreground sticky top-[56px] z-20 shadow-lg">
         <div className="px-3 py-2.5">
           {/* Top row: Back + Job number + Language */}
           <div className="flex items-center gap-2">
