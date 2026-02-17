@@ -45,6 +45,8 @@ const TeamPortal = () => {
         try {
           // Dynamic import for native-only plugin
           const { StatusBar, Style } = await import('@capacitor/status-bar');
+          // Ensure WebView does NOT extend behind the status bar
+          await StatusBar.setOverlaysWebView({ overlay: false });
           await StatusBar.setBackgroundColor({ color: '#F97316' });
           await StatusBar.setStyle({ style: Style.Light });
         } catch (error) {
