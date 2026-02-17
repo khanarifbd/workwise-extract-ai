@@ -45,9 +45,8 @@ const TeamPortal = () => {
         try {
           // Dynamic import for native-only plugin
           const { StatusBar, Style } = await import('@capacitor/status-bar');
-          // Ensure WebView does NOT extend behind the status bar
-          await StatusBar.setOverlaysWebView({ overlay: false });
-          await StatusBar.setBackgroundColor({ color: '#F97316' });
+          // Allow WebView to extend behind the status bar so safe-area-inset works
+          await StatusBar.setOverlaysWebView({ overlay: true });
           await StatusBar.setStyle({ style: Style.Light });
         } catch (error) {
           console.error('Error setting status bar:', error);
@@ -614,7 +613,7 @@ const TeamPortal = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pt-[env(safe-area-inset-top)]">
       <OfflineIndicator
         isOnline={isOnline} 
         pendingSyncCount={pendingSyncCount}
