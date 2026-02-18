@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_log: {
+        Row: {
+          action: string
+          created_at: string
+          field_changed: string | null
+          id: string
+          metadata: Json | null
+          new_value: string | null
+          old_value: string | null
+          record_id: string | null
+          table_name: string
+          user_email: string | null
+          user_id: string | null
+          user_role: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          field_changed?: string | null
+          id?: string
+          metadata?: Json | null
+          new_value?: string | null
+          old_value?: string | null
+          record_id?: string | null
+          table_name: string
+          user_email?: string | null
+          user_id?: string | null
+          user_role?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          field_changed?: string | null
+          id?: string
+          metadata?: Json | null
+          new_value?: string | null
+          old_value?: string | null
+          record_id?: string | null
+          table_name?: string
+          user_email?: string | null
+          user_id?: string | null
+          user_role?: string | null
+        }
+        Relationships: []
+      }
       categories: {
         Row: {
           color: string | null
@@ -117,6 +162,77 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      job_sub_tasks: {
+        Row: {
+          assigned_team: string | null
+          booked_date: string | null
+          completion_date: string | null
+          created_at: string
+          created_by: string | null
+          deadline_date: string | null
+          description: string | null
+          id: string
+          notes: string | null
+          parent_job_id: string
+          photos: string[] | null
+          portal_updated: boolean
+          property_address: string | null
+          signed_off: boolean
+          status: string
+          tenant_name: string | null
+          trade: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_team?: string | null
+          booked_date?: string | null
+          completion_date?: string | null
+          created_at?: string
+          created_by?: string | null
+          deadline_date?: string | null
+          description?: string | null
+          id?: string
+          notes?: string | null
+          parent_job_id: string
+          photos?: string[] | null
+          portal_updated?: boolean
+          property_address?: string | null
+          signed_off?: boolean
+          status?: string
+          tenant_name?: string | null
+          trade: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_team?: string | null
+          booked_date?: string | null
+          completion_date?: string | null
+          created_at?: string
+          created_by?: string | null
+          deadline_date?: string | null
+          description?: string | null
+          id?: string
+          notes?: string | null
+          parent_job_id?: string
+          photos?: string[] | null
+          portal_updated?: boolean
+          property_address?: string | null
+          signed_off?: boolean
+          status?: string
+          tenant_name?: string | null
+          trade?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_sub_tasks_parent_job_id_fkey"
+            columns: ["parent_job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       jobs: {
         Row: {
@@ -831,6 +947,33 @@ export type Database = {
           },
         ]
       }
+      trade_types: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -866,6 +1009,7 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_job_progressor: { Args: { _user_id: string }; Returns: boolean }
       is_valid_team_id: { Args: { _team_id: string }; Returns: boolean }
       is_viewer: { Args: { _user_id: string }; Returns: boolean }
     }

@@ -20,7 +20,8 @@ export type JobStatus =
   | 'left_property'
   | 'return_nph'
   | 'started'
-  | 'jan2026';
+  | 'jan2026'
+  | 'awaiting_trade';
 
 export const JOB_STATUS_OPTIONS: { value: JobStatus; label: string; color: string }[] = [
   { value: 'complete', label: 'Complete', color: '#10B981' },
@@ -34,6 +35,7 @@ export const JOB_STATUS_OPTIONS: { value: JobStatus; label: string; color: strin
   { value: 'left_property', label: 'Left Property', color: '#84CC16' },
   { value: 'return_nph', label: 'Return NPH', color: '#EC4899' },
   { value: 'jan2026', label: 'Jan2026', color: '#0D9488' },
+  { value: 'awaiting_trade', label: 'Awaiting Trade', color: '#7C3AED' },
 ];
 
 export interface FanInfo {

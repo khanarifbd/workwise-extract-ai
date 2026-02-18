@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { AwaitingTradeModal } from './AwaitingTradeModal';
 import { Job, JobStatus, JOB_STATUS_OPTIONS, WorkItem } from '@/types/job';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ArrowLeft, MapPin, Phone, Calendar, Save, Camera, Upload, Loader2, CheckCircle2, Clock, FileText, ChevronDown, CheckSquare, AlertCircle, File, X, Image, Video, Square, CheckSquare2, Edit3, Check, Languages, AlertTriangle, Ban } from 'lucide-react';
+import { ArrowLeft, MapPin, Phone, Calendar, Save, Camera, Upload, Loader2, CheckCircle2, Clock, FileText, ChevronDown, CheckSquare, AlertCircle, File, X, Image, Video, Square, CheckSquare2, Edit3, Check, Languages, AlertTriangle, Ban, Wrench } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -56,6 +57,7 @@ export const TeamJobDetail = ({
   const [isSaving, setIsSaving] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
   const [showSignOffModal, setShowSignOffModal] = useState(false);
+  const [showAwaitingTradeModal, setShowAwaitingTradeModal] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState(false);
@@ -1097,6 +1099,23 @@ export const TeamJobDetail = ({
                   )}
                 </div>
 
+                {/* Complete – Awaiting Secondary Trade */}
+                {isOngoing && (
+                  <div className="p-3 rounded-lg border border-purple-300 dark:border-purple-700 bg-purple-50 dark:bg-purple-900/20">
+                    <Button
+                      variant="outline"
+                      className="w-full border-purple-400 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/40"
+                      onClick={() => setShowAwaitingTradeModal(true)}
+                    >
+                      <Wrench className="h-4 w-4 mr-2" />
+                      Complete – Awaiting Secondary Trade
+                    </Button>
+                    <p className="text-[10px] text-purple-600 dark:text-purple-400 mt-1.5 text-center">
+                      Create sub-tasks for secondary trades needed to complete this job
+                    </p>
+                  </div>
+                )}
+
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className="text-xs sm:text-sm text-muted-foreground">Progress</label>
@@ -1717,6 +1736,23 @@ export const TeamJobDetail = ({
           workItemsModified: Object.values(workItemUpdates).filter(u => u.hasModification).length + 
             job.workItems.filter(item => !workItemUpdates[item.id] && item.hasModification).length,
           progressNotes: notes,
+        }}
+      />
+
+      {/* Awaiting Trade Modal */}
+      <AwaitingTradeModal
+        open={showAwaitingTradeModal}
+        onOpenChange={setShowAwaitingTradeModal}
+        jobId={job.id}
+        jobName={job.name}
+        jobAddress={job.address}
+        onSubmit={async (trades, description) => {
+          const { data, error } = await supabase.functions.invoke('create-sub-tasks', {
+            body: { teamId, teamName, jobId: job.id, trades, description },
+          });
+          if (error || !data?.success) throw new Error('Failed to create sub-tasks');
+          onJobUpdate({ ...job, status: 'awaiting_trade' as any, isOngoing: true, ongoingReason: `Complete – Awaiting Secondary Trade: ${trades.join(', ')}` });
+          toast({ title: 'Sub-Tasks Created', description: `${trades.length} trade sub-task(s) created successfully.` });
         }}
       />
     </div>

@@ -8,8 +8,11 @@ import Index from "./pages/Index";
 import TeamPortal from "./pages/TeamPortal";
 import AdminAuth from "./pages/AdminAuth";
 import ResetPassword from "./pages/ResetPassword";
+import ProgressorAuth from "./pages/ProgressorAuth";
+import ProgressorPanel from "./pages/ProgressorPanel";
 import NotFound from "./pages/NotFound";
 import { AdminRoute } from "./components/AdminRoute";
+import { ProgressorRoute } from "./components/ProgressorRoute";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -52,6 +55,12 @@ const App = () => (
                 </AdminRoute>
               } />
               <Route path="/team" element={<TeamPortal />} />
+              <Route path="/progressor-login" element={<ProgressorAuth />} />
+              <Route path="/progressor" element={
+                <ProgressorRoute>
+                  <ProgressorPanel />
+                </ProgressorRoute>
+              } />
               <Route path="*" element={<NotFound />} />
             </>
           )}
