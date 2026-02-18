@@ -25,7 +25,7 @@ import {
   ClipboardList, Search, Filter, LogOut, Loader2, ChevronDown,
   Calendar as CalendarIcon, AlertTriangle, Clock, CheckCircle2, Building2,
   Wrench, Users, FileText, RefreshCw, Phone, MapPin, User,
-  Star, Flag, Zap, Plus, MessageSquare, Info,
+  Star, Flag, Zap, Plus, MessageSquare, Info, Trash2,
 } from 'lucide-react';
 import { format, differenceInDays, differenceInHours } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -223,6 +223,29 @@ export default function ProgressorPanel() {
       else next.add(jobId);
       return next;
     });
+  };
+
+  const handleDeleteSubTask = async (subTask: SubTask) => {
+    if (!confirm(`Delete ${subTask.trade} sub-task? This cannot be undone.`)) return;
+    try {
+      const { error } = await supabase
+        .from('job_sub_tasks')
+        .delete()
+        .eq('id', subTask.id);
+      if (error) throw error;
+      await logAction({
+        action: 'delete',
+        tableName: 'job_sub_tasks',
+        recordId: subTask.id,
+        fieldChanged: 'deleted',
+        oldValue: subTask.trade,
+        newValue: '',
+        metadata: { parentJobId: subTask.parentJobId, trade: subTask.trade },
+      });
+      await fetchAll();
+    } catch (err) {
+      console.error('Error deleting sub-task:', err);
+    }
   };
 
   const handleSignOut = async () => {
@@ -635,7 +658,7 @@ export default function ProgressorPanel() {
                                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Status</th>
                                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Portal</th>
                                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Notes</th>
-                                <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground">PDF</th>
+                                <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground">Actions</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -727,8 +750,18 @@ export default function ProgressorPanel() {
                                         className="h-7 text-xs w-[150px]"
                                       />
                                     </td>
-                                    <td className="px-3 py-2 text-center">
-                                      <SubTaskJobSheetPDF subTask={st} job={job} />
+                                    <td className="px-3 py-2">
+                                      <div className="flex items-center justify-center gap-1">
+                                        <SubTaskJobSheetPDF subTask={st} job={job} />
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                                          onClick={() => handleDeleteSubTask(st)}
+                                        >
+                                          <Trash2 className="h-3.5 w-3.5" />
+                                        </Button>
+                                      </div>
                                     </td>
                                   </tr>
                                 );
