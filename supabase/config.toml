@@ -65,3 +65,9 @@ verify_jwt = false
 
 [functions.process-voice-note]
 verify_jwt = false
+
+[functions.validate-progressor-code]
+verify_jwt = false
+
+[functions.create-sub-tasks]
+verify_jwt = false

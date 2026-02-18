@@ -88,14 +88,44 @@ export const useProgressorAuth = () => {
     return () => subscription.unsubscribe();
   }, [checkRoles]);
 
-  const signIn = async (email: string, password: string) => {
+  const signInWithCode = async (code: string) => {
     setState(prev => ({ ...prev, error: null }));
-    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-    if (error) {
-      setState(prev => ({ ...prev, error: error.message }));
-      return { error };
+    
+    try {
+      const response = await supabase.functions.invoke('validate-progressor-code', {
+        body: { code: code.trim().toUpperCase() },
+      });
+
+      if (response.error) {
+        const msg = response.error.message || 'Invalid access code';
+        setState(prev => ({ ...prev, error: msg }));
+        return { error: { message: msg } };
+      }
+
+      const { token_hash, email } = response.data;
+
+      if (!token_hash) {
+        setState(prev => ({ ...prev, error: 'Authentication failed' }));
+        return { error: { message: 'Authentication failed' } };
+      }
+
+      // Verify the magic link token to create a session
+      const { error: verifyError } = await supabase.auth.verifyOtp({
+        token_hash,
+        type: 'magiclink',
+      });
+
+      if (verifyError) {
+        setState(prev => ({ ...prev, error: verifyError.message }));
+        return { error: verifyError };
+      }
+
+      return { error: null };
+    } catch (err: any) {
+      const msg = err?.message || 'Failed to validate code';
+      setState(prev => ({ ...prev, error: msg }));
+      return { error: { message: msg } };
     }
-    return { error: null };
   };
 
   const signOut = async () => {
@@ -110,7 +140,7 @@ export const useProgressorAuth = () => {
 
   return {
     ...state,
-    signIn,
+    signInWithCode,
     signOut,
     clearError,
     isAuthenticated: !!state.session,

@@ -10,10 +10,9 @@ import { Loader2, AlertCircle, ClipboardList, ShieldCheck } from 'lucide-react';
 
 export default function ProgressorAuth() {
   const navigate = useNavigate();
-  const { isAuthenticated, hasAccess, isJobProgressor, isAdmin, isLoading, isCheckingRoles, error, signIn, clearError } = useProgressorAuth();
+  const { isAuthenticated, hasAccess, isLoading, isCheckingRoles, error, signInWithCode, clearError } = useProgressorAuth();
   
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [code, setCode] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -24,9 +23,10 @@ export default function ProgressorAuth() {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!code.trim()) return;
     clearError();
     setIsSubmitting(true);
-    await signIn(email, password);
+    await signInWithCode(code);
     setIsSubmitting(false);
   };
 
@@ -63,7 +63,7 @@ export default function ProgressorAuth() {
             </div>
             <CardTitle className="text-2xl font-bold">Job Progressor</CardTitle>
             <CardDescription className="text-sm">
-              Ongoing & Multi-Trade Job Control Panel
+              Enter your access code to continue
             </CardDescription>
           </CardHeader>
 
@@ -77,37 +77,26 @@ export default function ProgressorAuth() {
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="code">Access Code</Label>
                 <Input
-                  id="email"
-                  type="email"
-                  placeholder="danella@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  id="code"
+                  type="text"
+                  placeholder="Enter your access code"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.toUpperCase())}
                   disabled={isSubmitting}
-                  autoComplete="email"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={isSubmitting}
-                  autoComplete="current-password"
+                  autoComplete="off"
+                  className="text-center text-lg tracking-widest font-mono"
                 />
               </div>
             </CardContent>
 
             <CardFooter>
-              <Button type="submit" className="w-full" disabled={isSubmitting}>
+              <Button type="submit" className="w-full" disabled={isSubmitting || !code.trim()}>
                 {isSubmitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Signing in...
+                    Verifying...
                   </>
                 ) : (
                   <>
