@@ -8,6 +8,7 @@ import { Job, JOB_STATUS_OPTIONS } from '@/types/job';
 import { SubTask, SUB_TASK_STATUS_OPTIONS, SubTaskStatus } from '@/types/subTask';
 import { mapDatabaseJobToJob } from '@/lib/api';
 import { AddSubTaskModal } from '@/components/progressor/AddSubTaskModal';
+import { SubTaskJobSheetPDF } from '@/components/progressor/SubTaskJobSheetPDF';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -628,6 +629,7 @@ export default function ProgressorPanel() {
                                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Status</th>
                                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Portal</th>
                                 <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Notes</th>
+                                <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground">PDF</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -718,6 +720,9 @@ export default function ProgressorPanel() {
                                         placeholder="Notes..."
                                         className="h-7 text-xs w-[150px]"
                                       />
+                                    </td>
+                                    <td className="px-3 py-2 text-center">
+                                      <SubTaskJobSheetPDF subTask={st} job={job} />
                                     </td>
                                   </tr>
                                 );
