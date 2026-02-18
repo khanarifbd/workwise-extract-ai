@@ -573,6 +573,33 @@ export type Database = {
         }
         Relationships: []
       }
+      progressor_access_codes: {
+        Row: {
+          code: string
+          created_at: string
+          display_name: string
+          email: string
+          id: string
+          is_active: boolean
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          display_name: string
+          email: string
+          id?: string
+          is_active?: boolean
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          display_name?: string
+          email?: string
+          id?: string
+          is_active?: boolean
+        }
+        Relationships: []
+      }
       team_access_codes: {
         Row: {
           access_code: string
