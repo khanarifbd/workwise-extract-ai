@@ -9,6 +9,7 @@ import { SubTask, SUB_TASK_STATUS_OPTIONS, SubTaskStatus } from '@/types/subTask
 import { mapDatabaseJobToJob } from '@/lib/api';
 import { AddSubTaskModal } from '@/components/progressor/AddSubTaskModal';
 import { SubTaskJobSheetPDF } from '@/components/progressor/SubTaskJobSheetPDF';
+import { TradeCompaniesModal } from '@/components/progressor/TradeCompaniesModal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -58,6 +59,7 @@ export default function ProgressorPanel() {
 
   // Add sub-task modal
   const [addSubTaskJob, setAddSubTaskJob] = useState<Job | null>(null);
+  const [showTradeCompanies, setShowTradeCompanies] = useState(false);
 
   // Fetch all ongoing/awaiting trade jobs
   const fetchJobs = useCallback(async () => {
@@ -258,6 +260,10 @@ export default function ProgressorPanel() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setShowTradeCompanies(true)}>
+              <Building2 className="h-3.5 w-3.5 mr-1" />
+              Contacts
+            </Button>
             <Button variant="outline" size="sm" onClick={() => { fetchJobs(); fetchAll(); }}>
               <RefreshCw className="h-3.5 w-3.5 mr-1" />
               Refresh
@@ -779,6 +785,11 @@ export default function ProgressorPanel() {
           onCreated={() => { fetchJobs(); fetchAll(); }}
         />
       )}
+
+      <TradeCompaniesModal
+        open={showTradeCompanies}
+        onOpenChange={setShowTradeCompanies}
+      />
     </div>
   );
 }
