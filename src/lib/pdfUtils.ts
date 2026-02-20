@@ -1,8 +1,7 @@
 import * as pdfjsLib from 'pdfjs-dist';
+import PDFWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
-// Use a static worker file copied to public/ for reliable loading
-// This avoids CDN failures and Vite bundling issues with the worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+pdfjsLib.GlobalWorkerOptions.workerSrc = PDFWorker;
 
 export const extractTextFromPDF = async (file: File): Promise<string> => {
   const timeoutMs = 30000;
