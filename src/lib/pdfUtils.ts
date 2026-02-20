@@ -1,13 +1,11 @@
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Configure pdf.js worker - use CDN for reliable worker loading
-// This avoids the "fake worker" fallback that can freeze the main thread
-const PDFJS_VERSION = '5.4.449';
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION}/pdf.worker.min.mjs`;
+// Use a static worker file copied to public/ for reliable loading
+// This avoids CDN failures and Vite bundling issues with the worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
 export const extractTextFromPDF = async (file: File): Promise<string> => {
-  // Add a timeout to prevent hanging indefinitely
-  const timeoutMs = 30000; // 30 seconds
+  const timeoutMs = 30000;
   
   const extractionPromise = (async () => {
     try {
@@ -38,9 +36,8 @@ export const extractTextFromPDF = async (file: File): Promise<string> => {
     }
   })();
 
-  // Race between extraction and timeout
   const timeoutPromise = new Promise<never>((_, reject) => {
-    setTimeout(() => reject(new Error('PDF extraction timed out after 30 seconds. The file may be too large or corrupted.')), timeoutMs);
+    setTimeout(() => reject(new Error('PDF extraction timed out after 30 seconds.')), timeoutMs);
   });
 
   return Promise.race([extractionPromise, timeoutPromise]);
