@@ -63,6 +63,20 @@ export const useAdminAuth = () => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        // CRITICAL: Skip disruptive state resets on token refresh events.
+        // TOKEN_REFRESHED fires periodically and should NOT cause the UI to
+        // unmount/remount (which loses all page state and redirects the user).
+        if (event === 'TOKEN_REFRESHED') {
+          // Silently update session/user refs without touching role flags
+          setState(prev => ({
+            ...prev,
+            session,
+            user: session?.user ?? null,
+          }));
+          return;
+        }
+
+        // For SIGNED_IN, SIGNED_OUT, USER_UPDATED etc. do the full flow
         setState(prev => ({
           ...prev,
           session,
