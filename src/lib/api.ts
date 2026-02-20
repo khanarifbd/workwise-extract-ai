@@ -67,8 +67,10 @@ const getRetryDelay = (attempt: number, config: RetryConfig): number => {
 // Check if error is rate limit related
 const isRateLimitError = (error: any): boolean => {
   if (error?.message?.includes('429')) return true;
-  if (error?.message?.includes('rate limit')) return true;
+  if (error?.message?.toLowerCase()?.includes('rate limit')) return true;
   if (error?.status === 429) return true;
+  // supabase.functions.invoke wraps errors in FunctionsHttpError
+  if (error?.context?.status === 429) return true;
   return false;
 };
 
@@ -137,7 +139,14 @@ export const extractPDFWithAI = async (pdfText: string): Promise<Partial<Job> | 
 
     if (error) {
       console.error('Error calling extract-pdf function:', error);
-      throw error;
+      // Extract status from FunctionsHttpError context
+      const status = (error as any)?.context?.status || (error as any)?.status;
+      if (status === 429) {
+        const rateLimitError = new Error('Rate limit exceeded');
+        (rateLimitError as any).status = 429;
+        throw rateLimitError;
+      }
+      throw new Error(error.message || 'Failed to call extract-pdf');
     }
 
     if (!data?.success) {
@@ -168,7 +177,14 @@ export const extractImageWithAI = async (imageBase64: string, mimeType: string):
 
     if (error) {
       console.error('Error calling extract-image function:', error);
-      throw error;
+      // Extract status from FunctionsHttpError context
+      const status = (error as any)?.context?.status || (error as any)?.status;
+      if (status === 429) {
+        const rateLimitError = new Error('Rate limit exceeded');
+        (rateLimitError as any).status = 429;
+        throw rateLimitError;
+      }
+      throw new Error(error.message || 'Failed to call extract-image');
     }
 
     if (!data?.success) {

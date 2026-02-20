@@ -1,5 +1,5 @@
 import { useCallback, useState, useEffect } from 'react';
-import { Upload, Image, X, Loader2, Check, AlertCircle, FileText } from 'lucide-react';
+import { Upload, Image, X, Loader2, Check, AlertCircle, FileText, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
@@ -36,6 +36,7 @@ export const BulkImageUpload = ({ onJobsExtracted, onClose, initialFiles }: Bulk
   const [files, setFiles] = useState<FileStatus[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [rateLimitInfo, setRateLimitInfo] = useState<{ waitTime: number; isWaiting: boolean }>({ waitTime: 0, isWaiting: false });
   const { toast } = useToast();
 
   // Initialize with provided files
@@ -99,118 +100,144 @@ export const BulkImageUpload = ({ onJobsExtracted, onClose, initialFiles }: Bulk
         const result = reader.result as string;
         resolve(result.split(',')[1]);
       };
-      reader.onerror = reject;
+      reader.onerror = () => reject(new Error('Failed to read file'));
       reader.readAsDataURL(file);
     });
   };
 
-  const [rateLimitInfo, setRateLimitInfo] = useState<{ waitTime: number; isWaiting: boolean }>({ waitTime: 0, isWaiting: false });
+  // Process a single file with proper error handling
+  const processSingleFile = async (fileStatus: FileStatus): Promise<{ jobData: Partial<Job> | null; error: string | null }> => {
+    try {
+      let extractedData: Partial<Job> | null = null;
 
-  const processFiles = async () => {
-    if (files.length === 0) return;
+      if (fileStatus.fileType === 'pdf') {
+        console.log(`Processing PDF: ${fileStatus.file.name}`);
+        const text = await extractTextFromPDF(fileStatus.file);
+        if (!text || text.trim().length < 10) {
+          return { jobData: null, error: 'PDF contains no readable text. Try uploading as an image.' };
+        }
+        extractedData = await extractPDFWithAI(text);
+      } else {
+        console.log(`Processing image: ${fileStatus.file.name}`);
+        const base64 = await fileToBase64(fileStatus.file);
+        extractedData = await extractImageWithAI(base64, fileStatus.file.type);
+      }
+
+      if (!extractedData) {
+        return { jobData: null, error: 'No data could be extracted' };
+      }
+
+      return { jobData: extractedData, error: null };
+    } catch (error: any) {
+      console.error(`Error processing ${fileStatus.file.name}:`, error);
+      
+      const message = error instanceof Error ? error.message : 'Extraction failed';
+      
+      // Provide user-friendly error messages
+      if (message.includes('Rate limit') || message.includes('429')) {
+        return { jobData: null, error: 'Rate limited - please retry in a moment' };
+      }
+      if (message.includes('timed out')) {
+        return { jobData: null, error: 'Processing timed out - file may be too large' };
+      }
+      if (message.includes('Unauthorized') || message.includes('401')) {
+        return { jobData: null, error: 'Session expired - please refresh and log in again' };
+      }
+      if (message.includes('Forbidden') || message.includes('403')) {
+        return { jobData: null, error: 'Admin access required' };
+      }
+      
+      return { jobData: null, error: message };
+    }
+  };
+
+  const processFiles = async (retryOnly = false) => {
+    const filesToProcess = retryOnly 
+      ? files.map((f, i) => ({ ...f, originalIndex: i })).filter(f => f.status === 'error')
+      : files.map((f, i) => ({ ...f, originalIndex: i })).filter(f => f.status === 'pending' || f.status === 'error');
+    
+    if (filesToProcess.length === 0) return;
 
     setIsProcessing(true);
     setRateLimitInfo({ waitTime: 0, isWaiting: false });
     const extractedJobs: Omit<Job, 'id'>[] = [];
-    const updatedFiles = [...files];
+    
+    // Reset statuses for files being processed
+    setFiles(prev => prev.map((f, i) => {
+      const isBeingProcessed = filesToProcess.some(fp => fp.originalIndex === i);
+      return isBeingProcessed ? { ...f, status: 'pending' as const, error: undefined } : f;
+    }));
 
-    // Longer delay between files to prevent rate limiting (3 seconds)
+    // Delay between files to prevent rate limiting
     const DELAY_BETWEEN_FILES = 3000;
 
-    // Process files sequentially with adequate spacing
-    for (let i = 0; i < files.length; i++) {
-      updatedFiles[i] = { ...updatedFiles[i], status: 'processing' };
-      setFiles([...updatedFiles]);
-      setProgress(Math.round(((i) / files.length) * 100));
+    for (let i = 0; i < filesToProcess.length; i++) {
+      const fileEntry = filesToProcess[i];
+      const originalIndex = fileEntry.originalIndex;
 
-      try {
-        let extractedData: Partial<Job> | null = null;
-        
-        if (files[i].fileType === 'pdf') {
-          console.log(`Processing PDF ${i + 1}/${files.length}: ${files[i].file.name}`);
-          const text = await extractTextFromPDF(files[i].file);
-          extractedData = await extractPDFWithAI(text);
-        } else {
-          console.log(`Processing image ${i + 1}/${files.length}: ${files[i].file.name}`);
-          const base64 = await fileToBase64(files[i].file);
-          extractedData = await extractImageWithAI(base64, files[i].file.type);
-        }
+      // Update status to processing
+      setFiles(prev => prev.map((f, idx) => 
+        idx === originalIndex ? { ...f, status: 'processing' as const } : f
+      ));
+      setProgress(Math.round((i / filesToProcess.length) * 100));
 
-        if (extractedData) {
-          const newJob: Omit<Job, 'id'> = {
-            jobNumber: extractedData.jobNumber || `JOB-${Date.now().toString().slice(-6)}-${i}`,
-            name: extractedData.name || 'Unknown',
-            address: extractedData.address || '',
-            phoneNumber: extractedData.phoneNumber || '',
-            summaryOfWorks: extractedData.summaryOfWorks || '',
-            description: extractedData.description || '',
-            workItems: (extractedData.workItems || []).map((item: any) => ({
-              ...item,
-              id: crypto.randomUUID(),
-            })),
-            additionalWorks: [],
-            team: null,
-            team2: null,
-            progress: 0,
-            progressNotes: '',
-            isCompleted: false,
-            isOngoing: false,
-            ongoingReason: '',
-            scheduledTrades: [],
-            createdAt: new Date(),
-            dateIssued: new Date(),
-            bookedDate: extractedData.bookedDate || null,
-            isFlexibleBooking: false,
-            bookingNotes: '',
-            completionDate: null,
-            attachments: [],
-            status: 'pending',
-            fanInfo: null,
-            linkedFanJobId: null,
-            insulationInfo: null,
-            linkedInsulationJobId: null,
-            costs: null,
-            privateNotes: '',
-            referBack: false,
-            referBackReason: '',
-            referBackDate: null,
-          };
+      const { jobData, error } = await processSingleFile(fileEntry);
 
-          extractedJobs.push(newJob);
-          updatedFiles[i] = { ...updatedFiles[i], status: 'success', jobData: extractedData };
-          console.log(`Successfully extracted job from ${files[i].file.name}`);
-        } else {
-          throw new Error('No data extracted');
-        }
-      } catch (error: any) {
-        console.error(`Error processing ${files[i].file.name}:`, error);
-        
-        // Check if it's a rate limit error and provide better feedback
-        const isRateLimited = error?.message?.includes('Rate limit') || 
-                              error?.message?.includes('429') ||
-                              error?.status === 429;
-        
-        updatedFiles[i] = { 
-          ...updatedFiles[i], 
-          status: 'error',
-          error: isRateLimited 
-            ? 'Rate limited - will retry automatically' 
-            : (error instanceof Error ? error.message : 'Extraction failed')
+      if (jobData && !error) {
+        const newJob: Omit<Job, 'id'> = {
+          jobNumber: jobData.jobNumber || `JOB-${Date.now().toString().slice(-6)}-${i}`,
+          name: jobData.name || 'Unknown',
+          address: jobData.address || '',
+          phoneNumber: jobData.phoneNumber || '',
+          summaryOfWorks: jobData.summaryOfWorks || '',
+          description: jobData.description || '',
+          workItems: (jobData.workItems || []).map((item: any) => ({
+            ...item,
+            id: crypto.randomUUID(),
+          })),
+          additionalWorks: [],
+          team: null,
+          team2: null,
+          progress: 0,
+          progressNotes: '',
+          isCompleted: false,
+          isOngoing: false,
+          ongoingReason: '',
+          scheduledTrades: [],
+          createdAt: new Date(),
+          dateIssued: new Date(),
+          bookedDate: jobData.bookedDate || null,
+          isFlexibleBooking: false,
+          bookingNotes: '',
+          completionDate: null,
+          attachments: [],
+          status: 'pending',
+          fanInfo: null,
+          linkedFanJobId: null,
+          insulationInfo: null,
+          linkedInsulationJobId: null,
+          costs: null,
+          privateNotes: '',
+          referBack: false,
+          referBackReason: '',
+          referBackDate: null,
         };
+
+        extractedJobs.push(newJob);
+        setFiles(prev => prev.map((f, idx) => 
+          idx === originalIndex ? { ...f, status: 'success' as const, jobData } : f
+        ));
+        console.log(`Successfully extracted job from ${fileEntry.file.name}`);
+      } else {
+        setFiles(prev => prev.map((f, idx) => 
+          idx === originalIndex ? { ...f, status: 'error' as const, error: error || 'Unknown error' } : f
+        ));
       }
 
-      setFiles([...updatedFiles]);
-      
-      // Longer delay between API calls to prevent rate limiting
-      if (i < files.length - 1) {
-        const remainingFiles = files.length - i - 1;
-        const waitTime = DELAY_BETWEEN_FILES;
-        
-        // Show waiting indicator
-        setRateLimitInfo({ waitTime: waitTime / 1000, isWaiting: true });
-        
-        await new Promise(resolve => setTimeout(resolve, waitTime));
-        
+      // Delay between API calls to prevent rate limiting
+      if (i < filesToProcess.length - 1) {
+        setRateLimitInfo({ waitTime: DELAY_BETWEEN_FILES / 1000, isWaiting: true });
+        await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_FILES));
         setRateLimitInfo({ waitTime: 0, isWaiting: false });
       }
     }
@@ -222,12 +249,12 @@ export const BulkImageUpload = ({ onJobsExtracted, onClose, initialFiles }: Bulk
       onJobsExtracted(extractedJobs);
       toast({
         title: "Bulk extraction complete",
-        description: `Successfully extracted ${extractedJobs.length} of ${files.length} jobs.`,
+        description: `Successfully extracted ${extractedJobs.length} of ${filesToProcess.length} jobs.`,
       });
     } else {
       toast({
         title: "Extraction failed",
-        description: "Could not extract any jobs from the uploaded files.",
+        description: "Could not extract any jobs from the uploaded files. Check errors for details.",
         variant: "destructive",
       });
     }
@@ -235,6 +262,9 @@ export const BulkImageUpload = ({ onJobsExtracted, onClose, initialFiles }: Bulk
 
   const successCount = files.filter(f => f.status === 'success').length;
   const errorCount = files.filter(f => f.status === 'error').length;
+  const pendingCount = files.filter(f => f.status === 'pending').length;
+  const hasRetryableFiles = errorCount > 0 && !isProcessing;
+  const canProcess = (pendingCount > 0 || hasRetryableFiles) && !isProcessing;
 
   return (
     <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -378,11 +408,21 @@ export const BulkImageUpload = ({ onJobsExtracted, onClose, initialFiles }: Bulk
         {/* Footer */}
         <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-border bg-muted/30">
           <Button variant="outline" onClick={onClose} disabled={isProcessing}>
-            Cancel
+            {successCount > 0 && !canProcess ? 'Done' : 'Cancel'}
           </Button>
+          {hasRetryableFiles && (
+            <Button
+              variant="outline"
+              onClick={() => processFiles(true)}
+              disabled={isProcessing}
+            >
+              <RotateCcw className="w-4 h-4 mr-1" />
+              Retry {errorCount} Failed
+            </Button>
+          )}
           <Button
-            onClick={processFiles}
-            disabled={files.length === 0 || isProcessing || files.every(f => f.status !== 'pending')}
+            onClick={() => processFiles(false)}
+            disabled={!canProcess}
           >
             {isProcessing ? (
               <>
@@ -390,7 +430,7 @@ export const BulkImageUpload = ({ onJobsExtracted, onClose, initialFiles }: Bulk
                 Processing...
               </>
             ) : (
-              <>Process {files.filter(f => f.status === 'pending').length} Images</>
+              <>Process {pendingCount > 0 ? pendingCount : errorCount} Files</>
             )}
           </Button>
         </div>
