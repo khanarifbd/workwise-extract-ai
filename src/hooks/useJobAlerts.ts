@@ -65,7 +65,7 @@ export const useJobAlerts = (
         isOverdue,
         isOngoing,
         requiresAttention,
-        hoursOverdue: Math.max(0, hoursOverdue - 24), // Hours overdue beyond 24hr threshold
+        hoursOverdue: Math.max(0, Math.round(hoursOverdue - 24)), // Hours overdue beyond 24hr threshold
       };
     }
 
@@ -143,6 +143,6 @@ export const shouldShowOngoingAlert = (
   return {
     showAlert,
     isAutoTriggered: showAlert,
-    hoursOverdue: Math.max(0, hoursOverdue - 24),
+    hoursOverdue: Math.max(0, Math.round(hoursOverdue - 24)),
   };
 };

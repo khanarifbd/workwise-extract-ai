@@ -57,7 +57,7 @@ export const getGMTStartOfDay = (date: Date | string): Date => {
  */
 export const getHoursDifferenceGMT = (date1: Date, date2: Date): number => {
   const diff = Math.abs(date1.getTime() - date2.getTime());
-  return Math.floor(diff / (1000 * 60 * 60));
+  return diff / (1000 * 60 * 60);
 };
 
 /**

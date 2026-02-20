@@ -68,7 +68,7 @@ export const OverdueJobsDashboard = ({
             if (isNotSignedOff) {
               result.push({
                 ...job,
-                hoursOverdue: hoursPast - 24,
+                hoursOverdue: Math.round(hoursPast - 24),
                 overdueReason: 'auto',
               });
             }
@@ -324,7 +324,7 @@ export const OverdueJobsDashboard = ({
                           <span className="text-xs text-orange-600 dark:text-orange-400 font-medium">
                             {job.hoursOverdue > 48 
                               ? `${Math.floor(job.hoursOverdue / 24)} days overdue`
-                              : `${job.hoursOverdue} hours overdue`
+                              : `${Math.round(job.hoursOverdue)} hours overdue`
                             }
                           </span>
                         )}
