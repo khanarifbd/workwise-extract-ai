@@ -161,6 +161,41 @@ export const useJobs = (categoryId?: string) => {
       const newTeam2 = updates.team2;
       const previousStatus = currentJob?.status;
       const newStatus = updates.status;
+
+      // CRITICAL: Enforce completion flag consistency
+      // When status changes to 'complete', sync all completion fields
+      if (newStatus === 'complete') {
+        updates.isCompleted = true;
+        updates.progress = 100;
+        if (!updates.completionDate) {
+          updates.completionDate = new Date();
+        }
+      }
+      // When status changes FROM 'complete' to something else, reset completion
+      if (newStatus && newStatus !== 'complete' && (currentJob.status === 'complete' || currentJob.isCompleted)) {
+        updates.isCompleted = false;
+        updates.completionDate = null;
+        if (updates.progress === undefined || updates.progress === 100) {
+          updates.progress = 0;
+        }
+      }
+      // When isCompleted is set directly, sync status too
+      if ('isCompleted' in updates) {
+        if (updates.isCompleted) {
+          updates.status = 'complete';
+          updates.progress = 100;
+          if (!updates.completionDate) updates.completionDate = new Date();
+        } else if (currentJob.isCompleted) {
+          // Un-completing: reset status if it was 'complete'
+          if (!newStatus && currentJob.status === 'complete') {
+            updates.status = 'pending';
+          }
+          updates.completionDate = null;
+          if (updates.progress === undefined || updates.progress === 100) {
+            updates.progress = 0;
+          }
+        }
+      }
       
       // Check if primary team is being assigned or unassigned
       const isNewTeam1Assignment = newTeam && newTeam !== previousTeam;
@@ -357,8 +392,7 @@ export const useJobs = (categoryId?: string) => {
     const newCompleted = !(job.isCompleted || job.progress === 100);
     await editJob(job.id, {
       isCompleted: newCompleted,
-      progress: newCompleted ? 100 : job.progress === 100 ? 0 : job.progress,
-      completionDate: newCompleted ? new Date() : null
+      // editJob will auto-sync status, progress, and completionDate
     });
   };
 
