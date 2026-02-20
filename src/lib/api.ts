@@ -357,6 +357,22 @@ export const createJob = async (job: Omit<Job, 'id'>, categoryId?: string): Prom
 export const updateJob = async (id: string, updates: Partial<Job>): Promise<Job> => {
   const dbUpdates = mapJobToDatabase(updates);
   
+  // CRITICAL: Enforce completion consistency at the database level
+  if (dbUpdates.status === 'complete') {
+    dbUpdates.is_completed = true;
+    dbUpdates.progress = 100;
+    if (!dbUpdates.completion_date) dbUpdates.completion_date = new Date().toISOString();
+  } else if (dbUpdates.is_completed === true) {
+    dbUpdates.status = 'complete';
+    dbUpdates.progress = 100;
+    if (!dbUpdates.completion_date) dbUpdates.completion_date = new Date().toISOString();
+  } else if (dbUpdates.status && dbUpdates.status !== 'complete' && dbUpdates.is_completed !== true) {
+    // Moving away from complete: ensure is_completed is false
+    if (dbUpdates.is_completed === undefined) {
+      // Only reset if the job was previously complete (handled by caller)
+    }
+  }
+  
   // Log the update for debugging
   console.log('Updating job:', id, 'with fields:', Object.keys(dbUpdates));
   
