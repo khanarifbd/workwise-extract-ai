@@ -22,8 +22,10 @@ import {
   Clock,
   CheckCircle2,
   RotateCcw,
+  FileDown,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { downloadReferBackJobPDF } from './ReferBackJobPDF';
 import { TeamSelector } from './TeamSelector';
 import { JobDetailsModal } from './JobDetailsModal';
 import { InlineDescriptionEditor } from './InlineDescriptionEditor';
@@ -972,6 +974,18 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                               <DropdownMenuItem onClick={() => setShowTransferModal(job)}>
                                 <ArrowRightLeft className="w-4 h-4 mr-2" />
                                 Transfer to...
+                              </DropdownMenuItem>
+                            )}
+                            {job.referBack && (
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  const history = contactHistoryMap[job.id] || [];
+                                  downloadReferBackJobPDF(job, history);
+                                  toast({ title: 'PDF Downloaded', description: `Refer back report for #${job.jobNumber}.` });
+                                }}
+                              >
+                                <FileDown className="w-4 h-4 mr-2" />
+                                Download Refer Back PDF
                               </DropdownMenuItem>
                             )}
                             {onReferBack && !job.referBack && (

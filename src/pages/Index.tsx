@@ -23,6 +23,7 @@ import { CompletedJobsPDFButton } from '@/components/CompletedJobsPDFButton';
 import { ManualJobEntry } from '@/components/ManualJobEntry';
 import { OverdueJobsDashboard } from '@/components/OverdueJobsDashboard';
 import { ReferBackPDFButton } from '@/components/ReferBackPDFButton';
+import { downloadReferBackJobPDF } from '@/components/ReferBackJobPDF';
 import { useJobAlerts } from '@/hooks/useJobAlerts';
 import { useOverdueNotifications } from '@/hooks/useOverdueNotifications';
 import { useUrlState } from '@/hooks/useUrlState';
@@ -40,6 +41,7 @@ import { useFuzzySearch } from '@/hooks/useFuzzySearch';
 import { useAllContactHistory } from '@/hooks/useContactHistory';
 import { extractPDFWithAI, extractImageWithAI, checkDuplicateJobNumber, extractInsulationJobsFromDocument, findExistingJobByAddressOrNumber, mergeJobData, validateAndFixInsulationJob, checkInsulationDuplicates } from '@/lib/api';
 import { extractTextFromPDF } from '@/lib/pdfUtils';
+import { supabase } from '@/integrations/supabase/client';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import ExcelJS from 'exceljs';
@@ -549,14 +551,48 @@ const Index = () => {
 
   const handleReferBack = async (job: Job, reason?: string) => {
     try {
+      const updatedJob = {
+        ...job,
+        referBack: true,
+        referBackReason: reason || 'Manual refer back',
+        referBackDate: new Date(),
+      };
       await editJob(job.id, {
         referBack: true,
         referBackReason: reason || 'Manual refer back',
         referBackDate: new Date(),
       });
+
+      // Auto-generate PDF report on refer back
+      try {
+        // Fetch contact history for this job
+        const { data: historyData } = await supabase
+          .from('contact_history')
+          .select('*')
+          .eq('job_id', job.id)
+          .order('contact_date', { ascending: false });
+
+        const contactHistory = (historyData || []).map((row: any) => ({
+          id: row.id,
+          jobId: row.job_id,
+          contactDate: new Date(row.contact_date),
+          outcome: row.outcome,
+          notes: row.notes,
+          nextAction: row.next_action,
+          nextActionDate: row.next_action_date ? new Date(row.next_action_date) : null,
+          createdBy: row.created_by,
+          createdAt: new Date(row.created_at),
+        }));
+
+        downloadReferBackJobPDF(updatedJob, contactHistory);
+      } catch (pdfError) {
+        console.error('Auto PDF generation failed:', pdfError);
+        // Don't block the refer back if PDF fails
+      }
+
       toast({
         title: "Referred Back",
-        description: `Job #${job.jobNumber} has been moved to Refer Back.`,
+        description: `Job #${job.jobNumber} has been moved to Refer Back. PDF report downloaded.`,
       });
     } catch (error) {
       toast({
