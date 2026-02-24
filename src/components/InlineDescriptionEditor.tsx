@@ -4,6 +4,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Edit2, Check, X, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import { HighlightText } from '@/components/HighlightText';
 import {
   Tooltip,
   TooltipContent,
@@ -17,6 +18,7 @@ interface InlineDescriptionEditorProps {
   isExpanded: boolean;
   onToggleExpand: () => void;
   shouldTruncate: boolean;
+  searchTerm?: string;
 }
 
 // Priority keywords to detect in descriptions
@@ -28,6 +30,7 @@ export const InlineDescriptionEditor = ({
   isExpanded,
   onToggleExpand,
   shouldTruncate,
+  searchTerm,
 }: InlineDescriptionEditorProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(description);
@@ -131,12 +134,16 @@ export const InlineDescriptionEditor = ({
         </TooltipProvider>
       )}
       
-      <p className={cn(
+      <div className={cn(
         "text-foreground",
         !isExpanded && shouldTruncate && "line-clamp-2"
       )}>
-        {description || <span className="text-muted-foreground italic">No description</span>}
-      </p>
+        {description ? (
+          <HighlightText text={description} highlight={searchTerm || ''} />
+        ) : (
+          <span className="text-muted-foreground italic">No description</span>
+        )}
+      </div>
       <div className="flex items-center gap-1 mt-1">
         {shouldTruncate && (
           <button
