@@ -282,7 +282,22 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
   const handleBookedDateChange = (jobId: string, bookedDate: Date | null, isFlexible: boolean = false) => {
     const job = jobs.find(j => j.id === jobId);
     if (job) {
-      onUpdateJob({ ...job, bookedDate, isFlexibleBooking: isFlexible });
+      const updates: Partial<Job> = { bookedDate, isFlexibleBooking: isFlexible };
+      // Booked date overrides completion - if setting a new booked date on a completed job,
+      // un-complete it so it moves to the booked tab
+      if (bookedDate && (job.isCompleted || job.status === 'complete')) {
+        updates.isCompleted = false;
+        updates.status = 'started' as JobStatus;
+        updates.completionDate = null;
+        if (job.progress === 100) {
+          updates.progress = 50;
+        }
+        toast({
+          title: 'Job Rebooked',
+          description: `${job.name} has been moved from Completed to Booked on ${format(bookedDate, 'dd/MM/yyyy')}.`,
+        });
+      }
+      onUpdateJob({ ...job, ...updates });
     }
   };
 
