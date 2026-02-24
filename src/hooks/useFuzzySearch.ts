@@ -20,6 +20,7 @@ const FUSE_KEYS = [
   { name: 'bookingNotes', weight: 0.8 },
   { name: 'progressNotes', weight: 0.8 },
   { name: 'privateNotes', weight: 0.8 },
+  { name: 'ongoingReason', weight: 0.8 },
   { name: 'workItems.sorCode', weight: 1.5 },
   { name: 'workItems.description', weight: 1.0 },
   { name: 'additionalWorks.sorCode', weight: 1.2 },
@@ -27,8 +28,48 @@ const FUSE_KEYS = [
 ];
 
 /**
- * Custom hook for fuzzy searching jobs with Fuse.js
- * Uses a stable Fuse index that only rebuilds when the job list identity changes
+ * Performs a case-insensitive substring search across all relevant text fields of a job.
+ * Returns true if the keyword is found anywhere in the job's data.
+ */
+const jobContainsKeyword = (job: Job, keyword: string): boolean => {
+  const lower = keyword.toLowerCase();
+
+  // Direct string fields
+  if (job.jobNumber?.toLowerCase().includes(lower)) return true;
+  if (job.name?.toLowerCase().includes(lower)) return true;
+  if (job.address?.toLowerCase().includes(lower)) return true;
+  if (job.phoneNumber?.toLowerCase().includes(lower)) return true;
+  if (job.description?.toLowerCase().includes(lower)) return true;
+  if (job.summaryOfWorks?.toLowerCase().includes(lower)) return true;
+  if (job.team?.toLowerCase().includes(lower)) return true;
+  if (job.team2?.toLowerCase().includes(lower)) return true;
+  if (job.bookingNotes?.toLowerCase().includes(lower)) return true;
+  if (job.progressNotes?.toLowerCase().includes(lower)) return true;
+  if (job.privateNotes?.toLowerCase().includes(lower)) return true;
+  if (job.ongoingReason?.toLowerCase().includes(lower)) return true;
+  if (job.status?.toLowerCase().includes(lower)) return true;
+
+  // Work items
+  if (job.workItems?.some(w =>
+    w.sorCode?.toLowerCase().includes(lower) ||
+    w.description?.toLowerCase().includes(lower) ||
+    w.variation?.toLowerCase().includes(lower)
+  )) return true;
+
+  // Additional works
+  if (job.additionalWorks?.some(w =>
+    w.sorCode?.toLowerCase().includes(lower) ||
+    w.description?.toLowerCase().includes(lower) ||
+    w.variation?.toLowerCase().includes(lower)
+  )) return true;
+
+  return false;
+};
+
+/**
+ * Custom hook for searching jobs - exact substring match first, fuzzy fallback second.
+ * This ensures keywords like "basement", "cellar", "polysafe" are found with 100% accuracy
+ * while still supporting fuzzy matching for typos and partial name matches.
  */
 export const useFuzzySearch = (
   jobs: Job[],
@@ -40,13 +81,10 @@ export const useFuzzySearch = (
     minMatchCharLength = 2,
   } = options;
 
-  // Track previous jobs array reference to avoid unnecessary Fuse rebuilds
   const prevJobsRef = useRef<Job[]>([]);
   const fuseRef = useRef<Fuse<Job> | null>(null);
 
-  // Only rebuild Fuse when the jobs array reference actually changes
   const fuse = useMemo(() => {
-    // Reuse existing Fuse if the jobs array is the same reference
     if (prevJobsRef.current === jobs && fuseRef.current) {
       return fuseRef.current;
     }
@@ -68,23 +106,19 @@ export const useFuzzySearch = (
     return instance;
   }, [jobs, threshold, minMatchCharLength]);
 
-  // Perform search
   const results = useMemo(() => {
     if (!searchTerm || searchTerm.trim().length < 2) {
       return { matches: jobs, hasSearch: false };
     }
 
     const trimmedSearch = searchTerm.trim();
-    
-    // First, try exact substring match for job numbers (case insensitive)
-    const exactMatches = jobs.filter(job => 
-      job.jobNumber.toLowerCase().includes(trimmedSearch.toLowerCase())
-    );
-    
+
+    // Step 1: Exact substring matches across ALL fields (100% accurate for keywords)
+    const exactMatches = jobs.filter(job => jobContainsKeyword(job, trimmedSearch));
+
     if (exactMatches.length > 0) {
+      // We found exact matches - also run fuzzy to catch near-misses, but exact comes first
       const fuseResults = fuse.search(trimmedSearch);
-      
-      // Combine: exact matches first, then fuzzy matches not already included
       const exactIds = new Set(exactMatches.map(e => e.id));
       const combined = [
         ...exactMatches,
@@ -92,13 +126,11 @@ export const useFuzzySearch = (
           .filter(r => !exactIds.has(r.item.id))
           .map(r => r.item)
       ];
-      
       return { matches: combined, hasSearch: true };
     }
 
-    // Use fuzzy search for general queries
+    // Step 2: No exact matches found - fall back to fuzzy search for typos/partial matches
     const fuseResults = fuse.search(trimmedSearch);
-    
     return {
       matches: fuseResults.map(result => result.item),
       hasSearch: true,
@@ -107,8 +139,9 @@ export const useFuzzySearch = (
 
   return results;
 };
+
 /**
- * Simple fuzzy search function for use outside of React components
+ * Simple search function for use outside of React components
  */
 export const fuzzySearchJobs = (
   jobs: Job[],
@@ -119,29 +152,32 @@ export const fuzzySearchJobs = (
     return jobs;
   }
 
+  const trimmed = searchTerm.trim();
+
+  // Exact substring first
+  const exactMatches = jobs.filter(job => jobContainsKeyword(job, trimmed));
+  if (exactMatches.length > 0) {
+    const exactIds = new Set(exactMatches.map(e => e.id));
+    const fuse = new Fuse(jobs, {
+      keys: FUSE_KEYS,
+      threshold,
+      ignoreLocation: true,
+      findAllMatches: true,
+      shouldSort: true,
+    });
+    const fuseResults = fuse.search(trimmed);
+    return [
+      ...exactMatches,
+      ...fuseResults.filter(r => !exactIds.has(r.item.id)).map(r => r.item)
+    ];
+  }
+
   const fuse = new Fuse(jobs, {
-    keys: [
-      { name: 'jobNumber', weight: 2.0 },
-      { name: 'name', weight: 1.8 },
-      { name: 'address', weight: 1.5 },
-      { name: 'phoneNumber', weight: 1.2 },
-      { name: 'description', weight: 1.0 },
-      { name: 'summaryOfWorks', weight: 1.0 },
-      { name: 'team', weight: 1.2 },
-      { name: 'team2', weight: 1.0 },
-      { name: 'bookingNotes', weight: 0.8 },
-      { name: 'progressNotes', weight: 0.8 },
-      { name: 'workItems.sorCode', weight: 1.5 },
-      { name: 'workItems.description', weight: 1.0 },
-      { name: 'additionalWorks.sorCode', weight: 1.2 },
-      { name: 'additionalWorks.description', weight: 0.9 },
-    ],
+    keys: FUSE_KEYS,
     threshold,
     ignoreLocation: true,
     findAllMatches: true,
     shouldSort: true,
   });
-
-  const results = fuse.search(searchTerm.trim());
-  return results.map(r => r.item);
+  return fuse.search(trimmed).map(r => r.item);
 };
