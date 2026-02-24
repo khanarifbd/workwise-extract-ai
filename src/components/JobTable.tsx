@@ -41,7 +41,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useTeamSettings } from '@/hooks/useTeamSettings';
 import { useTeamAvailability } from '@/hooks/useTeamAvailability';
 import { useAllContactHistory } from '@/hooks/useContactHistory';
-import { useSignOffStatus } from '@/hooks/useSignOffStatus';
+// useSignOffStatus passed as prop from parent to avoid duplicate calls
 import { shouldShowOngoingAlert } from '@/hooks/useJobAlerts';
 import { AwabsComplianceBadge } from './AwabsComplianceBadge';
 import { CONTACT_OUTCOMES, determineNextAction, NextAction } from '@/types/contactHistory';
@@ -68,7 +68,16 @@ interface JobTableProps {
   currentCategoryId?: string;
   categories?: { id: string; name: string; color: string }[];
   readOnly?: boolean;
+  getSignOffStatus?: (jobId: string, team1?: string | null, team2?: string | null) => {
+    signedOffTeams: string[];
+    totalAssigned: number;
+    totalSignedOff: number;
+    allSignedOff: boolean;
+    pending: boolean;
+  };
 }
+
+const ROWS_PER_PAGE = 50;
 
 // Helper to find duplicate job numbers
 const findDuplicates = (jobs: Job[]): Set<string> => {
@@ -86,7 +95,7 @@ const findDuplicates = (jobs: Job[]): Set<string> => {
   return duplicates;
 };
 
-export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onBatchUpdateTeam, onTransferJob, onDuplicateToCategory, onReferBack, fanCategoryId, onFanJobCreated, isFanCategory = false, currentCategoryId, categories = [], readOnly = false }, ref) => {
+export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onBatchUpdateTeam, onTransferJob, onDuplicateToCategory, onReferBack, fanCategoryId, onFanJobCreated, isFanCategory = false, currentCategoryId, categories = [], readOnly = false, getSignOffStatus: getSignOffStatusProp }, ref) => {
   const [showTeamSelector, setShowTeamSelector] = useState<string | null>(null);
   const [showTransferModal, setShowTransferModal] = useState<Job | null>(null);
   const [showJobDetails, setShowJobDetails] = useState<Job | null>(null);
@@ -108,12 +117,44 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
   const { settings: teamSettings } = useTeamSettings();
   const { hasAvailabilityConflict } = useTeamAvailability();
   
-  // Load contact history for all jobs
-  const jobIds = useMemo(() => jobs.map(j => j.id), [jobs]);
-  const { historyMap: contactHistoryMap, refreshAllHistory } = useAllContactHistory(jobIds);
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(0);
   
-  // Get sign-off status for all jobs (for 24hr ongoing alert logic)
-  const { getSignOffStatus } = useSignOffStatus(jobIds);
+  // Sort jobs once, then paginate
+  const sortedJobs = useMemo(() => {
+    return [...jobs].sort((a, b) => {
+      const aCompleted = a.status === 'complete' || a.isCompleted || a.progress === 100;
+      const bCompleted = b.status === 'complete' || b.isCompleted || b.progress === 100;
+      if (aCompleted && !bCompleted) return 1;
+      if (!aCompleted && bCompleted) return -1;
+      return 0;
+    });
+  }, [jobs]);
+  
+  // Paginate
+  const totalPages = Math.ceil(sortedJobs.length / ROWS_PER_PAGE);
+  const paginatedJobs = useMemo(() => {
+    const start = currentPage * ROWS_PER_PAGE;
+    return sortedJobs.slice(start, start + ROWS_PER_PAGE);
+  }, [sortedJobs, currentPage]);
+  
+  // Reset page when jobs change
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [jobs.length]);
+  
+  // Load contact history only for VISIBLE (paginated) jobs
+  const visibleJobIds = useMemo(() => paginatedJobs.map(j => j.id), [paginatedJobs]);
+  const { historyMap: contactHistoryMap, refreshAllHistory } = useAllContactHistory(visibleJobIds);
+  
+  // Use prop or fallback for sign-off status (avoid duplicate hook)
+  const getSignOffStatus = getSignOffStatusProp || ((jobId: string) => ({
+    signedOffTeams: [] as string[],
+    totalAssigned: 0,
+    totalSignedOff: 0,
+    allSignedOff: false,
+    pending: false,
+  }));
   
   // Build dynamic teams list from settings - include ALL teams for bulk assign
   // All teams should be available for assignment regardless of category
@@ -135,13 +176,13 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
   useEffect(() => {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent<{ jobId?: string }>).detail;
-      if (!detail?.jobId || jobIds.includes(detail.jobId)) {
+      if (!detail?.jobId || visibleJobIds.includes(detail.jobId)) {
         refreshAllHistory();
       }
     };
     window.addEventListener('contact-history-updated', handler as EventListener);
     return () => window.removeEventListener('contact-history-updated', handler as EventListener);
-  }, [jobIds.join(','), refreshAllHistory]);
+  }, [visibleJobIds, refreshAllHistory]);
 
   const handleTeamSelect = (jobId: string, teamSelection: string | null) => {
     const job = jobs.find(j => j.id === jobId);
@@ -576,14 +617,8 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
             </tr>
           </thead>
           <tbody>
-            {/* Sort jobs: completed at the bottom */}
-            {[...jobs].sort((a, b) => {
-              const aCompleted = a.status === 'complete' || a.isCompleted || a.progress === 100;
-              const bCompleted = b.status === 'complete' || b.isCompleted || b.progress === 100;
-              if (aCompleted && !bCompleted) return 1;
-              if (!aCompleted && bCompleted) return -1;
-              return 0;
-            }).map((job) => {
+            {/* Use pre-sorted, paginated jobs */}
+            {paginatedJobs.map((job) => {
               const isExpanded = expandedDescriptions.has(job.id);
               const description = job.description || job.summaryOfWorks;
               const shouldTruncate = description.length > 100;
@@ -1040,6 +1075,20 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
           </tbody>
         </table>
       </div>
+      
+      {/* Pagination controls */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between px-4 py-2 border-t border-border bg-muted/30">
+          <span className="text-xs text-muted-foreground">
+            Showing {currentPage * ROWS_PER_PAGE + 1}–{Math.min((currentPage + 1) * ROWS_PER_PAGE, sortedJobs.length)} of {sortedJobs.length}
+          </span>
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="sm" className="h-7 text-xs" disabled={currentPage === 0} onClick={() => setCurrentPage(p => p - 1)}>Previous</Button>
+            <span className="text-xs px-2">{currentPage + 1} / {totalPages}</span>
+            <Button variant="outline" size="sm" className="h-7 text-xs" disabled={currentPage >= totalPages - 1} onClick={() => setCurrentPage(p => p + 1)}>Next</Button>
+          </div>
+        </div>
+      )}
 
       {showJobDetails && (
         <JobDetailsModal
