@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { FileDown } from 'lucide-react';
+import { FileDown, Loader2 } from 'lucide-react';
 import { Job } from '@/types/job';
 import { ContactHistory } from '@/types/contactHistory';
 import { useToast } from '@/hooks/use-toast';
 import { generateReferBackJobPDF } from './ReferBackJobPDF';
 import { format } from 'date-fns';
 import { Checkbox } from '@/components/ui/checkbox';
+import { supabase } from '@/integrations/supabase/client';
 import {
   Dialog,
   DialogContent,
@@ -19,14 +20,14 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface ReferBackPDFButtonProps {
   jobs: Job[];
-  contactHistoryMap: Record<string, ContactHistory[]>;
   categoryName?: string;
 }
 
-export function ReferBackPDFButton({ jobs, contactHistoryMap, categoryName = 'Jobs' }: ReferBackPDFButtonProps) {
+export function ReferBackPDFButton({ jobs, categoryName = 'Jobs' }: ReferBackPDFButtonProps) {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const handleOpen = () => {
     if (jobs.length === 0) {
@@ -37,7 +38,6 @@ export function ReferBackPDFButton({ jobs, contactHistoryMap, categoryName = 'Jo
       });
       return;
     }
-    // Pre-select all jobs
     setSelectedJobIds(new Set(jobs.map(j => j.id)));
     setOpen(true);
   };
@@ -62,7 +62,7 @@ export function ReferBackPDFButton({ jobs, contactHistoryMap, categoryName = 'Jo
     }
   };
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     const selected = jobs.filter(j => selectedJobIds.has(j.id));
     if (selected.length === 0) {
       toast({
@@ -73,18 +73,54 @@ export function ReferBackPDFButton({ jobs, contactHistoryMap, categoryName = 'Jo
       return;
     }
 
-    // Generate individual PDF per selected job
-    selected.forEach(job => {
-      const history = contactHistoryMap[job.id] || [];
-      const doc = generateReferBackJobPDF(job, history);
-      doc.save(`refer-back-${job.jobNumber}-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
-    });
+    setIsGenerating(true);
+    try {
+      // Fetch contact history on-demand for selected jobs only
+      const { data: historyData } = await supabase
+        .from('contact_history')
+        .select('*')
+        .in('job_id', selected.map(j => j.id))
+        .order('contact_date', { ascending: false });
 
-    toast({
-      title: 'PDF(s) Downloaded',
-      description: `Generated ${selected.length} refer back report${selected.length > 1 ? 's' : ''}.`,
-    });
-    setOpen(false);
+      const contactHistoryMap: Record<string, ContactHistory[]> = {};
+      (historyData || []).forEach((row: any) => {
+        const entry: ContactHistory = {
+          id: row.id,
+          jobId: row.job_id,
+          contactDate: new Date(row.contact_date),
+          outcome: row.outcome,
+          notes: row.notes,
+          nextAction: row.next_action,
+          nextActionDate: row.next_action_date ? new Date(row.next_action_date) : null,
+          createdBy: row.created_by,
+          createdAt: new Date(row.created_at),
+        };
+        if (!contactHistoryMap[row.job_id]) contactHistoryMap[row.job_id] = [];
+        contactHistoryMap[row.job_id].push(entry);
+      });
+
+      // Generate individual PDF per selected job
+      selected.forEach(job => {
+        const history = contactHistoryMap[job.id] || [];
+        const doc = generateReferBackJobPDF(job, history);
+        doc.save(`refer-back-${job.jobNumber}-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+      });
+
+      toast({
+        title: 'PDF(s) Downloaded',
+        description: `Generated ${selected.length} refer back report${selected.length > 1 ? 's' : ''}.`,
+      });
+      setOpen(false);
+    } catch (error) {
+      console.error('PDF generation failed:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to generate PDF reports.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const allSelected = selectedJobIds.size === jobs.length && jobs.length > 0;
@@ -111,7 +147,6 @@ export function ReferBackPDFButton({ jobs, contactHistoryMap, categoryName = 'Jo
           </DialogHeader>
 
           <div className="space-y-3">
-            {/* Select All */}
             <label className="flex items-center gap-2 p-2 rounded-md bg-muted/50 cursor-pointer hover:bg-muted transition-colors">
               <Checkbox
                 checked={allSelected}
@@ -122,7 +157,6 @@ export function ReferBackPDFButton({ jobs, contactHistoryMap, categoryName = 'Jo
               </span>
             </label>
 
-            {/* Job list */}
             <ScrollArea className="max-h-64">
               <div className="space-y-1">
                 {jobs.map(job => (
@@ -153,10 +187,10 @@ export function ReferBackPDFButton({ jobs, contactHistoryMap, categoryName = 'Jo
             <Button
               size="sm"
               onClick={handleGenerate}
-              disabled={selectedJobIds.size === 0}
+              disabled={selectedJobIds.size === 0 || isGenerating}
               className="gap-1.5 bg-red-600 hover:bg-red-700 text-white"
             >
-              <FileDown className="w-3.5 h-3.5" />
+              {isGenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileDown className="w-3.5 h-3.5" />}
               Generate {selectedJobIds.size > 0 ? `(${selectedJobIds.size})` : ''}
             </Button>
           </DialogFooter>

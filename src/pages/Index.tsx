@@ -39,7 +39,7 @@ import { useCategories } from '@/hooks/useCategories';
 import { useSignOffStatus } from '@/hooks/useSignOffStatus';
 import { useFuzzySearch } from '@/hooks/useFuzzySearch';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
-import { useAllContactHistory } from '@/hooks/useContactHistory';
+
 import { extractPDFWithAI, extractImageWithAI, checkDuplicateJobNumber, extractInsulationJobsFromDocument, findExistingJobByAddressOrNumber, mergeJobData, validateAndFixInsulationJob, checkInsulationDuplicates } from '@/lib/api';
 import { extractTextFromPDF } from '@/lib/pdfUtils';
 import { supabase } from '@/integrations/supabase/client';
@@ -76,9 +76,7 @@ const Index = () => {
   const jobIds = useMemo(() => jobs.map(j => j.id), [jobs]);
   const { getSignOffStatus } = useSignOffStatus(jobIds);
   
-  // Get contact history for refer back jobs (for PDF generation)
-  const referBackJobIds = useMemo(() => jobs.filter(j => j.referBack).map(j => j.id), [jobs]);
-  const { historyMap: referBackContactHistoryMap } = useAllContactHistory(referBackJobIds);
+  // Contact history for refer back PDF is now fetched on-demand inside ReferBackPDFButton
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [showExport, setShowExport] = useState(false);
@@ -1445,7 +1443,6 @@ const Index = () => {
               {activeDatabaseTab === 'refer_back' && (
                 <ReferBackPDFButton 
                   jobs={displayedJobs}
-                  contactHistoryMap={referBackContactHistoryMap}
                   categoryName={categories.find(c => c.id === activeCategory)?.name || 'Jobs'}
                 />
               )}

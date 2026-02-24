@@ -144,7 +144,11 @@ export function useAllContactHistory(jobIds: string[]) {
   const [historyMap, setHistoryMap] = useState<Record<string, ContactHistory[]>>({});
   const [isLoading, setIsLoading] = useState(false);
 
-  const jobIdSetKey = jobIds.join(',');
+  // Use a stable hash instead of joining all IDs (which can be absurdly long)
+  const jobIdCount = jobIds.length;
+  const jobIdHash = jobIds.length > 0 
+    ? `${jobIds.length}_${jobIds[0]?.slice(0, 8)}_${jobIds[jobIds.length - 1]?.slice(0, 8)}`
+    : 'empty';
 
   const loadAllHistory = useCallback(async () => {
     if (!jobIds.length) {
@@ -154,17 +158,25 @@ export function useAllContactHistory(jobIds: string[]) {
 
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('contact_history')
-        .select('*')
-        .in('job_id', jobIds)
-        .order('contact_date', { ascending: false });
+      // Batch in chunks of 50 to avoid oversized IN queries
+      const chunkSize = 50;
+      const allData: any[] = [];
+      
+      for (let i = 0; i < jobIds.length; i += chunkSize) {
+        const chunk = jobIds.slice(i, i + chunkSize);
+        const { data, error } = await supabase
+          .from('contact_history')
+          .select('*')
+          .in('job_id', chunk)
+          .order('contact_date', { ascending: false });
 
-      if (error) throw error;
+        if (error) throw error;
+        if (data) allData.push(...data);
+      }
 
       const mapped: Record<string, ContactHistory[]> = {};
 
-      (data || []).forEach((row: any) => {
+      allData.forEach((row: any) => {
         const entry: ContactHistory = {
           id: row.id,
           jobId: row.job_id,
@@ -187,26 +199,25 @@ export function useAllContactHistory(jobIds: string[]) {
     } finally {
       setIsLoading(false);
     }
-  }, [jobIdSetKey]);
+  }, [jobIdHash, jobIdCount]);
 
   useEffect(() => {
     loadAllHistory();
   }, [loadAllHistory]);
 
-  // Realtime: refresh when any relevant job's contact history changes
+  // Realtime: use a short stable channel name
   useEffect(() => {
     if (!jobIds.length) return;
 
-    const jobIdSet = new Set(jobIds);
-
     const channel = supabase
-      .channel(`contact_history_multi_${jobIdSetKey}`)
+      .channel(`contact_history_bulk_${jobIdHash}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'contact_history' },
         (payload) => {
           const newJobId = (payload as any).new?.job_id as string | undefined;
           const oldJobId = (payload as any).old?.job_id as string | undefined;
+          const jobIdSet = new Set(jobIds);
           if ((newJobId && jobIdSet.has(newJobId)) || (oldJobId && jobIdSet.has(oldJobId))) {
             loadAllHistory();
           }
@@ -217,7 +228,7 @@ export function useAllContactHistory(jobIds: string[]) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [jobIdSetKey, loadAllHistory]);
+  }, [jobIdHash, jobIdCount, loadAllHistory]);
 
   return {
     historyMap,
