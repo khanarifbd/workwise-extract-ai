@@ -44,6 +44,7 @@ import { useAllContactHistory } from '@/hooks/useContactHistory';
 // useSignOffStatus passed as prop from parent to avoid duplicate calls
 import { shouldShowOngoingAlert } from '@/hooks/useJobAlerts';
 import { AwabsComplianceBadge } from './AwabsComplianceBadge';
+import { HighlightText } from './HighlightText';
 import { CONTACT_OUTCOMES, determineNextAction, NextAction } from '@/types/contactHistory';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
@@ -746,11 +747,43 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                   </td>
                   <td className="relative z-20">
                     <div className="space-y-0.5">
-                      <p className="font-medium text-foreground text-sm">{job.name}</p>
+                      <p className="font-medium text-foreground text-sm">
+                        <HighlightText text={job.name} highlight={searchTerm || ''} />
+                      </p>
                       <div className="flex items-center gap-1 text-xs text-muted-foreground">
                         <MapPin className="w-3 h-3 flex-shrink-0" />
-                        <span className="truncate max-w-[120px]">{job.address}</span>
+                        <span className="truncate max-w-[120px]">
+                          <HighlightText text={job.address} highlight={searchTerm || ''} />
+                        </span>
                       </div>
+                      {/* Show matched field hint when keyword isn't in name/address/description */}
+                      {searchTerm && searchTerm.trim().length >= 2 && (() => {
+                        const term = searchTerm.trim().toLowerCase();
+                        const visibleMatch = 
+                          job.name?.toLowerCase().includes(term) ||
+                          job.address?.toLowerCase().includes(term) ||
+                          (job.description || job.summaryOfWorks || '').toLowerCase().includes(term);
+                        if (visibleMatch) return null;
+                        // Find which hidden field matched
+                        const matchedFields: string[] = [];
+                        if (job.workItems?.some(w => w.sorCode?.toLowerCase().includes(term) || w.description?.toLowerCase().includes(term) || w.variation?.toLowerCase().includes(term))) matchedFields.push('Work Items');
+                        if (job.additionalWorks?.some(w => w.sorCode?.toLowerCase().includes(term) || w.description?.toLowerCase().includes(term) || w.variation?.toLowerCase().includes(term))) matchedFields.push('Additional Works');
+                        if (job.summaryOfWorks?.toLowerCase().includes(term) && !(job.description || job.summaryOfWorks || '').toLowerCase().includes(term)) matchedFields.push('Summary');
+                        if (job.bookingNotes?.toLowerCase().includes(term)) matchedFields.push('Booking Notes');
+                        if (job.progressNotes?.toLowerCase().includes(term)) matchedFields.push('Progress Notes');
+                        if (job.privateNotes?.toLowerCase().includes(term)) matchedFields.push('Private Notes');
+                        if (job.ongoingReason?.toLowerCase().includes(term)) matchedFields.push('Ongoing Notes');
+                        if (job.phoneNumber?.toLowerCase().includes(term)) matchedFields.push('Phone');
+                        if (job.jobNumber?.toLowerCase().includes(term)) matchedFields.push('Job #');
+                        if (matchedFields.length === 0) return null;
+                        return (
+                          <div className="mt-0.5">
+                            <span className="text-xs bg-yellow-200 dark:bg-yellow-700/50 text-yellow-800 dark:text-yellow-200 rounded px-1 py-0.5 font-medium">
+                              Found in: {matchedFields.join(', ')}
+                            </span>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </td>
                   {/* Action Column */}

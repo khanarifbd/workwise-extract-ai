@@ -117,16 +117,9 @@ export const useFuzzySearch = (
     const exactMatches = jobs.filter(job => jobContainsKeyword(job, trimmedSearch));
 
     if (exactMatches.length > 0) {
-      // We found exact matches - also run fuzzy to catch near-misses, but exact comes first
-      const fuseResults = fuse.search(trimmedSearch);
-      const exactIds = new Set(exactMatches.map(e => e.id));
-      const combined = [
-        ...exactMatches,
-        ...fuseResults
-          .filter(r => !exactIds.has(r.item.id))
-          .map(r => r.item)
-      ];
-      return { matches: combined, hasSearch: true };
+      // Exact matches found - ONLY return exact matches for keyword searches
+      // Don't mix in fuzzy results that don't contain the keyword, as this confuses users
+      return { matches: exactMatches, hasSearch: true };
     }
 
     // Step 2: No exact matches found - fall back to fuzzy search for typos/partial matches
@@ -154,22 +147,10 @@ export const fuzzySearchJobs = (
 
   const trimmed = searchTerm.trim();
 
-  // Exact substring first
+  // Exact substring first - only return exact matches when found
   const exactMatches = jobs.filter(job => jobContainsKeyword(job, trimmed));
   if (exactMatches.length > 0) {
-    const exactIds = new Set(exactMatches.map(e => e.id));
-    const fuse = new Fuse(jobs, {
-      keys: FUSE_KEYS,
-      threshold,
-      ignoreLocation: true,
-      findAllMatches: true,
-      shouldSort: true,
-    });
-    const fuseResults = fuse.search(trimmed);
-    return [
-      ...exactMatches,
-      ...fuseResults.filter(r => !exactIds.has(r.item.id)).map(r => r.item)
-    ];
+    return exactMatches;
   }
 
   const fuse = new Fuse(jobs, {
