@@ -1489,6 +1489,7 @@ const Index = () => {
                   currentCategoryId={activeCategory || undefined}
                   categories={categories.map(c => ({ id: c.id, name: c.name, color: c.color }))}
                   readOnly={!canEdit}
+                  getSignOffStatus={getSignOffStatus}
                 />
               ) : viewType === 'kanban' ? (
                 <KanbanBoard
