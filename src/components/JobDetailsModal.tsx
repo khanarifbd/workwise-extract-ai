@@ -193,6 +193,15 @@ export const JobDetailsModal = forwardRef<HTMLDivElement, JobDetailsModalProps>(
       updates.isCompleted = false;
       updates.progress = 50;
     }
+    // Booked date overrides completion - if setting a booked date on a completed job, un-complete it
+    if (field === 'bookedDate' && newDate && (editedJob.isCompleted || editedJob.status === 'complete')) {
+      updates.isCompleted = false;
+      updates.status = 'started' as any;
+      updates.completionDate = null;
+      if (editedJob.progress === 100) {
+        updates.progress = 50;
+      }
+    }
     
     setEditedJob({ ...editedJob, ...updates });
   };

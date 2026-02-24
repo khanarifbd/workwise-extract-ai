@@ -791,8 +791,8 @@ const Index = () => {
         const isJobCompleted = job.status === 'complete' || job.isCompleted;
         
         if (activeDatabaseTab === 'booked') {
-          // Show only booked jobs that are NOT completed
-          if (!job.bookedDate || isJobCompleted) return false;
+          // Booked date overrides completion - show ALL jobs with a booked date
+          if (!job.bookedDate) return false;
           
           // Filter by selected booked date if any
           if (selectedBookedDate) {
@@ -802,8 +802,8 @@ const Index = () => {
             if (jobDateKey !== selectedBookedDate) return false;
           }
         } else if (activeDatabaseTab === 'completed') {
-          // Show only completed jobs
-          if (!isJobCompleted) return false;
+          // Show completed jobs, but NOT if they have a booked date (booked overrides)
+          if (!isJobCompleted || job.bookedDate) return false;
         } else if (activeDatabaseTab === 'refer_back') {
           // Show only refer back jobs
           if (!job.referBack) return false;
