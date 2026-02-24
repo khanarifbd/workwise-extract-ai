@@ -38,13 +38,12 @@ import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { useCategories } from '@/hooks/useCategories';
 import { useSignOffStatus } from '@/hooks/useSignOffStatus';
 import { useFuzzySearch } from '@/hooks/useFuzzySearch';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { useAllContactHistory } from '@/hooks/useContactHistory';
 import { extractPDFWithAI, extractImageWithAI, checkDuplicateJobNumber, extractInsulationJobsFromDocument, findExistingJobByAddressOrNumber, mergeJobData, validateAndFixInsulationJob, checkInsulationDuplicates } from '@/lib/api';
 import { extractTextFromPDF } from '@/lib/pdfUtils';
 import { supabase } from '@/integrations/supabase/client';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import ExcelJS from 'exceljs';
+// Lazy-loaded: jsPDF, autoTable, ExcelJS - imported dynamically when needed
 
 type FileType = 'pdf' | 'image';
 type KanbanGroupBy = 'team' | 'status';
@@ -779,6 +778,9 @@ const Index = () => {
 
   // Check if search is active (for global search across all tabs)
   const hasActiveSearch = filters.search && filters.search.trim().length > 0;
+  
+  // Debounce the search term to prevent re-filtering on every keystroke
+  const debouncedSearch = useDebouncedValue(filters.search, 300);
 
   const filteredJobs = useMemo(() => {
     let result = jobs.filter(job => {
@@ -919,10 +921,10 @@ const Index = () => {
     return result;
   }, [jobs, filters, isFanCategory, activeMonthFolder, activeDatabaseTab, bookedSortOrder, completedSortOrder, selectedBookedDate, getSignOffStatus]);
 
-  // Apply fuzzy search on pre-filtered jobs
+  // Apply fuzzy search on pre-filtered jobs using debounced search term
   const { matches: fuzzyFilteredJobs, hasSearch } = useFuzzySearch(
     filteredJobs,
-    filters.search,
+    debouncedSearch,
     { threshold: 0.35 }
   );
 
@@ -1005,7 +1007,9 @@ const Index = () => {
     return '1x Fan';
   };
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
+    const { default: jsPDF } = await import('jspdf');
+    const { default: autoTable } = await import('jspdf-autotable');
     const doc = new jsPDF();
     const activeCat = categories.find(c => c.id === activeCategory);
     
@@ -1104,6 +1108,7 @@ const Index = () => {
       }));
     }
 
+    const ExcelJS = await import('exceljs');
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet(isFanCategory ? 'Fan Jobs' : 'Jobs');
     
