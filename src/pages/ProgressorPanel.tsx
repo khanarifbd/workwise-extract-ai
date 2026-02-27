@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
@@ -23,7 +24,7 @@ import {
   AlertTriangle, Clock, CheckCircle2, Building2,
   Wrench, Users, FileText, RefreshCw, Phone, MapPin, User,
   Star, Flag, Zap, Plus, MessageSquare, Info, Trash2,
-  ChevronUp, ChevronsUpDown, TrendingUp, PackageOpen,
+  ChevronUp, ChevronsUpDown, TrendingUp, PackageOpen, Save,
 } from 'lucide-react';
 import { format, differenceInDays, differenceInHours } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -47,6 +48,10 @@ export default function ProgressorPanel() {
   const [jobsLoading, setJobsLoading] = useState(true);
   const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set());
   const [contactHistory, setContactHistory] = useState<Map<string, ContactRecord[]>>(new Map());
+  
+  // Editable ongoing reason state
+  const [editingOngoingReason, setEditingOngoingReason] = useState<string | null>(null);
+  const [ongoingReasonDraft, setOngoingReasonDraft] = useState('');
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -62,19 +67,31 @@ export default function ProgressorPanel() {
   const [addSubTaskJob, setAddSubTaskJob] = useState<Job | null>(null);
   const [showTradeCompanies, setShowTradeCompanies] = useState(false);
 
-  // Fetch all ongoing/awaiting trade jobs
+  // Fetch incomplete jobs where booked date is 12+ hours past
   const fetchJobs = useCallback(async () => {
     setJobsLoading(true);
     try {
       const { data, error } = await supabase
         .from('jobs')
         .select('*')
-        .or('is_ongoing.eq.true,status.eq.awaiting_trade')
         .is('deleted_at', null)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      const mappedJobs = (data || []).map(mapDatabaseJobToJob);
+      
+      const now = new Date();
+      const mappedJobs = (data || [])
+        .map(mapDatabaseJobToJob)
+        .filter(job => {
+          // Must NOT be completed
+          if (job.isCompleted || job.status === 'complete') return false;
+          
+          // Must have a booked date that is 12+ hours in the past
+          if (!job.bookedDate) return false;
+          const hoursSinceBooked = differenceInHours(now, job.bookedDate);
+          return hoursSinceBooked >= 12;
+        });
+      
       setJobs(mappedJobs);
 
       // Fetch contact history for all these jobs
@@ -128,19 +145,24 @@ export default function ProgressorPanel() {
   const getJobUrgency = (job: Job) => {
     const jobSubTasks = subTasksByJob.get(job.id) || [];
     let score = 0;
+    
+    // Hours past booked date
+    if (job.bookedDate) {
+      const hoursPast = differenceInHours(new Date(), job.bookedDate);
+      score += Math.min(hoursPast / 24, 30) * 3; // weight by days overdue
+    }
+    
     for (const st of jobSubTasks) {
       const risk = getComplianceRisk(st.deadlineDate);
       if (risk.level === 'overdue') score += 100;
       else if (risk.level === 'critical') score += 50;
       else if (risk.level === 'warning') score += 25;
     }
-    // Idle 3d+ adds urgency
     const hasIdle = jobSubTasks.some(st => {
       const daysSince = differenceInDays(new Date(), st.updatedAt);
       return daysSince > 3 && st.status !== 'completed_signed_off';
     });
     if (hasIdle) score += 30;
-    // No sub-tasks = needs attention
     if (jobSubTasks.length === 0) score += 40;
     return score;
   };
@@ -200,7 +222,6 @@ export default function ProgressorPanel() {
       return true;
     });
 
-    // Sort
     return filtered.sort((a, b) => {
       switch (sortBy) {
         case 'urgency': return getJobUrgency(b) - getJobUrgency(a);
@@ -212,26 +233,23 @@ export default function ProgressorPanel() {
     });
   }, [jobs, searchQuery, statusFilter, tradeFilter, riskFilter, teamFilter, subTasksByJob, sortBy]);
 
-  // Stats — accurate, aligned with Genie definitions
+  // Stats — exclude completed_signed_off sub-tasks from counts
   const stats = useMemo(() => {
-    const totalSubTasks = subTasks.length;
-    const overdue = subTasks.filter(st => st.deadlineDate && differenceInHours(st.deadlineDate, new Date()) < 0 && st.status !== 'completed_signed_off').length;
-    const inProgress = subTasks.filter(st => st.status === 'in_progress').length;
-    const scheduled = subTasks.filter(st => st.status === 'scheduled').length;
-    const completedSignedOff = subTasks.filter(st => st.status === 'completed_signed_off').length;
-    const completedAwaitingPortal = subTasks.filter(st => st.status === 'completed_awaiting_portal').length;
-    const notScheduled = subTasks.filter(st => st.status === 'not_scheduled').length;
-    const awaitingMaterials = subTasks.filter(st => st.status === 'awaiting_materials').length;
-    const accessIssue = subTasks.filter(st => st.status === 'access_issue').length;
+    // Only count sub-tasks belonging to displayed jobs
+    const jobIds = new Set(jobs.map(j => j.id));
+    const relevantSubTasks = subTasks.filter(st => jobIds.has(st.parentJobId));
+    
+    const totalSubTasks = relevantSubTasks.length;
+    const overdue = relevantSubTasks.filter(st => st.deadlineDate && differenceInHours(st.deadlineDate, new Date()) < 0 && st.status !== 'completed_signed_off').length;
+    const inProgress = relevantSubTasks.filter(st => st.status === 'in_progress').length;
+    const scheduled = relevantSubTasks.filter(st => st.status === 'scheduled').length;
+    const completedSignedOff = relevantSubTasks.filter(st => st.status === 'completed_signed_off').length;
+    const completedAwaitingPortal = relevantSubTasks.filter(st => st.status === 'completed_awaiting_portal').length;
+    const notScheduled = relevantSubTasks.filter(st => st.status === 'not_scheduled').length;
+    const awaitingMaterials = relevantSubTasks.filter(st => st.status === 'awaiting_materials').length;
+    const accessIssue = relevantSubTasks.filter(st => st.status === 'access_issue').length;
     const completionRate = totalSubTasks > 0 ? Math.round((completedSignedOff / totalSubTasks) * 100) : 0;
 
-    // Jobs with ALL sub-tasks signed off
-    const fullyCompleteJobs = jobs.filter(job => {
-      const jst = subTasksByJob.get(job.id) || [];
-      return jst.length > 0 && jst.every(st => st.status === 'completed_signed_off');
-    }).length;
-
-    // Jobs with no sub-tasks yet
     const jobsNoSubTasks = jobs.filter(job => !(subTasksByJob.get(job.id)?.length)).length;
 
     return {
@@ -246,7 +264,6 @@ export default function ProgressorPanel() {
       awaitingMaterials,
       accessIssue,
       completionRate,
-      fullyCompleteJobs,
       jobsNoSubTasks,
     };
   }, [subTasks, jobs, subTasksByJob]);
@@ -313,6 +330,51 @@ export default function ProgressorPanel() {
     }
   };
 
+  // Save ongoing reason with progressor prefix marker
+  const handleSaveOngoingReason = async (job: Job) => {
+    try {
+      // Separate existing team notes from progressor notes
+      const existingReason = job.ongoingReason || '';
+      const PROGRESSOR_MARKER = '\n---PROGRESSOR---\n';
+      const parts = existingReason.split(PROGRESSOR_MARKER);
+      const teamPart = parts[0] || '';
+      
+      // Build new value: team notes stay, progressor notes appended
+      const progressorText = ongoingReasonDraft.replace(teamPart, '').trim();
+      const newReason = progressorText
+        ? `${teamPart}${PROGRESSOR_MARKER}${progressorText}`
+        : teamPart;
+      
+      const { error } = await supabase
+        .from('jobs')
+        .update({ ongoing_reason: newReason })
+        .eq('id', job.id);
+      
+      if (error) throw error;
+      
+      await logAction({
+        action: 'update',
+        tableName: 'jobs',
+        recordId: job.id,
+        fieldChanged: 'ongoing_reason',
+        oldValue: existingReason,
+        newValue: newReason,
+        metadata: { jobNumber: job.jobNumber },
+      });
+      
+      // Update local state
+      setJobs(prev => prev.map(j => j.id === job.id ? { ...j, ongoingReason: newReason } : j));
+      setEditingOngoingReason(null);
+    } catch (err) {
+      console.error('Error saving ongoing reason:', err);
+    }
+  };
+
+  const startEditingOngoingReason = (job: Job) => {
+    setEditingOngoingReason(job.id);
+    setOngoingReasonDraft(job.ongoingReason || '');
+  };
+
   const handleSignOut = async () => {
     await signOut();
     navigate('/progressor-login', { replace: true });
@@ -330,6 +392,16 @@ export default function ProgressorPanel() {
     setTradeFilter('all');
     setRiskFilter('all');
     setTeamFilter('all');
+  };
+
+  // Parse ongoing reason into team and progressor parts
+  const parseOngoingReason = (reason: string) => {
+    const PROGRESSOR_MARKER = '\n---PROGRESSOR---\n';
+    const parts = reason.split(PROGRESSOR_MARKER);
+    return {
+      teamNotes: parts[0] || '',
+      progressorNotes: parts[1] || '',
+    };
   };
 
   if (jobsLoading || subTasksLoading) {
@@ -356,7 +428,7 @@ export default function ProgressorPanel() {
               <div>
                 <h1 className="text-lg font-bold">Job Progressor Panel</h1>
                 <p className="text-xs text-muted-foreground">
-                  {user?.email} • {stats.jobCount} jobs • {stats.totalSubTasks} sub-tasks
+                  {user?.email} • Incomplete jobs past booked date
                 </p>
               </div>
             </div>
@@ -377,687 +449,563 @@ export default function ProgressorPanel() {
           </div>
         </header>
 
-        <main className="max-w-[1400px] mx-auto px-4 py-5 space-y-5">
-          {/* KPI Dashboard — 2 rows */}
-          <div className="space-y-3">
-            {/* Row 1: Primary KPIs */}
-            <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
-              <StatCard
-                icon={<Building2 className="h-4 w-4" />}
-                label="Total Jobs"
-                value={stats.jobCount}
-                sublabel={stats.jobsNoSubTasks > 0 ? `${stats.jobsNoSubTasks} need sub-tasks` : undefined}
+        <main className="max-w-[1400px] mx-auto px-4 py-5 space-y-6">
+          {/* ═══════════ ANALYTICS SECTION ═══════════ */}
+          <section>
+            <div className="flex items-center gap-2 mb-3">
+              <TrendingUp className="h-4 w-4 text-primary" />
+              <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">Analytics Overview</h2>
+              <div className="flex-1 h-px bg-border" />
+            </div>
+            
+            <div className="grid grid-cols-3 md:grid-cols-7 gap-2">
+              <StatCard icon={<Building2 className="h-4 w-4" />} label="Jobs" value={stats.jobCount}
+                sublabel={stats.jobsNoSubTasks > 0 ? `${stats.jobsNoSubTasks} need tasks` : undefined}
                 sublabelColor="text-amber-600"
               />
-              <StatCard
-                icon={<FileText className="h-4 w-4" />}
-                label="Sub-Tasks"
-                value={stats.totalSubTasks}
+              <StatCard icon={<FileText className="h-4 w-4" />} label="Sub-Tasks" value={stats.totalSubTasks} />
+              <StatCard icon={<AlertTriangle className="h-4 w-4" />} label="Overdue" value={stats.overdue}
+                highlight={stats.overdue > 0 ? 'destructive' : undefined} pulse={stats.overdue > 0}
               />
-              <StatCard
-                icon={<AlertTriangle className="h-4 w-4" />}
-                label="Overdue"
-                value={stats.overdue}
-                highlight={stats.overdue > 0 ? 'destructive' : undefined}
-                pulse={stats.overdue > 0}
-              />
-              <StatCard
-                icon={<Clock className="h-4 w-4" />}
-                label="Not Scheduled"
-                value={stats.notScheduled}
+              <StatCard icon={<Clock className="h-4 w-4" />} label="Unscheduled" value={stats.notScheduled}
                 highlight={stats.notScheduled > 0 ? 'warning' : undefined}
               />
-              <StatCard
-                icon={<Wrench className="h-4 w-4" />}
-                label="In Progress"
-                value={stats.inProgress + stats.scheduled}
-                sublabel={stats.scheduled > 0 ? `${stats.scheduled} scheduled` : undefined}
+              <StatCard icon={<Wrench className="h-4 w-4" />} label="Active" value={stats.inProgress + stats.scheduled}
+                sublabel={stats.scheduled > 0 ? `${stats.scheduled} booked` : undefined}
               />
-              <StatCard
-                icon={<CheckCircle2 className="h-4 w-4" />}
-                label="Complete"
-                value={stats.completedSignedOff}
-                sublabel={stats.completedAwaitingPortal > 0 ? `+${stats.completedAwaitingPortal} awaiting portal` : undefined}
-              />
+              <StatCard icon={<PackageOpen className="h-4 w-4" />} label="Materials" value={stats.awaitingMaterials} />
+              {/* Completion rate inline */}
+              <div className="flex items-center gap-2 bg-card border rounded-lg px-3 py-2">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="text-xl font-bold leading-none">{stats.completionRate}%</p>
+                    <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className={cn("h-full rounded-full transition-all",
+                          stats.completionRate >= 75 ? "bg-emerald-500" : stats.completionRate >= 50 ? "bg-amber-500" : "bg-red-500"
+                        )}
+                        style={{ width: `${stats.completionRate}%` }}
+                      />
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">Complete</p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* ═══════════ JOBS SECTION ═══════════ */}
+          <section>
+            <div className="flex items-center gap-2 mb-3">
+              <ClipboardList className="h-4 w-4 text-primary" />
+              <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">Incomplete Jobs</h2>
+              <Badge variant="outline" className="text-xs">{filteredJobs.length}</Badge>
+              <div className="flex-1 h-px bg-border" />
             </div>
 
-            {/* Row 2: Secondary metrics */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-              <div className="flex items-center gap-3 bg-card border rounded-lg px-3 py-2">
-                <TrendingUp className="h-4 w-4 text-primary" />
-                <div>
-                  <p className="text-lg font-bold">{stats.completionRate}%</p>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Completion Rate</p>
-                </div>
-                <div className="flex-1">
-                  <div className="h-2 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className={cn("h-full rounded-full transition-all", stats.completionRate >= 75 ? "bg-emerald-500" : stats.completionRate >= 50 ? "bg-amber-500" : "bg-red-500")}
-                      style={{ width: `${stats.completionRate}%` }}
+            {/* Filters & Controls */}
+            <div className="bg-card border rounded-lg p-3 mb-3">
+              <div className="flex flex-wrap gap-2 items-center">
+                <div className="flex-1 min-w-[200px]">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search tenant, address, job #, phone..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-9 h-9"
                     />
                   </div>
                 </div>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-[150px] h-9"><SelectValue placeholder="Status" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    {SUB_TASK_STATUS_OPTIONS.map(o => (
+                      <SelectItem key={o.value} value={o.value}>
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: o.color }} />
+                          {o.label}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={tradeFilter} onValueChange={setTradeFilter}>
+                  <SelectTrigger className="w-[130px] h-9"><SelectValue placeholder="Trade" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Trades</SelectItem>
+                    {uniqueTrades.map(t => (<SelectItem key={t} value={t}>{t}</SelectItem>))}
+                  </SelectContent>
+                </Select>
+                <Select value={teamFilter} onValueChange={setTeamFilter}>
+                  <SelectTrigger className="w-[120px] h-9"><SelectValue placeholder="Team" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Teams</SelectItem>
+                    {uniqueTeams.map(t => (<SelectItem key={t} value={t}>{t}</SelectItem>))}
+                  </SelectContent>
+                </Select>
+                <Select value={riskFilter} onValueChange={setRiskFilter}>
+                  <SelectTrigger className="w-[110px] h-9"><SelectValue placeholder="Risk" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Risk</SelectItem>
+                    <SelectItem value="overdue">🔴 Overdue</SelectItem>
+                    <SelectItem value="critical">🟠 &lt;24h</SelectItem>
+                    <SelectItem value="warning">🟡 &lt;48h</SelectItem>
+                    <SelectItem value="safe">🟢 Safe</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={sortBy} onValueChange={(v: any) => setSortBy(v)}>
+                  <SelectTrigger className="w-[130px] h-9">
+                    <ChevronsUpDown className="h-3 w-3 mr-1" /><SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="urgency">Most Urgent</SelectItem>
+                    <SelectItem value="newest">Newest First</SelectItem>
+                    <SelectItem value="oldest">Oldest First</SelectItem>
+                    <SelectItem value="name">By Name</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              <div className="flex items-center gap-3 bg-card border rounded-lg px-3 py-2">
-                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                <div>
-                  <p className="text-lg font-bold">{stats.fullyCompleteJobs}<span className="text-xs font-normal text-muted-foreground">/{stats.jobCount}</span></p>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Jobs Fully Done</p>
+              <div className="flex items-center justify-between mt-2 pt-2 border-t">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span>Showing <strong className="text-foreground">{filteredJobs.length}</strong> of {jobs.length} jobs</span>
+                  {hasActiveFilters && (
+                    <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={clearFilters}>Clear filters</Button>
+                  )}
                 </div>
-              </div>
-              <div className="flex items-center gap-3 bg-card border rounded-lg px-3 py-2">
-                <PackageOpen className="h-4 w-4 text-amber-500" />
-                <div>
-                  <p className="text-lg font-bold">{stats.awaitingMaterials}</p>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Awaiting Materials</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 bg-card border rounded-lg px-3 py-2">
-                <AlertTriangle className="h-4 w-4 text-red-500" />
-                <div>
-                  <p className="text-lg font-bold">{stats.accessIssue}</p>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Access Issues</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 bg-card border rounded-lg px-3 py-2">
-                <FileText className="h-4 w-4 text-cyan-500" />
-                <div>
-                  <p className="text-lg font-bold">{stats.completedAwaitingPortal}</p>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Awaiting Portal</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Filters & Controls */}
-          <div className="bg-card border rounded-lg p-3">
-            <div className="flex flex-wrap gap-2 items-center">
-              <div className="flex-1 min-w-[200px]">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search tenant, address, job #, phone..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9 h-9"
-                  />
-                </div>
-              </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[160px] h-9">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  {SUB_TASK_STATUS_OPTIONS.map(o => (
-                    <SelectItem key={o.value} value={o.value}>
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: o.color }} />
-                        {o.label}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={tradeFilter} onValueChange={setTradeFilter}>
-                <SelectTrigger className="w-[140px] h-9">
-                  <SelectValue placeholder="Trade" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Trades</SelectItem>
-                  {uniqueTrades.map(t => (
-                    <SelectItem key={t} value={t}>{t}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={teamFilter} onValueChange={setTeamFilter}>
-                <SelectTrigger className="w-[130px] h-9">
-                  <SelectValue placeholder="Team" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Teams</SelectItem>
-                  {uniqueTeams.map(t => (
-                    <SelectItem key={t} value={t}>{t}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={riskFilter} onValueChange={setRiskFilter}>
-                <SelectTrigger className="w-[120px] h-9">
-                  <SelectValue placeholder="Risk" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Risk</SelectItem>
-                  <SelectItem value="overdue">🔴 Overdue</SelectItem>
-                  <SelectItem value="critical">🟠 &lt;24h</SelectItem>
-                  <SelectItem value="warning">🟡 &lt;48h</SelectItem>
-                  <SelectItem value="safe">🟢 Safe</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={sortBy} onValueChange={(v: any) => setSortBy(v)}>
-                <SelectTrigger className="w-[130px] h-9">
-                  <ChevronsUpDown className="h-3 w-3 mr-1" />
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="urgency">Most Urgent</SelectItem>
-                  <SelectItem value="newest">Newest First</SelectItem>
-                  <SelectItem value="oldest">Oldest First</SelectItem>
-                  <SelectItem value="name">By Name</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {/* Results bar */}
-            <div className="flex items-center justify-between mt-2 pt-2 border-t">
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span>
-                  Showing <strong className="text-foreground">{filteredJobs.length}</strong> of {jobs.length} jobs
-                </span>
-                {hasActiveFilters && (
-                  <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={clearFilters}>
-                    Clear filters
+                <div className="flex gap-1">
+                  <Button variant="ghost" size="sm" className="h-7 text-xs px-2" onClick={expandAll}>
+                    <ChevronDown className="h-3 w-3 mr-1" /> Expand
                   </Button>
-                )}
-              </div>
-              <div className="flex gap-1">
-                <Button variant="ghost" size="sm" className="h-7 text-xs px-2" onClick={expandAll}>
-                  <ChevronDown className="h-3 w-3 mr-1" /> Expand All
-                </Button>
-                <Button variant="ghost" size="sm" className="h-7 text-xs px-2" onClick={collapseAll}>
-                  <ChevronUp className="h-3 w-3 mr-1" /> Collapse All
-                </Button>
+                  <Button variant="ghost" size="sm" className="h-7 text-xs px-2" onClick={collapseAll}>
+                    <ChevronUp className="h-3 w-3 mr-1" /> Collapse
+                  </Button>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Jobs List */}
-          <div className="space-y-2">
-            {filteredJobs.length === 0 ? (
-              <Card className="p-8 text-center">
-                <Building2 className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                <p className="text-muted-foreground">No ongoing jobs found matching your filters.</p>
-                {hasActiveFilters && (
-                  <Button variant="link" size="sm" onClick={clearFilters} className="mt-2">Clear all filters</Button>
-                )}
-              </Card>
-            ) : (
-              filteredJobs.map(job => {
-                const jobSubTasks = subTasksByJob.get(job.id) || [];
-                const isExpanded = expandedJobs.has(job.id);
-                const daysOpen = differenceInDays(new Date(), job.createdAt);
-                const allComplete = jobSubTasks.length > 0 && jobSubTasks.every(st => st.status === 'completed_signed_off');
-                const hasOverdue = jobSubTasks.some(st => {
-                  const risk = getComplianceRisk(st.deadlineDate);
-                  return risk.level === 'overdue' && st.status !== 'completed_signed_off';
-                });
-                const idleMoreThan3Days = jobSubTasks.some(st => {
-                  const daysSince = differenceInDays(new Date(), st.updatedAt);
-                  return daysSince > 3 && st.status !== 'completed_signed_off';
-                });
-                const statusInfo = getStatusInfo(job.status);
-                const jobContacts = contactHistory.get(job.id) || [];
-                const completedCount = jobSubTasks.filter(st => st.status === 'completed_signed_off').length;
+            {/* Jobs List */}
+            <div className="space-y-2">
+              {filteredJobs.length === 0 ? (
+                <Card className="p-8 text-center">
+                  <CheckCircle2 className="h-12 w-12 text-emerald-500 mx-auto mb-3" />
+                  <p className="text-muted-foreground">No incomplete jobs past their booked date.</p>
+                  {hasActiveFilters && (
+                    <Button variant="link" size="sm" onClick={clearFilters} className="mt-2">Clear all filters</Button>
+                  )}
+                </Card>
+              ) : (
+                filteredJobs.map(job => {
+                  const jobSubTasks = subTasksByJob.get(job.id) || [];
+                  const isExpanded = expandedJobs.has(job.id);
+                  const hoursPastBooked = job.bookedDate ? differenceInHours(new Date(), job.bookedDate) : 0;
+                  const daysPastBooked = Math.floor(hoursPastBooked / 24);
+                  const hasOverdue = jobSubTasks.some(st => {
+                    const risk = getComplianceRisk(st.deadlineDate);
+                    return risk.level === 'overdue' && st.status !== 'completed_signed_off';
+                  });
+                  const idleMoreThan3Days = jobSubTasks.some(st => {
+                    const daysSince = differenceInDays(new Date(), st.updatedAt);
+                    return daysSince > 3 && st.status !== 'completed_signed_off';
+                  });
+                  const statusInfo = getStatusInfo(job.status);
+                  const jobContacts = contactHistory.get(job.id) || [];
+                  const activeSubTasks = jobSubTasks.filter(st => st.status !== 'completed_signed_off');
+                  const completedCount = jobSubTasks.filter(st => st.status === 'completed_signed_off').length;
+                  const totalFans = job.fanInfo?.reduce((sum, f) => sum + f.quantity, 0) || 0;
 
-                return (
-                  <Card
-                    key={job.id}
-                    className={cn(
-                      "overflow-hidden transition-all",
-                      hasOverdue && "border-red-500/50 shadow-red-500/10 shadow-md",
-                      allComplete && "border-emerald-500/50",
-                      idleMoreThan3Days && !hasOverdue && !allComplete && "border-amber-400/50",
-                    )}
-                  >
-                    {/* Job Header */}
-                    <div
+                  return (
+                    <Card
+                      key={job.id}
                       className={cn(
-                        "px-4 py-3 cursor-pointer hover:bg-muted/30 transition-colors flex items-center gap-3",
-                        hasOverdue && "bg-red-50 dark:bg-red-950/10",
-                        allComplete && "bg-emerald-50 dark:bg-emerald-950/10",
+                        "overflow-hidden transition-all",
+                        hasOverdue && "border-red-500/50 shadow-red-500/10 shadow-md",
+                        idleMoreThan3Days && !hasOverdue && "border-amber-400/50",
                       )}
-                      onClick={() => toggleJobExpand(job.id)}
                     >
-                      <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform flex-shrink-0", isExpanded && "rotate-180")} />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <Badge variant="outline" className="text-xs font-mono">#{job.jobNumber}</Badge>
-                          <span className="font-semibold text-sm truncate">{job.name}</span>
-                          <Badge
-                            className="text-[10px]"
-                            style={{ backgroundColor: statusInfo.color, color: '#fff' }}
-                          >
-                            {statusInfo.label}
-                          </Badge>
-                          {job.team && (
-                            <Badge variant="secondary" className="text-[10px]">
-                              <Users className="h-2.5 w-2.5 mr-0.5" />
-                              {job.team}
-                            </Badge>
-                          )}
-                          {job.team2 && (
-                            <Badge variant="secondary" className="text-[10px]">
-                              <Users className="h-2.5 w-2.5 mr-0.5" />
-                              {job.team2}
-                            </Badge>
-                          )}
-                          {job.isFlexibleBooking && <Star className="h-3 w-3 text-amber-500" />}
-                          {job.referBack && <Flag className="h-3 w-3 text-red-500" />}
-                          {hasOverdue && <Badge className="bg-red-600 text-white text-[10px] animate-pulse">OVERDUE</Badge>}
-                          {idleMoreThan3Days && !hasOverdue && !allComplete && <Badge className="bg-amber-500 text-white text-[10px]">IDLE 3d+</Badge>}
-                          {allComplete && <Badge className="bg-emerald-500 text-white text-[10px]">✓ ALL DONE</Badge>}
-                        </div>
-                        <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
-                          <span className="truncate">{job.address}</span>
-                          {job.phoneNumber && (
-                            <>
-                              <span>•</span>
-                              <a
-                                href={`tel:${job.phoneNumber}`}
-                                className="text-primary hover:underline flex items-center gap-0.5"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <Phone className="h-2.5 w-2.5" />
-                                {job.phoneNumber}
-                              </a>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-4 flex-shrink-0">
-                        {/* Mini progress */}
-                        {jobSubTasks.length > 0 && (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-xs font-medium">{completedCount}/{jobSubTasks.length}</span>
-                                <div className="w-16 h-2 bg-muted rounded-full overflow-hidden">
-                                  <div
-                                    className="h-full bg-emerald-500 rounded-full transition-all"
-                                    style={{ width: `${(completedCount / jobSubTasks.length) * 100}%` }}
-                                  />
-                                </div>
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent>{completedCount} of {jobSubTasks.length} sub-tasks complete</TooltipContent>
-                          </Tooltip>
+                      {/* Job Header */}
+                      <div
+                        className={cn(
+                          "px-4 py-3 cursor-pointer hover:bg-muted/30 transition-colors flex items-center gap-3",
+                          hasOverdue && "bg-red-50 dark:bg-red-950/10",
                         )}
-                        <div className="text-right">
-                          <p className="text-xs text-muted-foreground">{daysOpen}d open</p>
+                        onClick={() => toggleJobExpand(job.id)}
+                      >
+                        <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform flex-shrink-0", isExpanded && "rotate-180")} />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge variant="outline" className="text-xs font-mono">#{job.jobNumber}</Badge>
+                            <span className="font-semibold text-sm truncate">{job.name}</span>
+                            <Badge className="text-[10px]" style={{ backgroundColor: statusInfo.color, color: '#fff' }}>
+                              {statusInfo.label}
+                            </Badge>
+                            {job.team && (
+                              <Badge variant="secondary" className="text-[10px]">
+                                <Users className="h-2.5 w-2.5 mr-0.5" />{job.team}
+                              </Badge>
+                            )}
+                            {job.team2 && (
+                              <Badge variant="secondary" className="text-[10px]">
+                                <Users className="h-2.5 w-2.5 mr-0.5" />{job.team2}
+                              </Badge>
+                            )}
+                            {totalFans > 0 && (
+                              <Badge variant="outline" className="text-[10px] border-blue-300 text-blue-600 dark:text-blue-400">
+                                <Zap className="h-2.5 w-2.5 mr-0.5" />{totalFans} fan{totalFans !== 1 ? 's' : ''}
+                              </Badge>
+                            )}
+                            {job.referBack && <Flag className="h-3 w-3 text-red-500" />}
+                            {hasOverdue && <Badge className="bg-red-600 text-white text-[10px] animate-pulse">OVERDUE</Badge>}
+                            {idleMoreThan3Days && !hasOverdue && <Badge className="bg-amber-500 text-white text-[10px]">IDLE 3d+</Badge>}
+                          </div>
+                          <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
+                            <span className="truncate">{job.address}</span>
+                            {job.phoneNumber && (
+                              <>
+                                <span>•</span>
+                                <a href={`tel:${job.phoneNumber}`} className="text-primary hover:underline flex items-center gap-0.5"
+                                  onClick={(e) => e.stopPropagation()}>
+                                  <Phone className="h-2.5 w-2.5" />{job.phoneNumber}
+                                </a>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Right side: progress indicator */}
+                        <div className="flex items-center gap-4 flex-shrink-0">
+                          {/* Sub-task status pills */}
+                          {jobSubTasks.length > 0 && (
+                            <div className="flex items-center gap-1">
+                              {jobSubTasks.map(st => {
+                                const stStatus = SUB_TASK_STATUS_OPTIONS.find(o => o.value === st.status);
+                                return (
+                                  <Tooltip key={st.id}>
+                                    <TooltipTrigger asChild>
+                                      <div
+                                        className="w-3 h-3 rounded-sm flex-shrink-0"
+                                        style={{ backgroundColor: stStatus?.color || '#6B7280' }}
+                                      />
+                                    </TooltipTrigger>
+                                    <TooltipContent className="text-xs">
+                                      {st.trade}: {stStatus?.label || st.status}
+                                      {st.bookedDate && ` • Booked: ${format(st.bookedDate, 'dd MMM')}`}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                );
+                              })}
+                              <span className="text-[10px] text-muted-foreground ml-1">{completedCount}/{jobSubTasks.length}</span>
+                            </div>
+                          )}
+                          <Badge variant="outline" className={cn("text-[10px]",
+                            daysPastBooked > 7 ? "border-red-400 text-red-600" : daysPastBooked > 3 ? "border-amber-400 text-amber-600" : ""
+                          )}>
+                            {daysPastBooked}d overdue
+                          </Badge>
                         </div>
                       </div>
-                    </div>
 
-                    {/* Expanded Content */}
-                    {isExpanded && (
-                      <div className="border-t">
-                        {/* Rich Job Info Panel */}
-                        <div className="px-4 py-3 bg-muted/20 space-y-3">
-                          {/* Row 1: Key info */}
-                          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 text-xs">
-                            <div>
-                              <span className="text-muted-foreground flex items-center gap-1"><User className="h-3 w-3" /> Tenant</span>
-                              <p className="font-medium">{job.name}</p>
-                            </div>
-                            <div>
-                              <span className="text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" /> Address</span>
-                              <p className="font-medium">{job.address}</p>
-                            </div>
-                            <div>
-                              <span className="text-muted-foreground flex items-center gap-1"><Phone className="h-3 w-3" /> Phone</span>
-                              {job.phoneNumber ? (
-                                <a href={`tel:${job.phoneNumber}`} className="font-medium text-primary hover:underline">{job.phoneNumber}</a>
-                              ) : (
-                                <p className="font-medium">—</p>
-                              )}
-                            </div>
-                            <div>
-                              <span className="text-muted-foreground">Booked Date</span>
-                              <p className="font-medium">{job.bookedDate ? format(job.bookedDate, 'dd MMM yyyy') : '—'}</p>
-                            </div>
-                            <div>
-                              <span className="text-muted-foreground">Assigned Team</span>
-                              <p className="font-medium">
-                                {job.team || '—'}
-                                {job.team2 ? ` + ${job.team2}` : ''}
-                              </p>
-                            </div>
-                            <div>
-                              <span className="text-muted-foreground">Progress</span>
-                              <div className="flex items-center gap-2">
-                                <div className="flex-1 bg-muted rounded-full h-2 overflow-hidden">
-                                  <div
-                                    className="h-full bg-primary rounded-full transition-all"
-                                    style={{ width: `${job.progress}%` }}
-                                  />
-                                </div>
-                                <span className="font-medium">{job.progress}%</span>
+                      {/* Expanded Content */}
+                      {isExpanded && (
+                        <div className="border-t">
+                          <div className="px-4 py-3 bg-muted/20 space-y-3">
+                            {/* Key info row */}
+                            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-xs">
+                              <div>
+                                <span className="text-muted-foreground flex items-center gap-1"><User className="h-3 w-3" /> Tenant</span>
+                                <p className="font-medium">{job.name}</p>
+                              </div>
+                              <div>
+                                <span className="text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" /> Address</span>
+                                <p className="font-medium">{job.address}</p>
+                              </div>
+                              <div>
+                                <span className="text-muted-foreground flex items-center gap-1"><Phone className="h-3 w-3" /> Phone</span>
+                                {job.phoneNumber ? (
+                                  <a href={`tel:${job.phoneNumber}`} className="font-medium text-primary hover:underline">{job.phoneNumber}</a>
+                                ) : <p className="font-medium">—</p>}
+                              </div>
+                              <div>
+                                <span className="text-muted-foreground">Booked Date</span>
+                                <p className="font-medium">{job.bookedDate ? format(job.bookedDate, 'dd MMM yyyy') : '—'}</p>
+                              </div>
+                              <div>
+                                <span className="text-muted-foreground">Team</span>
+                                <p className="font-medium">{job.team || '—'}{job.team2 ? ` + ${job.team2}` : ''}</p>
                               </div>
                             </div>
-                          </div>
 
-                          {/* Row 2: Ongoing reason, description */}
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
-                            {job.ongoingReason && (
-                              <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-2.5">
-                                <span className="text-amber-700 dark:text-amber-300 font-semibold flex items-center gap-1">
-                                  <AlertTriangle className="h-3 w-3" /> Ongoing Reason
+                            {/* Ongoing Reason — editable */}
+                            <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-2.5">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-amber-700 dark:text-amber-300 font-semibold flex items-center gap-1 text-xs">
+                                  <AlertTriangle className="h-3 w-3" /> Ongoing Reason / Notes
                                 </span>
-                                <p className="mt-0.5">{job.ongoingReason}</p>
-                              </div>
-                            )}
-                            {job.description && (
-                              <div className="bg-background border rounded-lg p-2.5">
-                                <span className="text-muted-foreground font-semibold flex items-center gap-1">
-                                  <Info className="h-3 w-3" /> Description
-                                </span>
-                                <p className="mt-0.5 whitespace-pre-wrap line-clamp-4">{job.description}</p>
-                              </div>
-                            )}
-                            {job.summaryOfWorks && (
-                              <div className="bg-background border rounded-lg p-2.5">
-                                <span className="text-muted-foreground font-semibold">Summary of Works</span>
-                                <p className="mt-0.5 whitespace-pre-wrap line-clamp-4">{job.summaryOfWorks}</p>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Row 3: Fan info, progress notes, refer back */}
-                          <div className="flex flex-wrap gap-2 text-xs">
-                            {job.fanInfo && job.fanInfo.length > 0 && (
-                              <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-2 flex-1 min-w-[200px]">
-                                <span className="text-blue-700 dark:text-blue-300 font-semibold flex items-center gap-1">
-                                  <Zap className="h-3 w-3" /> Fan Info
-                                </span>
-                                <div className="mt-1 space-y-0.5">
-                                  {job.fanInfo.map((f, i) => (
-                                    <p key={i}>{f.type} × {f.quantity} — {f.location}</p>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                            {job.progressNotes && (
-                              <div className="bg-background border rounded-lg p-2 flex-1 min-w-[200px]">
-                                <span className="text-muted-foreground font-semibold flex items-center gap-1">
-                                  <MessageSquare className="h-3 w-3" /> Progress Notes
-                                </span>
-                                <p className="mt-0.5 whitespace-pre-wrap line-clamp-3">{job.progressNotes}</p>
-                              </div>
-                            )}
-                            {job.referBack && (
-                              <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg p-2 flex-1 min-w-[200px]">
-                                <span className="text-red-700 dark:text-red-300 font-semibold flex items-center gap-1">
-                                  <Flag className="h-3 w-3" /> Referred Back
-                                </span>
-                                <p className="mt-0.5">{job.referBackReason || 'No reason given'}</p>
-                                {job.referBackDate && <p className="text-muted-foreground">{format(job.referBackDate, 'dd MMM yyyy')}</p>}
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Contact History */}
-                          {jobContacts.length > 0 && (
-                            <div className="bg-background border rounded-lg p-2.5 text-xs">
-                              <span className="text-muted-foreground font-semibold flex items-center gap-1 mb-1.5">
-                                <Phone className="h-3 w-3" /> Contact Log ({jobContacts.length} entries)
-                              </span>
-                              <div className="space-y-1 max-h-[100px] overflow-y-auto">
-                                {jobContacts.slice(0, 5).map(c => (
-                                  <div key={c.id} className="flex items-center gap-2 text-[11px]">
-                                    <span className="text-muted-foreground shrink-0">
-                                      {format(new Date(c.contact_date), 'dd/MM HH:mm')}
-                                    </span>
-                                    <Badge variant="outline" className="text-[10px] shrink-0">{c.outcome}</Badge>
-                                    {c.notes && <span className="truncate">{c.notes}</span>}
-                                    {c.next_action && (
-                                      <span className="text-primary shrink-0">→ {c.next_action}</span>
-                                    )}
+                                {editingOngoingReason !== job.id ? (
+                                  <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2"
+                                    onClick={(e) => { e.stopPropagation(); startEditingOngoingReason(job); }}>
+                                    Edit
+                                  </Button>
+                                ) : (
+                                  <div className="flex gap-1">
+                                    <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2"
+                                      onClick={() => setEditingOngoingReason(null)}>Cancel</Button>
+                                    <Button size="sm" className="h-6 text-[10px] px-2"
+                                      onClick={() => handleSaveOngoingReason(job)}>
+                                      <Save className="h-3 w-3 mr-0.5" /> Save
+                                    </Button>
                                   </div>
-                                ))}
-                                {jobContacts.length > 5 && (
-                                  <p className="text-muted-foreground text-[10px]">+ {jobContacts.length - 5} more entries</p>
                                 )}
                               </div>
+                              {editingOngoingReason === job.id ? (
+                                <Textarea
+                                  value={ongoingReasonDraft}
+                                  onChange={(e) => setOngoingReasonDraft(e.target.value)}
+                                  placeholder="Add notes about why this job is ongoing..."
+                                  className="min-h-[60px] resize-none text-xs bg-white dark:bg-background"
+                                />
+                              ) : (
+                                <div className="text-xs space-y-1">
+                                  {(() => {
+                                    const { teamNotes, progressorNotes } = parseOngoingReason(job.ongoingReason || '');
+                                    return (
+                                      <>
+                                        {teamNotes && <p className="whitespace-pre-wrap">{teamNotes}</p>}
+                                        {progressorNotes && (
+                                          <p className="whitespace-pre-wrap text-indigo-700 dark:text-indigo-300 font-medium border-l-2 border-indigo-400 pl-2 mt-1">
+                                            {progressorNotes}
+                                          </p>
+                                        )}
+                                        {!teamNotes && !progressorNotes && (
+                                          <p className="text-muted-foreground italic">No notes yet — click Edit to add</p>
+                                        )}
+                                      </>
+                                    );
+                                  })()}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Description & Summary — compact row */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                              {job.description && (
+                                <div className="bg-background border rounded-lg p-2.5">
+                                  <span className="text-muted-foreground font-semibold flex items-center gap-1">
+                                    <Info className="h-3 w-3" /> Description
+                                  </span>
+                                  <p className="mt-0.5 whitespace-pre-wrap line-clamp-3">{job.description}</p>
+                                </div>
+                              )}
+                              {job.progressNotes && (
+                                <div className="bg-background border rounded-lg p-2.5">
+                                  <span className="text-muted-foreground font-semibold flex items-center gap-1">
+                                    <MessageSquare className="h-3 w-3" /> Progress Notes
+                                  </span>
+                                  <p className="mt-0.5 whitespace-pre-wrap line-clamp-3">{job.progressNotes}</p>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Refer back & Contact History */}
+                            <div className="flex flex-wrap gap-2 text-xs">
+                              {job.referBack && (
+                                <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg p-2 flex-1 min-w-[200px]">
+                                  <span className="text-red-700 dark:text-red-300 font-semibold flex items-center gap-1">
+                                    <Flag className="h-3 w-3" /> Referred Back
+                                  </span>
+                                  <p className="mt-0.5">{job.referBackReason || 'No reason given'}</p>
+                                  {job.referBackDate && <p className="text-muted-foreground">{format(job.referBackDate, 'dd MMM yyyy')}</p>}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Contact History */}
+                            {jobContacts.length > 0 && (
+                              <div className="bg-background border rounded-lg p-2.5 text-xs">
+                                <span className="text-muted-foreground font-semibold flex items-center gap-1 mb-1.5">
+                                  <Phone className="h-3 w-3" /> Contact Log ({jobContacts.length})
+                                </span>
+                                <div className="space-y-1 max-h-[80px] overflow-y-auto">
+                                  {jobContacts.slice(0, 5).map(c => (
+                                    <div key={c.id} className="flex items-center gap-2 text-[11px]">
+                                      <span className="text-muted-foreground shrink-0">
+                                        {format(new Date(c.contact_date), 'dd/MM HH:mm')}
+                                      </span>
+                                      <Badge variant="outline" className="text-[10px] shrink-0">{c.outcome}</Badge>
+                                      {c.notes && <span className="truncate">{c.notes}</span>}
+                                    </div>
+                                  ))}
+                                  {jobContacts.length > 5 && (
+                                    <p className="text-muted-foreground text-[10px]">+ {jobContacts.length - 5} more</p>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Add Sub-Task Button */}
+                            <div className="flex justify-end">
+                              <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); setAddSubTaskJob(job); }} className="text-xs">
+                                <Plus className="h-3 w-3 mr-1" /> Add Sub-Task
+                              </Button>
+                            </div>
+                          </div>
+
+                          <Separator />
+
+                          {/* Sub-Task Grid */}
+                          {jobSubTasks.length > 0 ? (
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-sm">
+                                <thead>
+                                  <tr className="border-b bg-muted/20">
+                                    <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Trade</th>
+                                    <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Team</th>
+                                    <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Booked</th>
+                                    <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Deadline</th>
+                                    <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Completion</th>
+                                    <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Status</th>
+                                    <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Portal</th>
+                                    <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Notes</th>
+                                    <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground">Actions</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {jobSubTasks.map(st => {
+                                    const risk = getComplianceRisk(st.deadlineDate);
+                                    const isComplete = st.status === 'completed_signed_off';
+                                    return (
+                                      <tr key={st.id} className={cn(
+                                        "border-b hover:bg-muted/20 transition-colors",
+                                        risk.level === 'overdue' && !isComplete && "bg-red-50 dark:bg-red-950/10",
+                                        isComplete && "bg-emerald-50/50 dark:bg-emerald-950/5 opacity-75",
+                                      )}>
+                                        <td className="px-3 py-2">
+                                          <div className="flex items-center gap-1.5">
+                                            <Wrench className="h-3 w-3 text-muted-foreground" />
+                                            <span className="font-medium text-xs">{st.trade}</span>
+                                          </div>
+                                          {st.description && (
+                                            <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">{st.description}</p>
+                                          )}
+                                        </td>
+                                        <td className="px-3 py-2">
+                                          <Input value={st.assignedTeam || ''} onChange={(e) => handleSubTaskUpdate(st, 'assignedTeam', e.target.value)}
+                                            placeholder="Assign..." className="h-7 text-xs w-[100px]" />
+                                        </td>
+                                        <td className="px-3 py-2">
+                                          <Input type="date" value={st.bookedDate ? format(st.bookedDate, 'yyyy-MM-dd') : ''}
+                                            onChange={(e) => handleSubTaskUpdate(st, 'bookedDate', e.target.value || null)}
+                                            className="h-7 text-xs w-[120px]" />
+                                        </td>
+                                        <td className="px-3 py-2">
+                                          <div className="flex items-center gap-1.5">
+                                            <Tooltip>
+                                              <TooltipTrigger asChild>
+                                                <div className={cn("w-2.5 h-2.5 rounded-full flex-shrink-0", risk.color)} />
+                                              </TooltipTrigger>
+                                              <TooltipContent>{risk.label}</TooltipContent>
+                                            </Tooltip>
+                                            <Input type="date" value={st.deadlineDate ? format(st.deadlineDate, 'yyyy-MM-dd') : ''}
+                                              onChange={(e) => handleSubTaskUpdate(st, 'deadlineDate', e.target.value || null)}
+                                              className="h-7 text-xs w-[120px]" />
+                                          </div>
+                                        </td>
+                                        <td className="px-3 py-2">
+                                          <Input type="date" value={st.completionDate ? format(st.completionDate, 'yyyy-MM-dd') : ''}
+                                            onChange={(e) => handleSubTaskUpdate(st, 'completionDate', e.target.value || null)}
+                                            className="h-7 text-xs w-[120px]" />
+                                        </td>
+                                        <td className="px-3 py-2">
+                                          <Select value={st.status} onValueChange={(v) => handleSubTaskUpdate(st, 'status', v)}>
+                                            <SelectTrigger className="h-7 text-xs w-[160px]"><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                              {SUB_TASK_STATUS_OPTIONS.map(o => (
+                                                <SelectItem key={o.value} value={o.value} disabled={o.value === 'completed_signed_off' && !st.completionDate}>
+                                                  <div className="flex items-center gap-1.5">
+                                                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: o.color }} />
+                                                    <span className="text-xs">{o.label}</span>
+                                                  </div>
+                                                </SelectItem>
+                                              ))}
+                                            </SelectContent>
+                                          </Select>
+                                        </td>
+                                        <td className="px-3 py-2 text-center">
+                                          <Checkbox checked={st.portalUpdated} onCheckedChange={(v) => handleSubTaskUpdate(st, 'portalUpdated', !!v)} className="h-4 w-4" />
+                                        </td>
+                                        <td className="px-3 py-2">
+                                          <Input value={st.notes} onChange={(e) => handleSubTaskUpdate(st, 'notes', e.target.value)}
+                                            placeholder="Notes..." className="h-7 text-xs w-[150px]" />
+                                        </td>
+                                        <td className="px-3 py-2">
+                                          <div className="flex items-center justify-center gap-1">
+                                            <SubTaskJobSheetPDF subTask={st} job={job} />
+                                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                                              onClick={() => handleDeleteSubTask(st)}>
+                                              <Trash2 className="h-3.5 w-3.5" />
+                                            </Button>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          ) : (
+                            <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+                              <p>No sub-tasks created yet.</p>
+                              <Button size="sm" variant="outline" className="mt-2 text-xs" onClick={() => setAddSubTaskJob(job)}>
+                                <Plus className="h-3 w-3 mr-1" /> Create Sub-Tasks
+                              </Button>
                             </div>
                           )}
-
-                          {/* Add Sub-Task Button */}
-                          <div className="flex justify-end">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={(e) => { e.stopPropagation(); setAddSubTaskJob(job); }}
-                              className="text-xs"
-                            >
-                              <Plus className="h-3 w-3 mr-1" />
-                              Add Sub-Task
-                            </Button>
-                          </div>
                         </div>
-
-                        <Separator />
-
-                        {/* Sub-Task Grid */}
-                        {jobSubTasks.length > 0 ? (
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                              <thead>
-                                <tr className="border-b bg-muted/20">
-                                  <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Trade</th>
-                                  <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Team</th>
-                                  <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Booked</th>
-                                  <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Deadline</th>
-                                  <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Completion</th>
-                                  <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Status</th>
-                                  <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Portal</th>
-                                  <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Notes</th>
-                                  <th className="px-3 py-2 text-center text-xs font-medium text-muted-foreground">Actions</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {jobSubTasks.map(st => {
-                                  const risk = getComplianceRisk(st.deadlineDate);
-                                  const isComplete = st.status === 'completed_signed_off';
-                                  return (
-                                    <tr key={st.id} className={cn(
-                                      "border-b hover:bg-muted/20 transition-colors",
-                                      risk.level === 'overdue' && !isComplete && "bg-red-50 dark:bg-red-950/10",
-                                      isComplete && "bg-emerald-50/50 dark:bg-emerald-950/5 opacity-75",
-                                    )}>
-                                      <td className="px-3 py-2">
-                                        <div className="flex items-center gap-1.5">
-                                          <Wrench className="h-3 w-3 text-muted-foreground" />
-                                          <span className="font-medium text-xs">{st.trade}</span>
-                                        </div>
-                                        {st.description && (
-                                          <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">{st.description}</p>
-                                        )}
-                                      </td>
-                                      <td className="px-3 py-2">
-                                        <Input
-                                          value={st.assignedTeam || ''}
-                                          onChange={(e) => handleSubTaskUpdate(st, 'assignedTeam', e.target.value)}
-                                          placeholder="Assign..."
-                                          className="h-7 text-xs w-[100px]"
-                                        />
-                                      </td>
-                                      <td className="px-3 py-2">
-                                        <Input
-                                          type="date"
-                                          value={st.bookedDate ? format(st.bookedDate, 'yyyy-MM-dd') : ''}
-                                          onChange={(e) => handleSubTaskUpdate(st, 'bookedDate', e.target.value || null)}
-                                          className="h-7 text-xs w-[120px]"
-                                        />
-                                      </td>
-                                      <td className="px-3 py-2">
-                                        <div className="flex items-center gap-1.5">
-                                          <Tooltip>
-                                            <TooltipTrigger asChild>
-                                              <div className={cn("w-2.5 h-2.5 rounded-full flex-shrink-0", risk.color)} />
-                                            </TooltipTrigger>
-                                            <TooltipContent>{risk.label}</TooltipContent>
-                                          </Tooltip>
-                                          <Input
-                                            type="date"
-                                            value={st.deadlineDate ? format(st.deadlineDate, 'yyyy-MM-dd') : ''}
-                                            onChange={(e) => handleSubTaskUpdate(st, 'deadlineDate', e.target.value || null)}
-                                            className="h-7 text-xs w-[120px]"
-                                          />
-                                        </div>
-                                      </td>
-                                      <td className="px-3 py-2">
-                                        <Input
-                                          type="date"
-                                          value={st.completionDate ? format(st.completionDate, 'yyyy-MM-dd') : ''}
-                                          onChange={(e) => handleSubTaskUpdate(st, 'completionDate', e.target.value || null)}
-                                          className="h-7 text-xs w-[120px]"
-                                        />
-                                      </td>
-                                      <td className="px-3 py-2">
-                                        <Select
-                                          value={st.status}
-                                          onValueChange={(v) => handleSubTaskUpdate(st, 'status', v)}
-                                        >
-                                          <SelectTrigger className="h-7 text-xs w-[160px]">
-                                            <SelectValue />
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                            {SUB_TASK_STATUS_OPTIONS.map(o => (
-                                              <SelectItem key={o.value} value={o.value} disabled={
-                                                o.value === 'completed_signed_off' && !st.completionDate
-                                              }>
-                                                <div className="flex items-center gap-1.5">
-                                                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: o.color }} />
-                                                  <span className="text-xs">{o.label}</span>
-                                                </div>
-                                              </SelectItem>
-                                            ))}
-                                          </SelectContent>
-                                        </Select>
-                                      </td>
-                                      <td className="px-3 py-2 text-center">
-                                        <Checkbox
-                                          checked={st.portalUpdated}
-                                          onCheckedChange={(v) => handleSubTaskUpdate(st, 'portalUpdated', !!v)}
-                                          className="h-4 w-4"
-                                        />
-                                      </td>
-                                      <td className="px-3 py-2">
-                                        <Input
-                                          value={st.notes}
-                                          onChange={(e) => handleSubTaskUpdate(st, 'notes', e.target.value)}
-                                          placeholder="Notes..."
-                                          className="h-7 text-xs w-[150px]"
-                                        />
-                                      </td>
-                                      <td className="px-3 py-2">
-                                        <div className="flex items-center justify-center gap-1">
-                                          <SubTaskJobSheetPDF subTask={st} job={job} />
-                                          <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                                            onClick={() => handleDeleteSubTask(st)}
-                                          >
-                                            <Trash2 className="h-3.5 w-3.5" />
-                                          </Button>
-                                        </div>
-                                      </td>
-                                    </tr>
-                                  );
-                                })}
-                              </tbody>
-                            </table>
-                          </div>
-                        ) : (
-                          <div className="px-4 py-6 text-center text-sm text-muted-foreground">
-                            <p>No sub-tasks created yet.</p>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="mt-2 text-xs"
-                              onClick={() => setAddSubTaskJob(job)}
-                            >
-                              <Plus className="h-3 w-3 mr-1" />
-                              Create Sub-Tasks
-                            </Button>
-                          </div>
-                        )}
-
-                        {/* Ready for Invoice */}
-                        {allComplete && (
-                          <div className="px-4 py-3 bg-emerald-50 dark:bg-emerald-950/20 border-t border-emerald-200 dark:border-emerald-800 flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                              <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
-                                All sub-tasks complete – Ready for Invoice
-                              </span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </Card>
-                );
-              })
-            )}
-          </div>
+                      )}
+                    </Card>
+                  );
+                })
+              )}
+            </div>
+          </section>
         </main>
 
-        {/* Add Sub-Task Modal */}
+        {/* Modals */}
         {addSubTaskJob && (
           <AddSubTaskModal
             open={!!addSubTaskJob}
             onOpenChange={(open) => !open && setAddSubTaskJob(null)}
-            job={{
-              id: addSubTaskJob.id,
-              jobNumber: addSubTaskJob.jobNumber,
-              name: addSubTaskJob.name,
-              address: addSubTaskJob.address,
-            }}
+            job={{ id: addSubTaskJob.id, jobNumber: addSubTaskJob.jobNumber, name: addSubTaskJob.name, address: addSubTaskJob.address }}
             onCreated={() => { fetchJobs(); fetchAll(); }}
           />
         )}
-
-        <TradeCompaniesModal
-          open={showTradeCompanies}
-          onOpenChange={setShowTradeCompanies}
-        />
+        <TradeCompaniesModal open={showTradeCompanies} onOpenChange={setShowTradeCompanies} />
       </div>
     </TooltipProvider>
   );
 }
 
-/* Reusable stat card component */
+/* Reusable stat card */
 function StatCard({ icon, label, value, sublabel, sublabelColor, highlight, pulse }: {
-  icon: React.ReactNode;
-  label: string;
-  value: number | string;
-  sublabel?: string;
-  sublabelColor?: string;
-  highlight?: 'destructive' | 'warning';
-  pulse?: boolean;
+  icon: React.ReactNode; label: string; value: number | string;
+  sublabel?: string; sublabelColor?: string;
+  highlight?: 'destructive' | 'warning'; pulse?: boolean;
 }) {
   return (
     <div className={cn(
-      "flex items-center gap-2.5 bg-card border rounded-lg px-3 py-2.5 transition-all",
+      "flex items-center gap-2 bg-card border rounded-lg px-3 py-2 transition-all",
       highlight === 'destructive' && "border-red-500/50 bg-red-50 dark:bg-red-950/20",
       highlight === 'warning' && "border-amber-500/50 bg-amber-50 dark:bg-amber-950/20",
     )}>
-      <div className={cn(
-        "flex-shrink-0",
+      <div className={cn("flex-shrink-0",
         highlight === 'destructive' ? "text-red-500" : highlight === 'warning' ? "text-amber-500" : "text-muted-foreground",
         pulse && "animate-pulse",
-      )}>
-        {icon}
-      </div>
+      )}>{icon}</div>
       <div className="min-w-0">
-        <p className={cn(
-          "text-xl font-bold leading-none",
-          highlight === 'destructive' && "text-red-600",
-        )}>{value}</p>
+        <p className={cn("text-xl font-bold leading-none", highlight === 'destructive' && "text-red-600")}>{value}</p>
         <p className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">{label}</p>
-        {sublabel && (
-          <p className={cn("text-[10px] mt-0.5 truncate", sublabelColor || "text-muted-foreground")}>{sublabel}</p>
-        )}
+        {sublabel && <p className={cn("text-[10px] mt-0.5 truncate", sublabelColor || "text-muted-foreground")}>{sublabel}</p>}
       </div>
     </div>
   );
