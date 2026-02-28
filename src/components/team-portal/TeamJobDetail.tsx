@@ -1323,14 +1323,16 @@ export const TeamJobDetail = ({
                             <img
                               src={item.thumbnailUrl}
                               alt="Uploading"
-                              className={`w-full h-full object-cover ${item.status === 'uploading' ? 'opacity-60' : ''}`}
+                              className={`w-full h-full object-cover ${item.status === 'uploading' || item.status === 'retrying' ? 'opacity-60' : ''}`}
                             />
                           )}
-                          {item.status === 'uploading' && (
+                          {(item.status === 'uploading' || item.status === 'retrying') && (
                             <div className="absolute inset-0 bg-background/70 flex flex-col items-center justify-center p-2">
                               <Loader2 className="h-4 w-4 animate-spin text-primary mb-1" />
                               <Progress value={item.progress} className="w-full h-1.5" />
-                              <span className="text-[10px] text-muted-foreground mt-1">{item.progress}%</span>
+                              <span className="text-[10px] text-muted-foreground mt-1">
+                                {item.status === 'retrying' ? 'Retrying...' : `${item.progress}%`}
+                              </span>
                             </div>
                           )}
                           {item.status === 'complete' && (
@@ -1339,8 +1341,9 @@ export const TeamJobDetail = ({
                             </div>
                           )}
                           {item.status === 'error' && (
-                            <div className="absolute inset-0 bg-destructive/20 flex items-center justify-center">
-                              <AlertCircle className="h-6 w-6 text-destructive" />
+                            <div className="absolute inset-0 bg-destructive/20 flex flex-col items-center justify-center">
+                              <AlertCircle className="h-5 w-5 text-destructive" />
+                              <span className="text-[9px] text-destructive font-medium mt-0.5">Failed</span>
                             </div>
                           )}
                           {item.status === 'pending' && (
@@ -1350,6 +1353,39 @@ export const TeamJobDetail = ({
                           )}
                         </div>
                       ))}
+                    </div>
+                  )}
+
+                  {/* Retry Failed button */}
+                  {!uploadingPhotos && photoBatchUpload.failedCount > 0 && (
+                    <div className="bg-destructive/10 rounded-lg p-3 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4 text-destructive" />
+                        <span className="text-sm text-destructive font-medium">
+                          {photoBatchUpload.failedCount} photo(s) failed
+                        </span>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="h-7 px-3 text-xs"
+                        onClick={async () => {
+                          setUploadingPhotos(true);
+                          const retried = await photoBatchUpload.retryFailed('photos');
+                          if (retried.length > 0) {
+                            setPhotos(prev => [...prev, ...retried]);
+                            setHasUnsavedChanges(true);
+                            toast({
+                              title: 'Retry Successful',
+                              description: `${retried.length} photo(s) uploaded on retry.`,
+                            });
+                          }
+                          setUploadingPhotos(false);
+                        }}
+                      >
+                        <Upload className="w-3 h-3 mr-1" />
+                        Retry Failed
+                      </Button>
                     </div>
                   )}
 

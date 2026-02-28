@@ -294,6 +294,65 @@ export const useBatchUpload = ({
     }, 500);
   }, [onCancel]);
 
+  /** Retry only failed items */
+  const retryFailed = useCallback(async (subfolder: string = 'photos'): Promise<string[]> => {
+    const failedItems = items.filter(item => item.status === 'error');
+    if (failedItems.length === 0) return [];
+
+    setIsUploading(true);
+    setIsCancelled(false);
+    cancelledRef.current = false;
+
+    const updateItem = (id: string, patch: Partial<UploadItem>) => {
+      setItems(prev => prev.map(p => p.id === id ? { ...p, ...patch } : p));
+    };
+
+    const results: string[] = [];
+    let completedCount = 0;
+    const totalCount = failedItems.length;
+
+    for (let i = 0; i < failedItems.length; i += maxConcurrent) {
+      if (cancelledRef.current) break;
+      const chunk = failedItems.slice(i, i + maxConcurrent);
+
+      const chunkResults = await Promise.allSettled(
+        chunk.map(item => {
+          // Reset retry count for this new attempt
+          updateItem(item.id, { retryCount: 0, error: undefined });
+          return uploadFileWithRetry(item, subfolder, updateItem);
+        })
+      );
+
+      chunkResults.forEach((result) => {
+        if (result.status === 'fulfilled' && result.value) {
+          results.push(result.value);
+        }
+        completedCount++;
+      });
+
+      const uploadProgress = Math.round((completedCount / totalCount) * 100);
+      setOverallProgress(uploadProgress);
+      onProgress?.(uploadProgress, completedCount, totalCount);
+
+      if (i + maxConcurrent < failedItems.length) {
+        await new Promise(resolve => setTimeout(resolve, 150));
+      }
+    }
+
+    setIsUploading(false);
+
+    if (results.length > 0) {
+      onComplete?.(results);
+    }
+
+    const stillFailed = totalCount - results.length;
+    if (stillFailed > 0) {
+      onError?.(`${stillFailed} photo(s) still failed after retry.`);
+    }
+
+    return results;
+  }, [items, maxConcurrent, uploadFileWithRetry, onProgress, onComplete, onError]);
+
   /** Reset state */
   const reset = useCallback(() => {
     items.forEach(item => {
@@ -308,6 +367,8 @@ export const useBatchUpload = ({
     setCompressionStats(null);
   }, [items]);
 
+  const failedCount = items.filter(i => i.status === 'error').length;
+
   return {
     items,
     isUploading,
@@ -315,8 +376,10 @@ export const useBatchUpload = ({
     isCancelled,
     overallProgress,
     compressionStats,
+    failedCount,
     processUploads,
     cancelUploads,
+    retryFailed,
     reset,
   };
 };
