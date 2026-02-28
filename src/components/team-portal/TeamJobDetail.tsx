@@ -108,6 +108,7 @@ export const TeamJobDetail = ({
   
   // Batch upload hooks for photos and videos with compression
   const [compressionSaved, setCompressionSaved] = useState<string | null>(null);
+  const totalPhotosSelectedRef = useRef(0);
   
   const photoBatchUpload = useBatchUpload({
     teamId,
@@ -115,6 +116,7 @@ export const TeamJobDetail = ({
     maxConcurrent: 3,
     enableCompression: true,
     compressionQuality: 0.8,
+    maxRetries: 3,
     onProgress: (progress, completed, total) => {
       setBatchUploadProgress(progress);
       setBatchUploadStats({ completed, total });
@@ -133,10 +135,21 @@ export const TeamJobDetail = ({
       setHasUnsavedChanges(true);
       
       const savedMsg = compressionSaved ? ` - ${compressionSaved}` : '';
-      toast({
-        title: 'Photos Uploaded',
-        description: `${urls.length} photo(s) uploaded successfully${savedMsg}`,
-      });
+      const totalSelected = totalPhotosSelectedRef.current;
+      const failedCount = totalSelected - urls.length;
+      
+      if (failedCount > 0 && urls.length > 0) {
+        toast({
+          title: 'Partial Upload',
+          description: `${urls.length} of ${totalSelected} photo(s) uploaded. ${failedCount} failed after retries.`,
+          variant: 'destructive',
+        });
+      } else if (urls.length > 0) {
+        toast({
+          title: 'Photos Uploaded',
+          description: `${urls.length} photo(s) uploaded successfully${savedMsg}`,
+        });
+      }
       setCompressionSaved(null);
     },
     onError: (error) => {
@@ -553,7 +566,6 @@ export const TeamJobDetail = ({
     const fileArray = Array.from(files);
     
     if (!isOnline) {
-      // Offline mode - show message, don't try to upload
       toast({
         title: 'Offline Mode',
         description: 'Photos will be uploaded when you\'re back online. Please save to queue.',
@@ -564,10 +576,11 @@ export const TeamJobDetail = ({
     }
 
     setUploadingPhotos(true);
+    totalPhotosSelectedRef.current = fileArray.length;
     
     toast({
       title: 'Uploading Photos',
-      description: `Processing ${fileArray.length} photo(s)...`,
+      description: `Processing ${fileArray.length} photo(s) with auto-retry...`,
     });
 
     try {
@@ -576,17 +589,53 @@ export const TeamJobDetail = ({
       console.error('Batch upload error:', error);
       toast({
         title: 'Upload Failed',
-        description: 'Some photos failed to upload. Please try again.',
+        description: 'Photo upload encountered an error. Please try again.',
         variant: 'destructive',
       });
       setUploadingPhotos(false);
     } finally {
-      // Reset input to allow re-selecting same files
       e.target.value = '';
     }
   };
 
-  // Optimized batch file/document upload
+  // Upload a single file with retry logic
+  const uploadFileWithRetry = async (file: File, subfolder: string, maxRetries = 3): Promise<{ name: string; url: string; type: string } | null> => {
+    const timestamp = Date.now();
+    const randomId = Math.random().toString(36).substring(2, 8);
+    const safeFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const fileName = `${teamId}/${job.id}/${subfolder}/${timestamp}-${randomId}-${safeFileName}`;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        if (attempt > 0) {
+          await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt - 1) + Math.random() * 500));
+        }
+
+        const uploadPromise = supabase.storage
+          .from('job-attachments')
+          .upload(fileName, file, { cacheControl: '3600', upsert: false });
+
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Upload timed out')), 60000)
+        );
+
+        const { data, error } = await Promise.race([uploadPromise, timeoutPromise]) as any;
+        if (error) throw error;
+
+        const { data: urlData } = supabase.storage
+          .from('job-attachments')
+          .getPublicUrl(data.path);
+
+        return { name: file.name, url: urlData.publicUrl, type: file.type };
+      } catch (err: any) {
+        console.error(`File upload attempt ${attempt + 1}/${maxRetries + 1} failed for ${file.name}:`, err?.message);
+        if (attempt === maxRetries) return null;
+      }
+    }
+    return null;
+  };
+
+  // Optimized batch file/document upload with retry
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -611,56 +660,55 @@ export const TeamJobDetail = ({
     });
 
     try {
-      // For documents, we need to track file names
-      const uploadPromises = fileArray.map(async (file) => {
-        const timestamp = Date.now();
-        const randomId = Math.random().toString(36).substring(2, 8);
-        const fileName = `${teamId}/${job.id}/docs/${timestamp}-${randomId}-${file.name}`;
-
-        const { data, error } = await supabase.storage
-          .from('job-attachments')
-          .upload(fileName, file);
-
-        if (error) throw error;
-
-        const { data: urlData } = supabase.storage
-          .from('job-attachments')
-          .getPublicUrl(data.path);
-
-        return {
-          name: file.name,
-          url: urlData.publicUrl,
-          type: file.type,
-        };
-      });
-
-      // Process in smaller batches to avoid overwhelming mobile
       const batchSize = 3;
       const results: { name: string; url: string; type: string }[] = [];
+      const failed: string[] = [];
       
-      for (let i = 0; i < uploadPromises.length; i += batchSize) {
-        const batch = uploadPromises.slice(i, i + batchSize);
-        const batchResults = await Promise.all(batch);
-        results.push(...batchResults);
+      for (let i = 0; i < fileArray.length; i += batchSize) {
+        const batch = fileArray.slice(i, i + batchSize);
+        const batchResults = await Promise.all(
+          batch.map(file => uploadFileWithRetry(file, 'docs'))
+        );
         
-        // Update progress
-        const progress = Math.round(((i + batch.length) / uploadPromises.length) * 100);
+        batchResults.forEach((result, idx) => {
+          if (result) {
+            results.push(result);
+          } else {
+            failed.push(batch[idx].name);
+          }
+        });
+
+        const progress = Math.round(((i + batch.length) / fileArray.length) * 100);
         setBatchUploadProgress(progress);
-        setBatchUploadStats({ completed: i + batch.length, total: uploadPromises.length });
+        setBatchUploadStats({ completed: i + batch.length, total: fileArray.length });
+
+        if (i + batchSize < fileArray.length) {
+          await new Promise(resolve => setTimeout(resolve, 150));
+        }
       }
 
-      setDocuments(prev => [...prev, ...results]);
-      setHasUnsavedChanges(true);
+      if (results.length > 0) {
+        setDocuments(prev => [...prev, ...results]);
+        setHasUnsavedChanges(true);
+      }
       
-      toast({
-        title: 'Files Uploaded',
-        description: `${results.length} file(s) uploaded successfully.`,
-      });
+      if (failed.length > 0) {
+        toast({
+          title: 'Some Files Failed',
+          description: `${failed.length} file(s) failed after retries: ${failed.join(', ')}`,
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Files Uploaded',
+          description: `${results.length} file(s) uploaded successfully.`,
+        });
+      }
     } catch (error) {
       console.error('File upload error:', error);
       toast({
         title: 'Upload Failed',
-        description: 'Failed to upload files.',
+        description: 'Failed to upload files. Please try again.',
         variant: 'destructive',
       });
     } finally {
