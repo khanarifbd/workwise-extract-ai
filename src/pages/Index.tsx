@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useSessionPersistence } from '@/hooks/useSessionPersistence';
 import { Job } from '@/types/job';
 import { FileDropZone } from '@/components/FileDropZone';
 import { InsulationFileDropZone, InsulationFileType } from '@/components/InsulationFileDropZone';
@@ -52,6 +53,7 @@ type CompletedSortOrder = 'newest' | 'oldest';
 
 const Index = () => {
   const { canEdit } = useAdminAuth();
+  useSessionPersistence('genie');
   const { categories, isLoading: categoriesLoading, addCategory, updateCategory, deleteCategory } = useCategories();
   
   // URL-persisted state for navigation that survives tab switches
