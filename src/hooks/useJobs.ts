@@ -185,6 +185,15 @@ export const useJobs = (categoryId?: string) => {
       const previousStatus = currentJob?.status;
       const newStatus = updates.status;
 
+      // CRITICAL: Booked date overrides completion status
+      // When a booked date is set on a completed job, un-complete it
+      if (updates.bookedDate && (currentJob.isCompleted || currentJob.status === 'complete')) {
+        updates.isCompleted = false;
+        updates.status = 'started' as any;
+        updates.completionDate = null;
+        updates.progress = 50;
+      }
+
       // CRITICAL: Enforce completion flag consistency
       // When status changes to 'complete', sync all completion fields
       if (newStatus === 'complete') {
