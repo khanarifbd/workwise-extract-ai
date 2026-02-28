@@ -5,11 +5,12 @@ import { compressImages, formatBytes, calculateSavings } from '@/lib/imageCompre
 interface UploadItem {
   id: string;
   file: File;
-  status: 'pending' | 'compressing' | 'uploading' | 'complete' | 'error' | 'cancelled';
+  status: 'pending' | 'compressing' | 'uploading' | 'complete' | 'error' | 'cancelled' | 'retrying';
   progress: number;
   url?: string;
   error?: string;
   thumbnailUrl?: string;
+  retryCount: number;
 }
 
 interface UseBatchUploadOptions {
@@ -19,12 +20,53 @@ interface UseBatchUploadOptions {
   maxConcurrent?: number;
   enableCompression?: boolean;
   compressionQuality?: number;
-  folderId?: string; // Optional folder ID for Before/After organization
+  folderId?: string;
+  maxRetries?: number;
   onProgress?: (progress: number, completed: number, total: number) => void;
   onCompressionComplete?: (savedBytes: number, savedPercent: number) => void;
   onComplete?: (urls: string[]) => void;
   onError?: (error: string) => void;
   onCancel?: () => void;
+}
+
+const MAX_RETRIES_DEFAULT = 3;
+const RETRY_BASE_DELAY_MS = 1000;
+const UPLOAD_TIMEOUT_MS = 60000; // 60s per file
+
+/** Upload a single file to storage with timeout */
+async function uploadSingleFile(
+  file: File,
+  bucket: string,
+  filePath: string,
+  timeoutMs: number = UPLOAD_TIMEOUT_MS,
+): Promise<string> {
+  // Race upload against timeout
+  const uploadPromise = supabase.storage
+    .from(bucket)
+    .upload(filePath, file, {
+      cacheControl: '3600',
+      upsert: false,
+    });
+
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error('Upload timed out after ' + (timeoutMs / 1000) + 's')), timeoutMs)
+  );
+
+  const { data, error } = await Promise.race([uploadPromise, timeoutPromise]) as any;
+
+  if (error) throw error;
+
+  const { data: urlData } = supabase.storage
+    .from(bucket)
+    .getPublicUrl(data.path);
+
+  return urlData.publicUrl;
+}
+
+/** Sleep helper with exponential backoff */
+function backoffDelay(attempt: number, baseMs: number = RETRY_BASE_DELAY_MS): Promise<void> {
+  const delay = baseMs * Math.pow(2, attempt) + Math.random() * 500;
+  return new Promise(resolve => setTimeout(resolve, delay));
 }
 
 export const useBatchUpload = ({
@@ -35,6 +77,7 @@ export const useBatchUpload = ({
   enableCompression = true,
   compressionQuality = 0.8,
   folderId,
+  maxRetries = MAX_RETRIES_DEFAULT,
   onProgress,
   onCompressionComplete,
   onComplete,
@@ -47,75 +90,83 @@ export const useBatchUpload = ({
   const [isCancelled, setIsCancelled] = useState(false);
   const [overallProgress, setOverallProgress] = useState(0);
   const [compressionStats, setCompressionStats] = useState<{ saved: number; percent: number } | null>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
+  const cancelledRef = useRef(false);
 
-  // Generate thumbnail for image preview (small, fast)
-  const generateThumbnail = useCallback(async (file: File): Promise<string> => {
-    return new Promise((resolve) => {
-      const url = URL.createObjectURL(file);
-      resolve(url);
-    });
-  }, []);
-
-  // Upload a single file
-  const uploadFile = useCallback(async (
+  /** Upload a single file with retries */
+  const uploadFileWithRetry = useCallback(async (
     item: UploadItem,
-    subfolder: string
+    subfolder: string,
+    updateItem: (id: string, patch: Partial<UploadItem>) => void,
   ): Promise<string | null> => {
     const timestamp = Date.now();
     const randomId = Math.random().toString(36).substring(2, 8);
     const extension = item.file.name?.split('.').pop()?.toLowerCase() || 'jpg';
-    
-    // Include folderId in path if provided (for Before/After organization)
     const folderPath = folderId ? `${subfolder}/${folderId}` : subfolder;
-    const fileName = `${teamId}/${jobId}/${folderPath}/${timestamp}-${randomId}.${extension}`;
+    const filePath = `${teamId}/${jobId}/${folderPath}/${timestamp}-${randomId}.${extension}`;
 
-    try {
-      const { data, error } = await supabase.storage
-        .from(bucket)
-        .upload(fileName, item.file, {
-          cacheControl: '3600',
-          upsert: false,
-        });
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      if (cancelledRef.current) return null;
 
-      if (error) throw error;
+      try {
+        if (attempt > 0) {
+          updateItem(item.id, { status: 'retrying', progress: 10, retryCount: attempt, error: `Retry ${attempt}/${maxRetries}...` });
+          await backoffDelay(attempt - 1);
+        } else {
+          updateItem(item.id, { status: 'uploading', progress: 10 });
+        }
 
-      const { data: urlData } = supabase.storage
-        .from(bucket)
-        .getPublicUrl(data.path);
+        if (cancelledRef.current) return null;
 
-      return urlData.publicUrl;
-    } catch (error) {
-      console.error('Upload error:', error);
-      return null;
+        updateItem(item.id, { progress: 30 });
+
+        const url = await uploadSingleFile(item.file, bucket, filePath);
+
+        // Revoke thumbnail blob URL to free memory
+        if (item.thumbnailUrl?.startsWith('blob:')) {
+          URL.revokeObjectURL(item.thumbnailUrl);
+        }
+
+        updateItem(item.id, { status: 'complete', progress: 100, url, thumbnailUrl: url, error: undefined });
+        return url;
+      } catch (err: any) {
+        const errorMsg = err?.message || 'Upload failed';
+        console.error(`Upload attempt ${attempt + 1}/${maxRetries + 1} failed for ${item.file.name}:`, errorMsg);
+
+        if (attempt === maxRetries) {
+          updateItem(item.id, { status: 'error', progress: 0, error: errorMsg, retryCount: attempt });
+          return null;
+        }
+      }
     }
-  }, [teamId, jobId, bucket, folderId]);
 
-  // Process uploads in batches with compression and concurrency control
+    return null;
+  }, [teamId, jobId, bucket, folderId, maxRetries]);
+
+  /** Process uploads in batches with compression and concurrency control */
   const processUploads = useCallback(async (
     files: File[],
     subfolder: string = 'photos'
   ): Promise<string[]> => {
     if (files.length === 0) return [];
-    
+
     setIsUploading(true);
     setIsCancelled(false);
+    cancelledRef.current = false;
     setCompressionStats(null);
-    abortControllerRef.current = new AbortController();
 
     let filesToUpload = files;
 
     // Compress images if enabled
     if (enableCompression && subfolder === 'photos') {
       setIsCompressing(true);
-      
-      // Create initial items showing compression status
+
       const compressingItems: UploadItem[] = files.map((file, index) => ({
         id: `upload-${Date.now()}-${index}`,
         file,
         status: 'compressing' as const,
         progress: 0,
         thumbnailUrl: URL.createObjectURL(file),
+        retryCount: 0,
       }));
       setItems(compressingItems);
 
@@ -124,135 +175,114 @@ export const useBatchUpload = ({
         filesToUpload = await compressImages(
           files,
           { quality: compressionQuality, maxWidth: 1920, maxHeight: 1920 },
-          2, // Lower concurrency for compression on mobile
+          2,
           (completed, total) => {
-            const progress = Math.round((completed / total) * 30); // Compression is 0-30% of total
+            const progress = Math.round((completed / total) * 30);
             setOverallProgress(progress);
           }
         );
 
-        // Calculate and report savings
         const savings = calculateSavings(originalFiles, filesToUpload);
         setCompressionStats({ saved: savings.savedBytes, percent: savings.savedPercent });
         onCompressionComplete?.(savings.savedBytes, savings.savedPercent);
-        
         console.log(`Compression complete: ${formatBytes(savings.savedBytes)} saved (${savings.savedPercent.toFixed(0)}%)`);
       } catch (error) {
-        console.error('Compression error:', error);
-        // Continue with original files if compression fails
+        console.error('Compression error, continuing with originals:', error);
         filesToUpload = files;
       }
-      
+
       setIsCompressing(false);
     }
 
-    // Create upload items with fast thumbnail previews
-    const uploadItems: UploadItem[] = await Promise.all(
-      filesToUpload.map(async (file, index) => {
-        const id = `upload-${Date.now()}-${index}`;
-        const thumbnailUrl = await generateThumbnail(file);
-        return {
-          id,
-          file,
-          status: 'pending' as const,
-          progress: 0,
-          thumbnailUrl,
-        };
-      })
-    );
+    // Create upload items
+    const uploadItems: UploadItem[] = filesToUpload.map((file, index) => ({
+      id: `upload-${Date.now()}-${index}`,
+      file,
+      status: 'pending' as const,
+      progress: 0,
+      thumbnailUrl: URL.createObjectURL(file),
+      retryCount: 0,
+    }));
 
     setItems(uploadItems);
 
+    // Mutable state tracker for item updates (avoids stale closures)
+    const itemStateMap = new Map<string, Partial<UploadItem>>();
+    const updateItem = (id: string, patch: Partial<UploadItem>) => {
+      itemStateMap.set(id, { ...itemStateMap.get(id), ...patch });
+      setItems(prev => prev.map(p => p.id === id ? { ...p, ...patch } : p));
+    };
+
     const results: string[] = [];
+    const failedItems: UploadItem[] = [];
     let completedCount = 0;
     const totalCount = uploadItems.length;
 
-    // Process in chunks for better memory management
+    // Process in chunks
     const chunkSize = maxConcurrent;
-    
+
     for (let i = 0; i < uploadItems.length; i += chunkSize) {
-      if (abortControllerRef.current?.signal.aborted) break;
+      if (cancelledRef.current) break;
 
       const chunk = uploadItems.slice(i, i + chunkSize);
-      
-      // Update status to uploading for current chunk
-      setItems(prev => prev.map(item => 
-        chunk.find(c => c.id === item.id) 
-          ? { ...item, status: 'uploading' as const, progress: 10 }
-          : item
-      ));
 
-      // Upload chunk in parallel
       const chunkResults = await Promise.allSettled(
-        chunk.map(async (item) => {
-          // Update progress incrementally
-          setItems(prev => prev.map(p => 
-            p.id === item.id ? { ...p, progress: 30 } : p
-          ));
-
-          const url = await uploadFile(item, subfolder);
-
-          // Update to complete or error
-          setItems(prev => prev.map(p => {
-            if (p.id === item.id) {
-              // Revoke the thumbnail URL to free memory
-              if (p.thumbnailUrl && p.thumbnailUrl.startsWith('blob:')) {
-                URL.revokeObjectURL(p.thumbnailUrl);
-              }
-              return url 
-                ? { ...p, status: 'complete' as const, progress: 100, url, thumbnailUrl: url }
-                : { ...p, status: 'error' as const, progress: 0, error: 'Upload failed' };
-            }
-            return p;
-          }));
-
-          return url;
-        })
+        chunk.map(item => uploadFileWithRetry(item, subfolder, updateItem))
       );
 
-      // Collect successful uploads
-      chunkResults.forEach(result => {
+      chunkResults.forEach((result, idx) => {
         if (result.status === 'fulfilled' && result.value) {
           results.push(result.value);
+        } else {
+          failedItems.push(chunk[idx]);
         }
         completedCount++;
       });
 
-      // Update overall progress (30-100% for uploads, since 0-30% was compression)
-      const uploadProgress = 30 + Math.round((completedCount / totalCount) * 70);
-      setOverallProgress(enableCompression ? uploadProgress : Math.round((completedCount / totalCount) * 100));
+      const uploadProgress = enableCompression
+        ? 30 + Math.round((completedCount / totalCount) * 70)
+        : Math.round((completedCount / totalCount) * 100);
+      setOverallProgress(uploadProgress);
       onProgress?.(uploadProgress, completedCount, totalCount);
 
-      // Small delay between chunks to prevent overwhelming the device
+      // Small delay between chunks to prevent overwhelming mobile
       if (i + chunkSize < uploadItems.length) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 150));
       }
     }
 
     setIsUploading(false);
-    onComplete?.(results);
 
-    // Clean up remaining object URLs
+    if (failedItems.length > 0) {
+      const errorMsg = `${failedItems.length} of ${totalCount} photo(s) failed to upload after ${maxRetries + 1} attempts.`;
+      console.error(errorMsg);
+      onError?.(errorMsg);
+    }
+
+    if (results.length > 0) {
+      onComplete?.(results);
+    }
+
+    // Clean up remaining blob URLs
     uploadItems.forEach(item => {
-      if (item.thumbnailUrl && item.thumbnailUrl.startsWith('blob:')) {
+      if (item.thumbnailUrl?.startsWith('blob:')) {
         URL.revokeObjectURL(item.thumbnailUrl);
       }
     });
 
     return results;
-  }, [maxConcurrent, uploadFile, generateThumbnail, enableCompression, compressionQuality, onProgress, onCompressionComplete, onComplete]);
+  }, [maxConcurrent, uploadFileWithRetry, enableCompression, compressionQuality, maxRetries, onProgress, onCompressionComplete, onComplete, onError]);
 
-  // Cancel all uploads
+  /** Cancel all uploads */
   const cancelUploads = useCallback(() => {
-    abortControllerRef.current?.abort();
+    cancelledRef.current = true;
     setIsCancelled(true);
-    setItems(prev => prev.map(item => 
-      item.status === 'pending' || item.status === 'uploading' || item.status === 'compressing'
+    setItems(prev => prev.map(item =>
+      item.status === 'pending' || item.status === 'uploading' || item.status === 'compressing' || item.status === 'retrying'
         ? { ...item, status: 'cancelled' as const }
         : item
     ));
-    
-    // Clean up after a short delay to show cancelled state
+
     setTimeout(() => {
       setIsUploading(false);
       setIsCompressing(false);
@@ -264,11 +294,10 @@ export const useBatchUpload = ({
     }, 500);
   }, [onCancel]);
 
-  // Reset state
+  /** Reset state */
   const reset = useCallback(() => {
-    // Clean up object URLs
     items.forEach(item => {
-      if (item.thumbnailUrl && item.thumbnailUrl.startsWith('blob:')) {
+      if (item.thumbnailUrl?.startsWith('blob:')) {
         URL.revokeObjectURL(item.thumbnailUrl);
       }
     });
