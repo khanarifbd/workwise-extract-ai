@@ -261,6 +261,7 @@ const Index = () => {
         referBack: false,
         referBackReason: '',
         referBackDate: null,
+        expectedCompletionDate: null,
       };
       
       // Check for duplicates before adding

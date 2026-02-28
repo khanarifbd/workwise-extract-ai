@@ -108,6 +108,7 @@ export interface Job {
   referBack: boolean; // Job referred back to NPH as uncompletable
   referBackReason: string; // Reason for refer back
   referBackDate: Date | null; // When it was referred back
+  expectedCompletionDate: Date | null; // Progressor-set expected completion date
 }
 
 export interface Attachment {
