@@ -66,6 +66,8 @@ const Index = () => {
     setViewType,
     activeCategory: urlCategory,
     setActiveCategory: setUrlCategory,
+    selectedJobId,
+    setSelectedJobId,
   } = useUrlState();
   
   // Use URL category or fall back to first category
@@ -88,7 +90,13 @@ const Index = () => {
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [uploadExpanded, setUploadExpanded] = useState(false);
   const [kanbanGroupBy, setKanbanGroupBy] = useState<KanbanGroupBy>('team');
-  const [selectedJobForModal, setSelectedJobForModal] = useState<Job | null>(null);
+  const selectedJobForModal = useMemo(() => {
+    if (!selectedJobId) return null;
+    return jobs.find(j => j.id === selectedJobId) || null;
+  }, [selectedJobId, jobs]);
+  const setSelectedJobForModal = useCallback((job: Job | null) => {
+    setSelectedJobId(job?.id || null);
+  }, [setSelectedJobId]);
   const [filters, setFilters] = useState<FilterState>(getDefaultFilterState());
   const [activeMonthFolder, setActiveMonthFolder] = useState<string | null>(null);
   const [bookedSortOrder, setBookedSortOrder] = useState<BookedSortOrder>('newest');

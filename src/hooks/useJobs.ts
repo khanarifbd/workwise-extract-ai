@@ -6,8 +6,27 @@ import { useToast } from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
 
 export const useJobs = (categoryId?: string) => {
-  const [jobs, setJobs] = useState<Job[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const cacheKey = `genie_jobs_cache_${categoryId || 'all'}`;
+  const [jobs, setJobs] = useState<Job[]>(() => {
+    try {
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp < 10 * 60 * 1000) return data;
+      }
+    } catch {}
+    return [];
+  });
+  const [isLoading, setIsLoading] = useState(() => {
+    try {
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) {
+        const { timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp < 10 * 60 * 1000) return false;
+      }
+    } catch {}
+    return true;
+  });
   const { toast } = useToast();
   
   // Refs to prevent race conditions
@@ -56,6 +75,10 @@ export const useJobs = (categoryId?: string) => {
         }
         return data;
       });
+      // Cache for instant restore
+      try {
+        sessionStorage.setItem(cacheKey, JSON.stringify({ data, timestamp: Date.now() }));
+      } catch {}
     } catch (error) {
       console.error('Error loading jobs:', error);
       toast({

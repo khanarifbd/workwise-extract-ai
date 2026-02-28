@@ -27,12 +27,11 @@ const PageLoader = () => (
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      // Prevent refetching when user returns to the tab - preserves page state
       refetchOnWindowFocus: false,
-      // Keep data fresh for 5 minutes before considering it stale
-      staleTime: 5 * 60 * 1000,
-      // Retry failed requests once
+      staleTime: 10 * 60 * 1000, // 10 minutes before considering stale
+      gcTime: 30 * 60 * 1000, // Keep unused data in cache for 30 minutes
       retry: 1,
+      refetchOnMount: false, // Don't refetch if data exists in cache
     },
   },
 });

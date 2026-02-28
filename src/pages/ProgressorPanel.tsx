@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSessionPersistence } from '@/hooks/useSessionPersistence';
 import { useProgressorAuth } from '@/hooks/useProgressorAuth';
 import { useAllSubTasks } from '@/hooks/useSubTasks';
@@ -42,14 +42,41 @@ interface ContactRecord {
 
 export default function ProgressorPanel() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { signOut, user } = useProgressorAuth();
   const { subTasks, isLoading: subTasksLoading, updateSubTask, fetchAll } = useAllSubTasks();
   const { logAction } = useAuditLog();
   useSessionPersistence('progressor');
 
-  const [jobs, setJobs] = useState<Job[]>([]);
-  const [jobsLoading, setJobsLoading] = useState(true);
-  const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set());
+  const [jobs, setJobs] = useState<Job[]>(() => {
+    // Restore cached jobs from sessionStorage for instant load
+    try {
+      const cached = sessionStorage.getItem('progressor_jobs_cache');
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached);
+        // Use cache if less than 10 minutes old
+        if (Date.now() - timestamp < 10 * 60 * 1000) return data;
+      }
+    } catch {}
+    return [];
+  });
+  const [jobsLoading, setJobsLoading] = useState(() => {
+    // If we have cached data, don't show loading
+    try {
+      const cached = sessionStorage.getItem('progressor_jobs_cache');
+      if (cached) {
+        const { timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp < 10 * 60 * 1000) return false;
+      }
+    } catch {}
+    return true;
+  });
+  
+  // Restore expanded jobs from URL
+  const [expandedJobs, setExpandedJobs] = useState<Set<string>>(() => {
+    const urlJob = searchParams.get('job');
+    return urlJob ? new Set([urlJob]) : new Set();
+  });
   const [contactHistory, setContactHistory] = useState<Map<string, ContactRecord[]>>(new Map());
   
   // Editable ongoing reason state
@@ -97,6 +124,10 @@ export default function ProgressorPanel() {
         });
       
       setJobs(mappedJobs);
+      // Cache jobs for instant restore on return
+      try {
+        sessionStorage.setItem('progressor_jobs_cache', JSON.stringify({ data: mappedJobs, timestamp: Date.now() }));
+      } catch {}
 
       // Fetch contact history for all these jobs
       const jobIds = mappedJobs.map(j => j.id);
@@ -302,14 +333,21 @@ export default function ProgressorPanel() {
   const toggleJobExpand = (jobId: string) => {
     setExpandedJobs(prev => {
       const next = new Set(prev);
-      if (next.has(jobId)) next.delete(jobId);
-      else next.add(jobId);
+      if (next.has(jobId)) {
+        next.delete(jobId);
+        // Clear job from URL when collapsing
+        setSearchParams(p => { const n = new URLSearchParams(p); n.delete('job'); return n; }, { replace: true });
+      } else {
+        next.add(jobId);
+        // Persist last expanded job in URL for session restore
+        setSearchParams(p => { const n = new URLSearchParams(p); n.set('job', jobId); return n; }, { replace: true });
+      }
       return next;
     });
   };
 
   const expandAll = () => setExpandedJobs(new Set(filteredJobs.map(j => j.id)));
-  const collapseAll = () => setExpandedJobs(new Set());
+  const collapseAll = () => { setExpandedJobs(new Set()); setSearchParams(p => { const n = new URLSearchParams(p); n.delete('job'); return n; }, { replace: true }); };
 
   const handleDeleteSubTask = async (subTask: SubTask) => {
     if (!confirm(`Delete ${subTask.trade} sub-task? This cannot be undone.`)) return;
