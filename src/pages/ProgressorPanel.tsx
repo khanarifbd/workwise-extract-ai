@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useSessionPersistence } from '@/hooks/useSessionPersistence';
 import { useProgressorAuth } from '@/hooks/useProgressorAuth';
 import { useAllSubTasks } from '@/hooks/useSubTasks';
 import { useAuditLog } from '@/hooks/useAuditLog';
@@ -44,6 +45,7 @@ export default function ProgressorPanel() {
   const { signOut, user } = useProgressorAuth();
   const { subTasks, isLoading: subTasksLoading, updateSubTask, fetchAll } = useAllSubTasks();
   const { logAction } = useAuditLog();
+  useSessionPersistence('progressor');
 
   const [jobs, setJobs] = useState<Job[]>([]);
   const [jobsLoading, setJobsLoading] = useState(true);
@@ -72,10 +74,14 @@ export default function ProgressorPanel() {
   const fetchJobs = useCallback(async () => {
     setJobsLoading(true);
     try {
+      // Fetch all non-deleted, non-FAN jobs - select only needed columns
+      const FAN_CATEGORY_ID = '913c5a29-2b7f-4da9-992a-1b49e51d9d8a';
       const { data, error } = await supabase
         .from('jobs')
-        .select('*')
+        .select('id, job_number, name, address, phone_number, status, team, team2, progress, is_completed, is_ongoing, ongoing_reason, booked_date, completion_date, expected_completion_date, created_at, date_issued, description, work_items, fan_info, category_id, progress_notes, scheduled_trades')
         .is('deleted_at', null)
+        .or(`category_id.is.null,category_id.neq.${FAN_CATEGORY_ID}`)
+        .eq('is_completed', false)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -84,9 +90,6 @@ export default function ProgressorPanel() {
       const mappedJobs = (data || [])
         .map(mapDatabaseJobToJob)
         .filter(job => {
-          // Must NOT be completed
-          if (job.isCompleted || job.status === 'complete') return false;
-          
           // Must have a booked date that is 12+ hours in the past
           if (!job.bookedDate) return false;
           const hoursSinceBooked = differenceInHours(now, job.bookedDate);
