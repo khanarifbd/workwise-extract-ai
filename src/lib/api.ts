@@ -477,6 +477,7 @@ export function mapDatabaseJobToJob(dbJob: any): Job {
     referBack: dbJob.refer_back || false,
     referBackReason: dbJob.refer_back_reason || '',
     referBackDate: dbJob.refer_back_date ? new Date(dbJob.refer_back_date) : null,
+    expectedCompletionDate: dbJob.expected_completion_date ? new Date(dbJob.expected_completion_date) : null,
   };
 }
 
@@ -844,6 +845,7 @@ export const mapJobToDatabase = (job: Partial<Job>): any => {
   if (job.referBack !== undefined) dbJob.refer_back = job.referBack;
   if (job.referBackReason !== undefined) dbJob.refer_back_reason = job.referBackReason;
   if (job.referBackDate !== undefined) dbJob.refer_back_date = job.referBackDate;
+  if (job.expectedCompletionDate !== undefined) dbJob.expected_completion_date = job.expectedCompletionDate;
   
   return dbJob;
 };
@@ -893,6 +895,7 @@ export const createLinkedFanJob = async (
     referBack: false,
     referBackReason: '',
     referBackDate: null,
+    expectedCompletionDate: null,
   };
 
   const dbJob = mapJobToDatabase(fanJob);
@@ -996,6 +999,7 @@ export const syncLinkedFanJob = async (
     referBack: false,
     referBackReason: '',
     referBackDate: null,
+    expectedCompletionDate: null,
   };
 
   const dbJob = mapJobToDatabase(fanJob);
@@ -1094,6 +1098,7 @@ export const syncLinkedInsulationJob = async (
     referBack: false,
     referBackReason: '',
     referBackDate: null,
+    expectedCompletionDate: null,
   };
 
   const dbJob = mapJobToDatabase(insulationJob);

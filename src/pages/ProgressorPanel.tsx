@@ -25,8 +25,9 @@ import {
   Wrench, Users, FileText, RefreshCw, Phone, MapPin, User,
   Star, Flag, Zap, Plus, MessageSquare, Info, Trash2,
   ChevronUp, ChevronsUpDown, TrendingUp, PackageOpen, Save,
+  CalendarCheck, CheckCircle, CalendarClock,
 } from 'lucide-react';
-import { format, differenceInDays, differenceInHours } from 'date-fns';
+import { format, differenceInDays, differenceInHours, isPast } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 interface ContactRecord {
@@ -380,6 +381,64 @@ export default function ProgressorPanel() {
     navigate('/progressor-login', { replace: true });
   };
 
+  // Sign off a job - mark as complete and move to completed folder
+  const handleJobSignOff = async (job: Job) => {
+    if (!confirm(`Sign off job #${job.jobNumber} - ${job.name} as COMPLETE? This will move it to the Completed folder.`)) return;
+    try {
+      const { error } = await supabase
+        .from('jobs')
+        .update({
+          is_completed: true,
+          status: 'complete',
+          progress: 100,
+          completion_date: new Date().toISOString(),
+        })
+        .eq('id', job.id);
+      if (error) throw error;
+
+      await logAction({
+        action: 'update',
+        tableName: 'jobs',
+        recordId: job.id,
+        fieldChanged: 'status',
+        oldValue: job.status,
+        newValue: 'complete',
+        metadata: { jobNumber: job.jobNumber, signedOffByProgressor: true },
+      });
+
+      // Remove from local state
+      setJobs(prev => prev.filter(j => j.id !== job.id));
+    } catch (err) {
+      console.error('Error signing off job:', err);
+    }
+  };
+
+  // Save expected completion date
+  const handleExpectedCompletionDate = async (job: Job, dateStr: string) => {
+    try {
+      const newDate = dateStr ? new Date(dateStr).toISOString() : null;
+      const { error } = await supabase
+        .from('jobs')
+        .update({ expected_completion_date: newDate })
+        .eq('id', job.id);
+      if (error) throw error;
+
+      await logAction({
+        action: 'update',
+        tableName: 'jobs',
+        recordId: job.id,
+        fieldChanged: 'expected_completion_date',
+        oldValue: job.expectedCompletionDate ? job.expectedCompletionDate.toISOString() : '',
+        newValue: dateStr || '',
+        metadata: { jobNumber: job.jobNumber },
+      });
+
+      setJobs(prev => prev.map(j => j.id === job.id ? { ...j, expectedCompletionDate: dateStr ? new Date(dateStr) : null } : j));
+    } catch (err) {
+      console.error('Error saving expected completion date:', err);
+    }
+  };
+
   const getStatusInfo = (status: string) => {
     return JOB_STATUS_OPTIONS.find(s => s.value === status) || { label: status, color: '#6B7280' };
   };
@@ -495,7 +554,7 @@ export default function ProgressorPanel() {
           </section>
 
           {/* ═══════════ JOBS SECTION ═══════════ */}
-          <section>
+          <section className="bg-slate-50 dark:bg-slate-900/40 rounded-xl p-4 border border-slate-200 dark:border-slate-800">
             <div className="flex items-center gap-2 mb-3">
               <ClipboardList className="h-4 w-4 text-primary" />
               <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">Incomplete Jobs</h2>
@@ -614,6 +673,8 @@ export default function ProgressorPanel() {
                   const activeSubTasks = jobSubTasks.filter(st => st.status !== 'completed_signed_off');
                   const completedCount = jobSubTasks.filter(st => st.status === 'completed_signed_off').length;
                   const totalFans = job.fanInfo?.reduce((sum, f) => sum + f.quantity, 0) || 0;
+                  const hasExpectedCompletion = !!job.expectedCompletionDate;
+                  const expectedDatePast = job.expectedCompletionDate && isPast(job.expectedCompletionDate);
 
                   return (
                     <Card
@@ -622,6 +683,10 @@ export default function ProgressorPanel() {
                         "overflow-hidden transition-all",
                         hasOverdue && "border-red-500/50 shadow-red-500/10 shadow-md",
                         idleMoreThan3Days && !hasOverdue && "border-amber-400/50",
+                        // Outline jobs with no expected completion date
+                        !hasExpectedCompletion && "ring-2 ring-orange-400 dark:ring-orange-500",
+                        // Flash when expected date has passed
+                        expectedDatePast && "animate-flash-alert ring-2 ring-red-500",
                       )}
                     >
                       {/* Job Header */}
@@ -658,6 +723,21 @@ export default function ProgressorPanel() {
                             {job.referBack && <Flag className="h-3 w-3 text-red-500" />}
                             {hasOverdue && <Badge className="bg-red-600 text-white text-[10px] animate-pulse">OVERDUE</Badge>}
                             {idleMoreThan3Days && !hasOverdue && <Badge className="bg-amber-500 text-white text-[10px]">IDLE 3d+</Badge>}
+                            {!hasExpectedCompletion && (
+                              <Badge className="bg-orange-500 text-white text-[10px]">
+                                <CalendarClock className="h-2.5 w-2.5 mr-0.5" />NO ECD
+                              </Badge>
+                            )}
+                            {expectedDatePast && (
+                              <Badge className="bg-red-600 text-white text-[10px] animate-pulse">
+                                <CalendarClock className="h-2.5 w-2.5 mr-0.5" />ECD PASSED
+                              </Badge>
+                            )}
+                            {hasExpectedCompletion && !expectedDatePast && (
+                              <Badge variant="outline" className="text-[10px] border-emerald-400 text-emerald-600 dark:text-emerald-400">
+                                <CalendarCheck className="h-2.5 w-2.5 mr-0.5" />ECD: {format(job.expectedCompletionDate!, 'dd MMM')}
+                              </Badge>
+                            )}
                           </div>
                           <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
                             <span className="truncate">{job.address}</span>
@@ -843,11 +923,39 @@ export default function ProgressorPanel() {
                               </div>
                             )}
 
-                            {/* Add Sub-Task Button */}
-                            <div className="flex justify-end">
-                              <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); setAddSubTaskJob(job); }} className="text-xs">
-                                <Plus className="h-3 w-3 mr-1" /> Add Sub-Task
-                              </Button>
+                            {/* Expected Completion Date + Actions */}
+                            <div className="flex items-center justify-between gap-3 bg-background border rounded-lg p-2.5">
+                              <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-2 text-xs">
+                                  <CalendarCheck className="h-3.5 w-3.5 text-muted-foreground" />
+                                  <span className="text-muted-foreground font-medium">Expected Completion:</span>
+                                  <Input
+                                    type="date"
+                                    value={job.expectedCompletionDate ? format(job.expectedCompletionDate, 'yyyy-MM-dd') : ''}
+                                    onChange={(e) => handleExpectedCompletionDate(job, e.target.value)}
+                                    className={cn(
+                                      "h-7 text-xs w-[140px]",
+                                      !job.expectedCompletionDate && "border-orange-400",
+                                      expectedDatePast && "border-red-500 bg-red-50 dark:bg-red-950/20",
+                                    )}
+                                  />
+                                  {expectedDatePast && (
+                                    <span className="text-red-600 dark:text-red-400 font-bold text-[10px] animate-pulse">⚠ PAST DUE</span>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex gap-2">
+                                <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); setAddSubTaskJob(job); }} className="text-xs">
+                                  <Plus className="h-3 w-3 mr-1" /> Add Sub-Task
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                                  onClick={(e) => { e.stopPropagation(); handleJobSignOff(job); }}
+                                >
+                                  <CheckCircle className="h-3.5 w-3.5 mr-1" /> Sign Off Complete
+                                </Button>
+                              </div>
                             </div>
                           </div>
 

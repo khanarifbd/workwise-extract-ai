@@ -248,6 +248,7 @@ export type Database = {
           date_issued: string | null
           deleted_at: string | null
           description: string | null
+          expected_completion_date: string | null
           fan_info: Json | null
           id: string
           insulation_info: Json | null
@@ -288,6 +289,7 @@ export type Database = {
           date_issued?: string | null
           deleted_at?: string | null
           description?: string | null
+          expected_completion_date?: string | null
           fan_info?: Json | null
           id?: string
           insulation_info?: Json | null
@@ -328,6 +330,7 @@ export type Database = {
           date_issued?: string | null
           deleted_at?: string | null
           description?: string | null
+          expected_completion_date?: string | null
           fan_info?: Json | null
           id?: string
           insulation_info?: Json | null
