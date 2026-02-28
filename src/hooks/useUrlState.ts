@@ -9,6 +9,7 @@ interface UrlState {
   selectedBookedDate: string | null;
   viewType: ViewType;
   activeCategory: string | null;
+  selectedJobId: string | null;
 }
 
 const DEFAULTS: UrlState = {
@@ -16,6 +17,7 @@ const DEFAULTS: UrlState = {
   selectedBookedDate: null,
   viewType: 'table',
   activeCategory: null,
+  selectedJobId: null,
 };
 
 /**
@@ -30,6 +32,7 @@ export const useUrlState = () => {
   const selectedBookedDate = searchParams.get('date') || DEFAULTS.selectedBookedDate;
   const viewType = (searchParams.get('view') as ViewType) || DEFAULTS.viewType;
   const activeCategory = searchParams.get('category') || DEFAULTS.activeCategory;
+  const selectedJobId = searchParams.get('job') || DEFAULTS.selectedJobId;
 
   // Update URL params without causing navigation
   const updateUrlState = useCallback((updates: Partial<UrlState>) => {
@@ -67,6 +70,14 @@ export const useUrlState = () => {
           newParams.set('category', updates.activeCategory);
         }
       }
+
+      if (updates.selectedJobId !== undefined) {
+        if (updates.selectedJobId === null) {
+          newParams.delete('job');
+        } else {
+          newParams.set('job', updates.selectedJobId);
+        }
+      }
       
       return newParams;
     }, { replace: true }); // Use replace to avoid polluting browser history
@@ -94,17 +105,23 @@ export const useUrlState = () => {
     updateUrlState({ activeCategory: category });
   }, [updateUrlState]);
 
+  const setSelectedJobId = useCallback((jobId: string | null) => {
+    updateUrlState({ selectedJobId: jobId });
+  }, [updateUrlState]);
+
   return {
     // State values
     activeDatabaseTab,
     selectedBookedDate,
     viewType,
     activeCategory,
+    selectedJobId,
     // Setters
     setActiveDatabaseTab,
     setSelectedBookedDate,
     setViewType,
     setActiveCategory,
+    setSelectedJobId,
     // Bulk update
     updateUrlState,
   };
