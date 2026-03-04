@@ -330,24 +330,40 @@ export const sendWhatsAppNotification = async (
 
 // Database operations
 export const fetchJobs = async (categoryId?: string): Promise<Job[]> => {
-  let query = supabase
-    .from('jobs')
-    .select('*')
-    .is('deleted_at', null)
-    .order('date_issued', { ascending: false });
+  const batchSize = 1000;
+  let allData: any[] = [];
+  let offset = 0;
+  let hasMore = true;
 
-  if (categoryId) {
-    query = query.eq('category_id', categoryId);
+  while (hasMore) {
+    let query = supabase
+      .from('jobs')
+      .select('*')
+      .is('deleted_at', null)
+      .order('date_issued', { ascending: false })
+      .range(offset, offset + batchSize - 1);
+
+    if (categoryId) {
+      query = query.eq('category_id', categoryId);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('Error fetching jobs:', error);
+      throw error;
+    }
+
+    if (data && data.length > 0) {
+      allData.push(...data);
+      offset += batchSize;
+      hasMore = data.length === batchSize;
+    } else {
+      hasMore = false;
+    }
   }
 
-  const { data, error } = await query;
-
-  if (error) {
-    console.error('Error fetching jobs:', error);
-    throw error;
-  }
-
-  return (data || []).map(mapDatabaseJobToJob);
+  return allData.map(mapDatabaseJobToJob);
 };
 
 export const createJob = async (job: Omit<Job, 'id'>, categoryId?: string): Promise<Job> => {
