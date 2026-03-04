@@ -61,8 +61,8 @@ export const CompletedJobsPDFButton = ({ jobs, categoryName = 'Damp & Mold' }: C
 
     // Table data with specified columns
     const tableData = filteredJobs.map(job => {
-      // Site: Name and Address combined
-      const site = `${job.name}${job.address ? '\n' + job.address : ''}`;
+      // Site: Name, Address and Phone combined
+      const site = `${job.name}${job.address ? '\n' + job.address : ''}${job.phoneNumber ? '\nTel: ' + job.phoneNumber : ''}`;
       
       // Status: Always "Works Complete" for completed jobs
       const status = 'Works Complete';
