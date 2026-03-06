@@ -34,6 +34,7 @@ export const useJobs = (categoryId?: string) => {
   const pendingUpdatesRef = useRef<Set<string>>(new Set());
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastFetchRef = useRef<number>(0);
+  const integrityIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const loadJobs = useCallback(async (force = false) => {
     // Prevent concurrent fetches unless forced
@@ -152,13 +153,35 @@ export const useJobs = (categoryId?: string) => {
       )
       .subscribe();
 
+    // Periodic integrity check: verify local count matches DB every 30s
+    const runIntegrityCheck = async () => {
+      if (loadingRef.current || pendingUpdatesRef.current.size > 0) return;
+      try {
+        let query = supabase
+          .from('jobs')
+          .select('id', { count: 'exact', head: true })
+          .is('deleted_at', null);
+        if (categoryId) query = query.eq('category_id', categoryId);
+        const { count } = await query;
+        if (count !== null && count !== jobs.length) {
+          console.log(`Integrity mismatch: local=${jobs.length}, db=${count}. Auto-refreshing...`);
+          loadJobs(true);
+        }
+      } catch { /* silent */ }
+    };
+
+    integrityIntervalRef.current = setInterval(runIntegrityCheck, 30000);
+
     return () => {
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
       }
+      if (integrityIntervalRef.current) {
+        clearInterval(integrityIntervalRef.current);
+      }
       supabase.removeChannel(channel);
     };
-  }, [categoryId, loadJobs, debouncedReload]);
+  }, [categoryId, loadJobs, debouncedReload, jobs.length]);
 
   const addJob = async (job: Omit<Job, 'id'>) => {
     try {
