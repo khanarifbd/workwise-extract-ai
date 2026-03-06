@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useTeamSettings, TeamSetting } from '@/hooks/useTeamSettings';
 import { useCategories } from '@/hooks/useCategories';
 import { useTeamAvailability } from '@/hooks/useTeamAvailability';
-import { ScrollArea } from '@/components/ui/scroll-area';
+
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
@@ -245,7 +245,13 @@ export const TeamSelector = ({ job, currentCategoryId, onSelect, onClose, onDupl
           </span>
         </div>
 
-        <ScrollArea className="flex-1 max-h-[min(70vh,600px)]">
+        <div 
+          className="flex-1 overflow-y-auto overscroll-contain"
+          style={{ 
+            maxHeight: 'min(60vh, 500px)',
+            WebkitOverflowScrolling: 'touch',
+          }}
+        >
           <div className="p-2 space-y-1">
             {view === 'categories' ? (
               <>
@@ -358,7 +364,7 @@ export const TeamSelector = ({ job, currentCategoryId, onSelect, onClose, onDupl
               </>
             )}
           </div>
-        </ScrollArea>
+        </div>
 
         {/* Footer with assignments summary and action buttons - always visible */}
         <div 
