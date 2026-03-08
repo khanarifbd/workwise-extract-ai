@@ -946,12 +946,22 @@ export default function ProgressorPanel() {
                                 <ProgressorTodoList jobId={job.id} />
                               </div>
 
-                              {/* Contact History */}
-                              {jobContacts.length > 0 && (
-                                <div className="bg-background border rounded-lg p-2.5 text-xs">
-                                  <span className="text-muted-foreground font-semibold flex items-center gap-1 mb-1.5">
+                              {/* Contact History - Clickable Call Log */}
+                              <div className="bg-background border rounded-lg p-2.5 text-xs">
+                                <div className="flex items-center justify-between mb-1.5">
+                                  <span className="text-muted-foreground font-semibold flex items-center gap-1">
                                     <Phone className="h-3 w-3" /> Contact Log ({jobContacts.length})
                                   </span>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-6 text-[10px] px-2"
+                                    onClick={(e) => { e.stopPropagation(); setCallLogJobId(job.id); }}
+                                  >
+                                    <Plus className="h-3 w-3 mr-0.5" /> Log Call
+                                  </Button>
+                                </div>
+                                {jobContacts.length > 0 ? (
                                   <div className="space-y-1 max-h-[80px] overflow-y-auto">
                                     {jobContacts.slice(0, 5).map(c => (
                                       <div key={c.id} className="flex items-center gap-2 text-[11px]">
@@ -966,7 +976,48 @@ export default function ProgressorPanel() {
                                       <p className="text-muted-foreground text-[10px]">+ {jobContacts.length - 5} more</p>
                                     )}
                                   </div>
-                                </div>
+                                ) : (
+                                  <p className="text-muted-foreground text-[10px] italic">No calls logged yet</p>
+                                )}
+                              </div>
+
+                              {/* Contact Timeline Modal */}
+                              {callLogJobId === job.id && (
+                                <ContactTimelineModal
+                                  isOpen={true}
+                                  onClose={() => { setCallLogJobId(null); fetchJobs(); }}
+                                  jobId={job.id}
+                                  jobNumber={job.jobNumber}
+                                  tenantName={job.name}
+                                  phoneNumber={job.phoneNumber || ''}
+                                  description={job.description}
+                                  bookedDate={job.bookedDate}
+                                  onBookJob={async (bookedDate, isFlexible) => {
+                                    try {
+                                      await supabase.from('jobs').update({
+                                        booked_date: bookedDate.toISOString(),
+                                        is_flexible_booking: isFlexible,
+                                      }).eq('id', job.id);
+                                      setJobs(prev => prev.map(j => j.id === job.id ? { ...j, bookedDate, isFlexibleBooking: isFlexible } : j));
+                                    } catch (err) { console.error('Error booking:', err); }
+                                  }}
+                                  onDescriptionChange={async (newDesc) => {
+                                    try {
+                                      await supabase.from('jobs').update({ description: newDesc }).eq('id', job.id);
+                                      setJobs(prev => prev.map(j => j.id === job.id ? { ...j, description: newDesc } : j));
+                                    } catch (err) { console.error('Error updating description:', err); }
+                                  }}
+                                  onReferBack={async (reason) => {
+                                    try {
+                                      await supabase.from('jobs').update({
+                                        refer_back: true,
+                                        refer_back_reason: reason,
+                                        refer_back_date: new Date().toISOString(),
+                                      }).eq('id', job.id);
+                                      setJobs(prev => prev.map(j => j.id === job.id ? { ...j, referBack: true } : j));
+                                    } catch (err) { console.error('Error referring back:', err); }
+                                  }}
+                                />
                               )}
 
                               {/* Media Upload */}
