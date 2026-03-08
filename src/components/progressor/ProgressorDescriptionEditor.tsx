@@ -88,7 +88,7 @@ export const ProgressorDescriptionEditor = ({
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder="Enter or edit job description..."
-          className="min-h-[80px] text-xs resize-y"
+          className="min-h-[80px] text-xs resize-y text-indigo-700 dark:text-indigo-300 font-medium"
         />
       ) : (
         <p className="text-xs whitespace-pre-wrap line-clamp-6">
