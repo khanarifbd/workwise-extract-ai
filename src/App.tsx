@@ -75,6 +75,11 @@ const App = () => (
                   </Suspense>
                 </ProgressorRoute>
               } />
+              <Route path="/team-progressor" element={
+                <Suspense fallback={<PageLoader />}>
+                  <ProgressorTeamView />
+                </Suspense>
+              } />
               <Route path="*" element={<NotFound />} />
             </>
           )}
