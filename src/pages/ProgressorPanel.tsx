@@ -1153,6 +1153,7 @@ export default function ProgressorPanel() {
           />
         )}
         <TradeCompaniesModal open={showTradeCompanies} onOpenChange={setShowTradeCompanies} />
+        <ProgressorTeamCodesModal open={showTeamCodes} onOpenChange={setShowTeamCodes} />
       </div>
     </TooltipProvider>
   );
