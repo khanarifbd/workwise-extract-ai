@@ -904,7 +904,7 @@ export default function ProgressorPanel() {
                                   value={ongoingReasonDraft}
                                   onChange={(e) => setOngoingReasonDraft(e.target.value)}
                                   placeholder="Add notes about why this job is ongoing..."
-                                  className="min-h-[60px] resize-none text-xs bg-white dark:bg-background"
+                                  className="min-h-[60px] resize-none text-xs bg-white dark:bg-background text-indigo-700 dark:text-indigo-300 font-medium"
                                 />
                               ) : (
                                 <div className="text-xs space-y-1">
