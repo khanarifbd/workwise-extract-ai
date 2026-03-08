@@ -152,13 +152,28 @@ Be precise and extract all relevant information. If a field is not found, use an
 
     console.log('Lovable AI extraction completed for user:', user.id);
 
-    // Parse the JSON from the response
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
+    // Parse the JSON from the response - handle markdown fences and nested braces
+    let jsonStr = content;
+    // Strip markdown code fences if present
+    const fenceMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (fenceMatch) {
+      jsonStr = fenceMatch[1].trim();
+    }
+    // Find the outermost JSON object by matching balanced braces
+    const startIdx = jsonStr.indexOf('{');
+    if (startIdx === -1) {
+      throw new Error('Could not find JSON object in AI response');
+    }
+    let depth = 0;
+    let endIdx = -1;
+    for (let i = startIdx; i < jsonStr.length; i++) {
+      if (jsonStr[i] === '{') depth++;
+      else if (jsonStr[i] === '}') { depth--; if (depth === 0) { endIdx = i; break; } }
+    }
+    if (endIdx === -1) {
       throw new Error('Could not parse JSON from AI response');
     }
-
-    const extractedData = JSON.parse(jsonMatch[0]);
+    const extractedData = JSON.parse(jsonStr.substring(startIdx, endIdx + 1));
 
     return new Response(
       JSON.stringify({ success: true, data: extractedData }),
