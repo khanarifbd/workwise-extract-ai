@@ -100,6 +100,7 @@ export default function ProgressorPanel() {
   // Add sub-task modal
   const [addSubTaskJob, setAddSubTaskJob] = useState<Job | null>(null);
   const [showTradeCompanies, setShowTradeCompanies] = useState(false);
+  const [showTeamCodes, setShowTeamCodes] = useState(false);
 
   // Fetch incomplete jobs where booked date is 12+ hours past
   const fetchJobs = useCallback(async () => {
