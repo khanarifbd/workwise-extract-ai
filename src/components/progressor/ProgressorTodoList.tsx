@@ -159,19 +159,19 @@ export const ProgressorTodoList = ({ jobId }: ProgressorTodoListProps) => {
   }
 
   return (
-    <div className="bg-background border rounded-lg p-3 space-y-3">
+    <div className="bg-violet-50 dark:bg-violet-950/30 border-2 border-violet-300 dark:border-violet-700 rounded-lg p-3 space-y-3 shadow-md">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold flex items-center gap-1.5 text-foreground">
-          <ListChecks className="h-3.5 w-3.5 text-primary" />
-          To-Do List
+        <span className="text-xs font-bold flex items-center gap-1.5 text-violet-800 dark:text-violet-200">
+          <ListChecks className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+          📋 To-Do Checklist
           {totalCount > 0 && (
-            <Badge variant="outline" className="text-[10px] ml-1">
+            <Badge className="text-[10px] ml-1 bg-violet-600 text-white">
               {completedCount}/{totalCount}
             </Badge>
           )}
         </span>
         {totalCount > 0 && (
-          <div className="h-1.5 w-20 bg-muted rounded-full overflow-hidden">
+          <div className="h-2 w-24 bg-violet-200 dark:bg-violet-800 rounded-full overflow-hidden">
             <div
               className="h-full bg-emerald-500 rounded-full transition-all"
               style={{ width: `${totalCount > 0 ? (completedCount / totalCount) * 100 : 0}%` }}
