@@ -58,6 +58,7 @@ export const ProgressorDescriptionEditor = ({
       <div className="flex items-center justify-between mb-1">
         <span className="text-muted-foreground font-semibold flex items-center gap-1 text-xs">
           <Info className="h-3 w-3" /> Description
+          <span className="text-[9px] text-indigo-500 dark:text-indigo-400 font-normal ml-1">(Progressor edits shown in purple)</span>
         </span>
         {!readOnly && !isEditing && (
           <Button
