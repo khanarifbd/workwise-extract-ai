@@ -11,6 +11,10 @@ import { mapDatabaseJobToJob } from '@/lib/api';
 import { AddSubTaskModal } from '@/components/progressor/AddSubTaskModal';
 import { SubTaskJobSheetPDF } from '@/components/progressor/SubTaskJobSheetPDF';
 import { TradeCompaniesModal } from '@/components/progressor/TradeCompaniesModal';
+import { ProgressorTodoList } from '@/components/progressor/ProgressorTodoList';
+import { ProgressorMediaUpload } from '@/components/progressor/ProgressorMediaUpload';
+import { ProgressorDescriptionEditor } from '@/components/progressor/ProgressorDescriptionEditor';
+import { ProgressorTeamCodesModal } from '@/components/progressor/ProgressorTeamCodesModal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -26,7 +30,7 @@ import {
   Wrench, Users, FileText, RefreshCw, Phone, MapPin, User,
   Star, Flag, Zap, Plus, MessageSquare, Info, Trash2,
   ChevronUp, ChevronsUpDown, TrendingUp, PackageOpen, Save,
-  CalendarCheck, CheckCircle, CalendarClock,
+  CalendarCheck, CheckCircle, CalendarClock, Key,
 } from 'lucide-react';
 import { format, differenceInDays, differenceInHours, isPast } from 'date-fns';
 import { cn } from '@/lib/utils';
