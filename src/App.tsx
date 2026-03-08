@@ -17,6 +17,7 @@ import { ProgressorRoute } from "./components/ProgressorRoute";
 // Lazy load heavy pages for faster initial load
 const Index = lazy(() => import("./pages/Index"));
 const ProgressorPanel = lazy(() => import("./pages/ProgressorPanel"));
+const ProgressorTeamView = lazy(() => import("./pages/ProgressorTeamView"));
 
 const PageLoader = () => (
   <div className="min-h-screen flex items-center justify-center bg-background">
@@ -73,6 +74,11 @@ const App = () => (
                     <ProgressorPanel />
                   </Suspense>
                 </ProgressorRoute>
+              } />
+              <Route path="/team-progressor" element={
+                <Suspense fallback={<PageLoader />}>
+                  <ProgressorTeamView />
+                </Suspense>
               } />
               <Route path="*" element={<NotFound />} />
             </>

@@ -71,3 +71,9 @@ verify_jwt = false
 
 [functions.create-sub-tasks]
 verify_jwt = false
+
+[functions.validate-progressor-team-code]
+verify_jwt = false
+
+[functions.transcribe-description]
+verify_jwt = false

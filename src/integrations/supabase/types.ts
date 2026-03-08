@@ -603,6 +603,83 @@ export type Database = {
         }
         Relationships: []
       }
+      progressor_team_codes: {
+        Row: {
+          access_code: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          team_name: string
+          updated_at: string
+        }
+        Insert: {
+          access_code: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          team_name: string
+          updated_at?: string
+        }
+        Update: {
+          access_code?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          team_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      progressor_todos: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          custom_text: string | null
+          id: string
+          is_completed: boolean
+          is_custom: boolean
+          job_id: string
+          label: string
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          custom_text?: string | null
+          id?: string
+          is_completed?: boolean
+          is_custom?: boolean
+          job_id: string
+          label: string
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          custom_text?: string | null
+          id?: string
+          is_completed?: boolean
+          is_custom?: boolean
+          job_id?: string
+          label?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "progressor_todos_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_access_codes: {
         Row: {
           access_code: string
