@@ -104,7 +104,9 @@ export default function ProgressorTeamView() {
         .select('*')
         .is('deleted_at', null)
         .or(`team.eq.${teamName},team2.eq.${teamName}`)
-        .order('created_at', { ascending: false });
+        .eq('is_completed', false)
+        .order('created_at', { ascending: false })
+        .limit(200);
 
       if (error) throw error;
       setJobs((data || []).map(mapDatabaseJobToJob));
