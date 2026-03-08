@@ -1020,7 +1020,8 @@ export default function ProgressorPanel() {
                                 </span>
                                 <p className="mt-0.5 whitespace-pre-wrap line-clamp-3">{job.progressNotes}</p>
                               </div>
-                            )
+                              </div>
+                            )}
                           </div>
 
                           <Separator />
