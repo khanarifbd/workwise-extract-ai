@@ -917,24 +917,88 @@ export default function ProgressorPanel() {
                               )}
                             </div>
 
-                            {/* Description & Summary — compact row */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                              {job.description && (
-                                <div className="bg-background border rounded-lg p-2.5">
-                                  <span className="text-muted-foreground font-semibold flex items-center gap-1">
-                                    <Info className="h-3 w-3" /> Description
+                            {/* ═══════════ PROGRESSOR SECTION — DISTINCT BACKGROUND ═══════════ */}
+                            <div className="bg-indigo-50/60 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-800 rounded-xl p-3 space-y-3">
+                              <div className="flex items-center gap-2 mb-1">
+                                <div className="h-1 flex-1 bg-indigo-300 dark:bg-indigo-700 rounded-full" />
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Progressor Section</span>
+                                <div className="h-1 flex-1 bg-indigo-300 dark:bg-indigo-700 rounded-full" />
+                              </div>
+
+                              {/* Description & To-Do side by side */}
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <ProgressorDescriptionEditor
+                                  jobId={job.id}
+                                  description={job.description || ''}
+                                  onSaved={(newDesc) => setJobs(prev => prev.map(j => j.id === job.id ? { ...j, description: newDesc } : j))}
+                                />
+                                <ProgressorTodoList jobId={job.id} />
+                              </div>
+
+                              {/* Contact History */}
+                              {jobContacts.length > 0 && (
+                                <div className="bg-background border rounded-lg p-2.5 text-xs">
+                                  <span className="text-muted-foreground font-semibold flex items-center gap-1 mb-1.5">
+                                    <Phone className="h-3 w-3" /> Contact Log ({jobContacts.length})
                                   </span>
-                                  <p className="mt-0.5 whitespace-pre-wrap line-clamp-3">{job.description}</p>
+                                  <div className="space-y-1 max-h-[80px] overflow-y-auto">
+                                    {jobContacts.slice(0, 5).map(c => (
+                                      <div key={c.id} className="flex items-center gap-2 text-[11px]">
+                                        <span className="text-muted-foreground shrink-0">
+                                          {format(new Date(c.contact_date), 'dd/MM HH:mm')}
+                                        </span>
+                                        <Badge variant="outline" className="text-[10px] shrink-0">{c.outcome}</Badge>
+                                        {c.notes && <span className="truncate">{c.notes}</span>}
+                                      </div>
+                                    ))}
+                                    {jobContacts.length > 5 && (
+                                      <p className="text-muted-foreground text-[10px]">+ {jobContacts.length - 5} more</p>
+                                    )}
+                                  </div>
                                 </div>
                               )}
-                              {job.progressNotes && (
-                                <div className="bg-background border rounded-lg p-2.5">
-                                  <span className="text-muted-foreground font-semibold flex items-center gap-1">
-                                    <MessageSquare className="h-3 w-3" /> Progress Notes
-                                  </span>
-                                  <p className="mt-0.5 whitespace-pre-wrap line-clamp-3">{job.progressNotes}</p>
+
+                              {/* Media Upload */}
+                              <ProgressorMediaUpload
+                                jobId={job.id}
+                                jobNumber={job.jobNumber}
+                                onUploaded={fetchJobs}
+                              />
+
+                              {/* Expected Completion Date + Actions */}
+                              <div className="flex items-center justify-between gap-3 bg-background border rounded-lg p-2.5">
+                                <div className="flex items-center gap-3">
+                                  <div className="flex items-center gap-2 text-xs">
+                                    <CalendarCheck className="h-3.5 w-3.5 text-muted-foreground" />
+                                    <span className="text-muted-foreground font-medium">Expected Completion:</span>
+                                    <Input
+                                      type="date"
+                                      value={job.expectedCompletionDate ? format(job.expectedCompletionDate, 'yyyy-MM-dd') : ''}
+                                      onChange={(e) => handleExpectedCompletionDate(job, e.target.value)}
+                                      className={cn(
+                                        "h-7 text-xs w-[140px]",
+                                        !job.expectedCompletionDate && "border-orange-400",
+                                        expectedDatePast && "border-red-500 bg-red-50 dark:bg-red-950/20",
+                                      )}
+                                    />
+                                    {expectedDatePast && (
+                                      <span className="text-red-600 dark:text-red-400 font-bold text-[10px] animate-pulse">⚠ PAST DUE</span>
+                                    )}
+                                  </div>
                                 </div>
-                              )}
+                                <div className="flex gap-2">
+                                  <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); setAddSubTaskJob(job); }} className="text-xs">
+                                    <Plus className="h-3 w-3 mr-1" /> Add Sub-Task
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                                    onClick={(e) => { e.stopPropagation(); handleJobSignOff(job); }}
+                                  >
+                                    <CheckCircle className="h-3.5 w-3.5 mr-1" /> Sign Off Complete
+                                  </Button>
+                                </div>
+                              </div>
                             </div>
 
                             {/* Refer back & Contact History */}
