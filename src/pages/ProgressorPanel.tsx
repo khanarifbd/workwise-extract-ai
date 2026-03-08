@@ -855,7 +855,16 @@ export default function ProgressorPanel() {
                               <div>
                                 <span className="text-muted-foreground flex items-center gap-1"><Phone className="h-3 w-3" /> Phone</span>
                                 {job.phoneNumber ? (
-                                  <a href={`tel:${job.phoneNumber}`} className="font-medium text-primary hover:underline">{job.phoneNumber}</a>
+                                  <div className="flex items-center gap-1.5">
+                                    <a href={`tel:${job.phoneNumber}`} className="font-medium text-primary hover:underline">{job.phoneNumber}</a>
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); setCallLogJobId(job.id); }}
+                                      className="h-6 w-6 flex items-center justify-center rounded-md bg-primary/10 hover:bg-primary/20 text-primary transition-colors"
+                                      title="Open Call Log"
+                                    >
+                                      <Phone className="h-3 w-3" />
+                                    </button>
+                                  </div>
                                 ) : <p className="font-medium">—</p>}
                               </div>
                               <div>
