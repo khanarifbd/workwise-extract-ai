@@ -15,6 +15,7 @@ import { ProgressorTodoList } from '@/components/progressor/ProgressorTodoList';
 import { ProgressorMediaUpload } from '@/components/progressor/ProgressorMediaUpload';
 import { ProgressorDescriptionEditor } from '@/components/progressor/ProgressorDescriptionEditor';
 import { ProgressorTeamCodesModal } from '@/components/progressor/ProgressorTeamCodesModal';
+import { ContactTimelineModal } from '@/components/ContactTimelineModal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
