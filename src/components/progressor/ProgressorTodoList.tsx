@@ -196,7 +196,7 @@ export const ProgressorTodoList = ({ jobId }: ProgressorTodoListProps) => {
               <Checkbox
                 checked={todo.isCompleted}
                 onCheckedChange={() => toggleTodo(todo)}
-                className="h-3.5 w-3.5"
+                className="h-4 w-4 border-2"
               />
               <span className={cn("flex-1", todo.isCompleted && "line-through")}>
                 {todo.label}
