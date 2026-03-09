@@ -93,7 +93,7 @@ export const AddSubTaskModal = ({
           status: 'awaiting_trade',
           is_ongoing: true,
           ongoing_reason: `Awaiting: ${selectedTrades.join(', ')}`,
-        } as any)
+        })
         .eq('id', job.id);
 
       onCreated();
