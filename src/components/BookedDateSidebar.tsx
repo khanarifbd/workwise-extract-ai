@@ -56,6 +56,7 @@ export const BookedDateSidebar = forwardRef<HTMLDivElement, BookedDateSidebarPro
   const { monthGroups, totalCount } = useMemo(() => {
     const dateMap = new Map<string, { date: Date; count: number }>();
     
+    // Count jobs with regular booked dates
     jobs.forEach(job => {
       if (!job.bookedDate) return;
       
@@ -69,6 +70,21 @@ export const BookedDateSidebar = forwardRef<HTMLDivElement, BookedDateSidebarPro
         existing.count++;
       } else {
         dateMap.set(dateKey, { date: startOfDay(date), count: 1 });
+      }
+    });
+
+    // Also count trade-booked jobs (jobs without bookedDate but with trade bookings)
+    tradeBookings.forEach((info, jobId) => {
+      // Only count if this job isn't already counted via its own bookedDate
+      const job = jobs.find(j => j.id === jobId);
+      if (job && !job.bookedDate) {
+        const dateKey = format(info.effectiveBookedDate, 'yyyy-MM-dd');
+        const existing = dateMap.get(dateKey);
+        if (existing) {
+          existing.count++;
+        } else {
+          dateMap.set(dateKey, { date: startOfDay(info.effectiveBookedDate), count: 1 });
+        }
       }
     });
 
