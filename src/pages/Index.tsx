@@ -77,6 +77,9 @@ const Index = () => {
   
   const { jobs, isLoading: jobsLoading, addJob, editJob, removeJob, toggleComplete, refreshJobs } = useJobs(activeCategory ?? undefined);
   
+  // Get trade-booked jobs (sub-tasks with booked dates)
+  const { tradeBookings } = useTradeBookedJobs();
+  
   // Get job IDs for sign-off status
   const jobIds = useMemo(() => jobs.map(j => j.id), [jobs]);
   const { getSignOffStatus } = useSignOffStatus(jobIds);
