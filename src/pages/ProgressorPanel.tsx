@@ -858,15 +858,6 @@ export default function ProgressorPanel() {
             </TabsContent>
           </Tabs>
         </main>
-                    </Card>
-                  );
-                })
-              )}
-            </div>
-          </section>
-            </TabsContent>
-          </Tabs>
-        </main>
 
         {/* Modals */}
         {addSubTaskJob && (
