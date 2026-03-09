@@ -47,7 +47,7 @@ interface MonthGroup {
 }
 
 export const BookedDateSidebar = forwardRef<HTMLDivElement, BookedDateSidebarProps>(
-  ({ jobs, selectedDate, onDateSelect, isFanCategory = false }, ref) => {
+  ({ jobs, selectedDate, onDateSelect, isFanCategory = false, tradeBookings = new Map() }, ref) => {
   
   // Track which months are expanded - current month expanded by default
   const currentMonthKey = format(new Date(), 'yyyy-MM');
