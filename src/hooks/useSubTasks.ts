@@ -68,7 +68,7 @@ export const useAllSubTasks = () => {
     setIsLoading(true);
     try {
       const { data, error } = await supabase
-        .from('job_sub_tasks' as any)
+        .from('job_sub_tasks')
         .select('*')
         .order('created_at', { ascending: false });
 
