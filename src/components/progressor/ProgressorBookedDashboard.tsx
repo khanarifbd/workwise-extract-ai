@@ -215,13 +215,14 @@ export function ProgressorBookedDashboard() {
 
     filteredJobs.forEach(job => {
       const tradeInfo = tradeBookings.get(job.id);
-      const isTradeBooked = !job.bookedDate && !!tradeInfo;
+      const isTradeBooked = !!tradeInfo;
       
       let effectiveDate: Date | null = null;
-      if (job.bookedDate) {
-        effectiveDate = job.bookedDate instanceof Date ? job.bookedDate : parseISO(job.bookedDate as any);
-      } else if (tradeInfo) {
+      // Trade booked date takes priority - shows under nearest pending trade date
+      if (tradeInfo) {
         effectiveDate = tradeInfo.effectiveBookedDate;
+      } else if (job.bookedDate) {
+        effectiveDate = job.bookedDate instanceof Date ? job.bookedDate : parseISO(job.bookedDate as any);
       }
       
       if (!effectiveDate || !isValid(effectiveDate)) return;
