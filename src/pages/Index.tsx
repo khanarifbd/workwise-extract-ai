@@ -836,6 +836,7 @@ const Index = () => {
         } else {
           // In main "all" tab, exclude booked, completed, and refer back jobs
           if (job.bookedDate) return false;
+          if (tradeBookings.has(job.id)) return false;
           if (isJobCompleted) return false;
           if (job.referBack) return false;
         }
