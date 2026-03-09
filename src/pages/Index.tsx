@@ -925,11 +925,17 @@ const Index = () => {
       return true;
     });
     
-    // Sort by booked date if in booked tab
+    // Sort by booked date if in booked tab (use trade effective date as fallback)
     if (activeDatabaseTab === 'booked') {
       result.sort((a, b) => {
-        const dateA = a.bookedDate ? new Date(a.bookedDate).getTime() : 0;
-        const dateB = b.bookedDate ? new Date(b.bookedDate).getTime() : 0;
+        const getEffectiveDate = (j: Job) => {
+          if (j.bookedDate) return new Date(j.bookedDate).getTime();
+          const tradeInfo = tradeBookings.get(j.id);
+          if (tradeInfo) return tradeInfo.effectiveBookedDate.getTime();
+          return 0;
+        };
+        const dateA = getEffectiveDate(a);
+        const dateB = getEffectiveDate(b);
         return bookedSortOrder === 'newest' ? dateB - dateA : dateA - dateB;
       });
     }
