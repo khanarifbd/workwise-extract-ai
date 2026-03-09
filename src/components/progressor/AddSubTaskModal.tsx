@@ -54,11 +54,10 @@ export const AddSubTaskModal = ({
       const { data } = await supabase
         .from('team_notification_settings')
         .select('team_name, team_type')
-        .eq('is_active', true)
         .order('team_name');
       if (data) {
-        const dmNames = data
-          .filter(t => t.team_type === 'dm' || !t.team_type)
+        const dmNames = (data as any[])
+          .filter(t => (t.team_type === 'dm' || !t.team_type))
           .map(t => t.team_name);
         setDmTeams(dmNames);
       }
