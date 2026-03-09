@@ -577,52 +577,27 @@ export default function ProgressorPanel() {
         </header>
 
         <main className="max-w-[1400px] mx-auto px-4 py-5 space-y-6">
+          {/* Tab Navigation */}
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="h-11">
+              <TabsTrigger value="incomplete" className="gap-1.5 text-sm">
+                <ClipboardList className="h-4 w-4" />
+                Incomplete Jobs
+                <Badge variant="outline" className="ml-1 text-[10px] h-5">{jobs.length}</Badge>
+              </TabsTrigger>
+              <TabsTrigger value="booked" className="gap-1.5 text-sm">
+                <CalendarDays className="h-4 w-4" />
+                Booked Dashboard
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="booked" className="mt-4">
+              <ProgressorBookedDashboard />
+            </TabsContent>
+
+            <TabsContent value="incomplete" className="mt-4 space-y-6">
           {/* ═══════════ ANALYTICS SECTION ═══════════ */}
           <section>
-            <div className="flex items-center gap-2 mb-3">
-              <TrendingUp className="h-4 w-4 text-primary" />
-              <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">Analytics Overview</h2>
-              <div className="flex-1 h-px bg-border" />
-            </div>
-            
-            <div className="grid grid-cols-3 md:grid-cols-7 gap-2">
-              <StatCard icon={<Building2 className="h-4 w-4" />} label="Jobs" value={stats.jobCount}
-                sublabel={stats.jobsNoSubTasks > 0 ? `${stats.jobsNoSubTasks} need tasks` : undefined}
-                sublabelColor="text-amber-600"
-              />
-              <StatCard icon={<FileText className="h-4 w-4" />} label="Sub-Tasks" value={stats.totalSubTasks} />
-              <StatCard icon={<AlertTriangle className="h-4 w-4" />} label="Overdue" value={stats.overdue}
-                highlight={stats.overdue > 0 ? 'destructive' : undefined} pulse={stats.overdue > 0}
-              />
-              <StatCard icon={<Clock className="h-4 w-4" />} label="Unscheduled" value={stats.notScheduled}
-                highlight={stats.notScheduled > 0 ? 'warning' : undefined}
-              />
-              <StatCard icon={<Wrench className="h-4 w-4" />} label="Active" value={stats.inProgress + stats.scheduled}
-                sublabel={stats.scheduled > 0 ? `${stats.scheduled} booked` : undefined}
-              />
-              <StatCard icon={<PackageOpen className="h-4 w-4" />} label="Materials" value={stats.awaitingMaterials} />
-              {/* Completion rate inline */}
-              <div className="flex items-center gap-2 bg-card border rounded-lg px-3 py-2">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="text-xl font-bold leading-none">{stats.completionRate}%</p>
-                    <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className={cn("h-full rounded-full transition-all",
-                          stats.completionRate >= 75 ? "bg-emerald-500" : stats.completionRate >= 50 ? "bg-amber-500" : "bg-red-500"
-                        )}
-                        style={{ width: `${stats.completionRate}%` }}
-                      />
-                    </div>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">Complete</p>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* ═══════════ JOBS SECTION ═══════════ */}
-          <section className="bg-slate-50 dark:bg-slate-900/40 rounded-xl p-4 border border-slate-200 dark:border-slate-800">
             <div className="flex items-center gap-2 mb-3">
               <ClipboardList className="h-4 w-4 text-primary" />
               <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">Incomplete Jobs</h2>
