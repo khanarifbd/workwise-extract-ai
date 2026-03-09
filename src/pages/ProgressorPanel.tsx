@@ -1064,18 +1064,13 @@ export default function ProgressorPanel() {
                                     )}
                                   </div>
                                 </div>
-                                <div className="flex gap-2">
-                                  <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); setAddSubTaskJob(job); }} className="text-xs">
-                                    <Plus className="h-3 w-3 mr-1" /> Add Sub-Task
-                                  </Button>
-                                  <Button
+                                <Button
                                     size="sm"
                                     className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
                                     onClick={(e) => { e.stopPropagation(); handleJobSignOff(job); }}
                                   >
                                     <CheckCircle className="h-3.5 w-3.5 mr-1" /> Sign Off Complete
                                   </Button>
-                                </div>
                               </div>
                             </div>
 
@@ -1127,107 +1122,114 @@ export default function ProgressorPanel() {
                             </div>
 
                             {jobSubTasks.length > 0 ? (
-                              <div className="overflow-x-auto">
-                                <table className="w-full text-sm">
-                                  <thead>
-                                    <tr className="border-b border-amber-200 dark:border-amber-800 bg-amber-100/40 dark:bg-amber-900/20">
-                                      <th className="px-3 py-2 text-left text-xs font-bold text-amber-800 dark:text-amber-300">Trade</th>
-                                      <th className="px-3 py-2 text-left text-xs font-bold text-amber-800 dark:text-amber-300">Team</th>
-                                      <th className="px-3 py-2 text-left text-xs font-bold text-amber-800 dark:text-amber-300">Booked</th>
-                                      <th className="px-3 py-2 text-left text-xs font-bold text-amber-800 dark:text-amber-300">Deadline</th>
-                                      <th className="px-3 py-2 text-left text-xs font-bold text-amber-800 dark:text-amber-300">Completion</th>
-                                      <th className="px-3 py-2 text-left text-xs font-bold text-amber-800 dark:text-amber-300">Status</th>
-                                      <th className="px-3 py-2 text-left text-xs font-bold text-amber-800 dark:text-amber-300">Portal</th>
-                                      <th className="px-3 py-2 text-left text-xs font-bold text-amber-800 dark:text-amber-300">Notes</th>
-                                      <th className="px-3 py-2 text-center text-xs font-bold text-amber-800 dark:text-amber-300">Actions</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {jobSubTasks.map(st => {
-                                      const risk = getComplianceRisk(st.deadlineDate);
-                                      const isComplete = st.status === 'completed_signed_off';
-                                      const hasBookedDate = !!st.bookedDate;
-                                      return (
-                                        <tr key={st.id} className={cn(
-                                          "border-b border-amber-200/60 dark:border-amber-800/40 transition-colors",
-                                          risk.level === 'overdue' && !isComplete && "bg-red-50 dark:bg-red-950/20",
-                                          isComplete && "bg-emerald-50/70 dark:bg-emerald-950/10 opacity-80",
-                                          hasBookedDate && !isComplete && "bg-blue-50/50 dark:bg-blue-950/10",
-                                          !hasBookedDate && !isComplete && "bg-amber-50/30 dark:bg-amber-950/10",
-                                        )}>
-                                          <td className="px-3 py-2.5">
-                                            <div className="flex items-center gap-1.5">
-                                              <Wrench className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-                                              <span className="font-semibold text-xs">{st.trade}</span>
-                                            </div>
-                                            {st.description && (
-                                              <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">{st.description}</p>
-                                            )}
-                                          </td>
-                                          <td className="px-3 py-2">
-                                            <Input value={st.assignedTeam || ''} onChange={(e) => handleSubTaskUpdate(st, 'assignedTeam', e.target.value)}
-                                              placeholder="Assign..." className="h-7 text-xs w-[100px]" />
-                                          </td>
-                                          <td className="px-3 py-2">
-                                            <Input type="date" value={st.bookedDate ? format(st.bookedDate, 'yyyy-MM-dd') : ''}
-                                              onChange={(e) => handleSubTaskUpdate(st, 'bookedDate', e.target.value || null)}
-                                              className={cn("h-7 text-xs w-[120px]", hasBookedDate && "border-blue-400 bg-blue-50 dark:bg-blue-950/30 font-medium")} />
-                                          </td>
-                                          <td className="px-3 py-2">
-                                            <div className="flex items-center gap-1.5">
-                                              <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                  <div className={cn("w-2.5 h-2.5 rounded-full flex-shrink-0", risk.color)} />
-                                                </TooltipTrigger>
-                                                <TooltipContent>{risk.label}</TooltipContent>
-                                              </Tooltip>
-                                              <Input type="date" value={st.deadlineDate ? format(st.deadlineDate, 'yyyy-MM-dd') : ''}
-                                                onChange={(e) => handleSubTaskUpdate(st, 'deadlineDate', e.target.value || null)}
+                              <>
+                                <div className="overflow-x-auto">
+                                  <table className="w-full text-sm">
+                                    <thead>
+                                      <tr className="border-b border-amber-200 dark:border-amber-800 bg-amber-100/40 dark:bg-amber-900/20">
+                                        <th className="px-3 py-2 text-left text-xs font-bold text-amber-800 dark:text-amber-300">Trade</th>
+                                        <th className="px-3 py-2 text-left text-xs font-bold text-amber-800 dark:text-amber-300">Team</th>
+                                        <th className="px-3 py-2 text-left text-xs font-bold text-amber-800 dark:text-amber-300">Booked</th>
+                                        <th className="px-3 py-2 text-left text-xs font-bold text-amber-800 dark:text-amber-300">Deadline</th>
+                                        <th className="px-3 py-2 text-left text-xs font-bold text-amber-800 dark:text-amber-300">Completion</th>
+                                        <th className="px-3 py-2 text-left text-xs font-bold text-amber-800 dark:text-amber-300">Status</th>
+                                        <th className="px-3 py-2 text-left text-xs font-bold text-amber-800 dark:text-amber-300">Portal</th>
+                                        <th className="px-3 py-2 text-left text-xs font-bold text-amber-800 dark:text-amber-300">Notes</th>
+                                        <th className="px-3 py-2 text-center text-xs font-bold text-amber-800 dark:text-amber-300">Actions</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {jobSubTasks.map(st => {
+                                        const risk = getComplianceRisk(st.deadlineDate);
+                                        const isComplete = st.status === 'completed_signed_off';
+                                        const hasBookedDate = !!st.bookedDate;
+                                        return (
+                                          <tr key={st.id} className={cn(
+                                            "border-b border-amber-200/60 dark:border-amber-800/40 transition-colors",
+                                            risk.level === 'overdue' && !isComplete && "bg-red-50 dark:bg-red-950/20",
+                                            isComplete && "bg-emerald-50/70 dark:bg-emerald-950/10 opacity-80",
+                                            hasBookedDate && !isComplete && "bg-blue-50/50 dark:bg-blue-950/10",
+                                            !hasBookedDate && !isComplete && "bg-amber-50/30 dark:bg-amber-950/10",
+                                          )}>
+                                            <td className="px-3 py-2.5">
+                                              <div className="flex items-center gap-1.5">
+                                                <Wrench className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                                                <span className="font-semibold text-xs">{st.trade}</span>
+                                              </div>
+                                              {st.description && (
+                                                <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">{st.description}</p>
+                                              )}
+                                            </td>
+                                            <td className="px-3 py-2">
+                                              <Input value={st.assignedTeam || ''} onChange={(e) => handleSubTaskUpdate(st, 'assignedTeam', e.target.value)}
+                                                placeholder="Assign..." className="h-7 text-xs w-[100px]" />
+                                            </td>
+                                            <td className="px-3 py-2">
+                                              <Input type="date" value={st.bookedDate ? format(st.bookedDate, 'yyyy-MM-dd') : ''}
+                                                onChange={(e) => handleSubTaskUpdate(st, 'bookedDate', e.target.value || null)}
+                                                className={cn("h-7 text-xs w-[120px]", hasBookedDate && "border-blue-400 bg-blue-50 dark:bg-blue-950/30 font-medium")} />
+                                            </td>
+                                            <td className="px-3 py-2">
+                                              <div className="flex items-center gap-1.5">
+                                                <Tooltip>
+                                                  <TooltipTrigger asChild>
+                                                    <div className={cn("w-2.5 h-2.5 rounded-full flex-shrink-0", risk.color)} />
+                                                  </TooltipTrigger>
+                                                  <TooltipContent>{risk.label}</TooltipContent>
+                                                </Tooltip>
+                                                <Input type="date" value={st.deadlineDate ? format(st.deadlineDate, 'yyyy-MM-dd') : ''}
+                                                  onChange={(e) => handleSubTaskUpdate(st, 'deadlineDate', e.target.value || null)}
+                                                  className="h-7 text-xs w-[120px]" />
+                                              </div>
+                                            </td>
+                                            <td className="px-3 py-2">
+                                              <Input type="date" value={st.completionDate ? format(st.completionDate, 'yyyy-MM-dd') : ''}
+                                                onChange={(e) => handleSubTaskUpdate(st, 'completionDate', e.target.value || null)}
                                                 className="h-7 text-xs w-[120px]" />
-                                            </div>
-                                          </td>
-                                          <td className="px-3 py-2">
-                                            <Input type="date" value={st.completionDate ? format(st.completionDate, 'yyyy-MM-dd') : ''}
-                                              onChange={(e) => handleSubTaskUpdate(st, 'completionDate', e.target.value || null)}
-                                              className="h-7 text-xs w-[120px]" />
-                                          </td>
-                                          <td className="px-3 py-2">
-                                            <Select value={st.status} onValueChange={(v) => handleSubTaskUpdate(st, 'status', v)}>
-                                              <SelectTrigger className="h-7 text-xs w-[160px]"><SelectValue /></SelectTrigger>
-                                              <SelectContent>
-                                                {SUB_TASK_STATUS_OPTIONS.map(o => (
-                                                  <SelectItem key={o.value} value={o.value} disabled={o.value === 'completed_signed_off' && !st.completionDate}>
-                                                    <div className="flex items-center gap-1.5">
-                                                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: o.color }} />
-                                                      <span className="text-xs">{o.label}</span>
-                                                    </div>
-                                                  </SelectItem>
-                                                ))}
-                                              </SelectContent>
-                                            </Select>
-                                          </td>
-                                          <td className="px-3 py-2 text-center">
-                                            <Checkbox checked={st.portalUpdated} onCheckedChange={(v) => handleSubTaskUpdate(st, 'portalUpdated', !!v)} className="h-4 w-4" />
-                                          </td>
-                                          <td className="px-3 py-2">
-                                            <Input value={st.notes} onChange={(e) => handleSubTaskUpdate(st, 'notes', e.target.value)}
-                                              placeholder="Notes..." className="h-7 text-xs w-[150px]" />
-                                          </td>
-                                          <td className="px-3 py-2">
-                                            <div className="flex items-center justify-center gap-1">
-                                              <SubTaskJobSheetPDF subTask={st} job={job} />
-                                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                                                onClick={() => handleDeleteSubTask(st)}>
-                                                <Trash2 className="h-3.5 w-3.5" />
-                                              </Button>
-                                            </div>
-                                          </td>
-                                        </tr>
-                                      );
-                                    })}
-                                  </tbody>
-                                </table>
-                              </div>
+                                            </td>
+                                            <td className="px-3 py-2">
+                                              <Select value={st.status} onValueChange={(v) => handleSubTaskUpdate(st, 'status', v)}>
+                                                <SelectTrigger className="h-7 text-xs w-[160px]"><SelectValue /></SelectTrigger>
+                                                <SelectContent>
+                                                  {SUB_TASK_STATUS_OPTIONS.map(o => (
+                                                    <SelectItem key={o.value} value={o.value} disabled={o.value === 'completed_signed_off' && !st.completionDate}>
+                                                      <div className="flex items-center gap-1.5">
+                                                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: o.color }} />
+                                                        <span className="text-xs">{o.label}</span>
+                                                      </div>
+                                                    </SelectItem>
+                                                  ))}
+                                                </SelectContent>
+                                              </Select>
+                                            </td>
+                                            <td className="px-3 py-2 text-center">
+                                              <Checkbox checked={st.portalUpdated} onCheckedChange={(v) => handleSubTaskUpdate(st, 'portalUpdated', !!v)} className="h-4 w-4" />
+                                            </td>
+                                            <td className="px-3 py-2">
+                                              <Input value={st.notes} onChange={(e) => handleSubTaskUpdate(st, 'notes', e.target.value)}
+                                                placeholder="Notes..." className="h-7 text-xs w-[150px]" />
+                                            </td>
+                                            <td className="px-3 py-2">
+                                              <div className="flex items-center justify-center gap-1">
+                                                <SubTaskJobSheetPDF subTask={st} job={job} />
+                                                <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                                                  onClick={() => handleDeleteSubTask(st)}>
+                                                  <Trash2 className="h-3.5 w-3.5" />
+                                                </Button>
+                                              </div>
+                                            </td>
+                                          </tr>
+                                        );
+                                      })}
+                                    </tbody>
+                                  </table>
+                                </div>
+                                <div className="px-4 py-2.5 border-t border-amber-200 dark:border-amber-800 flex justify-end">
+                                  <Button size="sm" className="text-xs bg-amber-600 hover:bg-amber-700 text-white" onClick={() => setAddSubTaskJob(job)}>
+                                    <Plus className="h-3 w-3 mr-1" /> Add Trades
+                                  </Button>
+                                </div>
+                              </>
                             ) : (
                               <div className="px-4 py-6 text-center">
                                 <Wrench className="h-8 w-8 text-amber-400 mx-auto mb-2" />

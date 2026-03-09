@@ -14,6 +14,7 @@ import { DEFAULT_TRADES } from '@/types/subTask';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
 
 interface AddSubTaskModalProps {
   open: boolean;
@@ -86,7 +87,10 @@ export const AddSubTaskModal = ({
 
       if (error) throw error;
 
-      // Update parent job
+      toast({
+        title: `${selectedTrades.length} Sub-Task${selectedTrades.length !== 1 ? 's' : ''} Created`,
+        description: `${selectedTrades.join(', ')} added to #${job.jobNumber}`,
+      });
       await supabase
         .from('jobs')
         .update({
