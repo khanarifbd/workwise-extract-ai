@@ -100,7 +100,7 @@ export const useAllSubTasks = () => {
 
   const updateSubTask = async (id: string, updates: Record<string, any>) => {
     const { error } = await supabase
-      .from('job_sub_tasks' as any)
+      .from('job_sub_tasks')
       .update(updates)
       .eq('id', id);
     if (error) throw error;
