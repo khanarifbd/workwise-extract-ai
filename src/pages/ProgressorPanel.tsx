@@ -11,6 +11,8 @@ import { mapDatabaseJobToJob } from '@/lib/api';
 import { AddSubTaskModal } from '@/components/progressor/AddSubTaskModal';
 import { SubTaskJobSheetPDF } from '@/components/progressor/SubTaskJobSheetPDF';
 import { TradeCompaniesModal } from '@/components/progressor/TradeCompaniesModal';
+import { ProgressorBookedDashboard } from '@/components/progressor/ProgressorBookedDashboard';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { ProgressorTodoList } from '@/components/progressor/ProgressorTodoList';
 import { ProgressorMediaUpload } from '@/components/progressor/ProgressorMediaUpload';
 import { ProgressorDescriptionEditor } from '@/components/progressor/ProgressorDescriptionEditor';
