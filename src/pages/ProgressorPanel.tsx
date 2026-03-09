@@ -1227,6 +1227,8 @@ export default function ProgressorPanel() {
               )}
             </div>
           </section>
+            </TabsContent>
+          </Tabs>
         </main>
 
         {/* Modals */}
