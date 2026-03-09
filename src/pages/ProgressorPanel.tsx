@@ -106,7 +106,7 @@ export default function ProgressorPanel() {
       const FAN_CATEGORY_ID = '913c5a29-2b7f-4da9-992a-1b49e51d9d8a';
       const { data, error } = await supabase
         .from('jobs')
-        .select('id, job_number, name, address, phone_number, status, team, team2, progress, is_completed, is_ongoing, ongoing_reason, booked_date, completion_date, expected_completion_date, created_at, date_issued, description, work_items, fan_info, category_id, progress_notes, scheduled_trades')
+        .select('id, job_number, name, address, phone_number, status, team, team2, progress, is_completed, is_ongoing, ongoing_reason, booked_date, completion_date, expected_completion_date, created_at, date_issued, description, work_items, fan_info, category_id, progress_notes, scheduled_trades, attachments, additional_works, summary_of_works, costs, private_notes, refer_back, refer_back_reason, refer_back_date, booking_notes, is_flexible_booking, insulation_info, linked_fan_job_id, linked_insulation_job_id')
         .is('deleted_at', null)
         .or(`category_id.is.null,category_id.neq.${FAN_CATEGORY_ID}`)
         .eq('is_completed', false)
@@ -379,6 +379,27 @@ export default function ProgressorPanel() {
         newValue: '',
         metadata: { parentJobId: subTask.parentJobId, trade: subTask.trade },
       });
+
+      // Check if any sub-tasks remain for this job; if not, clear awaiting_trade status
+      const { data: remaining } = await supabase
+        .from('job_sub_tasks')
+        .select('id')
+        .eq('parent_job_id', subTask.parentJobId);
+      
+      if (!remaining || remaining.length === 0) {
+        await supabase
+          .from('jobs')
+          .update({ status: 'started', is_ongoing: false, ongoing_reason: '' })
+          .eq('id', subTask.parentJobId)
+          .eq('status', 'awaiting_trade');
+        // Update local state
+        setJobs(prev => prev.map(j => 
+          j.id === subTask.parentJobId && j.status === 'awaiting_trade'
+            ? { ...j, status: 'started', isOngoing: false, ongoingReason: '' }
+            : j
+        ));
+      }
+
       await fetchAll();
     } catch (err) {
       console.error('Error deleting sub-task:', err);
