@@ -89,7 +89,11 @@ export function ProgressorBookedDashboard() {
 
       if (bookedError) throw bookedError;
       
-      const tradeJobIds = Array.from(tradeBookings.keys());
+      const bookedJobs = (bookedData || []).map(mapDatabaseJobToJob);
+      const bookedJobIds = new Set(bookedJobs.map(j => j.id));
+      
+      // Fetch trade-booked jobs that aren't already in the booked list
+      const tradeJobIds = Array.from(tradeBookings.keys()).filter(id => !bookedJobIds.has(id));
       let tradeOnlyJobs: Job[] = [];
       
       if (tradeJobIds.length > 0) {
@@ -97,7 +101,6 @@ export function ProgressorBookedDashboard() {
           .from('jobs')
           .select('id, job_number, name, address, phone_number, status, team, team2, progress, is_completed, is_ongoing, ongoing_reason, booked_date, completion_date, expected_completion_date, created_at, date_issued, description, work_items, fan_info, category_id, progress_notes, scheduled_trades, booking_notes, is_flexible_booking')
           .is('deleted_at', null)
-          .is('booked_date', null)
           .in('id', tradeJobIds)
           .or(`category_id.is.null,category_id.neq.${FAN_CATEGORY_ID}`);
 
@@ -105,7 +108,7 @@ export function ProgressorBookedDashboard() {
         tradeOnlyJobs = (tradeData || []).map(mapDatabaseJobToJob);
       }
       
-      const allJobs = [...(bookedData || []).map(mapDatabaseJobToJob), ...tradeOnlyJobs];
+      const allJobs = [...bookedJobs, ...tradeOnlyJobs];
       setJobs(allJobs);
 
       // Fetch contact history for all jobs
@@ -212,13 +215,14 @@ export function ProgressorBookedDashboard() {
 
     filteredJobs.forEach(job => {
       const tradeInfo = tradeBookings.get(job.id);
-      const isTradeBooked = !job.bookedDate && !!tradeInfo;
+      const isTradeBooked = !!tradeInfo;
       
       let effectiveDate: Date | null = null;
-      if (job.bookedDate) {
-        effectiveDate = job.bookedDate instanceof Date ? job.bookedDate : parseISO(job.bookedDate as any);
-      } else if (tradeInfo) {
+      // Trade booked date takes priority - shows under nearest pending trade date
+      if (tradeInfo) {
         effectiveDate = tradeInfo.effectiveBookedDate;
+      } else if (job.bookedDate) {
+        effectiveDate = job.bookedDate instanceof Date ? job.bookedDate : parseISO(job.bookedDate as any);
       }
       
       if (!effectiveDate || !isValid(effectiveDate)) return;
@@ -280,7 +284,7 @@ export function ProgressorBookedDashboard() {
       const tradeInfo = tradeBookings.get(job.id);
       return {
         ...job,
-        isTradeBooked: !job.bookedDate && !!tradeInfo,
+        isTradeBooked: !!tradeInfo,
         tradeInfo: tradeInfo ? {
           pendingTrades: tradeInfo.pendingTrades,
           totalTrades: tradeInfo.totalTrades,
@@ -292,12 +296,13 @@ export function ProgressorBookedDashboard() {
     if (!selectedDate) return augmented;
     
     return augmented.filter(j => {
+      const ti = tradeBookings.get(j.id);
       let effectiveDate: Date | null = null;
-      if (j.bookedDate) {
+      // Trade date takes priority
+      if (ti) {
+        effectiveDate = ti.effectiveBookedDate;
+      } else if (j.bookedDate) {
         effectiveDate = j.bookedDate instanceof Date ? j.bookedDate : parseISO(j.bookedDate as any);
-      } else {
-        const ti = tradeBookings.get(j.id);
-        if (ti) effectiveDate = ti.effectiveBookedDate;
       }
       if (!effectiveDate) return false;
       return format(effectiveDate, 'yyyy-MM-dd') === selectedDate;
