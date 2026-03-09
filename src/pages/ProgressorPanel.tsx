@@ -745,12 +745,16 @@ export default function ProgressorPanel() {
                       key={job.id}
                       className={cn(
                         "overflow-hidden transition-all",
-                        hasOverdue && "border-red-500/50 shadow-red-500/10 shadow-md",
-                        idleMoreThan3Days && !hasOverdue && "border-amber-400/50",
+                        isExpanded
+                          ? "bg-indigo-50/60 dark:bg-indigo-950/20 border-indigo-400 border-2 shadow-lg shadow-indigo-500/10"
+                          : cn(
+                              hasOverdue && "border-red-500/50 shadow-red-500/10 shadow-md",
+                              idleMoreThan3Days && !hasOverdue && "border-amber-400/50",
+                            ),
                         // Outline jobs with no expected completion date
-                        !hasExpectedCompletion && "ring-2 ring-orange-400 dark:ring-orange-500",
+                        !hasExpectedCompletion && !isExpanded && "ring-2 ring-orange-400 dark:ring-orange-500",
                         // Flash when expected date has passed
-                        expectedDatePast && "animate-flash-alert ring-2 ring-red-500",
+                        expectedDatePast && !isExpanded && "animate-flash-alert ring-2 ring-red-500",
                       )}
                     >
                       {/* Job Header */}
@@ -1250,7 +1254,14 @@ export default function ProgressorPanel() {
             open={!!addSubTaskJob}
             onOpenChange={(open) => !open && setAddSubTaskJob(null)}
             job={{ id: addSubTaskJob.id, jobNumber: addSubTaskJob.jobNumber, name: addSubTaskJob.name, address: addSubTaskJob.address }}
-            onCreated={() => { fetchJobs(); fetchAll(); }}
+            onCreated={() => {
+              const jobId = addSubTaskJob.id;
+              // Force keep the job expanded after creation
+              setExpandedJobs(prev => new Set([...prev, jobId]));
+              setSearchParams(p => { const n = new URLSearchParams(p); n.set('job', jobId); return n; }, { replace: true });
+              // Fetch sub-tasks first (fast), then jobs
+              fetchAll().then(() => fetchJobs());
+            }}
           />
         )}
         <TradeCompaniesModal open={showTradeCompanies} onOpenChange={setShowTradeCompanies} />
