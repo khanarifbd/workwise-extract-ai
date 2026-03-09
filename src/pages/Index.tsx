@@ -1501,10 +1501,11 @@ const Index = () => {
             {/* Booked Date Sidebar - only show in booked tab */}
             {activeDatabaseTab === 'booked' && (
               <BookedDateSidebar
-                jobs={jobs.filter(j => !!j.bookedDate && !j.isCompleted && j.progress !== 100)}
+                jobs={jobs.filter(j => (!!j.bookedDate || tradeBookings.has(j.id)) && !j.isCompleted && j.progress !== 100)}
                 selectedDate={selectedBookedDate}
                 onDateSelect={setSelectedBookedDate}
                 isFanCategory={isFanCategory}
+                tradeBookings={tradeBookings}
               />
             )}
             
