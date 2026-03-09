@@ -332,6 +332,55 @@ export function ProgressorJobExpandedContent({
             />
           )}
 
+          {/* Existing Attachments */}
+          {job.attachments && job.attachments.length > 0 && (
+            <div className="bg-background border rounded-lg p-3 space-y-2">
+              <span className="text-xs font-semibold flex items-center gap-1.5 text-foreground">
+                📎 Existing Media ({job.attachments.length})
+              </span>
+              <div className="grid grid-cols-4 md:grid-cols-6 gap-2 max-h-[200px] overflow-y-auto">
+                {job.attachments.map((att: any) => (
+                  <a key={att.id || att.url} href={att.url} target="_blank" rel="noopener noreferrer"
+                    className="block rounded-md border overflow-hidden hover:ring-2 hover:ring-primary transition-all">
+                    {att.type === 'image' ? (
+                      <img src={att.url} alt={att.name || 'Photo'} className="w-full h-16 object-cover" loading="lazy" />
+                    ) : att.type === 'video' ? (
+                      <div className="w-full h-16 bg-muted flex items-center justify-center text-[10px] text-muted-foreground">🎥 Video</div>
+                    ) : (
+                      <div className="w-full h-16 bg-muted flex items-center justify-center text-[10px] text-muted-foreground">📄 {att.name || 'Doc'}</div>
+                    )}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Summary of Works (read-only) */}
+          {job.summaryOfWorks && (
+            <div className="bg-background border rounded-lg p-2.5 text-xs">
+              <span className="text-muted-foreground font-semibold">📋 Summary of Works</span>
+              <p className="mt-0.5 whitespace-pre-wrap">{job.summaryOfWorks}</p>
+            </div>
+          )}
+
+          {/* Work Items (read-only) */}
+          {job.workItems && job.workItems.length > 0 && (
+            <div className="bg-background border rounded-lg p-2.5 text-xs">
+              <span className="text-muted-foreground font-semibold">🔧 Work Items ({job.workItems.length})</span>
+              <div className="mt-1 space-y-1 max-h-[120px] overflow-y-auto">
+                {job.workItems.map((item: any, i: number) => (
+                  <div key={item.id || i} className="flex items-center gap-2 text-[11px]">
+                    {item.isConfirmed === false && <span className="text-red-500 line-through">{item.description}</span>}
+                    {item.isConfirmed !== false && <span>{item.sorCode && <Badge variant="outline" className="text-[9px] mr-1">{item.sorCode}</Badge>}{item.description}</span>}
+                    {item.hasModification && item.variation && (
+                      <span className="text-amber-600 italic text-[10px]">({item.variation})</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Media Upload */}
           <ProgressorMediaUpload jobId={job.id} jobNumber={job.jobNumber} onUploaded={onRefresh} />
 
