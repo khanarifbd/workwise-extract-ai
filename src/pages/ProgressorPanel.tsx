@@ -836,13 +836,19 @@ export default function ProgressorPanel() {
 
                       {/* Expanded Content */}
                       {isExpanded && (
-                        <div className="border-t">
-                          <div className="px-4 py-3 bg-muted/20 space-y-3">
-                            {/* Key info row */}
-                            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-xs">
-                              <div>
-                                <span className="text-muted-foreground flex items-center gap-1"><User className="h-3 w-3" /> Tenant</span>
-                                <p className="font-medium">{job.name}</p>
+                        <ProgressorJobExpandedContent
+                          job={job}
+                          jobSubTasks={jobSubTasks}
+                          jobContacts={jobContacts}
+                          onJobUpdate={(jobId, updates) => {
+                            setJobs(prev => prev.map(j => j.id === jobId ? { ...j, ...updates } : j));
+                          }}
+                          onSubTaskUpdate={handleSubTaskUpdate}
+                          onDeleteSubTask={handleDeleteSubTask}
+                          onAddSubTask={(j) => setAddSubTaskJob(j)}
+                          onRefresh={() => { fetchJobs(); fetchAll(); }}
+                        />
+                      )}
                               </div>
                               <div>
                                 <span className="text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" /> Address</span>
