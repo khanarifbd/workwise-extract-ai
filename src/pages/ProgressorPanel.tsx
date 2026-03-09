@@ -385,112 +385,9 @@ export default function ProgressorPanel() {
     }
   };
 
-  // Save ongoing reason with progressor prefix marker
-  const handleSaveOngoingReason = async (job: Job) => {
-    try {
-      // Separate existing team notes from progressor notes
-      const existingReason = job.ongoingReason || '';
-      const PROGRESSOR_MARKER = '\n---PROGRESSOR---\n';
-      const parts = existingReason.split(PROGRESSOR_MARKER);
-      const teamPart = parts[0] || '';
-      
-      // Build new value: team notes stay, progressor notes appended
-      const progressorText = ongoingReasonDraft.replace(teamPart, '').trim();
-      const newReason = progressorText
-        ? `${teamPart}${PROGRESSOR_MARKER}${progressorText}`
-        : teamPart;
-      
-      const { error } = await supabase
-        .from('jobs')
-        .update({ ongoing_reason: newReason })
-        .eq('id', job.id);
-      
-      if (error) throw error;
-      
-      await logAction({
-        action: 'update',
-        tableName: 'jobs',
-        recordId: job.id,
-        fieldChanged: 'ongoing_reason',
-        oldValue: existingReason,
-        newValue: newReason,
-        metadata: { jobNumber: job.jobNumber },
-      });
-      
-      // Update local state
-      setJobs(prev => prev.map(j => j.id === job.id ? { ...j, ongoingReason: newReason } : j));
-      setEditingOngoingReason(null);
-    } catch (err) {
-      console.error('Error saving ongoing reason:', err);
-    }
-  };
-
-  const startEditingOngoingReason = (job: Job) => {
-    setEditingOngoingReason(job.id);
-    setOngoingReasonDraft(job.ongoingReason || '');
-  };
-
   const handleSignOut = async () => {
     await signOut();
     navigate('/progressor-login', { replace: true });
-  };
-
-  // Sign off a job - mark as complete and move to completed folder
-  const handleJobSignOff = async (job: Job) => {
-    if (!confirm(`Sign off job #${job.jobNumber} - ${job.name} as COMPLETE? This will move it to the Completed folder.`)) return;
-    try {
-      const { error } = await supabase
-        .from('jobs')
-        .update({
-          is_completed: true,
-          status: 'complete',
-          progress: 100,
-          completion_date: new Date().toISOString(),
-        })
-        .eq('id', job.id);
-      if (error) throw error;
-
-      await logAction({
-        action: 'update',
-        tableName: 'jobs',
-        recordId: job.id,
-        fieldChanged: 'status',
-        oldValue: job.status,
-        newValue: 'complete',
-        metadata: { jobNumber: job.jobNumber, signedOffByProgressor: true },
-      });
-
-      // Remove from local state
-      setJobs(prev => prev.filter(j => j.id !== job.id));
-    } catch (err) {
-      console.error('Error signing off job:', err);
-    }
-  };
-
-  // Save expected completion date
-  const handleExpectedCompletionDate = async (job: Job, dateStr: string) => {
-    try {
-      const newDate = dateStr ? new Date(dateStr).toISOString() : null;
-      const { error } = await supabase
-        .from('jobs')
-        .update({ expected_completion_date: newDate })
-        .eq('id', job.id);
-      if (error) throw error;
-
-      await logAction({
-        action: 'update',
-        tableName: 'jobs',
-        recordId: job.id,
-        fieldChanged: 'expected_completion_date',
-        oldValue: job.expectedCompletionDate ? job.expectedCompletionDate.toISOString() : '',
-        newValue: dateStr || '',
-        metadata: { jobNumber: job.jobNumber },
-      });
-
-      setJobs(prev => prev.map(j => j.id === job.id ? { ...j, expectedCompletionDate: dateStr ? new Date(dateStr) : null } : j));
-    } catch (err) {
-      console.error('Error saving expected completion date:', err);
-    }
   };
 
   const getStatusInfo = (status: string) => {
@@ -505,16 +402,6 @@ export default function ProgressorPanel() {
     setTradeFilter('all');
     setRiskFilter('all');
     setTeamFilter('all');
-  };
-
-  // Parse ongoing reason into team and progressor parts
-  const parseOngoingReason = (reason: string) => {
-    const PROGRESSOR_MARKER = '\n---PROGRESSOR---\n';
-    const parts = reason.split(PROGRESSOR_MARKER);
-    return {
-      teamNotes: parts[0] || '',
-      progressorNotes: parts[1] || '',
-    };
   };
 
   if (jobsLoading || subTasksLoading) {
