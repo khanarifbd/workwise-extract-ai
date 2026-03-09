@@ -54,6 +54,15 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
+interface TradeBookingInfo {
+  jobId: string;
+  effectiveBookedDate: Date;
+  totalTrades: number;
+  completedTrades: number;
+  pendingTrades: { trade: string; bookedDate: Date }[];
+  isTradeBooked: true;
+}
+
 interface JobTableProps {
   jobs: Job[];
   onUpdateJob?: (job: Job) => void;
@@ -70,6 +79,7 @@ interface JobTableProps {
   categories?: { id: string; name: string; color: string }[];
   readOnly?: boolean;
   searchTerm?: string;
+  tradeBookings?: Map<string, TradeBookingInfo>;
   getSignOffStatus?: (jobId: string, team1?: string | null, team2?: string | null) => {
     signedOffTeams: string[];
     totalAssigned: number;
