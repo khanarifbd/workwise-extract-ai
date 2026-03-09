@@ -89,7 +89,11 @@ export function ProgressorBookedDashboard() {
 
       if (bookedError) throw bookedError;
       
-      const tradeJobIds = Array.from(tradeBookings.keys());
+      const bookedJobs = (bookedData || []).map(mapDatabaseJobToJob);
+      const bookedJobIds = new Set(bookedJobs.map(j => j.id));
+      
+      // Fetch trade-booked jobs that aren't already in the booked list
+      const tradeJobIds = Array.from(tradeBookings.keys()).filter(id => !bookedJobIds.has(id));
       let tradeOnlyJobs: Job[] = [];
       
       if (tradeJobIds.length > 0) {
@@ -97,7 +101,6 @@ export function ProgressorBookedDashboard() {
           .from('jobs')
           .select('id, job_number, name, address, phone_number, status, team, team2, progress, is_completed, is_ongoing, ongoing_reason, booked_date, completion_date, expected_completion_date, created_at, date_issued, description, work_items, fan_info, category_id, progress_notes, scheduled_trades, booking_notes, is_flexible_booking')
           .is('deleted_at', null)
-          .is('booked_date', null)
           .in('id', tradeJobIds)
           .or(`category_id.is.null,category_id.neq.${FAN_CATEGORY_ID}`);
 
@@ -105,7 +108,7 @@ export function ProgressorBookedDashboard() {
         tradeOnlyJobs = (tradeData || []).map(mapDatabaseJobToJob);
       }
       
-      const allJobs = [...(bookedData || []).map(mapDatabaseJobToJob), ...tradeOnlyJobs];
+      const allJobs = [...bookedJobs, ...tradeOnlyJobs];
       setJobs(allJobs);
 
       // Fetch contact history for all jobs
