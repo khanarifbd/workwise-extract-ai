@@ -141,7 +141,7 @@ export const BookedDateSidebar = forwardRef<HTMLDivElement, BookedDateSidebarPro
       monthGroups: sortedMonths,
       totalCount: jobs.filter(j => !!j.bookedDate).length,
     };
-  }, [jobs]);
+  }, [jobs, tradeBookings]);
 
   const toggleMonth = (monthKey: string) => {
     setExpandedMonths(prev => {

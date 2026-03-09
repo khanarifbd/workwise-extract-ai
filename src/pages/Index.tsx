@@ -1528,6 +1528,7 @@ const Index = () => {
                   readOnly={!canEdit}
                   searchTerm={debouncedSearch}
                   getSignOffStatus={getSignOffStatus}
+                  tradeBookings={tradeBookings}
                 />
               ) : viewType === 'kanban' ? (
                 <KanbanBoard
