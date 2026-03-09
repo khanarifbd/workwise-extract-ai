@@ -324,7 +324,19 @@ export default function ProgressorPanel() {
       return;
     }
 
-    await updateSubTask(subTask.id, { [dbField]: value });
+    // Convert date strings to ISO format for the database
+    let dbValue = value;
+    if (['bookedDate', 'deadlineDate', 'completionDate'].includes(field) && value) {
+      dbValue = new Date(value).toISOString();
+    }
+
+    // Auto-update status when booked date is set
+    const updates: Record<string, any> = { [dbField]: dbValue };
+    if (field === 'bookedDate' && value && subTask.status === 'not_scheduled') {
+      updates.status = 'scheduled';
+    }
+
+    await updateSubTask(subTask.id, updates);
 
     await logAction({
       action: 'update',
