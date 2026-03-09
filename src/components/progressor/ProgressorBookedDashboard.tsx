@@ -284,7 +284,7 @@ export function ProgressorBookedDashboard() {
       const tradeInfo = tradeBookings.get(job.id);
       return {
         ...job,
-        isTradeBooked: !job.bookedDate && !!tradeInfo,
+        isTradeBooked: !!tradeInfo,
         tradeInfo: tradeInfo ? {
           pendingTrades: tradeInfo.pendingTrades,
           totalTrades: tradeInfo.totalTrades,
@@ -296,12 +296,13 @@ export function ProgressorBookedDashboard() {
     if (!selectedDate) return augmented;
     
     return augmented.filter(j => {
+      const ti = tradeBookings.get(j.id);
       let effectiveDate: Date | null = null;
-      if (j.bookedDate) {
+      // Trade date takes priority
+      if (ti) {
+        effectiveDate = ti.effectiveBookedDate;
+      } else if (j.bookedDate) {
         effectiveDate = j.bookedDate instanceof Date ? j.bookedDate : parseISO(j.bookedDate as any);
-      } else {
-        const ti = tradeBookings.get(j.id);
-        if (ti) effectiveDate = ti.effectiveBookedDate;
       }
       if (!effectiveDate) return false;
       return format(effectiveDate, 'yyyy-MM-dd') === selectedDate;
