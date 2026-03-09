@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import { format, differenceInDays, differenceInHours, isPast } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { CalendarDays } from 'lucide-react';
 
 interface ContactRecord {
   id: string;
