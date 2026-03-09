@@ -656,10 +656,17 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
               const jobContactHistory = contactHistoryMap[job.id] || [];
               const nextAction: NextAction = determineNextAction(jobContactHistory, { bookedDate: job.bookedDate, status: job.status });
               
+              // Check if this is a trade-booked job (no own bookedDate, but has trade bookings)
+              const isTradeBookedJob = !job.bookedDate && tradeBookings.has(job.id);
+              const tradeInfo = tradeBookings.get(job.id);
+              
               // Get row background class based on action urgency
               const getActionRowClass = (): string => {
                 if (isDuplicate) return "bg-red-500/30 dark:bg-red-900/50 border-l-8 border-l-red-600 hover:bg-red-500/40 dark:hover:bg-red-800/60 ring-2 ring-red-500 animate-pulse";
                 if (isCompleted) return "bg-emerald-200/80 dark:bg-emerald-800/60 border-l-4 border-l-emerald-500 hover:bg-emerald-300/80 dark:hover:bg-emerald-700/60 ring-1 ring-emerald-300 dark:ring-emerald-600";
+                
+                // Trade-booked jobs get a distinct violet/purple highlight
+                if (isTradeBookedJob) return "bg-violet-100/90 dark:bg-violet-900/40 border-l-4 border-l-violet-600 hover:bg-violet-200/90 dark:hover:bg-violet-900/50 ring-1 ring-violet-300 dark:ring-violet-700";
                 
                 switch (nextAction) {
                   case 'call_now':
