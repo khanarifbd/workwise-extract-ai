@@ -100,6 +100,7 @@ export default function ProgressorPanel() {
 
   // Sorting
   const [sortBy, setSortBy] = useState<'urgency' | 'newest' | 'oldest' | 'name'>('urgency');
+  const [activeTab, setActiveTab] = useState<string>('incomplete');
 
   // Add sub-task modal
   const [addSubTaskJob, setAddSubTaskJob] = useState<Job | null>(null);
