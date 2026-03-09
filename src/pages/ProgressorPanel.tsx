@@ -79,10 +79,7 @@ export default function ProgressorPanel() {
     return urlJob ? new Set([urlJob]) : new Set();
   });
   const [contactHistory, setContactHistory] = useState<Map<string, ContactRecord[]>>(new Map());
-  
-  // Editable ongoing reason state
-  const [editingOngoingReason, setEditingOngoingReason] = useState<string | null>(null);
-  const [ongoingReasonDraft, setOngoingReasonDraft] = useState('');
+
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
