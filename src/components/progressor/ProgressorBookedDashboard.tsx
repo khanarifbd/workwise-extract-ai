@@ -183,6 +183,26 @@ export function ProgressorBookedDashboard() {
         fieldChanged: 'deleted', oldValue: subTask.trade, newValue: '',
         metadata: { parentJobId: subTask.parentJobId, trade: subTask.trade },
       });
+
+      // Check if any sub-tasks remain; if not, clear awaiting_trade status
+      const { data: remaining } = await supabase
+        .from('job_sub_tasks')
+        .select('id')
+        .eq('parent_job_id', subTask.parentJobId);
+      
+      if (!remaining || remaining.length === 0) {
+        await supabase
+          .from('jobs')
+          .update({ status: 'started', is_ongoing: false, ongoing_reason: '' })
+          .eq('id', subTask.parentJobId)
+          .eq('status', 'awaiting_trade');
+        setJobs(prev => prev.map(j => 
+          j.id === subTask.parentJobId && j.status === 'awaiting_trade'
+            ? { ...j, status: 'started' as any, isOngoing: false, ongoingReason: '' }
+            : j
+        ));
+      }
+
       await fetchAllSubTasks();
     } catch (err) {
       console.error('Error deleting sub-task:', err);

@@ -379,6 +379,27 @@ export default function ProgressorPanel() {
         newValue: '',
         metadata: { parentJobId: subTask.parentJobId, trade: subTask.trade },
       });
+
+      // Check if any sub-tasks remain for this job; if not, clear awaiting_trade status
+      const { data: remaining } = await supabase
+        .from('job_sub_tasks')
+        .select('id')
+        .eq('parent_job_id', subTask.parentJobId);
+      
+      if (!remaining || remaining.length === 0) {
+        await supabase
+          .from('jobs')
+          .update({ status: 'started', is_ongoing: false, ongoing_reason: '' })
+          .eq('id', subTask.parentJobId)
+          .eq('status', 'awaiting_trade');
+        // Update local state
+        setJobs(prev => prev.map(j => 
+          j.id === subTask.parentJobId && j.status === 'awaiting_trade'
+            ? { ...j, status: 'started', isOngoing: false, ongoingReason: '' }
+            : j
+        ));
+      }
+
       await fetchAll();
     } catch (err) {
       console.error('Error deleting sub-task:', err);
