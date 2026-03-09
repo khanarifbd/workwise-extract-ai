@@ -12,11 +12,21 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 
+interface TradeBookingInfo {
+  jobId: string;
+  effectiveBookedDate: Date;
+  totalTrades: number;
+  completedTrades: number;
+  pendingTrades: { trade: string; bookedDate: Date }[];
+  isTradeBooked: true;
+}
+
 interface BookedDateSidebarProps {
   jobs: Job[];
   selectedDate: string | null;
   onDateSelect: (dateKey: string | null) => void;
   isFanCategory?: boolean;
+  tradeBookings?: Map<string, TradeBookingInfo>;
 }
 
 interface DateGroup {
