@@ -806,15 +806,26 @@ const Index = () => {
         const isJobCompleted = job.status === 'complete' || job.isCompleted;
         
         if (activeDatabaseTab === 'booked') {
-          // Booked date overrides completion - show ALL jobs with a booked date
-          if (!job.bookedDate) return false;
+          // Show jobs with a booked date OR jobs with trade-booked sub-tasks
+          const hasTradeBooking = tradeBookings.has(job.id);
+          if (!job.bookedDate && !hasTradeBooking) return false;
           
           // Filter by selected booked date if any
           if (selectedBookedDate) {
-            const bookedDate = job.bookedDate instanceof Date ? job.bookedDate : parseISO(job.bookedDate as any);
-            if (!isValid(bookedDate)) return false;
-            const jobDateKey = format(bookedDate, 'yyyy-MM-dd');
-            if (jobDateKey !== selectedBookedDate) return false;
+            // Check main booked date
+            let matchesDate = false;
+            if (job.bookedDate) {
+              const bookedDate = job.bookedDate instanceof Date ? job.bookedDate : parseISO(job.bookedDate as any);
+              if (isValid(bookedDate)) {
+                matchesDate = format(bookedDate, 'yyyy-MM-dd') === selectedBookedDate;
+              }
+            }
+            // Check trade effective booked date
+            if (!matchesDate && hasTradeBooking) {
+              const tradeInfo = tradeBookings.get(job.id)!;
+              matchesDate = format(tradeInfo.effectiveBookedDate, 'yyyy-MM-dd') === selectedBookedDate;
+            }
+            if (!matchesDate) return false;
           }
         } else if (activeDatabaseTab === 'completed') {
           // Show completed jobs, but NOT if they have a booked date (booked overrides)
