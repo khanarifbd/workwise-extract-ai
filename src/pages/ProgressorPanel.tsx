@@ -1064,18 +1064,13 @@ export default function ProgressorPanel() {
                                     )}
                                   </div>
                                 </div>
-                                <div className="flex gap-2">
-                                  <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); setAddSubTaskJob(job); }} className="text-xs">
-                                    <Plus className="h-3 w-3 mr-1" /> Add Sub-Task
-                                  </Button>
-                                  <Button
+                                <Button
                                     size="sm"
                                     className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
                                     onClick={(e) => { e.stopPropagation(); handleJobSignOff(job); }}
                                   >
                                     <CheckCircle className="h-3.5 w-3.5 mr-1" /> Sign Off Complete
                                   </Button>
-                                </div>
                               </div>
                             </div>
 

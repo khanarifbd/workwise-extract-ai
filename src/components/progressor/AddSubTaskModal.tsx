@@ -14,6 +14,7 @@ import { DEFAULT_TRADES } from '@/types/subTask';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
 
 interface AddSubTaskModalProps {
   open: boolean;
