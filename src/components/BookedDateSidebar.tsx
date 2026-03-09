@@ -12,11 +12,21 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 
+interface TradeBookingInfo {
+  jobId: string;
+  effectiveBookedDate: Date;
+  totalTrades: number;
+  completedTrades: number;
+  pendingTrades: { trade: string; bookedDate: Date }[];
+  isTradeBooked: true;
+}
+
 interface BookedDateSidebarProps {
   jobs: Job[];
   selectedDate: string | null;
   onDateSelect: (dateKey: string | null) => void;
   isFanCategory?: boolean;
+  tradeBookings?: Map<string, TradeBookingInfo>;
 }
 
 interface DateGroup {
@@ -37,7 +47,7 @@ interface MonthGroup {
 }
 
 export const BookedDateSidebar = forwardRef<HTMLDivElement, BookedDateSidebarProps>(
-  ({ jobs, selectedDate, onDateSelect, isFanCategory = false }, ref) => {
+  ({ jobs, selectedDate, onDateSelect, isFanCategory = false, tradeBookings = new Map() }, ref) => {
   
   // Track which months are expanded - current month expanded by default
   const currentMonthKey = format(new Date(), 'yyyy-MM');
@@ -46,6 +56,7 @@ export const BookedDateSidebar = forwardRef<HTMLDivElement, BookedDateSidebarPro
   const { monthGroups, totalCount } = useMemo(() => {
     const dateMap = new Map<string, { date: Date; count: number }>();
     
+    // Count jobs with regular booked dates
     jobs.forEach(job => {
       if (!job.bookedDate) return;
       
@@ -59,6 +70,21 @@ export const BookedDateSidebar = forwardRef<HTMLDivElement, BookedDateSidebarPro
         existing.count++;
       } else {
         dateMap.set(dateKey, { date: startOfDay(date), count: 1 });
+      }
+    });
+
+    // Also count trade-booked jobs (jobs without bookedDate but with trade bookings)
+    tradeBookings.forEach((info, jobId) => {
+      // Only count if this job isn't already counted via its own bookedDate
+      const job = jobs.find(j => j.id === jobId);
+      if (job && !job.bookedDate) {
+        const dateKey = format(info.effectiveBookedDate, 'yyyy-MM-dd');
+        const existing = dateMap.get(dateKey);
+        if (existing) {
+          existing.count++;
+        } else {
+          dateMap.set(dateKey, { date: startOfDay(info.effectiveBookedDate), count: 1 });
+        }
       }
     });
 
@@ -115,7 +141,7 @@ export const BookedDateSidebar = forwardRef<HTMLDivElement, BookedDateSidebarPro
       monthGroups: sortedMonths,
       totalCount: jobs.filter(j => !!j.bookedDate).length,
     };
-  }, [jobs]);
+  }, [jobs, tradeBookings]);
 
   const toggleMonth = (monthKey: string) => {
     setExpandedMonths(prev => {

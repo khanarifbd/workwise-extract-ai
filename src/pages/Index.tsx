@@ -40,6 +40,7 @@ import { useCategories } from '@/hooks/useCategories';
 import { useSignOffStatus } from '@/hooks/useSignOffStatus';
 import { useFuzzySearch } from '@/hooks/useFuzzySearch';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { useTradeBookedJobs, TradeBookingInfo } from '@/hooks/useTradeBookedJobs';
 
 import { extractPDFWithAI, extractImageWithAI, checkDuplicateJobNumber, extractInsulationJobsFromDocument, findExistingJobByAddressOrNumber, mergeJobData, validateAndFixInsulationJob, checkInsulationDuplicates } from '@/lib/api';
 import { extractTextFromPDF } from '@/lib/pdfUtils';
@@ -75,6 +76,9 @@ const Index = () => {
   const setActiveCategory = setUrlCategory;
   
   const { jobs, isLoading: jobsLoading, addJob, editJob, removeJob, toggleComplete, refreshJobs } = useJobs(activeCategory ?? undefined);
+  
+  // Get trade-booked jobs (sub-tasks with booked dates)
+  const { tradeBookings } = useTradeBookedJobs();
   
   // Get job IDs for sign-off status
   const jobIds = useMemo(() => jobs.map(j => j.id), [jobs]);
@@ -802,15 +806,26 @@ const Index = () => {
         const isJobCompleted = job.status === 'complete' || job.isCompleted;
         
         if (activeDatabaseTab === 'booked') {
-          // Booked date overrides completion - show ALL jobs with a booked date
-          if (!job.bookedDate) return false;
+          // Show jobs with a booked date OR jobs with trade-booked sub-tasks
+          const hasTradeBooking = tradeBookings.has(job.id);
+          if (!job.bookedDate && !hasTradeBooking) return false;
           
           // Filter by selected booked date if any
           if (selectedBookedDate) {
-            const bookedDate = job.bookedDate instanceof Date ? job.bookedDate : parseISO(job.bookedDate as any);
-            if (!isValid(bookedDate)) return false;
-            const jobDateKey = format(bookedDate, 'yyyy-MM-dd');
-            if (jobDateKey !== selectedBookedDate) return false;
+            // Check main booked date
+            let matchesDate = false;
+            if (job.bookedDate) {
+              const bookedDate = job.bookedDate instanceof Date ? job.bookedDate : parseISO(job.bookedDate as any);
+              if (isValid(bookedDate)) {
+                matchesDate = format(bookedDate, 'yyyy-MM-dd') === selectedBookedDate;
+              }
+            }
+            // Check trade effective booked date
+            if (!matchesDate && hasTradeBooking) {
+              const tradeInfo = tradeBookings.get(job.id)!;
+              matchesDate = format(tradeInfo.effectiveBookedDate, 'yyyy-MM-dd') === selectedBookedDate;
+            }
+            if (!matchesDate) return false;
           }
         } else if (activeDatabaseTab === 'completed') {
           // Show completed jobs, but NOT if they have a booked date (booked overrides)
@@ -821,6 +836,7 @@ const Index = () => {
         } else {
           // In main "all" tab, exclude booked, completed, and refer back jobs
           if (job.bookedDate) return false;
+          if (tradeBookings.has(job.id)) return false;
           if (isJobCompleted) return false;
           if (job.referBack) return false;
         }
@@ -909,11 +925,17 @@ const Index = () => {
       return true;
     });
     
-    // Sort by booked date if in booked tab
+    // Sort by booked date if in booked tab (use trade effective date as fallback)
     if (activeDatabaseTab === 'booked') {
       result.sort((a, b) => {
-        const dateA = a.bookedDate ? new Date(a.bookedDate).getTime() : 0;
-        const dateB = b.bookedDate ? new Date(b.bookedDate).getTime() : 0;
+        const getEffectiveDate = (j: Job) => {
+          if (j.bookedDate) return new Date(j.bookedDate).getTime();
+          const tradeInfo = tradeBookings.get(j.id);
+          if (tradeInfo) return tradeInfo.effectiveBookedDate.getTime();
+          return 0;
+        };
+        const dateA = getEffectiveDate(a);
+        const dateB = getEffectiveDate(b);
         return bookedSortOrder === 'newest' ? dateB - dateA : dateA - dateB;
       });
     }
@@ -928,7 +950,7 @@ const Index = () => {
     }
     
     return result;
-  }, [jobs, filters, isFanCategory, activeMonthFolder, activeDatabaseTab, bookedSortOrder, completedSortOrder, selectedBookedDate, getSignOffStatus]);
+  }, [jobs, filters, isFanCategory, activeMonthFolder, activeDatabaseTab, bookedSortOrder, completedSortOrder, selectedBookedDate, getSignOffStatus, tradeBookings]);
 
   // Apply fuzzy search on pre-filtered jobs using debounced search term
   const { matches: fuzzyFilteredJobs, hasSearch } = useFuzzySearch(
@@ -943,8 +965,11 @@ const Index = () => {
   // UNIFIED COMPLETED DEFINITION: status === 'complete' OR isCompleted === true
   // Count booked jobs for badge (exclude completed)
   const bookedJobsCount = useMemo(() => {
-    return jobs.filter(j => !!j.bookedDate && j.status !== 'complete' && !j.isCompleted).length;
-  }, [jobs]);
+    return jobs.filter(j => {
+      if (j.status === 'complete' || j.isCompleted) return false;
+      return !!j.bookedDate || tradeBookings.has(j.id);
+    }).length;
+  }, [jobs, tradeBookings]);
 
   // Count completed jobs for badge - consistent with StatsCards and CompletedJobsPDFButton
   const completedJobsCount = useMemo(() => {
@@ -1476,10 +1501,11 @@ const Index = () => {
             {/* Booked Date Sidebar - only show in booked tab */}
             {activeDatabaseTab === 'booked' && (
               <BookedDateSidebar
-                jobs={jobs.filter(j => !!j.bookedDate && !j.isCompleted && j.progress !== 100)}
+                jobs={jobs.filter(j => (!!j.bookedDate || tradeBookings.has(j.id)) && !j.isCompleted && j.progress !== 100)}
                 selectedDate={selectedBookedDate}
                 onDateSelect={setSelectedBookedDate}
                 isFanCategory={isFanCategory}
+                tradeBookings={tradeBookings}
               />
             )}
             
@@ -1502,6 +1528,7 @@ const Index = () => {
                   readOnly={!canEdit}
                   searchTerm={debouncedSearch}
                   getSignOffStatus={getSignOffStatus}
+                  tradeBookings={tradeBookings}
                 />
               ) : viewType === 'kanban' ? (
                 <KanbanBoard

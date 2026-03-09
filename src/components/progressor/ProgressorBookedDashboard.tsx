@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Job } from '@/types/job';
 import { mapDatabaseJobToJob } from '@/lib/api';
+import { useTradeBookedJobs } from '@/hooks/useTradeBookedJobs';
 import { format, isToday, isTomorrow, startOfDay, isValid, parseISO } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -15,7 +16,7 @@ import {
 } from '@/components/ui/collapsible';
 import {
   Calendar, ChevronDown, Search, Loader2, Users,
-  Phone, MapPin, RefreshCw, Clock,
+  Phone, MapPin, RefreshCw, Clock, Wrench,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -25,7 +26,7 @@ interface DateGroup {
   count: number;
   date: Date;
   isSpecial?: 'today' | 'tomorrow';
-  jobs: Job[];
+  jobs: Array<Job & { isTradeBooked?: boolean; tradeInfo?: { pendingTrades: { trade: string; bookedDate: Date }[]; totalTrades: number; completedTrades: number } }>;
 }
 
 interface MonthGroup {
@@ -41,12 +42,15 @@ export function ProgressorBookedDashboard() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const { tradeBookings, refetch: refetchTradeBookings } = useTradeBookedJobs();
 
   const fetchBookedJobs = useCallback(async () => {
     setLoading(true);
     try {
       const FAN_CATEGORY_ID = '913c5a29-2b7f-4da9-992a-1b49e51d9d8a';
-      const { data, error } = await supabase
+      
+      // Fetch jobs with booked dates
+      const { data: bookedData, error: bookedError } = await supabase
         .from('jobs')
         .select('id, job_number, name, address, phone_number, status, team, team2, progress, is_completed, is_ongoing, ongoing_reason, booked_date, completion_date, expected_completion_date, created_at, date_issued, description, work_items, fan_info, category_id, progress_notes, scheduled_trades, booking_notes, is_flexible_booking')
         .is('deleted_at', null)
@@ -54,16 +58,40 @@ export function ProgressorBookedDashboard() {
         .or(`category_id.is.null,category_id.neq.${FAN_CATEGORY_ID}`)
         .order('booked_date', { ascending: true });
 
-      if (error) throw error;
-      setJobs((data || []).map(mapDatabaseJobToJob));
+      if (bookedError) throw bookedError;
+      
+      // Fetch jobs that have trade bookings but no main booked_date
+      const tradeJobIds = Array.from(tradeBookings.keys());
+      let tradeOnlyJobs: Job[] = [];
+      
+      if (tradeJobIds.length > 0) {
+        const { data: tradeData, error: tradeError } = await supabase
+          .from('jobs')
+          .select('id, job_number, name, address, phone_number, status, team, team2, progress, is_completed, is_ongoing, ongoing_reason, booked_date, completion_date, expected_completion_date, created_at, date_issued, description, work_items, fan_info, category_id, progress_notes, scheduled_trades, booking_notes, is_flexible_booking')
+          .is('deleted_at', null)
+          .is('booked_date', null)
+          .in('id', tradeJobIds)
+          .or(`category_id.is.null,category_id.neq.${FAN_CATEGORY_ID}`);
+
+        if (tradeError) throw tradeError;
+        tradeOnlyJobs = (tradeData || []).map(mapDatabaseJobToJob);
+      }
+      
+      const allJobs = [...(bookedData || []).map(mapDatabaseJobToJob), ...tradeOnlyJobs];
+      setJobs(allJobs);
     } catch (err) {
       console.error('Error fetching booked jobs:', err);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [tradeBookings]);
 
   useEffect(() => { fetchBookedJobs(); }, [fetchBookedJobs]);
+
+  const handleRefresh = useCallback(() => {
+    refetchTradeBookings();
+    fetchBookedJobs();
+  }, [refetchTradeBookings, fetchBookedJobs]);
 
   // Filter by search
   const filteredJobs = useMemo(() => {
@@ -79,15 +107,33 @@ export function ProgressorBookedDashboard() {
 
   // Group into month > date structure
   const { monthGroups, totalCount } = useMemo(() => {
-    const dateMap = new Map<string, Job[]>();
+    const dateMap = new Map<string, DateGroup['jobs']>();
 
     filteredJobs.forEach(job => {
-      if (!job.bookedDate) return;
-      const date = job.bookedDate instanceof Date ? job.bookedDate : parseISO(job.bookedDate as any);
-      if (!isValid(date)) return;
-      const dateKey = format(date, 'yyyy-MM-dd');
+      const tradeInfo = tradeBookings.get(job.id);
+      const isTradeBooked = !job.bookedDate && !!tradeInfo;
+      
+      // Determine the effective date
+      let effectiveDate: Date | null = null;
+      if (job.bookedDate) {
+        effectiveDate = job.bookedDate instanceof Date ? job.bookedDate : parseISO(job.bookedDate as any);
+      } else if (tradeInfo) {
+        effectiveDate = tradeInfo.effectiveBookedDate;
+      }
+      
+      if (!effectiveDate || !isValid(effectiveDate)) return;
+      
+      const dateKey = format(effectiveDate, 'yyyy-MM-dd');
       if (!dateMap.has(dateKey)) dateMap.set(dateKey, []);
-      dateMap.get(dateKey)!.push(job);
+      dateMap.get(dateKey)!.push({
+        ...job,
+        isTradeBooked,
+        tradeInfo: tradeInfo ? {
+          pendingTrades: tradeInfo.pendingTrades,
+          totalTrades: tradeInfo.totalTrades,
+          completedTrades: tradeInfo.completedTrades,
+        } : undefined,
+      });
     });
 
     const allDates: DateGroup[] = Array.from(dateMap.entries()).map(([key, dateJobs]) => {
@@ -113,8 +159,9 @@ export function ProgressorBookedDashboard() {
     });
 
     const sorted = Array.from(monthMap.values()).sort((a, b) => a.dates[0].date.getTime() - b.dates[0].date.getTime());
-    return { monthGroups: sorted, totalCount: filteredJobs.filter(j => !!j.bookedDate).length };
-  }, [filteredJobs]);
+    const total = filteredJobs.filter(j => !!j.bookedDate || tradeBookings.has(j.id)).length;
+    return { monthGroups: sorted, totalCount: total };
+  }, [filteredJobs, tradeBookings]);
 
   // Current month expanded by default
   const currentMonthKey = format(new Date(), 'yyyy-MM');
@@ -130,12 +177,34 @@ export function ProgressorBookedDashboard() {
 
   // Get jobs for selected date
   const selectedDateJobs = useMemo(() => {
-    if (!selectedDate) return filteredJobs.filter(j => !!j.bookedDate);
-    return filteredJobs.filter(j => {
-      if (!j.bookedDate) return false;
-      return format(j.bookedDate, 'yyyy-MM-dd') === selectedDate;
+    // Build augmented list with trade info
+    const augmented = filteredJobs.map(job => {
+      const tradeInfo = tradeBookings.get(job.id);
+      return {
+        ...job,
+        isTradeBooked: !job.bookedDate && !!tradeInfo,
+        tradeInfo: tradeInfo ? {
+          pendingTrades: tradeInfo.pendingTrades,
+          totalTrades: tradeInfo.totalTrades,
+          completedTrades: tradeInfo.completedTrades,
+        } : undefined,
+      };
+    }).filter(j => !!j.bookedDate || tradeBookings.has(j.id));
+    
+    if (!selectedDate) return augmented;
+    
+    return augmented.filter(j => {
+      let effectiveDate: Date | null = null;
+      if (j.bookedDate) {
+        effectiveDate = j.bookedDate instanceof Date ? j.bookedDate : parseISO(j.bookedDate as any);
+      } else {
+        const ti = tradeBookings.get(j.id);
+        if (ti) effectiveDate = ti.effectiveBookedDate;
+      }
+      if (!effectiveDate) return false;
+      return format(effectiveDate, 'yyyy-MM-dd') === selectedDate;
     });
-  }, [filteredJobs, selectedDate]);
+  }, [filteredJobs, selectedDate, tradeBookings]);
 
   if (loading) {
     return (
@@ -222,7 +291,7 @@ export function ProgressorBookedDashboard() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input placeholder="Search tenant, address, job #..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-9 h-9" />
           </div>
-          <Button variant="outline" size="sm" onClick={fetchBookedJobs}>
+          <Button variant="outline" size="sm" onClick={handleRefresh}>
             <RefreshCw className="h-3.5 w-3.5 mr-1" /> Refresh
           </Button>
         </div>
@@ -247,16 +316,26 @@ export function ProgressorBookedDashboard() {
               selectedDateJobs.map(job => (
                 <Card key={job.id} className={cn(
                   "p-3 transition-colors hover:shadow-md",
-                  job.isCompleted && "opacity-70 bg-emerald-50/50 dark:bg-emerald-950/10",
+                  job.isTradeBooked
+                    ? "border-l-4 border-l-violet-600 bg-violet-50/80 dark:bg-violet-950/20 ring-1 ring-violet-200 dark:ring-violet-800"
+                    : job.isCompleted
+                      ? "opacity-70 bg-emerald-50/50 dark:bg-emerald-950/10"
+                      : "",
                 )}>
                   <div className="flex items-start gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <Badge variant="outline" className="text-xs font-mono">#{job.jobNumber}</Badge>
                         <span className="font-semibold text-sm truncate">{job.name}</span>
+                        {job.isTradeBooked && job.tradeInfo && (
+                          <Badge className="bg-violet-600 text-white text-[10px] flex items-center gap-0.5">
+                            <Wrench className="h-2.5 w-2.5" />
+                            {job.tradeInfo.pendingTrades.length} Trade{job.tradeInfo.pendingTrades.length !== 1 ? 's' : ''} Booked
+                          </Badge>
+                        )}
                         {job.isCompleted && <Badge className="bg-emerald-600 text-white text-[10px]">Complete</Badge>}
-                        {job.status === 'started' && <Badge className="bg-blue-600 text-white text-[10px]">Started</Badge>}
-                        {job.status === 'pending' && <Badge className="bg-muted text-muted-foreground text-[10px]">Pending</Badge>}
+                        {job.status === 'started' && !job.isTradeBooked && <Badge className="bg-blue-600 text-white text-[10px]">Started</Badge>}
+                        {job.status === 'pending' && !job.isTradeBooked && <Badge className="bg-muted text-muted-foreground text-[10px]">Pending</Badge>}
                         {job.team && (
                           <Badge variant="secondary" className="text-[10px]">
                             <Users className="h-2.5 w-2.5 mr-0.5" />{job.team}
@@ -276,13 +355,31 @@ export function ProgressorBookedDashboard() {
                           </a>
                         )}
                       </div>
+                      {/* Show pending trades for trade-booked jobs */}
+                      {job.isTradeBooked && job.tradeInfo && (
+                        <div className="mt-1.5 flex flex-wrap gap-1">
+                          {job.tradeInfo.pendingTrades.map((t, i) => (
+                            <Badge key={i} variant="outline" className="text-[10px] border-violet-300 text-violet-700 dark:text-violet-400">
+                              <Wrench className="h-2 w-2 mr-0.5" />
+                              {t.trade} — {format(t.bookedDate, 'dd MMM')}
+                            </Badge>
+                          ))}
+                          {job.tradeInfo.completedTrades > 0 && (
+                            <Badge variant="outline" className="text-[10px] border-emerald-300 text-emerald-700 dark:text-emerald-400">
+                              ✓ {job.tradeInfo.completedTrades}/{job.tradeInfo.totalTrades} done
+                            </Badge>
+                          )}
+                        </div>
+                      )}
                       {job.bookingNotes && (
                         <p className="text-[11px] text-muted-foreground mt-1 italic">📝 {job.bookingNotes}</p>
                       )}
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-xs font-medium">
-                        {job.bookedDate ? format(job.bookedDate, 'dd MMM yyyy') : '—'}
+                        {job.isTradeBooked && job.tradeInfo
+                          ? format(job.tradeInfo.pendingTrades[0].bookedDate, 'dd MMM yyyy')
+                          : job.bookedDate ? format(job.bookedDate, 'dd MMM yyyy') : '—'}
                       </p>
                       {job.isFlexibleBooking && (
                         <Badge variant="outline" className="text-[10px] mt-0.5 border-amber-400 text-amber-600">Flexible</Badge>
