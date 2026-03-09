@@ -1250,7 +1250,14 @@ export default function ProgressorPanel() {
             open={!!addSubTaskJob}
             onOpenChange={(open) => !open && setAddSubTaskJob(null)}
             job={{ id: addSubTaskJob.id, jobNumber: addSubTaskJob.jobNumber, name: addSubTaskJob.name, address: addSubTaskJob.address }}
-            onCreated={() => { fetchJobs(); fetchAll(); }}
+            onCreated={() => {
+              const jobId = addSubTaskJob.id;
+              // Force keep the job expanded after creation
+              setExpandedJobs(prev => new Set([...prev, jobId]));
+              setSearchParams(p => { const n = new URLSearchParams(p); n.set('job', jobId); return n; }, { replace: true });
+              // Fetch sub-tasks first (fast), then jobs
+              fetchAll().then(() => fetchJobs());
+            }}
           />
         )}
         <TradeCompaniesModal open={showTradeCompanies} onOpenChange={setShowTradeCompanies} />
