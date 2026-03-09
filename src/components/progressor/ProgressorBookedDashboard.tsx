@@ -1,8 +1,13 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Job } from '@/types/job';
+import { SubTask, SUB_TASK_STATUS_OPTIONS } from '@/types/subTask';
 import { mapDatabaseJobToJob } from '@/lib/api';
 import { useTradeBookedJobs } from '@/hooks/useTradeBookedJobs';
+import { useAllSubTasks } from '@/hooks/useSubTasks';
+import { useAuditLog } from '@/hooks/useAuditLog';
+import { ProgressorJobExpandedContent } from '@/components/progressor/ProgressorJobExpandedContent';
+import { AddSubTaskModal } from '@/components/progressor/AddSubTaskModal';
 import { format, isToday, isTomorrow, startOfDay, isValid, parseISO } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -19,6 +24,15 @@ import {
   Phone, MapPin, RefreshCw, Clock, Wrench,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+interface ContactRecord {
+  id: string;
+  outcome: string;
+  notes: string | null;
+  contact_date: string;
+  next_action: string | null;
+  next_action_date: string | null;
+}
 
 interface DateGroup {
   key: string;
@@ -42,14 +56,29 @@ export function ProgressorBookedDashboard() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set());
+  const [contactHistory, setContactHistory] = useState<Map<string, ContactRecord[]>>(new Map());
+  const [addSubTaskJob, setAddSubTaskJob] = useState<Job | null>(null);
   const { tradeBookings, refetch: refetchTradeBookings } = useTradeBookedJobs();
+  const { subTasks, updateSubTask, fetchAll: fetchAllSubTasks } = useAllSubTasks();
+  const { logAction } = useAuditLog();
+
+  // Group sub-tasks by parent job
+  const subTasksByJob = useMemo(() => {
+    const map = new Map<string, SubTask[]>();
+    for (const st of subTasks) {
+      const existing = map.get(st.parentJobId) || [];
+      existing.push(st);
+      map.set(st.parentJobId, existing);
+    }
+    return map;
+  }, [subTasks]);
 
   const fetchBookedJobs = useCallback(async () => {
     setLoading(true);
     try {
       const FAN_CATEGORY_ID = '913c5a29-2b7f-4da9-992a-1b49e51d9d8a';
       
-      // Fetch jobs with booked dates
       const { data: bookedData, error: bookedError } = await supabase
         .from('jobs')
         .select('id, job_number, name, address, phone_number, status, team, team2, progress, is_completed, is_ongoing, ongoing_reason, booked_date, completion_date, expected_completion_date, created_at, date_issued, description, work_items, fan_info, category_id, progress_notes, scheduled_trades, booking_notes, is_flexible_booking')
@@ -60,7 +89,6 @@ export function ProgressorBookedDashboard() {
 
       if (bookedError) throw bookedError;
       
-      // Fetch jobs that have trade bookings but no main booked_date
       const tradeJobIds = Array.from(tradeBookings.keys());
       let tradeOnlyJobs: Job[] = [];
       
@@ -79,6 +107,24 @@ export function ProgressorBookedDashboard() {
       
       const allJobs = [...(bookedData || []).map(mapDatabaseJobToJob), ...tradeOnlyJobs];
       setJobs(allJobs);
+
+      // Fetch contact history for all jobs
+      const jobIds = allJobs.map(j => j.id);
+      if (jobIds.length > 0) {
+        const { data: contacts } = await supabase
+          .from('contact_history')
+          .select('*')
+          .in('job_id', jobIds)
+          .order('contact_date', { ascending: false });
+        
+        const contactMap = new Map<string, ContactRecord[]>();
+        (contacts || []).forEach((c: any) => {
+          const existing = contactMap.get(c.job_id) || [];
+          existing.push(c);
+          contactMap.set(c.job_id, existing);
+        });
+        setContactHistory(contactMap);
+      }
     } catch (err) {
       console.error('Error fetching booked jobs:', err);
     } finally {
@@ -91,7 +137,62 @@ export function ProgressorBookedDashboard() {
   const handleRefresh = useCallback(() => {
     refetchTradeBookings();
     fetchBookedJobs();
-  }, [refetchTradeBookings, fetchBookedJobs]);
+    fetchAllSubTasks();
+  }, [refetchTradeBookings, fetchBookedJobs, fetchAllSubTasks]);
+
+  const handleSubTaskUpdate = async (subTask: SubTask, field: string, value: any) => {
+    const oldValue = (subTask as any)[field];
+    const dbField = field === 'assignedTeam' ? 'assigned_team'
+      : field === 'bookedDate' ? 'booked_date'
+      : field === 'deadlineDate' ? 'deadline_date'
+      : field === 'completionDate' ? 'completion_date'
+      : field === 'portalUpdated' ? 'portal_updated'
+      : field === 'signedOff' ? 'signed_off'
+      : field;
+
+    if (field === 'status' && value === 'completed_signed_off' && !subTask.completionDate) return;
+
+    let dbValue = value;
+    if (['bookedDate', 'deadlineDate', 'completionDate'].includes(field) && value) {
+      dbValue = new Date(value).toISOString();
+    }
+
+    const updates: Record<string, any> = { [dbField]: dbValue };
+    if (field === 'bookedDate' && value && subTask.status === 'not_scheduled') {
+      updates.status = 'scheduled';
+    }
+
+    await updateSubTask(subTask.id, updates);
+    await logAction({
+      action: 'update', tableName: 'job_sub_tasks', recordId: subTask.id,
+      fieldChanged: field, oldValue: String(oldValue ?? ''), newValue: String(value),
+      metadata: { parentJobId: subTask.parentJobId, trade: subTask.trade },
+    });
+  };
+
+  const handleDeleteSubTask = async (subTask: SubTask) => {
+    if (!confirm(`Delete ${subTask.trade} sub-task? This cannot be undone.`)) return;
+    try {
+      const { error } = await supabase.from('job_sub_tasks').delete().eq('id', subTask.id);
+      if (error) throw error;
+      await logAction({
+        action: 'delete', tableName: 'job_sub_tasks', recordId: subTask.id,
+        fieldChanged: 'deleted', oldValue: subTask.trade, newValue: '',
+        metadata: { parentJobId: subTask.parentJobId, trade: subTask.trade },
+      });
+      await fetchAllSubTasks();
+    } catch (err) {
+      console.error('Error deleting sub-task:', err);
+    }
+  };
+
+  const toggleJobExpand = (jobId: string) => {
+    setExpandedJobs(prev => {
+      const next = new Set(prev);
+      next.has(jobId) ? next.delete(jobId) : next.add(jobId);
+      return next;
+    });
+  };
 
   // Filter by search
   const filteredJobs = useMemo(() => {
@@ -113,7 +214,6 @@ export function ProgressorBookedDashboard() {
       const tradeInfo = tradeBookings.get(job.id);
       const isTradeBooked = !job.bookedDate && !!tradeInfo;
       
-      // Determine the effective date
       let effectiveDate: Date | null = null;
       if (job.bookedDate) {
         effectiveDate = job.bookedDate instanceof Date ? job.bookedDate : parseISO(job.bookedDate as any);
@@ -163,7 +263,6 @@ export function ProgressorBookedDashboard() {
     return { monthGroups: sorted, totalCount: total };
   }, [filteredJobs, tradeBookings]);
 
-  // Current month expanded by default
   const currentMonthKey = format(new Date(), 'yyyy-MM');
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set([currentMonthKey]));
 
@@ -177,7 +276,6 @@ export function ProgressorBookedDashboard() {
 
   // Get jobs for selected date
   const selectedDateJobs = useMemo(() => {
-    // Build augmented list with trade info
     const augmented = filteredJobs.map(job => {
       const tradeInfo = tradeBookings.get(job.id);
       return {
@@ -313,89 +411,133 @@ export function ProgressorBookedDashboard() {
                 <p className="text-muted-foreground text-sm">No booked jobs{selectedDate ? ' for this date' : ''}</p>
               </Card>
             ) : (
-              selectedDateJobs.map(job => (
-                <Card key={job.id} className={cn(
-                  "p-3 transition-colors hover:shadow-md",
-                  job.isTradeBooked
-                    ? "border-l-4 border-l-violet-600 bg-violet-50/80 dark:bg-violet-950/20 ring-1 ring-violet-200 dark:ring-violet-800"
-                    : job.isCompleted
-                      ? "opacity-70 bg-emerald-50/50 dark:bg-emerald-950/10"
-                      : "",
-                )}>
-                  <div className="flex items-start gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Badge variant="outline" className="text-xs font-mono">#{job.jobNumber}</Badge>
-                        <span className="font-semibold text-sm truncate">{job.name}</span>
-                        {job.isTradeBooked && job.tradeInfo && (
-                          <Badge className="bg-violet-600 text-white text-[10px] flex items-center gap-0.5">
-                            <Wrench className="h-2.5 w-2.5" />
-                            {job.tradeInfo.pendingTrades.length} Trade{job.tradeInfo.pendingTrades.length !== 1 ? 's' : ''} Booked
-                          </Badge>
-                        )}
-                        {job.isCompleted && <Badge className="bg-emerald-600 text-white text-[10px]">Complete</Badge>}
-                        {job.status === 'started' && !job.isTradeBooked && <Badge className="bg-blue-600 text-white text-[10px]">Started</Badge>}
-                        {job.status === 'pending' && !job.isTradeBooked && <Badge className="bg-muted text-muted-foreground text-[10px]">Pending</Badge>}
-                        {job.team && (
-                          <Badge variant="secondary" className="text-[10px]">
-                            <Users className="h-2.5 w-2.5 mr-0.5" />{job.team}
-                          </Badge>
-                        )}
-                        {job.team2 && (
-                          <Badge variant="secondary" className="text-[10px]">
-                            <Users className="h-2.5 w-2.5 mr-0.5" />{job.team2}
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1 truncate"><MapPin className="h-3 w-3 shrink-0" />{job.address}</span>
-                        {job.phoneNumber && (
-                          <a href={`tel:${job.phoneNumber}`} className="flex items-center gap-1 text-primary hover:underline shrink-0">
-                            <Phone className="h-3 w-3" />{job.phoneNumber}
-                          </a>
-                        )}
-                      </div>
-                      {/* Show pending trades for trade-booked jobs */}
-                      {job.isTradeBooked && job.tradeInfo && (
-                        <div className="mt-1.5 flex flex-wrap gap-1">
-                          {job.tradeInfo.pendingTrades.map((t, i) => (
-                            <Badge key={i} variant="outline" className="text-[10px] border-violet-300 text-violet-700 dark:text-violet-400">
-                              <Wrench className="h-2 w-2 mr-0.5" />
-                              {t.trade} — {format(t.bookedDate, 'dd MMM')}
+              selectedDateJobs.map(job => {
+                const isExpanded = expandedJobs.has(job.id);
+                const jobSubTasks = subTasksByJob.get(job.id) || [];
+                const jobContacts = contactHistory.get(job.id) || [];
+
+                return (
+                  <Card key={job.id} className={cn(
+                    "overflow-hidden transition-all",
+                    isExpanded
+                      ? "bg-indigo-50/60 dark:bg-indigo-950/20 border-indigo-400 border-2 shadow-lg shadow-indigo-500/10"
+                      : job.isTradeBooked
+                        ? "border-l-4 border-l-violet-600 bg-violet-50/80 dark:bg-violet-950/20 ring-1 ring-violet-200 dark:ring-violet-800"
+                        : job.isCompleted
+                          ? "opacity-70 bg-emerald-50/50 dark:bg-emerald-950/10"
+                          : "",
+                  )}>
+                    {/* Clickable Header */}
+                    <div
+                      className="px-4 py-3 cursor-pointer hover:bg-muted/30 transition-colors flex items-start gap-3"
+                      onClick={() => toggleJobExpand(job.id)}
+                    >
+                      <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform flex-shrink-0 mt-0.5", isExpanded && "rotate-180")} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge variant="outline" className="text-xs font-mono">#{job.jobNumber}</Badge>
+                          <span className="font-semibold text-sm truncate">{job.name}</span>
+                          {job.isTradeBooked && job.tradeInfo && (
+                            <Badge className="bg-violet-600 text-white text-[10px] flex items-center gap-0.5">
+                              <Wrench className="h-2.5 w-2.5" />
+                              {job.tradeInfo.pendingTrades.length} Trade{job.tradeInfo.pendingTrades.length !== 1 ? 's' : ''} Booked
                             </Badge>
-                          ))}
-                          {job.tradeInfo.completedTrades > 0 && (
-                            <Badge variant="outline" className="text-[10px] border-emerald-300 text-emerald-700 dark:text-emerald-400">
-                              ✓ {job.tradeInfo.completedTrades}/{job.tradeInfo.totalTrades} done
+                          )}
+                          {job.isCompleted && <Badge className="bg-emerald-600 text-white text-[10px]">Complete</Badge>}
+                          {job.status === 'started' && !job.isTradeBooked && <Badge className="bg-blue-600 text-white text-[10px]">Started</Badge>}
+                          {job.status === 'pending' && !job.isTradeBooked && <Badge className="bg-muted text-muted-foreground text-[10px]">Pending</Badge>}
+                          {job.team && (
+                            <Badge variant="secondary" className="text-[10px]">
+                              <Users className="h-2.5 w-2.5 mr-0.5" />{job.team}
+                            </Badge>
+                          )}
+                          {job.team2 && (
+                            <Badge variant="secondary" className="text-[10px]">
+                              <Users className="h-2.5 w-2.5 mr-0.5" />{job.team2}
                             </Badge>
                           )}
                         </div>
-                      )}
-                      {job.bookingNotes && (
-                        <p className="text-[11px] text-muted-foreground mt-1 italic">📝 {job.bookingNotes}</p>
-                      )}
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-xs font-medium">
-                        {job.isTradeBooked && job.tradeInfo
-                          ? format(job.tradeInfo.pendingTrades[0].bookedDate, 'dd MMM yyyy')
-                          : job.bookedDate ? format(job.bookedDate, 'dd MMM yyyy') : '—'}
-                      </p>
-                      {job.isFlexibleBooking && (
-                        <Badge variant="outline" className="text-[10px] mt-0.5 border-amber-400 text-amber-600">Flexible</Badge>
-                      )}
-                      <div className="flex items-center gap-1 mt-1 justify-end">
-                        <Clock className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-[10px] text-muted-foreground">{job.progress}%</span>
+                        <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1 truncate"><MapPin className="h-3 w-3 shrink-0" />{job.address}</span>
+                          {job.phoneNumber && (
+                            <a href={`tel:${job.phoneNumber}`} className="flex items-center gap-1 text-primary hover:underline shrink-0"
+                              onClick={(e) => e.stopPropagation()}>
+                              <Phone className="h-3 w-3" />{job.phoneNumber}
+                            </a>
+                          )}
+                        </div>
+                        {/* Show pending trades for trade-booked jobs */}
+                        {!isExpanded && job.isTradeBooked && job.tradeInfo && (
+                          <div className="mt-1.5 flex flex-wrap gap-1">
+                            {job.tradeInfo.pendingTrades.map((t, i) => (
+                              <Badge key={i} variant="outline" className="text-[10px] border-violet-300 text-violet-700 dark:text-violet-400">
+                                <Wrench className="h-2 w-2 mr-0.5" />
+                                {t.trade} — {format(t.bookedDate, 'dd MMM')}
+                              </Badge>
+                            ))}
+                            {job.tradeInfo.completedTrades > 0 && (
+                              <Badge variant="outline" className="text-[10px] border-emerald-300 text-emerald-700 dark:text-emerald-400">
+                                ✓ {job.tradeInfo.completedTrades}/{job.tradeInfo.totalTrades} done
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+                        {!isExpanded && job.bookingNotes && (
+                          <p className="text-[11px] text-muted-foreground mt-1 italic">📝 {job.bookingNotes}</p>
+                        )}
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-xs font-medium">
+                          {job.isTradeBooked && job.tradeInfo
+                            ? format(job.tradeInfo.pendingTrades[0].bookedDate, 'dd MMM yyyy')
+                            : job.bookedDate ? format(job.bookedDate, 'dd MMM yyyy') : '—'}
+                        </p>
+                        {job.isFlexibleBooking && (
+                          <Badge variant="outline" className="text-[10px] mt-0.5 border-amber-400 text-amber-600">Flexible</Badge>
+                        )}
+                        <div className="flex items-center gap-1 mt-1 justify-end">
+                          <Clock className="h-3 w-3 text-muted-foreground" />
+                          <span className="text-[10px] text-muted-foreground">{job.progress}%</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </Card>
-              ))
+
+                    {/* Expanded Editable Content */}
+                    {isExpanded && (
+                      <ProgressorJobExpandedContent
+                        job={job}
+                        jobSubTasks={jobSubTasks}
+                        jobContacts={jobContacts}
+                        onJobUpdate={(jobId, updates) => {
+                          setJobs(prev => prev.map(j => j.id === jobId ? { ...j, ...updates } : j));
+                        }}
+                        onSubTaskUpdate={handleSubTaskUpdate}
+                        onDeleteSubTask={handleDeleteSubTask}
+                        onAddSubTask={(j) => setAddSubTaskJob(j)}
+                        onRefresh={handleRefresh}
+                      />
+                    )}
+                  </Card>
+                );
+              })
             )}
           </div>
         </ScrollArea>
       </div>
+
+      {/* Add Sub-Task Modal */}
+      {addSubTaskJob && (
+        <AddSubTaskModal
+          open={!!addSubTaskJob}
+          onOpenChange={(open) => !open && setAddSubTaskJob(null)}
+          job={{ id: addSubTaskJob.id, jobNumber: addSubTaskJob.jobNumber, name: addSubTaskJob.name, address: addSubTaskJob.address }}
+          onCreated={() => {
+            const jobId = addSubTaskJob.id;
+            setExpandedJobs(prev => new Set([...prev, jobId]));
+            fetchAllSubTasks().then(() => fetchBookedJobs());
+          }}
+        />
+      )}
     </div>
   );
 }

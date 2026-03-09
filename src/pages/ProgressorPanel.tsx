@@ -9,24 +9,16 @@ import { Job, JOB_STATUS_OPTIONS } from '@/types/job';
 import { SubTask, SUB_TASK_STATUS_OPTIONS, SubTaskStatus } from '@/types/subTask';
 import { mapDatabaseJobToJob } from '@/lib/api';
 import { AddSubTaskModal } from '@/components/progressor/AddSubTaskModal';
-import { SubTaskJobSheetPDF } from '@/components/progressor/SubTaskJobSheetPDF';
 import { TradeCompaniesModal } from '@/components/progressor/TradeCompaniesModal';
 import { ProgressorBookedDashboard } from '@/components/progressor/ProgressorBookedDashboard';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { ProgressorTodoList } from '@/components/progressor/ProgressorTodoList';
-import { ProgressorMediaUpload } from '@/components/progressor/ProgressorMediaUpload';
-import { ProgressorDescriptionEditor } from '@/components/progressor/ProgressorDescriptionEditor';
 import { ProgressorTeamCodesModal } from '@/components/progressor/ProgressorTeamCodesModal';
 import { ProgressorJobExpandedContent } from '@/components/progressor/ProgressorJobExpandedContent';
-import { ContactTimelineModal } from '@/components/ContactTimelineModal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   ClipboardList, Search, LogOut, Loader2, ChevronDown,
