@@ -965,8 +965,11 @@ const Index = () => {
   // UNIFIED COMPLETED DEFINITION: status === 'complete' OR isCompleted === true
   // Count booked jobs for badge (exclude completed)
   const bookedJobsCount = useMemo(() => {
-    return jobs.filter(j => !!j.bookedDate && j.status !== 'complete' && !j.isCompleted).length;
-  }, [jobs]);
+    return jobs.filter(j => {
+      if (j.status === 'complete' || j.isCompleted) return false;
+      return !!j.bookedDate || tradeBookings.has(j.id);
+    }).length;
+  }, [jobs, tradeBookings]);
 
   // Count completed jobs for badge - consistent with StatsCards and CompletedJobsPDFButton
   const completedJobsCount = useMemo(() => {
