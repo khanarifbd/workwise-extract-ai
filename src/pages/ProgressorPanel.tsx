@@ -1223,6 +1223,11 @@ export default function ProgressorPanel() {
                                   </tbody>
                                 </table>
                               </div>
+                              <div className="px-4 py-2.5 border-t border-amber-200 dark:border-amber-800 flex justify-end">
+                                <Button size="sm" className="text-xs bg-amber-600 hover:bg-amber-700 text-white" onClick={() => setAddSubTaskJob(job)}>
+                                  <Plus className="h-3 w-3 mr-1" /> Add Trades
+                                </Button>
+                              </div>
                             ) : (
                               <div className="px-4 py-6 text-center">
                                 <Wrench className="h-8 w-8 text-amber-400 mx-auto mb-2" />
