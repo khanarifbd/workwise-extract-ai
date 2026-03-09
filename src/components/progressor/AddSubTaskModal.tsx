@@ -82,7 +82,7 @@ export const AddSubTaskModal = ({
 
       const { error } = await supabase
         .from('job_sub_tasks')
-        .insert(subTasks as any);
+        .insert(subTasks);
 
       if (error) throw error;
 
@@ -93,7 +93,7 @@ export const AddSubTaskModal = ({
           status: 'awaiting_trade',
           is_ongoing: true,
           ongoing_reason: `Awaiting: ${selectedTrades.join(', ')}`,
-        } as any)
+        })
         .eq('id', job.id);
 
       onCreated();

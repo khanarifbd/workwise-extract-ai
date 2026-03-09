@@ -11,7 +11,7 @@ export const useSubTasks = (parentJobId?: string) => {
     setIsLoading(true);
     try {
       const { data, error } = await supabase
-        .from('job_sub_tasks' as any)
+        .from('job_sub_tasks')
         .select('*')
         .eq('parent_job_id', parentJobId)
         .order('created_at', { ascending: true });
@@ -49,7 +49,7 @@ export const useSubTasks = (parentJobId?: string) => {
 
   const updateSubTask = async (id: string, updates: Record<string, any>) => {
     const { error } = await supabase
-      .from('job_sub_tasks' as any)
+      .from('job_sub_tasks')
       .update(updates)
       .eq('id', id);
     if (error) throw error;
@@ -68,7 +68,7 @@ export const useAllSubTasks = () => {
     setIsLoading(true);
     try {
       const { data, error } = await supabase
-        .from('job_sub_tasks' as any)
+        .from('job_sub_tasks')
         .select('*')
         .order('created_at', { ascending: false });
 
@@ -100,7 +100,7 @@ export const useAllSubTasks = () => {
 
   const updateSubTask = async (id: string, updates: Record<string, any>) => {
     const { error } = await supabase
-      .from('job_sub_tasks' as any)
+      .from('job_sub_tasks')
       .update(updates)
       .eq('id', id);
     if (error) throw error;
