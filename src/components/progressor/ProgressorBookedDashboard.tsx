@@ -81,7 +81,7 @@ export function ProgressorBookedDashboard() {
       
       const { data: bookedData, error: bookedError } = await supabase
         .from('jobs')
-        .select('id, job_number, name, address, phone_number, status, team, team2, progress, is_completed, is_ongoing, ongoing_reason, booked_date, completion_date, expected_completion_date, created_at, date_issued, description, work_items, fan_info, category_id, progress_notes, scheduled_trades, booking_notes, is_flexible_booking')
+        .select('id, job_number, name, address, phone_number, status, team, team2, progress, is_completed, is_ongoing, ongoing_reason, booked_date, completion_date, expected_completion_date, created_at, date_issued, description, work_items, fan_info, category_id, progress_notes, scheduled_trades, booking_notes, is_flexible_booking, attachments, additional_works, summary_of_works, costs, private_notes, refer_back, refer_back_reason, refer_back_date, insulation_info, linked_fan_job_id, linked_insulation_job_id')
         .is('deleted_at', null)
         .not('booked_date', 'is', null)
         .or(`category_id.is.null,category_id.neq.${FAN_CATEGORY_ID}`)
