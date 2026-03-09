@@ -736,6 +736,12 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                               DUP
                             </Badge>
                           )}
+                          {isTradeBookedJob && tradeInfo && (
+                            <Badge className="bg-violet-600 text-white font-bold text-[10px] flex items-center gap-0.5">
+                              <Wrench className="w-2.5 h-2.5" />
+                              {tradeInfo.pendingTrades.length} Trade{tradeInfo.pendingTrades.length !== 1 ? 's' : ''} Booked
+                            </Badge>
+                          )}
                           {showOngoingBadge && (
                             <Badge 
                               className={cn(
