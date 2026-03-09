@@ -40,6 +40,7 @@ import { useCategories } from '@/hooks/useCategories';
 import { useSignOffStatus } from '@/hooks/useSignOffStatus';
 import { useFuzzySearch } from '@/hooks/useFuzzySearch';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { useTradeBookedJobs, TradeBookingInfo } from '@/hooks/useTradeBookedJobs';
 
 import { extractPDFWithAI, extractImageWithAI, checkDuplicateJobNumber, extractInsulationJobsFromDocument, findExistingJobByAddressOrNumber, mergeJobData, validateAndFixInsulationJob, checkInsulationDuplicates } from '@/lib/api';
 import { extractTextFromPDF } from '@/lib/pdfUtils';
