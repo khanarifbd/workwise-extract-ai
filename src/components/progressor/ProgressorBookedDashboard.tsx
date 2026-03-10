@@ -605,5 +605,6 @@ export function ProgressorBookedDashboard() {
         />
       )}
     </div>
+    </div>
   );
 }
