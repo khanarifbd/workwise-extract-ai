@@ -358,13 +358,35 @@ export function ProgressorBookedDashboard() {
   }
 
   return (
-    <div className="flex gap-4 h-[calc(100vh-280px)]">
+    <div className="space-y-3">
+      {/* View Filter Tabs */}
+      <Tabs value={viewFilter} onValueChange={(v) => { setViewFilter(v as ViewFilter); setSelectedDate(null); }}>
+        <TabsList className="h-9">
+          <TabsTrigger value="all" className="text-xs gap-1.5">
+            <Calendar className="h-3.5 w-3.5" />
+            All Booked
+            <Badge variant="outline" className="text-[10px] h-4 px-1 ml-0.5">{tradeCount + dmCount}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="trades" className="text-xs gap-1.5">
+            <Wrench className="h-3.5 w-3.5" />
+            Trades
+            <Badge variant="outline" className="text-[10px] h-4 px-1 ml-0.5">{tradeCount}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="dm_teams" className="text-xs gap-1.5">
+            <Users className="h-3.5 w-3.5" />
+            DM Teams
+            <Badge variant="outline" className="text-[10px] h-4 px-1 ml-0.5">{dmCount}</Badge>
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+
+    <div className="flex gap-4 h-[calc(100vh-340px)]">
       {/* Date Sidebar */}
       <div className="w-52 border border-border rounded-xl bg-card flex flex-col shrink-0">
         <div className="p-3 border-b border-border">
           <h3 className="text-sm font-semibold flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-primary" />
-            Booked Dates
+            {viewFilter === 'dm_teams' ? <Users className="w-4 h-4 text-blue-500" /> : <Calendar className="w-4 h-4 text-primary" />}
+            {viewFilter === 'dm_teams' ? 'DM Team Schedule' : viewFilter === 'trades' ? 'Trade Schedule' : 'Booked Dates'}
           </h3>
         </div>
         <ScrollArea className="flex-1">
