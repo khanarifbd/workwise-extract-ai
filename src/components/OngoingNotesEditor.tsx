@@ -137,14 +137,26 @@ export const OngoingNotesEditor = forwardRef<HTMLButtonElement, OngoingNotesEdit
         <ScrollArea className="max-h-[400px]">
           <div className="p-3 space-y-4">
             {/* Why Job is Ongoing - Display from team/admin */}
-            {ongoingReason && (
-              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-2.5">
-                <label className="text-xs font-semibold text-amber-700 dark:text-amber-300 block mb-1">
-                  WHY JOB IS ONGOING
-                </label>
-                <p className="text-xs text-amber-800 dark:text-amber-200">{ongoingReason}</p>
-              </div>
-            )}
+            {ongoingReason && (() => {
+              const PROGRESSOR_MARKER = '\n---PROGRESSOR---\n';
+              const parts = ongoingReason.split(PROGRESSOR_MARKER);
+              const teamNotes = parts[0] || '';
+              const progressorNotes = parts[1] || '';
+              return (
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-2.5">
+                  <label className="text-xs font-semibold text-amber-700 dark:text-amber-300 block mb-1">
+                    WHY JOB IS ONGOING
+                  </label>
+                  {teamNotes && <p className="text-xs text-amber-800 dark:text-amber-200 whitespace-pre-wrap">{teamNotes}</p>}
+                  {progressorNotes && (
+                    <p className="text-xs text-indigo-700 dark:text-indigo-300 font-medium whitespace-pre-wrap border-l-2 border-indigo-400 pl-2 mt-1.5">
+                      <span className="text-[9px] text-indigo-500 uppercase font-bold block mb-0.5">Progressor Notes</span>
+                      {progressorNotes}
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Team Progress Notes - Read-only display */}
             {progressNotes && (
