@@ -552,12 +552,24 @@ export function ProgressorBookedDashboard() {
                           <p className="text-[11px] text-muted-foreground mt-1 italic">📝 {job.bookingNotes}</p>
                         )}
                       </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-xs font-medium">
-                          {job.isTradeBooked && job.tradeInfo
-                            ? format(job.tradeInfo.pendingTrades[0].bookedDate, 'dd MMM yyyy')
-                            : job.bookedDate ? format(job.bookedDate, 'dd MMM yyyy') : '—'}
-                        </p>
+                      <div className="text-right shrink-0" onClick={(e) => e.stopPropagation()}>
+                        {job.isTradeBooked && job.tradeInfo ? (
+                          <p className="text-xs font-medium cursor-default" onClick={(e) => { e.stopPropagation(); toggleJobExpand(job.id); }}>
+                            {format(job.tradeInfo.pendingTrades[0].bookedDate, 'dd MMM yyyy')}
+                            <span className="block text-[9px] text-muted-foreground">Edit in expanded view ↓</span>
+                          </p>
+                        ) : (
+                          <Input
+                            type="date"
+                            value={job.bookedDate ? format(job.bookedDate, 'yyyy-MM-dd') : ''}
+                            onChange={async (e) => {
+                              const newDate = e.target.value ? new Date(e.target.value).toISOString() : null;
+                              await supabase.from('jobs').update({ booked_date: newDate }).eq('id', job.id);
+                              setJobs(prev => prev.map(j => j.id === job.id ? { ...j, bookedDate: newDate ? new Date(newDate) : null } : j));
+                            }}
+                            className="h-7 text-xs w-[130px] font-medium"
+                          />
+                        )}
                         {job.isFlexibleBooking && (
                           <Badge variant="outline" className="text-[10px] mt-0.5 border-amber-400 text-amber-600">Flexible</Badge>
                         )}
