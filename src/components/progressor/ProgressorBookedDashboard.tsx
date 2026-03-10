@@ -337,36 +337,16 @@ export function ProgressorBookedDashboard() {
     });
   };
 
-  // Get jobs for selected date
+  // Get jobs for selected date (respects viewFilter via monthGroups)
   const selectedDateJobs = useMemo(() => {
-    const augmented = filteredJobs.map(job => {
-      const tradeInfo = tradeBookings.get(job.id);
-      return {
-        ...job,
-        isTradeBooked: !!tradeInfo,
-        tradeInfo: tradeInfo ? {
-          pendingTrades: tradeInfo.pendingTrades,
-          totalTrades: tradeInfo.totalTrades,
-          completedTrades: tradeInfo.completedTrades,
-        } : undefined,
-      };
-    }).filter(j => !!j.bookedDate || tradeBookings.has(j.id));
+    // Collect all jobs from monthGroups (already filtered by viewFilter)
+    const allGroupedJobs = monthGroups.flatMap(m => m.dates.flatMap(d => d.jobs));
     
-    if (!selectedDate) return augmented;
+    if (!selectedDate) return allGroupedJobs;
     
-    return augmented.filter(j => {
-      const ti = tradeBookings.get(j.id);
-      let effectiveDate: Date | null = null;
-      // Trade date takes priority
-      if (ti) {
-        effectiveDate = ti.effectiveBookedDate;
-      } else if (j.bookedDate) {
-        effectiveDate = j.bookedDate instanceof Date ? j.bookedDate : parseISO(j.bookedDate as any);
-      }
-      if (!effectiveDate) return false;
-      return format(effectiveDate, 'yyyy-MM-dd') === selectedDate;
-    });
-  }, [filteredJobs, selectedDate, tradeBookings]);
+    const dateGroup = monthGroups.flatMap(m => m.dates).find(d => d.key === selectedDate);
+    return dateGroup ? dateGroup.jobs : [];
+  }, [monthGroups, selectedDate]);
 
   if (loading) {
     return (
