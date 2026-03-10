@@ -233,18 +233,41 @@ export function ProgressorBookedDashboard() {
     );
   }, [jobs, searchQuery]);
 
-  // Group into month > date structure
-  const { monthGroups, totalCount } = useMemo(() => {
+  // Group into month > date structure, filtered by viewFilter
+  const { monthGroups, totalCount, tradeCount, dmCount } = useMemo(() => {
     const dateMap = new Map<string, DateGroup['jobs']>();
 
     filteredJobs.forEach(job => {
       const tradeInfo = tradeBookings.get(job.id);
       const isTradeBooked = !!tradeInfo;
       
+      // Apply view filter
+      if (viewFilter === 'trades') {
+        // Only show jobs with trade-type sub-tasks (or regular booked jobs without trade info)
+        if (tradeInfo && tradeInfo.taskType === 'dm_team') return;
+        if (tradeInfo) {
+          const tradePending = tradeInfo.pendingTrades.filter(t => (t.taskType || 'trade') === 'trade');
+          if (tradePending.length === 0 && !job.bookedDate) return;
+        }
+      } else if (viewFilter === 'dm_teams') {
+        // Only show jobs with DM team sub-tasks
+        if (!tradeInfo) return;
+        const dmPending = tradeInfo.pendingTrades.filter(t => t.taskType === 'dm_team');
+        if (dmPending.length === 0) return;
+      }
+
       let effectiveDate: Date | null = null;
-      // Trade booked date takes priority - shows under nearest pending trade date
       if (tradeInfo) {
-        effectiveDate = tradeInfo.effectiveBookedDate;
+        // For filtered views, use the effective date of matching sub-tasks
+        if (viewFilter === 'dm_teams') {
+          const dmPending = tradeInfo.pendingTrades.filter(t => t.taskType === 'dm_team');
+          effectiveDate = dmPending.length > 0 ? dmPending[0].bookedDate : tradeInfo.effectiveBookedDate;
+        } else if (viewFilter === 'trades') {
+          const tradePending = tradeInfo.pendingTrades.filter(t => (t.taskType || 'trade') === 'trade');
+          effectiveDate = tradePending.length > 0 ? tradePending[0].bookedDate : tradeInfo.effectiveBookedDate;
+        } else {
+          effectiveDate = tradeInfo.effectiveBookedDate;
+        }
       } else if (job.bookedDate) {
         effectiveDate = job.bookedDate instanceof Date ? job.bookedDate : parseISO(job.bookedDate as any);
       }
@@ -287,9 +310,21 @@ export function ProgressorBookedDashboard() {
     });
 
     const sorted = Array.from(monthMap.values()).sort((a, b) => a.dates[0].date.getTime() - b.dates[0].date.getTime());
-    const total = filteredJobs.filter(j => !!j.bookedDate || tradeBookings.has(j.id)).length;
-    return { monthGroups: sorted, totalCount: total };
-  }, [filteredJobs, tradeBookings]);
+    const total = allDates.reduce((sum, d) => sum + d.count, 0);
+    
+    // Count trades vs DM for badge numbers
+    let tc = 0, dc = 0;
+    filteredJobs.forEach(job => {
+      const ti = tradeBookings.get(job.id);
+      if (ti) {
+        if (ti.pendingTrades.some(t => (t.taskType || 'trade') === 'trade')) tc++;
+        if (ti.pendingTrades.some(t => t.taskType === 'dm_team')) dc++;
+      }
+      if (!ti && job.bookedDate) tc++; // Regular booked jobs count as trades
+    });
+
+    return { monthGroups: sorted, totalCount: total, tradeCount: tc, dmCount: dc };
+  }, [filteredJobs, tradeBookings, viewFilter]);
 
   const currentMonthKey = format(new Date(), 'yyyy-MM');
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set([currentMonthKey]));
