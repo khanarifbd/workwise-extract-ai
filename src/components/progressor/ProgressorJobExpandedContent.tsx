@@ -390,7 +390,7 @@ export function ProgressorJobExpandedContent({
                           }
                           // Remove from job attachments array
                           const updatedAttachments = job.attachments.filter((a: any) => (a.id || a.url) !== (att.id || att.url));
-                          const { error } = await supabase.from('jobs').update({ attachments: updatedAttachments }).eq('id', job.id);
+                          const { error } = await supabase.from('jobs').update({ attachments: JSON.parse(JSON.stringify(updatedAttachments)) }).eq('id', job.id);
                           if (error) throw error;
                           onJobUpdate(job.id, { attachments: updatedAttachments });
                           toast({ title: 'File deleted', description: `${att.name || 'File'} removed.` });
