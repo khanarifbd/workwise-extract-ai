@@ -17,7 +17,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   AlertTriangle, Phone, MapPin, User, Flag, Plus, MessageSquare,
-  Wrench, Users, Trash2, CalendarCheck, CheckCircle, CalendarClock, CornerDownRight,
+  Wrench, Users, Trash2, CalendarCheck, CheckCircle, CalendarClock, CornerDownRight, X,
 } from 'lucide-react';
 import { format, differenceInHours, isPast } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
@@ -367,16 +367,43 @@ export function ProgressorJobExpandedContent({
               </span>
               <div className="grid grid-cols-4 md:grid-cols-6 gap-2 max-h-[200px] overflow-y-auto">
                 {job.attachments.map((att: any) => (
-                  <a key={att.id || att.url} href={att.url} target="_blank" rel="noopener noreferrer"
-                    className="block rounded-md border overflow-hidden hover:ring-2 hover:ring-primary transition-all">
-                    {att.type === 'image' ? (
-                      <img src={att.url} alt={att.name || 'Photo'} className="w-full h-16 object-cover" loading="lazy" />
-                    ) : att.type === 'video' ? (
-                      <div className="w-full h-16 bg-muted flex items-center justify-center text-[10px] text-muted-foreground">🎥 Video</div>
-                    ) : (
-                      <div className="w-full h-16 bg-muted flex items-center justify-center text-[10px] text-muted-foreground">📄 {att.name || 'Doc'}</div>
-                    )}
-                  </a>
+                  <div key={att.id || att.url} className="relative group rounded-md border overflow-hidden">
+                    <a href={att.url} target="_blank" rel="noopener noreferrer"
+                      className="block hover:ring-2 hover:ring-primary transition-all">
+                      {att.type === 'image' ? (
+                        <img src={att.url} alt={att.name || 'Photo'} className="w-full h-16 object-cover" loading="lazy" />
+                      ) : att.type === 'video' ? (
+                        <div className="w-full h-16 bg-muted flex items-center justify-center text-[10px] text-muted-foreground">🎥 Video</div>
+                      ) : (
+                        <div className="w-full h-16 bg-muted flex items-center justify-center text-[10px] text-muted-foreground">📄 {att.name || 'Doc'}</div>
+                      )}
+                    </a>
+                    <button
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        if (!confirm(`Delete ${att.name || 'this file'}?`)) return;
+                        try {
+                          // Remove from storage if path exists
+                          const path = att.path || att.url?.match(/\/job-attachments\/(.+)$/)?.[1];
+                          if (path) {
+                            await supabase.storage.from('job-attachments').remove([path]);
+                          }
+                          // Remove from job attachments array
+                          const updatedAttachments = job.attachments.filter((a: any) => (a.id || a.url) !== (att.id || att.url));
+                          const { error } = await supabase.from('jobs').update({ attachments: JSON.parse(JSON.stringify(updatedAttachments)) }).eq('id', job.id);
+                          if (error) throw error;
+                          onJobUpdate(job.id, { attachments: updatedAttachments });
+                          toast({ title: 'File deleted', description: `${att.name || 'File'} removed.` });
+                        } catch (err) {
+                          console.error('Error deleting attachment:', err);
+                          toast({ title: 'Delete failed', variant: 'destructive' });
+                        }
+                      }}
+                      className="absolute top-0.5 right-0.5 p-0.5 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
                 ))}
               </div>
             </div>

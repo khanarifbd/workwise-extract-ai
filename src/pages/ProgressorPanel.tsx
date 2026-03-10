@@ -26,7 +26,7 @@ import {
   Wrench, Users, FileText, RefreshCw, Phone, MapPin, User,
   Star, Flag, Zap, Plus, MessageSquare, Info, Trash2,
   ChevronUp, ChevronsUpDown, TrendingUp, PackageOpen, Save,
-  CalendarCheck, CheckCircle, CalendarClock, Key,
+  CalendarCheck, CheckCircle, CalendarClock, Key, CornerDownRight,
 } from 'lucide-react';
 import { format, differenceInDays, differenceInHours, isPast } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -785,6 +785,43 @@ export default function ProgressorPanel() {
                           </Badge>
                         </div>
                       </div>
+
+                      {/* Refer to NPH Button - visible on collapsed cards */}
+                      {!isExpanded && !job.referBack && (
+                        <div className="px-4 py-2 border-t flex items-center">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700 font-semibold"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              if (!confirm(`Refer job #${job.jobNumber} - ${job.name} back to NPH? This will remove it from the Progressor Portal.`)) return;
+                              try {
+                                const { error } = await supabase
+                                  .from('jobs')
+                                  .update({
+                                    refer_back: true,
+                                    refer_back_reason: (job.referBackReason ? job.referBackReason + '; ' : '') + 'Referred back by Progressor',
+                                    refer_back_date: new Date().toISOString(),
+                                  })
+                                  .eq('id', job.id);
+                                if (error) throw error;
+                                await logAction({
+                                  action: 'update', tableName: 'jobs', recordId: job.id,
+                                  fieldChanged: 'refer_back', oldValue: 'false', newValue: 'true',
+                                  metadata: { jobNumber: job.jobNumber, referredByProgressor: true },
+                                });
+                                fetchJobs();
+                                fetchAll();
+                              } catch (err) {
+                                console.error('Error referring back job:', err);
+                              }
+                            }}
+                          >
+                            <CornerDownRight className="h-3.5 w-3.5 mr-1" /> Refer to NPH
+                          </Button>
+                        </div>
+                      )}
 
                       {/* Expanded Content */}
                       {isExpanded && (
