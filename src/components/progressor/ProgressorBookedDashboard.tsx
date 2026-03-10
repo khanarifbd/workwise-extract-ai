@@ -8,6 +8,7 @@ import { useAllSubTasks } from '@/hooks/useSubTasks';
 import { useAuditLog } from '@/hooks/useAuditLog';
 import { ProgressorJobExpandedContent } from '@/components/progressor/ProgressorJobExpandedContent';
 import { AddSubTaskModal } from '@/components/progressor/AddSubTaskModal';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { format, isToday, isTomorrow, startOfDay, isValid, parseISO } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -34,13 +35,15 @@ interface ContactRecord {
   next_action_date: string | null;
 }
 
+type ViewFilter = 'all' | 'trades' | 'dm_teams';
+
 interface DateGroup {
   key: string;
   label: string;
   count: number;
   date: Date;
   isSpecial?: 'today' | 'tomorrow';
-  jobs: Array<Job & { isTradeBooked?: boolean; tradeInfo?: { pendingTrades: { trade: string; bookedDate: Date }[]; totalTrades: number; completedTrades: number } }>;
+  jobs: Array<Job & { isTradeBooked?: boolean; tradeInfo?: { pendingTrades: { trade: string; bookedDate: Date; taskType?: string }[]; totalTrades: number; completedTrades: number } }>;
 }
 
 interface MonthGroup {
