@@ -124,7 +124,12 @@ export default function ProgressorPanel() {
           return hoursSinceBooked >= 12;
         });
       
-      setJobs(mappedJobs);
+      // Split into active and referred-back
+      const activeJobs = mappedJobs.filter(j => !j.referBack);
+      const referredJobs = mappedJobs.filter(j => j.referBack);
+      
+      setJobs(activeJobs);
+      setReferredBackJobs(referredJobs);
       // Cache jobs for instant restore on return
       try {
         sessionStorage.setItem('progressor_jobs_cache', JSON.stringify({ data: mappedJobs, timestamp: Date.now() }));
