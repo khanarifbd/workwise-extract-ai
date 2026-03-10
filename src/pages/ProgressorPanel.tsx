@@ -156,6 +156,49 @@ export default function ProgressorPanel() {
 
   useEffect(() => { fetchJobs(); }, [fetchJobs]);
 
+  // Periodic scan: clear awaiting_trade status for jobs with no remaining sub-tasks
+  useEffect(() => {
+    const scanAndClearOrphanedAwaitingTrade = async () => {
+      try {
+        // Find all jobs with awaiting_trade status
+        const { data: awaitingJobs } = await supabase
+          .from('jobs')
+          .select('id')
+          .eq('status', 'awaiting_trade')
+          .is('deleted_at', null);
+
+        if (!awaitingJobs || awaitingJobs.length === 0) return;
+
+        // For each, check if any sub-tasks exist
+        for (const job of awaitingJobs) {
+          const { data: tasks } = await supabase
+            .from('job_sub_tasks')
+            .select('id')
+            .eq('parent_job_id', job.id)
+            .limit(1);
+
+          if (!tasks || tasks.length === 0) {
+            await supabase
+              .from('jobs')
+              .update({ status: 'started', is_ongoing: false, ongoing_reason: '' })
+              .eq('id', job.id);
+            // Update local state
+            setJobs(prev => prev.map(j =>
+              j.id === job.id ? { ...j, status: 'started', isOngoing: false, ongoingReason: '' } : j
+            ));
+          }
+        }
+      } catch (err) {
+        console.error('Awaiting trade scan error:', err);
+      }
+    };
+
+    // Run immediately and then every 30 seconds
+    scanAndClearOrphanedAwaitingTrade();
+    const interval = setInterval(scanAndClearOrphanedAwaitingTrade, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Group sub-tasks by parent job
   const subTasksByJob = useMemo(() => {
     const map = new Map<string, SubTask[]>();
