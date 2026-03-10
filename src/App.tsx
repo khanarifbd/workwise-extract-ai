@@ -14,10 +14,23 @@ import NotFound from "./pages/NotFound";
 import { AdminRoute } from "./components/AdminRoute";
 import { ProgressorRoute } from "./components/ProgressorRoute";
 
-// Lazy load heavy pages for faster initial load
-const Index = lazy(() => import("./pages/Index"));
-const ProgressorPanel = lazy(() => import("./pages/ProgressorPanel"));
-const ProgressorTeamView = lazy(() => import("./pages/ProgressorTeamView"));
+// Lazy load heavy pages with retry on chunk load failure
+const lazyRetry = (importFn: () => Promise<any>) => {
+  return new Promise<any>((resolve, reject) => {
+    importFn()
+      .then(resolve)
+      .catch(() => {
+        // Retry once after a brief delay (handles stale chunk errors)
+        setTimeout(() => {
+          importFn().then(resolve).catch(reject);
+        }, 1500);
+      });
+  });
+};
+
+const Index = lazy(() => lazyRetry(() => import("./pages/Index")));
+const ProgressorPanel = lazy(() => lazyRetry(() => import("./pages/ProgressorPanel")));
+const ProgressorTeamView = lazy(() => lazyRetry(() => import("./pages/ProgressorTeamView")));
 
 const PageLoader = () => (
   <div className="min-h-screen flex items-center justify-center bg-background">
