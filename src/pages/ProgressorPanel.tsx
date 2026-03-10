@@ -380,21 +380,21 @@ export default function ProgressorPanel() {
         metadata: { parentJobId: subTask.parentJobId, trade: subTask.trade },
       });
 
-      // Check if any sub-tasks remain for this job; if not, clear awaiting_trade status
+      // Check if any sub-tasks remain for this job (exclude just-deleted); if not, clear awaiting_trade
       const { data: remaining } = await supabase
         .from('job_sub_tasks')
         .select('id')
-        .eq('parent_job_id', subTask.parentJobId);
+        .eq('parent_job_id', subTask.parentJobId)
+        .neq('id', subTask.id);
       
       if (!remaining || remaining.length === 0) {
         await supabase
           .from('jobs')
           .update({ status: 'started', is_ongoing: false, ongoing_reason: '' })
-          .eq('id', subTask.parentJobId)
-          .eq('status', 'awaiting_trade');
-        // Update local state
+          .eq('id', subTask.parentJobId);
+        // Update local state immediately
         setJobs(prev => prev.map(j => 
-          j.id === subTask.parentJobId && j.status === 'awaiting_trade'
+          j.id === subTask.parentJobId
             ? { ...j, status: 'started', isOngoing: false, ongoingReason: '' }
             : j
         ));

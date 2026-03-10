@@ -184,20 +184,20 @@ export function ProgressorBookedDashboard() {
         metadata: { parentJobId: subTask.parentJobId, trade: subTask.trade },
       });
 
-      // Check if any sub-tasks remain; if not, clear awaiting_trade status
+      // Check if any sub-tasks remain (exclude just-deleted); if not, clear awaiting_trade
       const { data: remaining } = await supabase
         .from('job_sub_tasks')
         .select('id')
-        .eq('parent_job_id', subTask.parentJobId);
+        .eq('parent_job_id', subTask.parentJobId)
+        .neq('id', subTask.id);
       
       if (!remaining || remaining.length === 0) {
         await supabase
           .from('jobs')
           .update({ status: 'started', is_ongoing: false, ongoing_reason: '' })
-          .eq('id', subTask.parentJobId)
-          .eq('status', 'awaiting_trade');
+          .eq('id', subTask.parentJobId);
         setJobs(prev => prev.map(j => 
-          j.id === subTask.parentJobId && j.status === 'awaiting_trade'
+          j.id === subTask.parentJobId
             ? { ...j, status: 'started' as any, isOngoing: false, ongoingReason: '' }
             : j
         ));
