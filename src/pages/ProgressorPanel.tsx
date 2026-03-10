@@ -808,6 +808,92 @@ export default function ProgressorPanel() {
             </div>
           </section>
             </TabsContent>
+
+            {/* Refer Back NPH Tab */}
+            <TabsContent value="refer_back" className="mt-4">
+              <section>
+                <div className="flex items-center gap-2 mb-3">
+                  <Flag className="h-4 w-4 text-red-500" />
+                  <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">Refer Back NPH</h2>
+                  <Badge variant="outline" className="text-xs border-red-300 text-red-600">{referredBackJobs.length}</Badge>
+                  <div className="flex-1 h-px bg-border" />
+                </div>
+
+                {referredBackJobs.length === 0 ? (
+                  <Card className="p-8 text-center">
+                    <Flag className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                    <p className="text-muted-foreground">No jobs referred back to NPH.</p>
+                  </Card>
+                ) : (
+                  <div className="space-y-2">
+                    {referredBackJobs.map(job => {
+                      const isExpanded = expandedJobs.has(job.id);
+                      const jobSubTasks = subTasksByJob.get(job.id) || [];
+                      const jobContacts = contactHistory.get(job.id) || [];
+                      const statusInfo = getStatusInfo(job.status);
+
+                      return (
+                        <Card key={job.id} className={cn(
+                          "overflow-hidden border-red-200 dark:border-red-800",
+                          isExpanded && "border-2 border-red-400 shadow-lg",
+                        )}>
+                          <div
+                            className="px-4 py-3 cursor-pointer hover:bg-red-50/50 dark:hover:bg-red-950/10 transition-colors flex items-center gap-3"
+                            onClick={() => toggleJobExpand(job.id)}
+                          >
+                            <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform flex-shrink-0", isExpanded && "rotate-180")} />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <Badge variant="outline" className="text-xs font-mono">#{job.jobNumber}</Badge>
+                                <span className="font-semibold text-sm truncate">{job.name}</span>
+                                <Badge className="text-[10px] bg-red-600 text-white">
+                                  <Flag className="h-2.5 w-2.5 mr-0.5" /> REFERRED TO NPH
+                                </Badge>
+                                {job.team && (
+                                  <Badge variant="secondary" className="text-[10px]">
+                                    <Users className="h-2.5 w-2.5 mr-0.5" />{job.team}
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
+                                <span className="truncate">{job.address}</span>
+                                {job.referBackDate && (
+                                  <>
+                                    <span>•</span>
+                                    <span>Referred: {format(job.referBackDate, 'dd MMM yyyy')}</span>
+                                  </>
+                                )}
+                                {job.referBackReason && (
+                                  <>
+                                    <span>•</span>
+                                    <span className="text-red-500 truncate">{job.referBackReason}</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {isExpanded && (
+                            <ProgressorJobExpandedContent
+                              job={job}
+                              jobSubTasks={jobSubTasks}
+                              jobContacts={jobContacts}
+                              onJobUpdate={(jobId, updates) => {
+                                setReferredBackJobs(prev => prev.map(j => j.id === jobId ? { ...j, ...updates } : j));
+                              }}
+                              onSubTaskUpdate={handleSubTaskUpdate}
+                              onDeleteSubTask={handleDeleteSubTask}
+                              onAddSubTask={(j) => setAddSubTaskJob(j)}
+                              onRefresh={() => { fetchJobs(); fetchAll(); }}
+                            />
+                          )}
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+            </TabsContent>
           </Tabs>
         </main>
 
