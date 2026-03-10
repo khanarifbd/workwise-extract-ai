@@ -534,13 +534,31 @@ export function ProgressorBookedDashboard() {
                         </div>
                         {/* Show pending trades for trade-booked jobs */}
                         {!isExpanded && job.isTradeBooked && job.tradeInfo && (
-                          <div className="mt-1.5 flex flex-wrap gap-1">
-                            {job.tradeInfo.pendingTrades.map((t, i) => (
-                              <Badge key={i} variant="outline" className="text-[10px] border-violet-300 text-violet-700 dark:text-violet-400">
-                                <Wrench className="h-2 w-2 mr-0.5" />
-                                {t.trade} — {format(t.bookedDate, 'dd MMM')}
-                              </Badge>
-                            ))}
+                          <div className="mt-1.5 flex flex-wrap gap-1" onClick={(e) => e.stopPropagation()}>
+                            {job.tradeInfo.pendingTrades.map((t, i) => {
+                              const matchingSt = jobSubTasks.find(st => st.trade === t.trade && !st.completionDate);
+                              return (
+                                <div key={i} className="flex items-center gap-1 border border-violet-300 dark:border-violet-700 rounded-md px-1.5 py-0.5 bg-violet-50 dark:bg-violet-950/30">
+                                  <Wrench className="h-2.5 w-2.5 text-violet-600" />
+                                  <span className="text-[10px] font-medium text-violet-700 dark:text-violet-400">{t.trade}</span>
+                                  <Input
+                                    type="date"
+                                    value={t.bookedDate ? format(t.bookedDate, 'yyyy-MM-dd') : ''}
+                                    onChange={async (e) => {
+                                      if (!matchingSt) return;
+                                      const newDate = e.target.value ? new Date(e.target.value).toISOString() : null;
+                                      await updateSubTask(matchingSt.id, {
+                                        booked_date: newDate,
+                                        status: newDate && matchingSt.status === 'not_scheduled' ? 'scheduled' : matchingSt.status,
+                                      });
+                                      await fetchAllSubTasks();
+                                      refetchTradeBookings();
+                                    }}
+                                    className="h-5 text-[10px] w-[100px] px-1 border-violet-300"
+                                  />
+                                </div>
+                              );
+                            })}
                             {job.tradeInfo.completedTrades > 0 && (
                               <Badge variant="outline" className="text-[10px] border-emerald-300 text-emerald-700 dark:text-emerald-400">
                                 ✓ {job.tradeInfo.completedTrades}/{job.tradeInfo.totalTrades} done
