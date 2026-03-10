@@ -8,8 +8,9 @@ export interface TradeBookingInfo {
   effectiveBookedDate: Date; // Nearest upcoming incomplete trade booked date
   totalTrades: number;
   completedTrades: number;
-  pendingTrades: { trade: string; bookedDate: Date }[];
+  pendingTrades: { trade: string; bookedDate: Date; taskType: string }[];
   isTradeBooked: true; // Marker to distinguish from regular bookings
+  taskType: 'trade' | 'dm_team' | 'mixed'; // Whether this is a trade, DM team, or mixed
 }
 
 /**
@@ -25,7 +26,7 @@ export function useTradeBookedJobs() {
     try {
       const { data, error } = await supabase
         .from('job_sub_tasks')
-        .select('id, parent_job_id, trade, booked_date, status, completion_date')
+        .select('id, parent_job_id, trade, booked_date, status, completion_date, task_type')
         .not('booked_date', 'is', null)
         .order('booked_date', { ascending: true });
 
@@ -37,6 +38,7 @@ export function useTradeBookedJobs() {
       (data || []).forEach(row => {
         const isCompleted = completedStatuses.includes(row.status) || !!row.completion_date;
         const bookedDate = new Date(row.booked_date!);
+        const taskType = (row as any).task_type || 'trade';
         
         if (!map.has(row.parent_job_id)) {
           map.set(row.parent_job_id, {
@@ -46,16 +48,22 @@ export function useTradeBookedJobs() {
             completedTrades: 0,
             pendingTrades: [],
             isTradeBooked: true,
+            taskType: taskType,
           });
         }
 
         const info = map.get(row.parent_job_id)!;
         info.totalTrades++;
 
+        // Track mixed task types
+        if (info.taskType !== 'mixed' && info.taskType !== taskType) {
+          info.taskType = 'mixed';
+        }
+
         if (isCompleted) {
           info.completedTrades++;
         } else {
-          info.pendingTrades.push({ trade: row.trade, bookedDate });
+          info.pendingTrades.push({ trade: row.trade, bookedDate, taskType });
         }
       });
 

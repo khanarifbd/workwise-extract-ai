@@ -8,6 +8,7 @@ import { useAllSubTasks } from '@/hooks/useSubTasks';
 import { useAuditLog } from '@/hooks/useAuditLog';
 import { ProgressorJobExpandedContent } from '@/components/progressor/ProgressorJobExpandedContent';
 import { AddSubTaskModal } from '@/components/progressor/AddSubTaskModal';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { format, isToday, isTomorrow, startOfDay, isValid, parseISO } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -34,13 +35,15 @@ interface ContactRecord {
   next_action_date: string | null;
 }
 
+type ViewFilter = 'all' | 'trades' | 'dm_teams';
+
 interface DateGroup {
   key: string;
   label: string;
   count: number;
   date: Date;
   isSpecial?: 'today' | 'tomorrow';
-  jobs: Array<Job & { isTradeBooked?: boolean; tradeInfo?: { pendingTrades: { trade: string; bookedDate: Date }[]; totalTrades: number; completedTrades: number } }>;
+  jobs: Array<Job & { isTradeBooked?: boolean; tradeInfo?: { pendingTrades: { trade: string; bookedDate: Date; taskType?: string }[]; totalTrades: number; completedTrades: number } }>;
 }
 
 interface MonthGroup {
@@ -56,6 +59,7 @@ export function ProgressorBookedDashboard() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [viewFilter, setViewFilter] = useState<ViewFilter>('all');
   const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set());
   const [contactHistory, setContactHistory] = useState<Map<string, ContactRecord[]>>(new Map());
   const [addSubTaskJob, setAddSubTaskJob] = useState<Job | null>(null);
@@ -184,20 +188,20 @@ export function ProgressorBookedDashboard() {
         metadata: { parentJobId: subTask.parentJobId, trade: subTask.trade },
       });
 
-      // Check if any sub-tasks remain; if not, clear awaiting_trade status
+      // Check if any sub-tasks remain (exclude just-deleted); if not, clear awaiting_trade
       const { data: remaining } = await supabase
         .from('job_sub_tasks')
         .select('id')
-        .eq('parent_job_id', subTask.parentJobId);
+        .eq('parent_job_id', subTask.parentJobId)
+        .neq('id', subTask.id);
       
       if (!remaining || remaining.length === 0) {
         await supabase
           .from('jobs')
           .update({ status: 'started', is_ongoing: false, ongoing_reason: '' })
-          .eq('id', subTask.parentJobId)
-          .eq('status', 'awaiting_trade');
+          .eq('id', subTask.parentJobId);
         setJobs(prev => prev.map(j => 
-          j.id === subTask.parentJobId && j.status === 'awaiting_trade'
+          j.id === subTask.parentJobId
             ? { ...j, status: 'started' as any, isOngoing: false, ongoingReason: '' }
             : j
         ));
@@ -229,18 +233,41 @@ export function ProgressorBookedDashboard() {
     );
   }, [jobs, searchQuery]);
 
-  // Group into month > date structure
-  const { monthGroups, totalCount } = useMemo(() => {
+  // Group into month > date structure, filtered by viewFilter
+  const { monthGroups, totalCount, tradeCount, dmCount } = useMemo(() => {
     const dateMap = new Map<string, DateGroup['jobs']>();
 
     filteredJobs.forEach(job => {
       const tradeInfo = tradeBookings.get(job.id);
       const isTradeBooked = !!tradeInfo;
       
+      // Apply view filter
+      if (viewFilter === 'trades') {
+        // Only show jobs with trade-type sub-tasks (or regular booked jobs without trade info)
+        if (tradeInfo && tradeInfo.taskType === 'dm_team') return;
+        if (tradeInfo) {
+          const tradePending = tradeInfo.pendingTrades.filter(t => (t.taskType || 'trade') === 'trade');
+          if (tradePending.length === 0 && !job.bookedDate) return;
+        }
+      } else if (viewFilter === 'dm_teams') {
+        // Only show jobs with DM team sub-tasks
+        if (!tradeInfo) return;
+        const dmPending = tradeInfo.pendingTrades.filter(t => t.taskType === 'dm_team');
+        if (dmPending.length === 0) return;
+      }
+
       let effectiveDate: Date | null = null;
-      // Trade booked date takes priority - shows under nearest pending trade date
       if (tradeInfo) {
-        effectiveDate = tradeInfo.effectiveBookedDate;
+        // For filtered views, use the effective date of matching sub-tasks
+        if (viewFilter === 'dm_teams') {
+          const dmPending = tradeInfo.pendingTrades.filter(t => t.taskType === 'dm_team');
+          effectiveDate = dmPending.length > 0 ? dmPending[0].bookedDate : tradeInfo.effectiveBookedDate;
+        } else if (viewFilter === 'trades') {
+          const tradePending = tradeInfo.pendingTrades.filter(t => (t.taskType || 'trade') === 'trade');
+          effectiveDate = tradePending.length > 0 ? tradePending[0].bookedDate : tradeInfo.effectiveBookedDate;
+        } else {
+          effectiveDate = tradeInfo.effectiveBookedDate;
+        }
       } else if (job.bookedDate) {
         effectiveDate = job.bookedDate instanceof Date ? job.bookedDate : parseISO(job.bookedDate as any);
       }
@@ -283,9 +310,21 @@ export function ProgressorBookedDashboard() {
     });
 
     const sorted = Array.from(monthMap.values()).sort((a, b) => a.dates[0].date.getTime() - b.dates[0].date.getTime());
-    const total = filteredJobs.filter(j => !!j.bookedDate || tradeBookings.has(j.id)).length;
-    return { monthGroups: sorted, totalCount: total };
-  }, [filteredJobs, tradeBookings]);
+    const total = allDates.reduce((sum, d) => sum + d.count, 0);
+    
+    // Count trades vs DM for badge numbers
+    let tc = 0, dc = 0;
+    filteredJobs.forEach(job => {
+      const ti = tradeBookings.get(job.id);
+      if (ti) {
+        if (ti.pendingTrades.some(t => (t.taskType || 'trade') === 'trade')) tc++;
+        if (ti.pendingTrades.some(t => t.taskType === 'dm_team')) dc++;
+      }
+      if (!ti && job.bookedDate) tc++; // Regular booked jobs count as trades
+    });
+
+    return { monthGroups: sorted, totalCount: total, tradeCount: tc, dmCount: dc };
+  }, [filteredJobs, tradeBookings, viewFilter]);
 
   const currentMonthKey = format(new Date(), 'yyyy-MM');
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set([currentMonthKey]));
@@ -298,36 +337,16 @@ export function ProgressorBookedDashboard() {
     });
   };
 
-  // Get jobs for selected date
+  // Get jobs for selected date (respects viewFilter via monthGroups)
   const selectedDateJobs = useMemo(() => {
-    const augmented = filteredJobs.map(job => {
-      const tradeInfo = tradeBookings.get(job.id);
-      return {
-        ...job,
-        isTradeBooked: !!tradeInfo,
-        tradeInfo: tradeInfo ? {
-          pendingTrades: tradeInfo.pendingTrades,
-          totalTrades: tradeInfo.totalTrades,
-          completedTrades: tradeInfo.completedTrades,
-        } : undefined,
-      };
-    }).filter(j => !!j.bookedDate || tradeBookings.has(j.id));
+    // Collect all jobs from monthGroups (already filtered by viewFilter)
+    const allGroupedJobs = monthGroups.flatMap(m => m.dates.flatMap(d => d.jobs));
     
-    if (!selectedDate) return augmented;
+    if (!selectedDate) return allGroupedJobs;
     
-    return augmented.filter(j => {
-      const ti = tradeBookings.get(j.id);
-      let effectiveDate: Date | null = null;
-      // Trade date takes priority
-      if (ti) {
-        effectiveDate = ti.effectiveBookedDate;
-      } else if (j.bookedDate) {
-        effectiveDate = j.bookedDate instanceof Date ? j.bookedDate : parseISO(j.bookedDate as any);
-      }
-      if (!effectiveDate) return false;
-      return format(effectiveDate, 'yyyy-MM-dd') === selectedDate;
-    });
-  }, [filteredJobs, selectedDate, tradeBookings]);
+    const dateGroup = monthGroups.flatMap(m => m.dates).find(d => d.key === selectedDate);
+    return dateGroup ? dateGroup.jobs : [];
+  }, [monthGroups, selectedDate]);
 
   if (loading) {
     return (
@@ -339,13 +358,35 @@ export function ProgressorBookedDashboard() {
   }
 
   return (
-    <div className="flex gap-4 h-[calc(100vh-280px)]">
+    <div className="space-y-3">
+      {/* View Filter Tabs */}
+      <Tabs value={viewFilter} onValueChange={(v) => { setViewFilter(v as ViewFilter); setSelectedDate(null); }}>
+        <TabsList className="h-9">
+          <TabsTrigger value="all" className="text-xs gap-1.5">
+            <Calendar className="h-3.5 w-3.5" />
+            All Booked
+            <Badge variant="outline" className="text-[10px] h-4 px-1 ml-0.5">{tradeCount + dmCount}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="trades" className="text-xs gap-1.5">
+            <Wrench className="h-3.5 w-3.5" />
+            Trades
+            <Badge variant="outline" className="text-[10px] h-4 px-1 ml-0.5">{tradeCount}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="dm_teams" className="text-xs gap-1.5">
+            <Users className="h-3.5 w-3.5" />
+            DM Teams
+            <Badge variant="outline" className="text-[10px] h-4 px-1 ml-0.5">{dmCount}</Badge>
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+
+    <div className="flex gap-4 h-[calc(100vh-340px)]">
       {/* Date Sidebar */}
       <div className="w-52 border border-border rounded-xl bg-card flex flex-col shrink-0">
         <div className="p-3 border-b border-border">
           <h3 className="text-sm font-semibold flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-primary" />
-            Booked Dates
+            {viewFilter === 'dm_teams' ? <Users className="w-4 h-4 text-blue-500" /> : <Calendar className="w-4 h-4 text-primary" />}
+            {viewFilter === 'dm_teams' ? 'DM Team Schedule' : viewFilter === 'trades' ? 'Trade Schedule' : 'Booked Dates'}
           </h3>
         </div>
         <ScrollArea className="flex-1">
@@ -563,6 +604,7 @@ export function ProgressorBookedDashboard() {
           }}
         />
       )}
+    </div>
     </div>
   );
 }

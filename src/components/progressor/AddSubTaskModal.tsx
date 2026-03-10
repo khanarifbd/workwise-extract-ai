@@ -104,11 +104,12 @@ export const AddSubTaskModal = ({
         assigned_team: assignedTeam || null,
         status: bookedDate ? 'scheduled' : 'not_scheduled',
         created_by: 'Progressor',
+        task_type: dmTeams.includes(trade) ? 'dm_team' : 'trade',
       }));
 
       const { error } = await supabase
         .from('job_sub_tasks')
-        .insert(subTasks);
+        .insert(subTasks as any);
 
       if (error) throw error;
 

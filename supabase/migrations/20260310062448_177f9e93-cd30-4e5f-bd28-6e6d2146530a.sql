@@ -1,0 +1,1 @@
+ALTER TABLE public.job_sub_tasks ADD COLUMN IF NOT EXISTS task_type text NOT NULL DEFAULT 'trade';
