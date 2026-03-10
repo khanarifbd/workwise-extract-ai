@@ -136,7 +136,7 @@ export default function ProgressorPanel() {
       } catch {}
 
       // Fetch contact history for all these jobs
-      const jobIds = mappedJobs.map(j => j.id);
+      const jobIds = [...activeJobs, ...referredJobs].map(j => j.id);
       if (jobIds.length > 0) {
         const { data: contacts } = await supabase
           .from('contact_history')
