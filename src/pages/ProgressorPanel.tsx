@@ -132,7 +132,7 @@ export default function ProgressorPanel() {
       setReferredBackJobs(referredJobs);
       // Cache jobs for instant restore on return
       try {
-        sessionStorage.setItem('progressor_jobs_cache', JSON.stringify({ data: mappedJobs, timestamp: Date.now() }));
+        sessionStorage.setItem('progressor_jobs_cache', JSON.stringify({ data: activeJobs, timestamp: Date.now() }));
       } catch {}
 
       // Fetch contact history for all these jobs
