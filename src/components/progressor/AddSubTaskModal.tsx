@@ -109,7 +109,7 @@ export const AddSubTaskModal = ({
 
       const { error } = await supabase
         .from('job_sub_tasks')
-        .insert(subTasks);
+        .insert(subTasks as any);
 
       if (error) throw error;
 
