@@ -180,6 +180,7 @@ export type Database = {
           property_address: string | null
           signed_off: boolean
           status: string
+          task_type: string
           tenant_name: string | null
           trade: string
           updated_at: string
@@ -200,6 +201,7 @@ export type Database = {
           property_address?: string | null
           signed_off?: boolean
           status?: string
+          task_type?: string
           tenant_name?: string | null
           trade: string
           updated_at?: string
@@ -220,6 +222,7 @@ export type Database = {
           property_address?: string | null
           signed_off?: boolean
           status?: string
+          task_type?: string
           tenant_name?: string | null
           trade?: string
           updated_at?: string
