@@ -96,7 +96,7 @@ export default function ProgressorPanel() {
   const [addSubTaskJob, setAddSubTaskJob] = useState<Job | null>(null);
   const [showTradeCompanies, setShowTradeCompanies] = useState(false);
   const [showTeamCodes, setShowTeamCodes] = useState(false);
-  
+  const [referredBackJobs, setReferredBackJobs] = useState<Job[]>([]);
 
   // Fetch incomplete jobs where booked date is 12+ hours past
   const fetchJobs = useCallback(async () => {
