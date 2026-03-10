@@ -535,6 +535,13 @@ export default function ProgressorPanel() {
                 <CalendarDays className="h-4 w-4" />
                 Booked Dashboard
               </TabsTrigger>
+              <TabsTrigger value="refer_back" className="gap-1.5 text-sm">
+                <Flag className="h-4 w-4" />
+                Refer Back NPH
+                {referredBackJobs.length > 0 && (
+                  <Badge variant="outline" className="ml-1 text-[10px] h-5 border-red-300 text-red-600">{referredBackJobs.length}</Badge>
+                )}
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="booked" className="mt-4">
