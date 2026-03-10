@@ -159,6 +159,32 @@ export function ProgressorJobExpandedContent({
     }
   };
 
+  const handleReferBackNPH = async () => {
+    if (!confirm(`Refer job #${job.jobNumber} - ${job.name} back to NPH? This will remove it from the Progressor Portal.`)) return;
+    try {
+      const { error } = await supabase
+        .from('jobs')
+        .update({
+          refer_back: true,
+          refer_back_reason: (job.referBackReason ? job.referBackReason + '; ' : '') + 'Referred back by Progressor',
+          refer_back_date: new Date().toISOString(),
+        })
+        .eq('id', job.id);
+      if (error) throw error;
+
+      await logAction({
+        action: 'update', tableName: 'jobs', recordId: job.id,
+        fieldChanged: 'refer_back', oldValue: 'false', newValue: 'true',
+        metadata: { jobNumber: job.jobNumber, referredByProgressor: true },
+      });
+
+      toast({ title: 'Job Referred Back', description: `#${job.jobNumber} sent to Refer Back NPH folder.` });
+      onRefresh();
+    } catch (err) {
+      console.error('Error referring back job:', err);
+    }
+  };
+
   return (
     <div className="border-t">
       <div className="px-4 py-3 bg-muted/20 space-y-3">
