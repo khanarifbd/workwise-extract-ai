@@ -26,7 +26,7 @@ import {
   Wrench, Users, FileText, RefreshCw, Phone, MapPin, User,
   Star, Flag, Zap, Plus, MessageSquare, Info, Trash2,
   ChevronUp, ChevronsUpDown, TrendingUp, PackageOpen, Save,
-  CalendarCheck, CheckCircle, CalendarClock, Key,
+  CalendarCheck, CheckCircle, CalendarClock, Key, CornerDownRight,
 } from 'lucide-react';
 import { format, differenceInDays, differenceInHours, isPast } from 'date-fns';
 import { cn } from '@/lib/utils';
