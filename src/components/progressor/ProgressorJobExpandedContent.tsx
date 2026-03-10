@@ -17,9 +17,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   AlertTriangle, Phone, MapPin, User, Flag, Plus, MessageSquare,
-  Wrench, Users, Trash2, CalendarCheck, CheckCircle, CalendarClock,
+  Wrench, Users, Trash2, CalendarCheck, CheckCircle, CalendarClock, CornerDownRight,
 } from 'lucide-react';
 import { format, differenceInHours, isPast } from 'date-fns';
+import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 interface ContactRecord {
@@ -155,6 +156,32 @@ export function ProgressorJobExpandedContent({
       onRefresh();
     } catch (err) {
       console.error('Error signing off job:', err);
+    }
+  };
+
+  const handleReferBackNPH = async () => {
+    if (!confirm(`Refer job #${job.jobNumber} - ${job.name} back to NPH? This will remove it from the Progressor Portal.`)) return;
+    try {
+      const { error } = await supabase
+        .from('jobs')
+        .update({
+          refer_back: true,
+          refer_back_reason: (job.referBackReason ? job.referBackReason + '; ' : '') + 'Referred back by Progressor',
+          refer_back_date: new Date().toISOString(),
+        })
+        .eq('id', job.id);
+      if (error) throw error;
+
+      await logAction({
+        action: 'update', tableName: 'jobs', recordId: job.id,
+        fieldChanged: 'refer_back', oldValue: 'false', newValue: 'true',
+        metadata: { jobNumber: job.jobNumber, referredByProgressor: true },
+      });
+
+      toast({ title: 'Job Referred Back', description: `#${job.jobNumber} sent to Refer Back NPH folder.` });
+      onRefresh();
+    } catch (err) {
+      console.error('Error referring back job:', err);
     }
   };
 
@@ -405,13 +432,23 @@ export function ProgressorJobExpandedContent({
                 )}
               </div>
             </div>
-            <Button
-              size="sm"
-              className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
-              onClick={(e) => { e.stopPropagation(); handleJobSignOff(); }}
-            >
-              <CheckCircle className="h-3.5 w-3.5 mr-1" /> Sign Off Complete
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700"
+                onClick={(e) => { e.stopPropagation(); handleReferBackNPH(); }}
+              >
+                <CornerDownRight className="h-3.5 w-3.5 mr-1" /> Refer to NPH
+              </Button>
+              <Button
+                size="sm"
+                className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                onClick={(e) => { e.stopPropagation(); handleJobSignOff(); }}
+              >
+                <CheckCircle className="h-3.5 w-3.5 mr-1" /> Sign Off Complete
+              </Button>
+            </div>
           </div>
         </div>
 
