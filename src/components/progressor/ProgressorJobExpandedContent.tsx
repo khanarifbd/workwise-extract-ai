@@ -432,13 +432,23 @@ export function ProgressorJobExpandedContent({
                 )}
               </div>
             </div>
-            <Button
-              size="sm"
-              className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
-              onClick={(e) => { e.stopPropagation(); handleJobSignOff(); }}
-            >
-              <CheckCircle className="h-3.5 w-3.5 mr-1" /> Sign Off Complete
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700"
+                onClick={(e) => { e.stopPropagation(); handleReferBackNPH(); }}
+              >
+                <CornerDownRight className="h-3.5 w-3.5 mr-1" /> Refer to NPH
+              </Button>
+              <Button
+                size="sm"
+                className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                onClick={(e) => { e.stopPropagation(); handleJobSignOff(); }}
+              >
+                <CheckCircle className="h-3.5 w-3.5 mr-1" /> Sign Off Complete
+              </Button>
+            </div>
           </div>
         </div>
 
