@@ -59,6 +59,7 @@ export function ProgressorBookedDashboard() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [viewFilter, setViewFilter] = useState<ViewFilter>('all');
   const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set());
   const [contactHistory, setContactHistory] = useState<Map<string, ContactRecord[]>>(new Map());
   const [addSubTaskJob, setAddSubTaskJob] = useState<Job | null>(null);
