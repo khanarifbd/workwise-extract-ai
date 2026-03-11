@@ -1511,9 +1511,20 @@ const Index = () => {
             )}
             
             <div className="flex-1 overflow-auto">
+              {/* Progressor Booked Section - shown above standard booked jobs */}
+              {activeDatabaseTab === 'booked' && viewType === 'table' && (
+                <ProgressorBookedSection
+                  jobs={displayedJobs}
+                  tradeBookings={tradeBookings}
+                  onJobClick={setSelectedJobForModal}
+                />
+              )}
               {viewType === 'table' ? (
                 <JobTable 
-                  jobs={displayedJobs} 
+                  jobs={activeDatabaseTab === 'booked' 
+                    ? displayedJobs.filter(j => !!j.bookedDate || !tradeBookings.has(j.id))
+                    : displayedJobs
+                  } 
                   onUpdateJob={canEdit ? handleUpdateJob : undefined}
                   onDeleteJob={canEdit ? handleDeleteJob : undefined}
                   onToggleComplete={canEdit ? handleToggleComplete : undefined}
