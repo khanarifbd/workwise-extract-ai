@@ -17,6 +17,7 @@ import { KanbanBoard } from '@/components/KanbanBoard';
 import { CalendarView } from '@/components/CalendarView';
 import { MonthlyFolderTabs } from '@/components/MonthlyFolderTabs';
 import { BookedDateSidebar } from '@/components/BookedDateSidebar';
+import { ProgressorBookedSection } from '@/components/ProgressorBookedSection';
 import { ViewToggle } from '@/components/ViewToggle';
 import { JobDetailsModal } from '@/components/JobDetailsModal';
 import { DuplicateJobAlert } from '@/components/DuplicateJobAlert';
@@ -1510,9 +1511,20 @@ const Index = () => {
             )}
             
             <div className="flex-1 overflow-auto">
+              {/* Progressor Booked Section - shown above standard booked jobs */}
+              {activeDatabaseTab === 'booked' && viewType === 'table' && (
+                <ProgressorBookedSection
+                  jobs={displayedJobs}
+                  tradeBookings={tradeBookings}
+                  onJobClick={setSelectedJobForModal}
+                />
+              )}
               {viewType === 'table' ? (
                 <JobTable 
-                  jobs={displayedJobs} 
+                  jobs={activeDatabaseTab === 'booked' 
+                    ? displayedJobs.filter(j => !!j.bookedDate || !tradeBookings.has(j.id))
+                    : displayedJobs
+                  } 
                   onUpdateJob={canEdit ? handleUpdateJob : undefined}
                   onDeleteJob={canEdit ? handleDeleteJob : undefined}
                   onToggleComplete={canEdit ? handleToggleComplete : undefined}
