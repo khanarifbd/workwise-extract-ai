@@ -33,6 +33,8 @@ import { useUrlState } from '@/hooks/useUrlState';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { ChevronDown, ChevronUp, Loader2, Images, PenLine, CalendarDays, X as XIcon } from 'lucide-react';
 import { isAfter, isBefore, startOfDay, endOfDay, format, parseISO, isValid } from 'date-fns';
 import { useJobs } from '@/hooks/useJobs';
