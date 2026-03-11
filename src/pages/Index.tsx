@@ -969,7 +969,7 @@ const Index = () => {
     }
     
     return result;
-  }, [jobs, filters, isFanCategory, activeMonthFolder, activeDatabaseTab, bookedSortOrder, completedSortOrder, selectedBookedDate, getSignOffStatus, tradeBookings]);
+  }, [jobs, filters, isFanCategory, activeMonthFolder, activeDatabaseTab, bookedSortOrder, completedSortOrder, selectedBookedDate, getSignOffStatus, tradeBookings, completionDateFrom, completionDateTo]);
 
   // Apply fuzzy search on pre-filtered jobs using debounced search term
   const { matches: fuzzyFilteredJobs, hasSearch } = useFuzzySearch(
