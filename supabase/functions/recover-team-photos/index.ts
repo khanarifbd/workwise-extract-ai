@@ -15,8 +15,122 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Get all team_job_updates with photos
-    const { data: updates, error: updErr } = await supabase
+    const url = new URL(req.url);
+    const mode = url.searchParams.get("mode") || "recover";
+
+    if (mode === "audit") {
+      // FULL STORAGE AUDIT: List all files in job-attachments bucket
+      // and cross-reference with jobs.attachments metadata
+      const allStorageFiles: { name: string; created_at: string }[] = [];
+      let offset = 0;
+      const limit = 1000;
+
+      while (true) {
+        const { data: files, error } = await supabase.storage
+          .from("job-attachments")
+          .list("", { limit, offset, sortBy: { column: "created_at", order: "asc" } });
+
+        if (error) throw error;
+        if (!files || files.length === 0) break;
+
+        // Also check subdirectories
+        for (const file of files) {
+          if (file.id) {
+            // It's a file
+            allStorageFiles.push({ name: file.name, created_at: file.created_at || "" });
+          } else {
+            // It's a folder - list its contents
+            const { data: subFiles } = await supabase.storage
+              .from("job-attachments")
+              .list(file.name, { limit: 1000 });
+            if (subFiles) {
+              for (const sf of subFiles) {
+                if (sf.id) {
+                  allStorageFiles.push({
+                    name: `${file.name}/${sf.name}`,
+                    created_at: sf.created_at || "",
+                  });
+                }
+              }
+            }
+          }
+        }
+
+        if (files.length < limit) break;
+        offset += limit;
+      }
+
+      // Get all job attachment URLs
+      const { data: allJobs, error: jobErr } = await supabase
+        .from("jobs")
+        .select("id, job_number, name, attachments")
+        .not("attachments", "is", null);
+
+      if (jobErr) throw jobErr;
+
+      // Build set of all tracked paths
+      const trackedPaths = new Set<string>();
+      for (const job of allJobs || []) {
+        const attachments = (job.attachments as any[]) || [];
+        for (const att of attachments) {
+          if (att.path) {
+            trackedPaths.add(att.path);
+          }
+          // Also extract path from URL
+          if (att.url) {
+            const pathMatch = att.url.match(/\/job-attachments\/(.+?)(\?|$)/);
+            if (pathMatch) trackedPaths.add(pathMatch[1]);
+          }
+        }
+      }
+
+      // Also get paths from team_job_updates photos
+      const { data: updates } = await supabase
+        .from("team_job_updates")
+        .select("photos")
+        .not("photos", "is", null);
+
+      for (const upd of updates || []) {
+        for (const photoUrl of upd.photos || []) {
+          const pathMatch = photoUrl.match(/\/job-attachments\/(.+?)(\?|$)/);
+          if (pathMatch) trackedPaths.add(pathMatch[1]);
+        }
+      }
+
+      // Find orphaned files (in storage but not tracked)
+      const orphanedFiles = allStorageFiles.filter(f => !trackedPaths.has(f.name));
+
+      // Find missing files (tracked but not in storage)
+      const storagePathSet = new Set(allStorageFiles.map(f => f.name));
+      const missingFiles: { path: string; jobNumber: string }[] = [];
+      for (const job of allJobs || []) {
+        const attachments = (job.attachments as any[]) || [];
+        for (const att of attachments) {
+          const path = att.path;
+          if (path && !storagePathSet.has(path)) {
+            missingFiles.push({ path, jobNumber: job.job_number });
+          }
+        }
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          audit: {
+            totalStorageFiles: allStorageFiles.length,
+            totalTrackedPaths: trackedPaths.size,
+            orphanedFiles: orphanedFiles.length,
+            orphanedSample: orphanedFiles.slice(0, 50).map(f => f.name),
+            missingFromStorage: missingFiles.length,
+            missingSample: missingFiles.slice(0, 50),
+          },
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // DEFAULT MODE: Recover team photos
+    const { data: allUpdates, error: updErr } = await supabase
       .from("team_job_updates")
       .select("job_id, photos, created_at, team_id")
       .not("photos", "is", null)
@@ -24,18 +138,16 @@ Deno.serve(async (req) => {
 
     if (updErr) throw updErr;
 
-    // Filter to only updates with actual photos
-    const withPhotos = (updates || []).filter(
+    const withPhotos = (allUpdates || []).filter(
       (u: any) => u.photos && u.photos.length > 0
     );
 
-    // Group photos by job_id
     const jobPhotosMap: Record<string, { url: string; created_at: string; team_id: string }[]> = {};
     for (const upd of withPhotos) {
       if (!jobPhotosMap[upd.job_id]) jobPhotosMap[upd.job_id] = [];
-      for (const url of upd.photos) {
+      for (const photoUrl of upd.photos) {
         jobPhotosMap[upd.job_id].push({
-          url,
+          url: photoUrl,
           created_at: upd.created_at,
           team_id: upd.team_id,
         });
@@ -47,7 +159,6 @@ Deno.serve(async (req) => {
     let jobsUpdated = 0;
     const details: any[] = [];
 
-    // Process in batches of 20
     for (let i = 0; i < jobIds.length; i += 20) {
       const batch = jobIds.slice(i, i + 20);
 
