@@ -106,6 +106,8 @@ const Index = () => {
   const [activeMonthFolder, setActiveMonthFolder] = useState<string | null>(null);
   const [bookedSortOrder, setBookedSortOrder] = useState<BookedSortOrder>('newest');
   const [completedSortOrder, setCompletedSortOrder] = useState<CompletedSortOrder>('newest');
+  const [completionDateFrom, setCompletionDateFrom] = useState<Date | undefined>(undefined);
+  const [completionDateTo, setCompletionDateTo] = useState<Date | undefined>(undefined);
   const [showAnalyticsReport, setShowAnalyticsReport] = useState(false);
   const [duplicateCheck, setDuplicateCheck] = useState<{
     newJob: Omit<Job, 'id'>;
