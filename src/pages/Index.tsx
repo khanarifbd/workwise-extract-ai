@@ -33,7 +33,7 @@ import { useUrlState } from '@/hooks/useUrlState';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ChevronDown, ChevronUp, Loader2, Images, PenLine } from 'lucide-react';
+import { ChevronDown, ChevronUp, Loader2, Images, PenLine, CalendarDays, X as XIcon } from 'lucide-react';
 import { isAfter, isBefore, startOfDay, endOfDay, format, parseISO, isValid } from 'date-fns';
 import { useJobs } from '@/hooks/useJobs';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
