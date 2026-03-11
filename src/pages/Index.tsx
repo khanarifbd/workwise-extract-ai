@@ -1522,7 +1522,7 @@ const Index = () => {
               {viewType === 'table' ? (
                 <JobTable 
                   jobs={activeDatabaseTab === 'booked' 
-                    ? displayedJobs.filter(j => !!j.bookedDate || !tradeBookings.has(j.id))
+                    ? displayedJobs.filter(j => !tradeBookings.has(j.id))
                     : displayedJobs
                   } 
                   onUpdateJob={canEdit ? handleUpdateJob : undefined}
