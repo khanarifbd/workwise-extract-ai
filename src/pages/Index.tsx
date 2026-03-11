@@ -1481,6 +1481,66 @@ const Index = () => {
               {/* Sort by completion date when in COMPLETED tab */}
               {activeDatabaseTab === 'completed' && (
                 <>
+                  {/* Completion Date Range Filter */}
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className={cn(
+                          "h-8 text-xs justify-start",
+                          !completionDateFrom && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarDays className="w-3.5 h-3.5 mr-1" />
+                        {completionDateFrom ? format(completionDateFrom, 'dd/MM/yy') : 'From'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <CalendarComponent
+                        mode="single"
+                        selected={completionDateFrom}
+                        onSelect={setCompletionDateFrom}
+                        initialFocus
+                        className="p-3 pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className={cn(
+                          "h-8 text-xs justify-start",
+                          !completionDateTo && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarDays className="w-3.5 h-3.5 mr-1" />
+                        {completionDateTo ? format(completionDateTo, 'dd/MM/yy') : 'To'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <CalendarComponent
+                        mode="single"
+                        selected={completionDateTo}
+                        onSelect={setCompletionDateTo}
+                        initialFocus
+                        className="p-3 pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  {(completionDateFrom || completionDateTo) && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => { setCompletionDateFrom(undefined); setCompletionDateTo(undefined); }}
+                      className="h-8 text-xs text-muted-foreground"
+                    >
+                      <XIcon className="w-3 h-3 mr-1" />
+                      Clear
+                    </Button>
+                  )}
                   <CompletedJobsPDFButton 
                     jobs={jobs} 
                     categoryName={categories.find(c => c.id === activeCategory)?.name || 'Damp & Mold'} 
