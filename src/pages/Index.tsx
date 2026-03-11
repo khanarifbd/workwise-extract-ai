@@ -899,11 +899,25 @@ const Index = () => {
         if (!hasSorCode) return false;
       }
 
-      if (filters.dateFrom) {
-        if (isBefore(job.dateIssued, startOfDay(filters.dateFrom))) return false;
+      // Date issued filter - skip for completed tab (use completion date filter instead)
+      if (activeDatabaseTab !== 'completed') {
+        if (filters.dateFrom) {
+          if (isBefore(job.dateIssued, startOfDay(filters.dateFrom))) return false;
+        }
+        if (filters.dateTo) {
+          if (isAfter(job.dateIssued, endOfDay(filters.dateTo))) return false;
+        }
       }
-      if (filters.dateTo) {
-        if (isAfter(job.dateIssued, endOfDay(filters.dateTo))) return false;
+
+      // Completion date range filter - only for completed tab
+      if (activeDatabaseTab === 'completed') {
+        if (completionDateFrom || completionDateTo) {
+          const completionDate = job.completionDate 
+            ? (job.completionDate instanceof Date ? job.completionDate : new Date(job.completionDate as any))
+            : job.dateIssued;
+          if (completionDateFrom && isBefore(completionDate, startOfDay(completionDateFrom))) return false;
+          if (completionDateTo && isAfter(completionDate, endOfDay(completionDateTo))) return false;
+        }
       }
 
       // Fan filter (only for DM categories)
