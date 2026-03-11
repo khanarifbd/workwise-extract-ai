@@ -33,8 +33,11 @@ import { useUrlState } from '@/hooks/useUrlState';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ChevronDown, ChevronUp, Loader2, Images, PenLine } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { ChevronDown, ChevronUp, Loader2, Images, PenLine, CalendarDays, X as XIcon } from 'lucide-react';
 import { isAfter, isBefore, startOfDay, endOfDay, format, parseISO, isValid } from 'date-fns';
+import { cn } from '@/lib/utils';
 import { useJobs } from '@/hooks/useJobs';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { useCategories } from '@/hooks/useCategories';
@@ -106,6 +109,8 @@ const Index = () => {
   const [activeMonthFolder, setActiveMonthFolder] = useState<string | null>(null);
   const [bookedSortOrder, setBookedSortOrder] = useState<BookedSortOrder>('newest');
   const [completedSortOrder, setCompletedSortOrder] = useState<CompletedSortOrder>('newest');
+  const [completionDateFrom, setCompletionDateFrom] = useState<Date | undefined>(undefined);
+  const [completionDateTo, setCompletionDateTo] = useState<Date | undefined>(undefined);
   const [showAnalyticsReport, setShowAnalyticsReport] = useState(false);
   const [duplicateCheck, setDuplicateCheck] = useState<{
     newJob: Omit<Job, 'id'>;
@@ -897,11 +902,25 @@ const Index = () => {
         if (!hasSorCode) return false;
       }
 
-      if (filters.dateFrom) {
-        if (isBefore(job.dateIssued, startOfDay(filters.dateFrom))) return false;
+      // Date issued filter - skip for completed tab (use completion date filter instead)
+      if (activeDatabaseTab !== 'completed') {
+        if (filters.dateFrom) {
+          if (isBefore(job.dateIssued, startOfDay(filters.dateFrom))) return false;
+        }
+        if (filters.dateTo) {
+          if (isAfter(job.dateIssued, endOfDay(filters.dateTo))) return false;
+        }
       }
-      if (filters.dateTo) {
-        if (isAfter(job.dateIssued, endOfDay(filters.dateTo))) return false;
+
+      // Completion date range filter - only for completed tab
+      if (activeDatabaseTab === 'completed') {
+        if (completionDateFrom || completionDateTo) {
+          const completionDate = job.completionDate 
+            ? (job.completionDate instanceof Date ? job.completionDate : new Date(job.completionDate as any))
+            : job.dateIssued;
+          if (completionDateFrom && isBefore(completionDate, startOfDay(completionDateFrom))) return false;
+          if (completionDateTo && isAfter(completionDate, endOfDay(completionDateTo))) return false;
+        }
       }
 
       // Fan filter (only for DM categories)
@@ -953,7 +972,7 @@ const Index = () => {
     }
     
     return result;
-  }, [jobs, filters, isFanCategory, activeMonthFolder, activeDatabaseTab, bookedSortOrder, completedSortOrder, selectedBookedDate, getSignOffStatus, tradeBookings]);
+  }, [jobs, filters, isFanCategory, activeMonthFolder, activeDatabaseTab, bookedSortOrder, completedSortOrder, selectedBookedDate, getSignOffStatus, tradeBookings, completionDateFrom, completionDateTo]);
 
   // Apply fuzzy search on pre-filtered jobs using debounced search term
   const { matches: fuzzyFilteredJobs, hasSearch } = useFuzzySearch(
@@ -1463,6 +1482,66 @@ const Index = () => {
               {/* Sort by completion date when in COMPLETED tab */}
               {activeDatabaseTab === 'completed' && (
                 <>
+                  {/* Completion Date Range Filter */}
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className={cn(
+                          "h-8 text-xs justify-start",
+                          !completionDateFrom && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarDays className="w-3.5 h-3.5 mr-1" />
+                        {completionDateFrom ? format(completionDateFrom, 'dd/MM/yy') : 'From'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <CalendarComponent
+                        mode="single"
+                        selected={completionDateFrom}
+                        onSelect={setCompletionDateFrom}
+                        initialFocus
+                        className="p-3 pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className={cn(
+                          "h-8 text-xs justify-start",
+                          !completionDateTo && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarDays className="w-3.5 h-3.5 mr-1" />
+                        {completionDateTo ? format(completionDateTo, 'dd/MM/yy') : 'To'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <CalendarComponent
+                        mode="single"
+                        selected={completionDateTo}
+                        onSelect={setCompletionDateTo}
+                        initialFocus
+                        className="p-3 pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  {(completionDateFrom || completionDateTo) && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => { setCompletionDateFrom(undefined); setCompletionDateTo(undefined); }}
+                      className="h-8 text-xs text-muted-foreground"
+                    >
+                      <XIcon className="w-3 h-3 mr-1" />
+                      Clear
+                    </Button>
+                  )}
                   <CompletedJobsPDFButton 
                     jobs={jobs} 
                     categoryName={categories.find(c => c.id === activeCategory)?.name || 'Damp & Mold'} 
