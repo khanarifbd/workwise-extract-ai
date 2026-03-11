@@ -4,11 +4,11 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { 
   Wrench, ChevronDown, ChevronRight, MapPin, Clock, 
-  CheckCircle2, CalendarCheck, ListTodo, FileText, Target
+  CheckCircle2, CalendarCheck, ListTodo, FileText, Zap,
+  Layers, ArrowRight
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface TradeBookingInfo {
   jobId: string;
@@ -47,20 +47,28 @@ interface ProgressorBookedSectionProps {
   onJobClick?: (job: Job) => void;
 }
 
+const completedStatuses = ['completed_awaiting_portal', 'completed_signed_off'];
+
+const ProgressorIcon = ({ className }: { className?: string }) => (
+  <div className={cn("relative flex items-center justify-center", className)}>
+    <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-cyan-400 via-blue-500 to-indigo-600 opacity-90" />
+    <div className="absolute inset-0 rounded-lg animate-pulse bg-gradient-to-br from-cyan-400/30 to-indigo-500/30" />
+    <Zap className="relative w-4 h-4 text-white drop-shadow-sm" fill="currentColor" />
+  </div>
+);
+
 export const ProgressorBookedSection = ({ jobs, tradeBookings, onJobClick }: ProgressorBookedSectionProps) => {
   const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set());
   const [subTasks, setSubTasks] = useState<Map<string, SubTaskRow[]>>(new Map());
   const [todos, setTodos] = useState<Map<string, TodoRow[]>>(new Map());
 
-  // Get only progressor-booked jobs (trade-booked, not standard booked)
   const progressorJobs = useMemo(() => {
     return jobs.filter(job => {
       const tradeInfo = tradeBookings.get(job.id);
-      return tradeInfo && !job.bookedDate; // Only trade-booked, not standard booked
+      return tradeInfo && !job.bookedDate;
     });
   }, [jobs, tradeBookings]);
 
-  // Fetch sub-tasks and todos for these jobs
   useEffect(() => {
     if (progressorJobs.length === 0) return;
     const jobIds = progressorJobs.map(j => j.id);
@@ -110,48 +118,76 @@ export const ProgressorBookedSection = ({ jobs, tradeBookings, onJobClick }: Pro
 
   if (progressorJobs.length === 0) return null;
 
-  const completedStatuses = ['completed_awaiting_portal', 'completed_signed_off'];
-
   return (
-    <div className="mb-4">
-      {/* Section Header */}
-      <div className="bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-700 rounded-t-lg px-4 py-2.5 flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-md bg-white/20 flex items-center justify-center backdrop-blur-sm">
-            <Target className="w-4 h-4 text-white" />
+    <div className="mb-6 mx-1">
+      {/* ── Section Chrome ── */}
+      <div className="relative overflow-hidden rounded-t-xl">
+        {/* Gradient bar */}
+        <div className="absolute inset-0 bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-700" />
+        <div className="absolute inset-0 bg-[repeating-linear-gradient(90deg,transparent,transparent_20px,rgba(255,255,255,0.03)_20px,rgba(255,255,255,0.03)_40px)]" />
+        
+        <div className="relative flex items-center justify-between px-4 py-3">
+          <div className="flex items-center gap-3">
+            <ProgressorIcon className="w-8 h-8 rounded-lg" />
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-black text-white tracking-widest uppercase">
+                  Progressor Booked
+                </h3>
+                <Badge className="bg-white/15 text-white/90 border-white/20 text-[9px] font-bold uppercase tracking-wider backdrop-blur-sm px-2 py-0">
+                  Multi-Trade
+                </Badge>
+              </div>
+              <p className="text-[10px] text-cyan-100/70 mt-0.5">
+                Jobs managed via the Progressor Portal — separate from standard bookings
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-sm font-bold text-white tracking-wide">PROGRESSOR BOOKED</h3>
-            <p className="text-[10px] text-cyan-100/80">Multi-trade & ongoing jobs managed via Progressor Portal</p>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 bg-white/10 backdrop-blur-sm rounded-full px-3 py-1.5 border border-white/20">
+              <Layers className="w-3.5 h-3.5 text-cyan-200" />
+              <span className="text-white font-bold text-xs">{progressorJobs.length}</span>
+              <span className="text-cyan-200/80 text-[10px]">job{progressorJobs.length !== 1 ? 's' : ''}</span>
+            </div>
           </div>
         </div>
-        <Badge className="bg-white/20 text-white border-white/30 text-xs font-bold backdrop-blur-sm">
-          {progressorJobs.length} Job{progressorJobs.length !== 1 ? 's' : ''}
-        </Badge>
       </div>
 
-      {/* Jobs List */}
-      <div className="border-x-2 border-b-2 border-cyan-400/40 rounded-b-lg bg-gradient-to-b from-cyan-50/80 to-blue-50/40 dark:from-cyan-950/30 dark:to-blue-950/20 divide-y divide-cyan-200/50 dark:divide-cyan-800/40">
-        {progressorJobs.map(job => {
+      {/* ── Jobs Container ── */}
+      <div className="border-2 border-t-0 border-cyan-500/30 rounded-b-xl overflow-hidden bg-gradient-to-b from-cyan-50/90 via-blue-50/50 to-indigo-50/30 dark:from-cyan-950/40 dark:via-blue-950/20 dark:to-indigo-950/10 shadow-lg shadow-cyan-500/5">
+        {progressorJobs.map((job, idx) => {
           const tradeInfo = tradeBookings.get(job.id)!;
           const jobSubTasks = subTasks.get(job.id) || [];
           const jobTodos = todos.get(job.id) || [];
           const isExpanded = expandedJobs.has(job.id);
           const completedCount = jobSubTasks.filter(st => completedStatuses.includes(st.status) || !!st.completion_date).length;
-          const pendingCount = jobSubTasks.length - completedCount;
+          const totalTasks = jobSubTasks.length;
+          const progressPct = totalTasks > 0 ? Math.round((completedCount / totalTasks) * 100) : 0;
 
           return (
-            <div key={job.id} className="group">
-              {/* Collapsed Row */}
+            <div 
+              key={job.id} 
+              className={cn(
+                "group transition-all",
+                idx > 0 && "border-t border-cyan-300/30 dark:border-cyan-700/30"
+              )}
+            >
+              {/* ── Collapsed Row ── */}
               <div 
                 className={cn(
-                  "px-4 py-2.5 flex items-center gap-3 cursor-pointer transition-all hover:bg-cyan-100/50 dark:hover:bg-cyan-900/20",
-                  isExpanded && "bg-cyan-100/60 dark:bg-cyan-900/30"
+                  "px-4 py-3 flex items-center gap-3 cursor-pointer transition-all duration-200",
+                  "hover:bg-cyan-100/60 dark:hover:bg-cyan-900/30",
+                  isExpanded && "bg-gradient-to-r from-cyan-100/80 via-blue-50/60 to-transparent dark:from-cyan-900/40 dark:via-blue-950/20"
                 )}
                 onClick={() => toggleExpand(job.id)}
               >
-                {/* Expand Arrow */}
-                <button className="text-cyan-600 dark:text-cyan-400 flex-shrink-0">
+                {/* Progressor lightning icon */}
+                <div className="flex-shrink-0 w-6 h-6 rounded-md bg-gradient-to-br from-cyan-400 to-indigo-600 flex items-center justify-center shadow-sm">
+                  <Zap className="w-3.5 h-3.5 text-white" fill="currentColor" />
+                </div>
+
+                {/* Expand */}
+                <button className="text-cyan-600 dark:text-cyan-400 flex-shrink-0 -ml-1">
                   {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                 </button>
 
@@ -169,37 +205,28 @@ export const ProgressorBookedSection = ({ jobs, tradeBookings, onJobClick }: Pro
                   </div>
                 </div>
 
-                {/* Effective Booked Date */}
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-cyan-600 text-white text-xs font-semibold flex-shrink-0">
+                {/* Booked Date Chip */}
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gradient-to-r from-cyan-600 to-blue-600 text-white text-xs font-bold flex-shrink-0 shadow-sm">
                   <CalendarCheck className="w-3.5 h-3.5" />
                   {format(tradeInfo.effectiveBookedDate, 'dd/MM/yy')}
                 </div>
 
-                {/* Trade Progress */}
-                <div className="flex items-center gap-1.5 flex-shrink-0">
-                  <div className="flex gap-0.5">
-                    {jobSubTasks.map(st => {
-                      const isDone = completedStatuses.includes(st.status) || !!st.completion_date;
-                      return (
-                        <div
-                          key={st.id}
-                          className={cn(
-                            "w-2.5 h-2.5 rounded-full",
-                            isDone ? "bg-emerald-500" : "bg-cyan-400"
-                          )}
-                          title={`${st.trade} - ${isDone ? 'Complete' : st.status}`}
-                        />
-                      );
-                    })}
+                {/* Progress Bar */}
+                <div className="flex items-center gap-2 flex-shrink-0 min-w-[100px]">
+                  <div className="flex-1 h-2 rounded-full bg-cyan-200/50 dark:bg-cyan-800/40 overflow-hidden">
+                    <div 
+                      className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-emerald-500 transition-all duration-500"
+                      style={{ width: `${progressPct}%` }}
+                    />
                   </div>
-                  <span className="text-[11px] font-medium text-muted-foreground">
-                    {completedCount}/{jobSubTasks.length}
+                  <span className="text-[11px] font-bold text-cyan-700 dark:text-cyan-300 tabular-nums">
+                    {completedCount}/{totalTasks}
                   </span>
                 </div>
 
                 {/* Team */}
                 {job.team && (
-                  <Badge variant="outline" className="text-[10px] flex-shrink-0">
+                  <Badge variant="outline" className="text-[10px] flex-shrink-0 border-cyan-400/50">
                     {job.team}
                   </Badge>
                 )}
@@ -213,16 +240,16 @@ export const ProgressorBookedSection = ({ jobs, tradeBookings, onJobClick }: Pro
                 )}
               </div>
 
-              {/* Expanded Detail */}
+              {/* ── Expanded Detail ── */}
               {isExpanded && (
-                <div className="px-4 pb-3 pt-1 bg-white/60 dark:bg-cyan-950/20 border-t border-cyan-200/40 dark:border-cyan-800/30">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="px-5 pb-4 pt-2 bg-white/70 dark:bg-cyan-950/30 border-t border-cyan-200/50 dark:border-cyan-800/30">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     
                     {/* Scheduled Trades */}
-                    <div className="space-y-1.5">
-                      <h4 className="text-xs font-bold text-cyan-700 dark:text-cyan-300 flex items-center gap-1.5">
+                    <div className="space-y-2">
+                      <h4 className="text-xs font-bold text-cyan-700 dark:text-cyan-300 flex items-center gap-1.5 uppercase tracking-wider">
                         <Wrench className="w-3.5 h-3.5" />
-                        Scheduled Trades ({jobSubTasks.length})
+                        Scheduled Trades ({totalTasks})
                       </h4>
                       <div className="space-y-1">
                         {jobSubTasks.map(st => {
@@ -231,19 +258,19 @@ export const ProgressorBookedSection = ({ jobs, tradeBookings, onJobClick }: Pro
                             <div 
                               key={st.id}
                               className={cn(
-                                "flex items-center justify-between rounded px-2 py-1 text-[11px]",
+                                "flex items-center justify-between rounded-md px-2.5 py-1.5 text-[11px] transition-colors",
                                 isDone
                                   ? "bg-emerald-100/80 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 line-through"
                                   : st.task_type === 'dm_team'
-                                    ? "bg-blue-100/80 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400"
-                                    : "bg-cyan-100/80 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400"
+                                    ? "bg-blue-100/80 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-l-2 border-blue-400"
+                                    : "bg-cyan-100/80 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400 border-l-2 border-cyan-400"
                               )}
                             >
                               <div className="flex items-center gap-1.5">
                                 {isDone ? (
-                                  <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
                                 ) : (
-                                  <div className="w-3 h-3 rounded-full border-2 border-cyan-400" />
+                                  <div className="w-3.5 h-3.5 rounded-full border-2 border-current opacity-50" />
                                 )}
                                 <span className="font-medium">{st.trade}</span>
                                 {st.assigned_team && (
@@ -256,17 +283,17 @@ export const ProgressorBookedSection = ({ jobs, tradeBookings, onJobClick }: Pro
                             </div>
                           );
                         })}
-                        {jobSubTasks.length === 0 && (
+                        {totalTasks === 0 && (
                           <p className="text-[11px] text-muted-foreground italic">No trades scheduled</p>
                         )}
                       </div>
                     </div>
 
                     {/* To-Do List */}
-                    <div className="space-y-1.5">
-                      <h4 className="text-xs font-bold text-cyan-700 dark:text-cyan-300 flex items-center gap-1.5">
+                    <div className="space-y-2">
+                      <h4 className="text-xs font-bold text-cyan-700 dark:text-cyan-300 flex items-center gap-1.5 uppercase tracking-wider">
                         <ListTodo className="w-3.5 h-3.5" />
-                        To-Do List ({jobTodos.filter(t => t.is_completed).length}/{jobTodos.length})
+                        To-Do ({jobTodos.filter(t => t.is_completed).length}/{jobTodos.length})
                       </h4>
                       <div className="space-y-0.5">
                         {jobTodos.slice(0, 6).map(todo => (
@@ -297,13 +324,13 @@ export const ProgressorBookedSection = ({ jobs, tradeBookings, onJobClick }: Pro
                     </div>
 
                     {/* Description & Notes */}
-                    <div className="space-y-1.5">
-                      <h4 className="text-xs font-bold text-cyan-700 dark:text-cyan-300 flex items-center gap-1.5">
+                    <div className="space-y-2">
+                      <h4 className="text-xs font-bold text-cyan-700 dark:text-cyan-300 flex items-center gap-1.5 uppercase tracking-wider">
                         <FileText className="w-3.5 h-3.5" />
                         Description & Notes
                       </h4>
                       {job.description && (
-                        <p className="text-[11px] text-foreground leading-relaxed line-clamp-4 bg-white/50 dark:bg-white/5 rounded px-2 py-1.5">
+                        <p className="text-[11px] text-foreground leading-relaxed line-clamp-4 bg-white/50 dark:bg-white/5 rounded-md px-2.5 py-1.5 border border-cyan-200/30 dark:border-cyan-800/20">
                           {job.description}
                         </p>
                       )}
@@ -314,7 +341,7 @@ export const ProgressorBookedSection = ({ jobs, tradeBookings, onJobClick }: Pro
                         </div>
                       )}
                       {job.expectedCompletionDate && (
-                        <div className="flex items-center gap-1.5 mt-1 text-[11px] text-orange-600 dark:text-orange-400 font-semibold bg-orange-50/80 dark:bg-orange-900/20 rounded px-2 py-1">
+                        <div className="flex items-center gap-1.5 mt-1 text-[11px] text-orange-600 dark:text-orange-400 font-semibold bg-orange-50/80 dark:bg-orange-900/20 rounded-md px-2.5 py-1.5">
                           <Clock className="w-3 h-3" />
                           Expected Completion: {format(new Date(job.expectedCompletionDate), 'dd MMM yyyy')}
                         </div>
@@ -324,9 +351,9 @@ export const ProgressorBookedSection = ({ jobs, tradeBookings, onJobClick }: Pro
                           e.stopPropagation();
                           onJobClick?.(job);
                         }}
-                        className="text-[11px] text-cyan-600 dark:text-cyan-400 hover:underline font-medium mt-1"
+                        className="flex items-center gap-1 text-[11px] text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 font-semibold mt-1 transition-colors"
                       >
-                        Open Full Details →
+                        Open Full Details <ArrowRight className="w-3 h-3" />
                       </button>
                     </div>
                   </div>
@@ -335,6 +362,13 @@ export const ProgressorBookedSection = ({ jobs, tradeBookings, onJobClick }: Pro
             </div>
           );
         })}
+      </div>
+
+      {/* Separator between progressor and standard bookings */}
+      <div className="flex items-center gap-3 my-4 px-2">
+        <div className="flex-1 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Standard Bookings</span>
+        <div className="flex-1 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
       </div>
     </div>
   );
