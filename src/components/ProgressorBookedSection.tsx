@@ -63,10 +63,7 @@ export const ProgressorBookedSection = ({ jobs, tradeBookings, onJobClick }: Pro
   const [todos, setTodos] = useState<Map<string, TodoRow[]>>(new Map());
 
   const progressorJobs = useMemo(() => {
-    return jobs.filter(job => {
-      const tradeInfo = tradeBookings.get(job.id);
-      return tradeInfo && !job.bookedDate;
-    });
+    return jobs.filter(job => tradeBookings.has(job.id));
   }, [jobs, tradeBookings]);
 
   useEffect(() => {
