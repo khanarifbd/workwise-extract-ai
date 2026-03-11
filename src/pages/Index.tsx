@@ -843,8 +843,8 @@ const Index = () => {
         }
       }
 
-      // Monthly folder filter
-      if (activeMonthFolder) {
+      // Monthly folder filter - skip for completed tab (show all completed jobs)
+      if (activeMonthFolder && activeDatabaseTab !== 'completed') {
         const date = job.dateIssued;
         if (!date || !isValid(date)) return false;
         const jobMonthKey = format(date, 'yyyy-MM');
