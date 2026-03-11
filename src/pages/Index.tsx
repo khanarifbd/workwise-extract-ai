@@ -17,6 +17,7 @@ import { KanbanBoard } from '@/components/KanbanBoard';
 import { CalendarView } from '@/components/CalendarView';
 import { MonthlyFolderTabs } from '@/components/MonthlyFolderTabs';
 import { BookedDateSidebar } from '@/components/BookedDateSidebar';
+import { ProgressorBookedSection } from '@/components/ProgressorBookedSection';
 import { ViewToggle } from '@/components/ViewToggle';
 import { JobDetailsModal } from '@/components/JobDetailsModal';
 import { DuplicateJobAlert } from '@/components/DuplicateJobAlert';
