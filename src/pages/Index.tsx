@@ -808,7 +808,9 @@ const Index = () => {
         
         if (activeDatabaseTab === 'booked') {
           // Show jobs with a booked date OR jobs with trade-booked sub-tasks
+          // But NOT completed jobs — those belong in the completed folder
           const hasTradeBooking = tradeBookings.has(job.id);
+          if (isJobCompleted) return false;
           if (!job.bookedDate && !hasTradeBooking) return false;
           
           // Filter by selected booked date if any
@@ -829,8 +831,8 @@ const Index = () => {
             if (!matchesDate) return false;
           }
         } else if (activeDatabaseTab === 'completed') {
-          // Show completed jobs, but NOT if they have a booked date (booked overrides)
-          if (!isJobCompleted || job.bookedDate) return false;
+          // Show ALL completed jobs regardless of booked date
+          if (!isJobCompleted) return false;
         } else if (activeDatabaseTab === 'refer_back') {
           // Show only refer back jobs
           if (!job.referBack) return false;
@@ -843,8 +845,8 @@ const Index = () => {
         }
       }
 
-      // Monthly folder filter
-      if (activeMonthFolder) {
+      // Monthly folder filter - skip for completed tab (show all completed jobs)
+      if (activeMonthFolder && activeDatabaseTab !== 'completed') {
         const date = job.dateIssued;
         if (!date || !isValid(date)) return false;
         const jobMonthKey = format(date, 'yyyy-MM');
