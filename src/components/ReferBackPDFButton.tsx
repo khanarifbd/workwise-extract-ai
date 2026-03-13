@@ -6,6 +6,7 @@ import { ContactHistory } from '@/types/contactHistory';
 import { useToast } from '@/hooks/use-toast';
 import { generateReferBackJobPDF } from './ReferBackJobPDF';
 import { format } from 'date-fns';
+import { downloadPDF } from '@/lib/pdfDownload';
 import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -103,7 +104,7 @@ export function ReferBackPDFButton({ jobs, categoryName = 'Jobs' }: ReferBackPDF
       selected.forEach(job => {
         const history = contactHistoryMap[job.id] || [];
         const doc = generateReferBackJobPDF(job, history);
-        doc.save(`refer-back-${job.jobNumber}-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+        downloadPDF(doc, `refer-back-${job.jobNumber}-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
       });
 
       toast({

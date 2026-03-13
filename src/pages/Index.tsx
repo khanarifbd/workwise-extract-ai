@@ -1132,7 +1132,8 @@ const Index = () => {
       });
     }
 
-    doc.save(`${activeCat?.slug || 'jobs'}-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+    const { downloadPDF } = await import('@/lib/pdfDownload');
+    downloadPDF(doc, `${activeCat?.slug || 'jobs'}-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
     toast({ title: 'PDF downloaded!' });
   };
 

@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { getGMTNow, getHoursDifferenceGMT } from '@/lib/dateUtils';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { downloadPDF } from '@/lib/pdfDownload';
 
 interface OverdueJobsDashboardProps {
   jobs: Job[];
@@ -209,7 +210,7 @@ export const OverdueJobsDashboard = ({
       ? `overdue-jobs-all-teams-${format(getGMTNow(), 'yyyy-MM-dd')}.pdf`
       : `overdue-jobs-${selectedTeam.toLowerCase().replace(/\s+/g, '-')}-${format(getGMTNow(), 'yyyy-MM-dd')}.pdf`;
     
-    doc.save(filename);
+    downloadPDF(doc, filename);
   };
 
   return (

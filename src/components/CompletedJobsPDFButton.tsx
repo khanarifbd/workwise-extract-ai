@@ -4,6 +4,7 @@ import { FileCheck, Calendar } from 'lucide-react';
 import { Job } from '@/types/job';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { downloadPDF } from '@/lib/pdfDownload';
 import { format, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
@@ -160,12 +161,12 @@ export const CompletedJobsPDFButton = ({ jobs, categoryName = 'Damp & Mold' }: C
       }
     });
 
-    // Save the PDF
     const timestamp = format(new Date(), 'yyyy-MM-dd');
     const dateRangeStr = startDate && endDate 
       ? `_${format(startDate, 'yyyyMMdd')}-${format(endDate, 'yyyyMMdd')}` 
       : '';
-    doc.save(`completed-jobs-report${dateRangeStr}-${timestamp}.pdf`);
+    const filename = `completed-jobs-report${dateRangeStr}-${timestamp}.pdf`;
+    downloadPDF(doc, filename);
     
     setIsOpen(false);
   };

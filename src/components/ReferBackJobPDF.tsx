@@ -3,6 +3,7 @@ import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
 import { Job } from '@/types/job';
 import { ContactHistory, CONTACT_OUTCOMES } from '@/types/contactHistory';
+import { downloadPDF } from '@/lib/pdfDownload';
 
 function getOutcomeLabel(outcome: string): string {
   const found = CONTACT_OUTCOMES.find(o => o.value === outcome);
@@ -239,5 +240,5 @@ function buildNarrative(job: Job, contactHistory: ContactHistory[]): string {
 
 export function downloadReferBackJobPDF(job: Job, contactHistory: ContactHistory[]) {
   const doc = generateReferBackJobPDF(job, contactHistory);
-  doc.save(`refer-back-${job.jobNumber}-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+  downloadPDF(doc, `refer-back-${job.jobNumber}-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
 }

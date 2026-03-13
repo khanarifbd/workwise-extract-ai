@@ -5,6 +5,7 @@ import { BarChart3, FileDown, X, Building2, Home, Gauge, Calendar, CheckCircle2,
 import { format, differenceInWeeks, startOfWeek, endOfWeek, eachWeekOfInterval, isWithinInterval } from 'date-fns';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { downloadPDF } from '@/lib/pdfDownload';
 
 interface InsulationAnalyticsReportProps {
   jobs: Job[];
@@ -407,7 +408,7 @@ export const InsulationAnalyticsReport = ({ jobs, isOpen: externalIsOpen, onClos
       }
 
       // Save the PDF
-      doc.save(`NPH-Insulation-Analytics-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+      downloadPDF(doc, `NPH-Insulation-Analytics-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
     } catch (error) {
       console.error('Error generating PDF:', error);
     } finally {

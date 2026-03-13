@@ -4,6 +4,7 @@ import { Job } from '@/types/job';
 import { SubTask } from '@/types/subTask';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { downloadPDF } from '@/lib/pdfDownload';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 
@@ -237,7 +238,7 @@ export function SubTaskJobSheetPDF({ subTask, job }: SubTaskJobSheetPDFProps) {
     }
 
     const filename = `job-sheet-${job.jobNumber}-${subTask.trade.replace(/\s+/g, '-').toLowerCase()}-${format(new Date(), 'yyyy-MM-dd')}.pdf`;
-    doc.save(filename);
+    downloadPDF(doc, filename);
 
     toast({
       title: 'Job Sheet Downloaded',
