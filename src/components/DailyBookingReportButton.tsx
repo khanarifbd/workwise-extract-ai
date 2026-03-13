@@ -73,6 +73,7 @@ export const DailyBookingReportButton = ({
   };
 
   const generateReport = () => {
+    try {
     const dateJobs = getJobsForDate();
     
     if (dateJobs.length === 0) {
