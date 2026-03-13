@@ -244,6 +244,9 @@ export const StatsCards = forwardRef<HTMLDivElement, StatsCardsProps>(({ jobs, a
           ))}
         </div>
       )}
+
+      {/* Monthly Breakdown */}
+      <MonthlyJobBreakdown jobs={jobs} />
     </div>
   );
 });
