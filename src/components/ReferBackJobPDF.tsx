@@ -3,6 +3,7 @@ import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
 import { Job } from '@/types/job';
 import { ContactHistory, CONTACT_OUTCOMES } from '@/types/contactHistory';
+import { downloadPDF } from '@/lib/pdfDownload';
 
 function getOutcomeLabel(outcome: string): string {
   const found = CONTACT_OUTCOMES.find(o => o.value === outcome);
