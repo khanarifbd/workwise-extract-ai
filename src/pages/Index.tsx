@@ -1469,7 +1469,7 @@ const Index = () => {
                         : 'Jobs Database'}
               </h2>
               <p className="text-xs text-muted-foreground">
-                {displayedJobs.length} of {activeDatabaseTab === 'booked' ? bookedJobsCount : activeDatabaseTab === 'completed' ? completedJobsCount : activeDatabaseTab === 'refer_back' ? referBackJobsCount : jobs.length} jobs
+                {displayedJobs.length} of {activeDatabaseTab === 'booked' ? bookedJobsCount : activeDatabaseTab === 'completed' ? completedJobsCount : activeDatabaseTab === 'refer_back' ? referBackJobsCount : allTabJobsCount} jobs
                 {activeMonthFolder && (
                   <span className="ml-1">
                     • Showing {format(new Date(activeMonthFolder + '-01'), 'MMMM yyyy')}
