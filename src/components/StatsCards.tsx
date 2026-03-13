@@ -57,6 +57,8 @@ function isCompleted(j: Job): boolean {
 
 export const StatsCards = forwardRef<HTMLDivElement, StatsCardsProps>(({ jobs, allJobs }, ref) => {
   const now = useMemo(() => getGMTNow(), []);
+  const [activeOpen, setActiveOpen] = useState(false);
+  const [monthlyOpen, setMonthlyOpen] = useState(false);
 
   const counts = useMemo(() => {
     const total = jobs.length;
