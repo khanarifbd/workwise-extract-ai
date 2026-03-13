@@ -1,4 +1,4 @@
-import { forwardRef } from 'react';
+import { forwardRef, useMemo } from 'react';
 import { Job } from '@/types/job';
 import { 
   Briefcase, 
@@ -6,58 +6,207 @@ import {
   Clock, 
   Users,
   TrendingUp,
-  CalendarCheck
+  CalendarCheck,
+  AlertTriangle,
+  PhoneOff,
+  Voicemail,
+  PhoneCall,
+  EyeOff,
+  Wrench,
+  Pause,
+  Flame,
+  Zap,
+  BookOpen
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getGMTNow, getHoursDifferenceGMT } from '@/lib/dateUtils';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface StatsCardsProps {
   jobs: Job[];
-  allJobs?: Job[]; // All jobs including booked ones for counting
+  allJobs?: Job[];
+}
+
+const PRIORITY_KEYWORDS = ['emergency', 'urgent', 'priority', 'critical', 'asap', 'immediate'];
+
+function isEmergencyOrCritical(description: string | undefined | null): boolean {
+  if (!description) return false;
+  const lower = description.toLowerCase();
+  return lower.includes('emergency') || lower.includes('critical');
+}
+
+function isUrgent(description: string | undefined | null): boolean {
+  if (!description) return false;
+  const lower = description.toLowerCase();
+  if (isEmergencyOrCritical(description)) return false;
+  return lower.includes('urgent') || lower.includes('asap') || lower.includes('immediate');
+}
+
+function isCompleted(j: Job): boolean {
+  return j.status === 'complete' || j.isCompleted;
 }
 
 export const StatsCards = forwardRef<HTMLDivElement, StatsCardsProps>(({ jobs, allJobs }, ref) => {
-  const totalJobs = jobs.length;
-  // UNIFIED COMPLETED DEFINITION: status === 'complete' OR isCompleted === true
-  const completedJobs = jobs.filter(j => j.status === 'complete' || j.isCompleted).length;
-  // Active = ALL incomplete/open jobs (not completed)
-  const inProgressJobs = jobs.filter(j => {
-    if (j.status === 'complete' || j.isCompleted) return false;
-    return true;
-  }).length;
-  const assignedJobs = jobs.filter(j => j.team !== null && j.team !== undefined && j.team !== '').length;
-  const avgProgress = jobs.length > 0 
-    ? Math.round(jobs.reduce((sum, j) => sum + (j.progress || 0), 0) / jobs.length)
-    : 0;
-  const bookedCount = (allJobs || jobs).filter(j => {
-    if (j.status === 'complete' || j.isCompleted) return false;
-    return !!j.bookedDate;
-  }).length;
+  const now = useMemo(() => getGMTNow(), []);
 
-  const stats = [
-    { label: 'Total', value: totalJobs, icon: Briefcase, color: 'text-primary', bg: 'bg-primary/10' },
-    { label: 'Complete', value: completedJobs, icon: CheckCircle2, color: 'text-success', bg: 'bg-success/10' },
-    { label: 'Active', value: inProgressJobs, icon: Clock, color: 'text-warning', bg: 'bg-warning/10' },
-    { label: 'Assigned', value: assignedJobs, icon: Users, color: 'text-primary', bg: 'bg-primary/10' },
-    { label: 'Booked', value: bookedCount, icon: CalendarCheck, color: 'text-amber-600', bg: 'bg-amber-500/10' },
-    { label: 'Avg %', value: `${avgProgress}%`, icon: TrendingUp, color: 'text-success', bg: 'bg-success/10' },
+  const counts = useMemo(() => {
+    const total = jobs.length;
+    const complete = jobs.filter(isCompleted).length;
+    const active = total - complete;
+    const assigned = jobs.filter(j => !isCompleted(j) && j.team != null && j.team !== '').length;
+
+    // Overdue: 24h+ past booked date, incomplete
+    const overdue = jobs.filter(j => {
+      if (isCompleted(j)) return false;
+      if (!j.bookedDate) return false;
+      const bd = j.bookedDate instanceof Date ? j.bookedDate : new Date(j.bookedDate);
+      if (isNaN(bd.getTime())) return false;
+      return bd.getTime() < now.getTime() && getHoursDifferenceGMT(now, bd) > 24;
+    }).length;
+
+    // Emergency/Urgent from descriptions (incomplete only)
+    const incompleteJobs = jobs.filter(j => !isCompleted(j));
+    const emergency = incompleteJobs.filter(j => isEmergencyOrCritical(j.description)).length;
+    const urgent = incompleteJobs.filter(j => isUrgent(j.description)).length;
+
+    // Unbooked breakdown (incomplete, no booked date)
+    const unbookedJobs = incompleteJobs.filter(j => !j.bookedDate);
+    const noAnswer = unbookedJobs.filter(j => j.status === 'no_answer').length;
+    const voiceMessage = unbookedJobs.filter(j => j.status === 'voice_message').length;
+    const callBack = unbookedJobs.filter(j => j.status === 'call_back').length;
+    const noShow = unbookedJobs.filter(j => j.status === 'no_show').length;
+    const totalUnbooked = unbookedJobs.length;
+
+    // Booked (incomplete, has booked date)
+    const booked = (allJobs || jobs).filter(j => {
+      if (isCompleted(j)) return false;
+      return !!j.bookedDate;
+    }).length;
+
+    // Other active statuses
+    const awaitingTrade = incompleteJobs.filter(j => j.status === 'awaiting_trade').length;
+    const ongoing = incompleteJobs.filter(j => j.isOngoing).length;
+    const paused = incompleteJobs.filter(j => j.status === 'pause').length;
+
+    const avgProgress = jobs.length > 0 
+      ? Math.round(jobs.reduce((sum, j) => sum + (j.progress || 0), 0) / jobs.length)
+      : 0;
+
+    return {
+      total, complete, active, assigned, overdue,
+      emergency, urgent,
+      noAnswer, voiceMessage, callBack, noShow, totalUnbooked,
+      booked, awaitingTrade, ongoing, paused, avgProgress
+    };
+  }, [jobs, allJobs, now]);
+
+  // Primary stats row
+  const primaryStats = [
+    { label: 'Total', value: counts.total, icon: Briefcase, color: 'text-primary', bg: 'bg-primary/10' },
+    { label: 'Complete', value: counts.complete, icon: CheckCircle2, color: 'text-success', bg: 'bg-success/10' },
+    { label: 'Active', value: counts.active, icon: Clock, color: 'text-warning', bg: 'bg-warning/10' },
+    { label: 'Assigned', value: counts.assigned, icon: Users, color: 'text-primary', bg: 'bg-primary/10' },
+    { label: 'Booked', value: counts.booked, icon: CalendarCheck, color: 'text-amber-600', bg: 'bg-amber-500/10' },
+    { label: 'Overdue', value: counts.overdue, icon: AlertTriangle, color: 'text-destructive', bg: 'bg-destructive/10' },
+    { label: 'Avg %', value: `${counts.avgProgress}%`, icon: TrendingUp, color: 'text-success', bg: 'bg-success/10' },
   ];
 
+  // Breakdown categories
+  const breakdownStats = [
+    { label: 'Emergency', value: counts.emergency, icon: Flame, color: 'text-red-600', bg: 'bg-red-500/10', show: counts.emergency > 0 },
+    { label: 'Urgent', value: counts.urgent, icon: Zap, color: 'text-orange-600', bg: 'bg-orange-500/10', show: counts.urgent > 0 },
+    { label: 'Ongoing', value: counts.ongoing, icon: Wrench, color: 'text-amber-600', bg: 'bg-amber-500/10', show: counts.ongoing > 0 },
+    { label: 'Awaiting Trade', value: counts.awaitingTrade, icon: Wrench, color: 'text-violet-600', bg: 'bg-violet-500/10', show: counts.awaitingTrade > 0 },
+    { label: 'Paused', value: counts.paused, icon: Pause, color: 'text-yellow-600', bg: 'bg-yellow-500/10', show: counts.paused > 0 },
+  ];
+
+  const unbookedStats = [
+    { label: 'Unbooked Total', value: counts.totalUnbooked, icon: BookOpen, color: 'text-slate-600', bg: 'bg-slate-500/10', show: counts.totalUnbooked > 0 },
+    { label: 'No Answer', value: counts.noAnswer, icon: PhoneOff, color: 'text-orange-500', bg: 'bg-orange-400/10', suffix: 'unbooked', show: counts.noAnswer > 0 },
+    { label: 'Voicemail', value: counts.voiceMessage, icon: Voicemail, color: 'text-purple-500', bg: 'bg-purple-400/10', suffix: 'unbooked', show: counts.voiceMessage > 0 },
+    { label: 'Call Back', value: counts.callBack, icon: PhoneCall, color: 'text-cyan-600', bg: 'bg-cyan-500/10', suffix: 'unbooked', show: counts.callBack > 0 },
+    { label: 'No Show', value: counts.noShow, icon: EyeOff, color: 'text-red-500', bg: 'bg-red-400/10', suffix: 'unbooked', show: counts.noShow > 0 },
+  ];
+
+  const visibleBreakdown = breakdownStats.filter(s => s.show);
+  const visibleUnbooked = unbookedStats.filter(s => s.show);
+
   return (
-    <div ref={ref} className="flex flex-wrap gap-2">
-      {stats.map((stat) => (
-        <div 
-          key={stat.label}
-          className="flex items-center gap-2 bg-card border border-border rounded-lg px-3 py-2"
-        >
-          <div className={cn("w-7 h-7 rounded-md flex items-center justify-center", stat.bg)}>
-            <stat.icon className={cn("w-4 h-4", stat.color)} />
-          </div>
-          <div className="flex items-baseline gap-1">
-            <span className="text-lg font-bold text-foreground">{stat.value}</span>
-            <span className="text-xs text-muted-foreground">{stat.label}</span>
-          </div>
+    <div ref={ref} className="flex flex-col gap-2 w-full">
+      {/* Primary Stats */}
+      <div className="flex flex-wrap gap-2">
+        {primaryStats.map((stat) => (
+          <TooltipProvider key={stat.label}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className={cn(
+                  "flex items-center gap-2 bg-card border border-border rounded-lg px-3 py-2",
+                  stat.label === 'Overdue' && counts.overdue > 0 && "border-destructive/50 bg-destructive/5"
+                )}>
+                  <div className={cn("w-7 h-7 rounded-md flex items-center justify-center", stat.bg)}>
+                    <stat.icon className={cn("w-4 h-4", stat.color, stat.label === 'Overdue' && counts.overdue > 0 && "animate-pulse")} />
+                  </div>
+                  <div className="flex items-baseline gap-1">
+                    <span className={cn("text-lg font-bold text-foreground", stat.label === 'Overdue' && counts.overdue > 0 && "text-destructive")}>{stat.value}</span>
+                    <span className="text-xs text-muted-foreground">{stat.label}</span>
+                  </div>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-xs">
+                  {stat.label === 'Active' && `All incomplete jobs (Active + Complete = ${counts.total})`}
+                  {stat.label === 'Complete' && `Jobs with status 'complete' or marked completed`}
+                  {stat.label === 'Overdue' && `Incomplete jobs 24h+ past their booked date`}
+                  {stat.label === 'Booked' && `Incomplete jobs with a booked date`}
+                  {stat.label === 'Assigned' && `Incomplete jobs assigned to a team`}
+                  {stat.label === 'Total' && `All jobs in this category`}
+                  {stat.label === 'Avg %' && `Average progress across all jobs`}
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ))}
+      </div>
+
+      {/* Breakdown Row - only show if there are any */}
+      {(visibleBreakdown.length > 0 || visibleUnbooked.length > 0) && (
+        <div className="flex flex-wrap gap-1.5">
+          {visibleBreakdown.map((stat) => (
+            <div 
+              key={stat.label}
+              className={cn(
+                "flex items-center gap-1.5 border rounded-md px-2 py-1 text-xs",
+                stat.bg, "border-transparent"
+              )}
+            >
+              <stat.icon className={cn("w-3.5 h-3.5", stat.color)} />
+              <span className={cn("font-semibold", stat.color)}>{stat.value}</span>
+              <span className="text-muted-foreground">{stat.label}</span>
+            </div>
+          ))}
+          {visibleUnbooked.map((stat) => (
+            <div 
+              key={stat.label}
+              className={cn(
+                "flex items-center gap-1.5 border rounded-md px-2 py-1 text-xs",
+                stat.bg, "border-transparent"
+              )}
+            >
+              <stat.icon className={cn("w-3.5 h-3.5", stat.color)} />
+              <span className={cn("font-semibold", stat.color)}>{stat.value}</span>
+              <span className="text-muted-foreground">{stat.label}</span>
+              {'suffix' in stat && stat.suffix && (
+                <span className="text-[10px] text-muted-foreground/70">({stat.suffix})</span>
+              )}
+            </div>
+          ))}
         </div>
-      ))}
+      )}
     </div>
   );
 });
