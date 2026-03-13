@@ -133,25 +133,30 @@ export const StatsCards = forwardRef<HTMLDivElement, StatsCardsProps>(({ jobs, a
     { label: 'Avg %', value: `${counts.avgProgress}%`, icon: TrendingUp, color: 'text-success', bg: 'bg-success/10' },
   ];
 
-  // Breakdown categories
+  // Breakdown categories (alerts - not mutually exclusive, cross-cutting)
   const breakdownStats = [
     { label: 'Emergency', value: counts.emergency, icon: Flame, color: 'text-red-600', bg: 'bg-red-500/10', show: counts.emergency > 0 },
     { label: 'Urgent', value: counts.urgent, icon: Zap, color: 'text-orange-600', bg: 'bg-orange-500/10', show: counts.urgent > 0 },
     { label: 'Ongoing', value: counts.ongoing, icon: Wrench, color: 'text-amber-600', bg: 'bg-amber-500/10', show: counts.ongoing > 0 },
-    { label: 'Awaiting Trade', value: counts.awaitingTrade, icon: Wrench, color: 'text-violet-600', bg: 'bg-violet-500/10', show: counts.awaitingTrade > 0 },
-    { label: 'Paused', value: counts.paused, icon: Pause, color: 'text-yellow-600', bg: 'bg-yellow-500/10', show: counts.paused > 0 },
   ];
 
-  const unbookedStats = [
-    { label: 'Unbooked Total', value: counts.totalUnbooked, icon: BookOpen, color: 'text-slate-600', bg: 'bg-slate-500/10', show: counts.totalUnbooked > 0 },
-    { label: 'No Answer', value: counts.noAnswer, icon: PhoneOff, color: 'text-orange-500', bg: 'bg-orange-400/10', suffix: 'unbooked', show: counts.noAnswer > 0 },
-    { label: 'Voicemail', value: counts.voiceMessage, icon: Voicemail, color: 'text-purple-500', bg: 'bg-purple-400/10', suffix: 'unbooked', show: counts.voiceMessage > 0 },
-    { label: 'Call Back', value: counts.callBack, icon: PhoneCall, color: 'text-cyan-600', bg: 'bg-cyan-500/10', suffix: 'unbooked', show: counts.callBack > 0 },
-    { label: 'No Show', value: counts.noShow, icon: EyeOff, color: 'text-red-500', bg: 'bg-red-400/10', suffix: 'unbooked', show: counts.noShow > 0 },
+  // Active breakdown - mutually exclusive by status (these sum to Active)
+  const activeBreakdownStats = [
+    { label: 'Pending', value: counts.activeByStatus.pending, icon: Clock, color: 'text-muted-foreground', bg: 'bg-muted/50', show: counts.activeByStatus.pending > 0 },
+    { label: 'Started', value: counts.activeByStatus.started, icon: Wrench, color: 'text-blue-600', bg: 'bg-blue-500/10', show: counts.activeByStatus.started > 0 },
+    { label: 'No Answer', value: counts.activeByStatus.noAnswer, icon: PhoneOff, color: 'text-orange-500', bg: 'bg-orange-400/10', show: counts.activeByStatus.noAnswer > 0 },
+    { label: 'Voicemail', value: counts.activeByStatus.voiceMessage, icon: Voicemail, color: 'text-purple-500', bg: 'bg-purple-400/10', show: counts.activeByStatus.voiceMessage > 0 },
+    { label: 'Call Back', value: counts.activeByStatus.callBack, icon: PhoneCall, color: 'text-cyan-600', bg: 'bg-cyan-500/10', show: counts.activeByStatus.callBack > 0 },
+    { label: 'No Show', value: counts.activeByStatus.noShow, icon: EyeOff, color: 'text-red-500', bg: 'bg-red-400/10', show: counts.activeByStatus.noShow > 0 },
+    { label: 'Awaiting Trade', value: counts.activeByStatus.awaitingTrade, icon: Wrench, color: 'text-violet-600', bg: 'bg-violet-500/10', show: counts.activeByStatus.awaitingTrade > 0 },
+    { label: 'Paused', value: counts.activeByStatus.paused, icon: Pause, color: 'text-yellow-600', bg: 'bg-yellow-500/10', show: counts.activeByStatus.paused > 0 },
+    { label: 'Left Property', value: counts.activeByStatus.leftProperty, icon: CheckCircle2, color: 'text-lime-600', bg: 'bg-lime-500/10', show: counts.activeByStatus.leftProperty > 0 },
+    { label: 'Return NPH', value: counts.activeByStatus.returnNph, icon: AlertTriangle, color: 'text-pink-600', bg: 'bg-pink-500/10', show: counts.activeByStatus.returnNph > 0 },
+    { label: 'Jan2026', value: counts.activeByStatus.jan2026, icon: CalendarCheck, color: 'text-teal-600', bg: 'bg-teal-500/10', show: counts.activeByStatus.jan2026 > 0 },
   ];
 
   const visibleBreakdown = breakdownStats.filter(s => s.show);
-  const visibleUnbooked = unbookedStats.filter(s => s.show);
+  const visibleActiveBreakdown = activeBreakdownStats.filter(s => s.show);
 
   return (
     <div ref={ref} className="flex flex-col gap-2 w-full">
@@ -190,8 +195,38 @@ export const StatsCards = forwardRef<HTMLDivElement, StatsCardsProps>(({ jobs, a
         ))}
       </div>
 
-      {/* Breakdown Row - only show if there are any */}
-      {(visibleBreakdown.length > 0 || visibleUnbooked.length > 0) && (
+      {/* Active Breakdown by Status */}
+      {counts.active > 0 && visibleActiveBreakdown.length > 0 && (
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Active Breakdown</span>
+            <span className={cn(
+              "text-[10px]",
+              counts.activeStatusSum === counts.active ? "text-success/70" : "text-destructive/70"
+            )}>
+              ({counts.activeStatusSum}/{counts.active}{counts.activeStatusSum === counts.active ? ' ✓' : ' ⚠️'})
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {visibleActiveBreakdown.map((stat) => (
+              <div 
+                key={stat.label}
+                className={cn(
+                  "flex items-center gap-1.5 border rounded-md px-2 py-1 text-xs",
+                  stat.bg, "border-transparent"
+                )}
+              >
+                <stat.icon className={cn("w-3.5 h-3.5", stat.color)} />
+                <span className={cn("font-semibold", stat.color)}>{stat.value}</span>
+                <span className="text-muted-foreground">{stat.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Priority & Ongoing alerts */}
+      {visibleBreakdown.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {visibleBreakdown.map((stat) => (
             <div 
@@ -204,22 +239,6 @@ export const StatsCards = forwardRef<HTMLDivElement, StatsCardsProps>(({ jobs, a
               <stat.icon className={cn("w-3.5 h-3.5", stat.color)} />
               <span className={cn("font-semibold", stat.color)}>{stat.value}</span>
               <span className="text-muted-foreground">{stat.label}</span>
-            </div>
-          ))}
-          {visibleUnbooked.map((stat) => (
-            <div 
-              key={stat.label}
-              className={cn(
-                "flex items-center gap-1.5 border rounded-md px-2 py-1 text-xs",
-                stat.bg, "border-transparent"
-              )}
-            >
-              <stat.icon className={cn("w-3.5 h-3.5", stat.color)} />
-              <span className={cn("font-semibold", stat.color)}>{stat.value}</span>
-              <span className="text-muted-foreground">{stat.label}</span>
-              {'suffix' in stat && stat.suffix && (
-                <span className="text-[10px] text-muted-foreground/70">({stat.suffix})</span>
-              )}
             </div>
           ))}
         </div>
