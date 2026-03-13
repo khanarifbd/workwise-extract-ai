@@ -1249,14 +1249,14 @@ const Index = () => {
           onDeleteCategory={canEdit ? deleteCategory : undefined}
         />
 
-        {/* Compact Stats Row */}
+        {/* Compact Stats Row — always uses full jobs array for accurate totals */}
         <div className="flex items-center justify-between gap-4 bg-section-stats rounded-lg p-3">
           {isInsulationCategory ? (
-            <InsulationStatsCards jobs={displayedJobs} />
+            <InsulationStatsCards jobs={jobs} />
           ) : isFanCategory ? (
-            <FanStatsCards jobs={displayedJobs} />
+            <FanStatsCards jobs={jobs} />
           ) : (
-            <StatsCards jobs={displayedJobs} allJobs={jobs} />
+            <StatsCards jobs={jobs} allJobs={jobs} />
           )}
         </div>
 
