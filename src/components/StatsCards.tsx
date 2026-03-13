@@ -93,6 +93,22 @@ export const StatsCards = forwardRef<HTMLDivElement, StatsCardsProps>(({ jobs, a
     const ongoing = incompleteJobs.filter(j => j.isOngoing).length;
     const paused = incompleteJobs.filter(j => j.status === 'pause').length;
 
+    // Active breakdown by status (mutually exclusive - every active job has exactly one status)
+    const activeByStatus = {
+      pending: incompleteJobs.filter(j => j.status === 'pending' || !j.status).length,
+      started: incompleteJobs.filter(j => j.status === 'started').length,
+      noAnswer: incompleteJobs.filter(j => j.status === 'no_answer').length,
+      voiceMessage: incompleteJobs.filter(j => j.status === 'voice_message').length,
+      callBack: incompleteJobs.filter(j => j.status === 'call_back').length,
+      noShow: incompleteJobs.filter(j => j.status === 'no_show').length,
+      awaitingTrade: incompleteJobs.filter(j => j.status === 'awaiting_trade').length,
+      paused: incompleteJobs.filter(j => j.status === 'pause').length,
+      leftProperty: incompleteJobs.filter(j => j.status === 'left_property').length,
+      returnNph: incompleteJobs.filter(j => j.status === 'return_nph').length,
+      jan2026: incompleteJobs.filter(j => j.status === 'jan2026').length,
+    };
+    const activeStatusSum = Object.values(activeByStatus).reduce((a, b) => a + b, 0);
+
     const avgProgress = jobs.length > 0 
       ? Math.round(jobs.reduce((sum, j) => sum + (j.progress || 0), 0) / jobs.length)
       : 0;
@@ -101,7 +117,8 @@ export const StatsCards = forwardRef<HTMLDivElement, StatsCardsProps>(({ jobs, a
       total, complete, active, assigned, overdue,
       emergency, urgent,
       noAnswer, voiceMessage, callBack, noShow, totalUnbooked,
-      booked, awaitingTrade, ongoing, paused, avgProgress
+      booked, awaitingTrade, ongoing, paused, avgProgress,
+      activeByStatus, activeStatusSum
     };
   }, [jobs, allJobs, now]);
 
