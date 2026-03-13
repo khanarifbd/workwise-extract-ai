@@ -17,14 +17,22 @@ interface StatsCardsProps {
 
 export const StatsCards = forwardRef<HTMLDivElement, StatsCardsProps>(({ jobs, allJobs }, ref) => {
   const totalJobs = jobs.length;
-  // Consistent completed logic: status === 'complete' is the source of truth (sets isCompleted=true automatically)
+  // UNIFIED COMPLETED DEFINITION: status === 'complete' OR isCompleted === true
   const completedJobs = jobs.filter(j => j.status === 'complete' || j.isCompleted).length;
-  const inProgressJobs = jobs.filter(j => !j.isCompleted && j.progress < 100 && j.status !== 'complete').length;
+  // Active = not completed, has some progress, not refer-back
+  const inProgressJobs = jobs.filter(j => {
+    if (j.status === 'complete' || j.isCompleted) return false;
+    if (j.progress === 0 && j.status !== 'started' && j.status !== 'in_progress' && j.status !== 'awaiting_trade') return false;
+    return true;
+  }).length;
   const assignedJobs = jobs.filter(j => j.team !== null && j.team !== undefined && j.team !== '').length;
   const avgProgress = jobs.length > 0 
     ? Math.round(jobs.reduce((sum, j) => sum + (j.progress || 0), 0) / jobs.length)
     : 0;
-  const bookedCount = (allJobs || jobs).filter(j => !!j.bookedDate).length;
+  const bookedCount = (allJobs || jobs).filter(j => {
+    if (j.status === 'complete' || j.isCompleted) return false;
+    return !!j.bookedDate;
+  }).length;
 
   const stats = [
     { label: 'Total', value: totalJobs, icon: Briefcase, color: 'text-primary', bg: 'bg-primary/10' },
