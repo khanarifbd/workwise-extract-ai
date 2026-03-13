@@ -1003,6 +1003,17 @@ const Index = () => {
     return jobs.filter(j => j.referBack && !(j.status === 'complete' || j.isCompleted)).length;
   }, [jobs]);
 
+  // Count "all" tab jobs (excluding booked, completed, refer back) for accurate denominator
+  const allTabJobsCount = useMemo(() => {
+    return jobs.filter(j => {
+      const isJobCompleted = j.status === 'complete' || j.isCompleted;
+      if (isJobCompleted) return false;
+      if (j.bookedDate || tradeBookings.has(j.id)) return false;
+      if (j.referBack) return false;
+      return true;
+    }).length;
+  }, [jobs, tradeBookings]);
+
   // Build sign-off statuses map for overdue calculation
   const signOffStatusesMap = useMemo(() => {
     const map: Record<string, { allSignedOff: boolean }> = {};
