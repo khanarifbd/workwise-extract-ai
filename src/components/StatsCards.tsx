@@ -19,12 +19,10 @@ export const StatsCards = forwardRef<HTMLDivElement, StatsCardsProps>(({ jobs, a
   const totalJobs = jobs.length;
   // UNIFIED COMPLETED DEFINITION: status === 'complete' OR isCompleted === true
   const completedJobs = jobs.filter(j => j.status === 'complete' || j.isCompleted).length;
-  // Active = not completed and has some progress or a non-default status
+  // Active = ALL incomplete/open jobs (not completed)
   const inProgressJobs = jobs.filter(j => {
     if (j.status === 'complete' || j.isCompleted) return false;
-    if (j.progress > 0) return true;
-    if (j.status && j.status !== 'pending') return true;
-    return false;
+    return true;
   }).length;
   const assignedJobs = jobs.filter(j => j.team !== null && j.team !== undefined && j.team !== '').length;
   const avgProgress = jobs.length > 0 
