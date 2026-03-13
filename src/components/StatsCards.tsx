@@ -1,4 +1,4 @@
-import { forwardRef, useMemo } from 'react';
+import { forwardRef, useMemo, useState } from 'react';
 import { Job } from '@/types/job';
 import { MonthlyJobBreakdown } from './MonthlyJobBreakdown';
 import { 
@@ -17,7 +17,9 @@ import {
   Pause,
   Flame,
   Zap,
-  BookOpen
+  BookOpen,
+  ChevronDown,
+  ChevronRight
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getGMTNow, getHoursDifferenceGMT } from '@/lib/dateUtils';
@@ -27,6 +29,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 interface StatsCardsProps {
   jobs: Job[];
@@ -54,6 +57,8 @@ function isCompleted(j: Job): boolean {
 
 export const StatsCards = forwardRef<HTMLDivElement, StatsCardsProps>(({ jobs, allJobs }, ref) => {
   const now = useMemo(() => getGMTNow(), []);
+  const [activeOpen, setActiveOpen] = useState(false);
+  const [monthlyOpen, setMonthlyOpen] = useState(false);
 
   const counts = useMemo(() => {
     const total = jobs.length;
@@ -196,10 +201,11 @@ export const StatsCards = forwardRef<HTMLDivElement, StatsCardsProps>(({ jobs, a
         ))}
       </div>
 
-      {/* Active Breakdown by Status */}
+      {/* Active Breakdown by Status - Collapsible */}
       {counts.active > 0 && visibleActiveBreakdown.length > 0 && (
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2">
+        <Collapsible open={activeOpen} onOpenChange={setActiveOpen}>
+          <CollapsibleTrigger className="w-full flex items-center gap-2 py-1 hover:bg-muted/30 rounded-md px-1 transition-colors">
+            {activeOpen ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />}
             <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Active Breakdown</span>
             <span className={cn(
               "text-[10px]",
@@ -207,23 +213,25 @@ export const StatsCards = forwardRef<HTMLDivElement, StatsCardsProps>(({ jobs, a
             )}>
               ({counts.activeStatusSum}/{counts.active}{counts.activeStatusSum === counts.active ? ' ✓' : ' ⚠️'})
             </span>
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {visibleActiveBreakdown.map((stat) => (
-              <div 
-                key={stat.label}
-                className={cn(
-                  "flex items-center gap-1.5 border rounded-md px-2 py-1 text-xs",
-                  stat.bg, "border-transparent"
-                )}
-              >
-                <stat.icon className={cn("w-3.5 h-3.5", stat.color)} />
-                <span className={cn("font-semibold", stat.color)}>{stat.value}</span>
-                <span className="text-muted-foreground">{stat.label}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {visibleActiveBreakdown.map((stat) => (
+                <div 
+                  key={stat.label}
+                  className={cn(
+                    "flex items-center gap-1.5 border rounded-md px-2 py-1 text-xs",
+                    stat.bg, "border-transparent"
+                  )}
+                >
+                  <stat.icon className={cn("w-3.5 h-3.5", stat.color)} />
+                  <span className={cn("font-semibold", stat.color)}>{stat.value}</span>
+                  <span className="text-muted-foreground">{stat.label}</span>
+                </div>
+              ))}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
       )}
 
       {/* Priority & Ongoing alerts */}
@@ -245,8 +253,16 @@ export const StatsCards = forwardRef<HTMLDivElement, StatsCardsProps>(({ jobs, a
         </div>
       )}
 
-      {/* Monthly Breakdown */}
-      <MonthlyJobBreakdown jobs={jobs} />
+      {/* Monthly Breakdown - Collapsible */}
+      <Collapsible open={monthlyOpen} onOpenChange={setMonthlyOpen}>
+        <CollapsibleTrigger className="w-full flex items-center gap-2 py-1 hover:bg-muted/30 rounded-md px-1 transition-colors">
+          {monthlyOpen ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />}
+          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Monthly Breakdown</span>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <MonthlyJobBreakdown jobs={jobs} />
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   );
 });
