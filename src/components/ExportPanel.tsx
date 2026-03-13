@@ -170,7 +170,7 @@ export const ExportPanel = ({ jobs, onClose, isFanCategory = false }: ExportPane
     }
 
     const filename = isFanCategory ? 'fan-jobs' : 'allsaints-jobs';
-    doc.save(`${filename}-${selectedMonth === 'all' ? 'all' : months[parseInt(selectedMonth)]}-${currentYear}.pdf`);
+    downloadPDF(doc, `${filename}-${selectedMonth === 'all' ? 'all' : months[parseInt(selectedMonth)]}-${currentYear}.pdf`);
   };
 
   // Helper functions for Excel (same as PDF)

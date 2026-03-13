@@ -104,7 +104,7 @@ export function ReferBackPDFButton({ jobs, categoryName = 'Jobs' }: ReferBackPDF
       selected.forEach(job => {
         const history = contactHistoryMap[job.id] || [];
         const doc = generateReferBackJobPDF(job, history);
-        doc.save(`refer-back-${job.jobNumber}-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+        downloadPDF(doc, `refer-back-${job.jobNumber}-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
       });
 
       toast({

@@ -238,7 +238,7 @@ export function SubTaskJobSheetPDF({ subTask, job }: SubTaskJobSheetPDFProps) {
     }
 
     const filename = `job-sheet-${job.jobNumber}-${subTask.trade.replace(/\s+/g, '-').toLowerCase()}-${format(new Date(), 'yyyy-MM-dd')}.pdf`;
-    doc.save(filename);
+    downloadPDF(doc, filename);
 
     toast({
       title: 'Job Sheet Downloaded',

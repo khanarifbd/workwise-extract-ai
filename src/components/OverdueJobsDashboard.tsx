@@ -210,7 +210,7 @@ export const OverdueJobsDashboard = ({
       ? `overdue-jobs-all-teams-${format(getGMTNow(), 'yyyy-MM-dd')}.pdf`
       : `overdue-jobs-${selectedTeam.toLowerCase().replace(/\s+/g, '-')}-${format(getGMTNow(), 'yyyy-MM-dd')}.pdf`;
     
-    doc.save(filename);
+    downloadPDF(doc, filename);
   };
 
   return (

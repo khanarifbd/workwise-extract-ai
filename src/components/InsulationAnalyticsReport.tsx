@@ -408,7 +408,7 @@ export const InsulationAnalyticsReport = ({ jobs, isOpen: externalIsOpen, onClos
       }
 
       // Save the PDF
-      doc.save(`NPH-Insulation-Analytics-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+      downloadPDF(doc, `NPH-Insulation-Analytics-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
     } catch (error) {
       console.error('Error generating PDF:', error);
     } finally {

@@ -161,21 +161,12 @@ export const CompletedJobsPDFButton = ({ jobs, categoryName = 'Damp & Mold' }: C
       }
     });
 
-    // Manual blob download to bypass sandboxed environment restrictions
     const timestamp = format(new Date(), 'yyyy-MM-dd');
     const dateRangeStr = startDate && endDate 
       ? `_${format(startDate, 'yyyyMMdd')}-${format(endDate, 'yyyyMMdd')}` 
       : '';
     const filename = `completed-jobs-report${dateRangeStr}-${timestamp}.pdf`;
-    const blob = doc.output('blob');
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    downloadPDF(doc, filename);
     
     setIsOpen(false);
   };
