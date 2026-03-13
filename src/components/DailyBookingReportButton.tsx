@@ -73,6 +73,7 @@ export const DailyBookingReportButton = ({
   };
 
   const generateReport = () => {
+    try {
     const dateJobs = getJobsForDate();
     
     if (dateJobs.length === 0) {
@@ -241,14 +242,30 @@ export const DailyBookingReportButton = ({
       );
     }
 
-    // Save the PDF
+    // Save the PDF using blob URL for reliable downloads
     const fileName = `Allsaints_Daily_Report_${format(date, 'yyyy-MM-dd')}.pdf`;
-    doc.save(fileName);
+    const blob = doc.output('blob');
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
 
     toast({
       title: "Report Generated",
       description: `Downloaded ${fileName} with ${dateJobs.length} job${dateJobs.length !== 1 ? 's' : ''}.`,
     });
+    } catch (error) {
+      console.error('Error generating daily report:', error);
+      toast({
+        title: "Report Error",
+        description: "Failed to generate the report. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
