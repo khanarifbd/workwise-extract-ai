@@ -1,5 +1,6 @@
 import { forwardRef, useMemo } from 'react';
 import { Job } from '@/types/job';
+import { MonthlyJobBreakdown } from './MonthlyJobBreakdown';
 import { 
   Briefcase, 
   CheckCircle2, 
