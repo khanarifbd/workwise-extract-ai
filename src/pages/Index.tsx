@@ -998,9 +998,9 @@ const Index = () => {
     return jobs.filter(j => j.status === 'complete' || j.isCompleted).length;
   }, [jobs]);
 
-  // Count refer back jobs for badge
+  // Count refer back jobs for badge — exclude completed jobs (they belong in completed folder)
   const referBackJobsCount = useMemo(() => {
-    return jobs.filter(j => j.referBack).length;
+    return jobs.filter(j => j.referBack && !(j.status === 'complete' || j.isCompleted)).length;
   }, [jobs]);
 
   // Build sign-off statuses map for overdue calculation
