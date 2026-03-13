@@ -1,5 +1,6 @@
 import { forwardRef, useMemo } from 'react';
 import { Job } from '@/types/job';
+import { MonthlyJobBreakdown } from './MonthlyJobBreakdown';
 import { 
   Briefcase, 
   CheckCircle2, 
@@ -243,6 +244,9 @@ export const StatsCards = forwardRef<HTMLDivElement, StatsCardsProps>(({ jobs, a
           ))}
         </div>
       )}
+
+      {/* Monthly Breakdown */}
+      <MonthlyJobBreakdown jobs={jobs} />
     </div>
   );
 });
