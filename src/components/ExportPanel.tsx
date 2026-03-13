@@ -18,6 +18,7 @@ import {
 import { format } from 'date-fns';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { downloadPDF } from '@/lib/pdfDownload';
 import ExcelJS from 'exceljs';
 
 interface ExportPanelProps {
