@@ -17,13 +17,20 @@ import { ProgressorRoute } from "./components/ProgressorRoute";
 // Lazy load heavy pages with retry on chunk load failure
 const lazyRetry = (importFn: () => Promise<any>) => {
   return new Promise<any>((resolve, reject) => {
+    const hasRefreshed = sessionStorage.getItem('chunk_retry');
     importFn()
-      .then(resolve)
-      .catch(() => {
-        // Retry once after a brief delay (handles stale chunk errors)
-        setTimeout(() => {
-          importFn().then(resolve).catch(reject);
-        }, 1500);
+      .then((module) => {
+        sessionStorage.removeItem('chunk_retry');
+        resolve(module);
+      })
+      .catch((err) => {
+        if (!hasRefreshed) {
+          sessionStorage.setItem('chunk_retry', '1');
+          window.location.reload();
+        } else {
+          sessionStorage.removeItem('chunk_retry');
+          reject(err);
+        }
       });
   });
 };
