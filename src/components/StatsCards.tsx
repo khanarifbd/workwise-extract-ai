@@ -1,4 +1,4 @@
-import { forwardRef, useMemo } from 'react';
+import { forwardRef, useMemo, useState } from 'react';
 import { Job } from '@/types/job';
 import { MonthlyJobBreakdown } from './MonthlyJobBreakdown';
 import { 
@@ -17,7 +17,9 @@ import {
   Pause,
   Flame,
   Zap,
-  BookOpen
+  BookOpen,
+  ChevronDown,
+  ChevronRight
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getGMTNow, getHoursDifferenceGMT } from '@/lib/dateUtils';
@@ -27,6 +29,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 interface StatsCardsProps {
   jobs: Job[];
