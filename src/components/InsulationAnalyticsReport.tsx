@@ -5,6 +5,7 @@ import { BarChart3, FileDown, X, Building2, Home, Gauge, Calendar, CheckCircle2,
 import { format, differenceInWeeks, startOfWeek, endOfWeek, eachWeekOfInterval, isWithinInterval } from 'date-fns';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { downloadPDF } from '@/lib/pdfDownload';
 
 interface InsulationAnalyticsReportProps {
   jobs: Job[];
