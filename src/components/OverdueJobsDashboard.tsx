@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { getGMTNow, getHoursDifferenceGMT } from '@/lib/dateUtils';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { downloadPDF } from '@/lib/pdfDownload';
 
 interface OverdueJobsDashboardProps {
   jobs: Job[];
