@@ -4,6 +4,7 @@ import { FileCheck, Calendar } from 'lucide-react';
 import { Job } from '@/types/job';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { downloadPDF } from '@/lib/pdfDownload';
 import { format, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
