@@ -998,10 +998,21 @@ const Index = () => {
     return jobs.filter(j => j.status === 'complete' || j.isCompleted).length;
   }, [jobs]);
 
-  // Count refer back jobs for badge
+  // Count refer back jobs for badge — exclude completed jobs (they belong in completed folder)
   const referBackJobsCount = useMemo(() => {
-    return jobs.filter(j => j.referBack).length;
+    return jobs.filter(j => j.referBack && !(j.status === 'complete' || j.isCompleted)).length;
   }, [jobs]);
+
+  // Count "all" tab jobs (excluding booked, completed, refer back) for accurate denominator
+  const allTabJobsCount = useMemo(() => {
+    return jobs.filter(j => {
+      const isJobCompleted = j.status === 'complete' || j.isCompleted;
+      if (isJobCompleted) return false;
+      if (j.bookedDate || tradeBookings.has(j.id)) return false;
+      if (j.referBack) return false;
+      return true;
+    }).length;
+  }, [jobs, tradeBookings]);
 
   // Build sign-off statuses map for overdue calculation
   const signOffStatusesMap = useMemo(() => {
@@ -1249,14 +1260,14 @@ const Index = () => {
           onDeleteCategory={canEdit ? deleteCategory : undefined}
         />
 
-        {/* Compact Stats Row */}
+        {/* Compact Stats Row — always uses full jobs array for accurate totals */}
         <div className="flex items-center justify-between gap-4 bg-section-stats rounded-lg p-3">
           {isInsulationCategory ? (
-            <InsulationStatsCards jobs={displayedJobs} />
+            <InsulationStatsCards jobs={jobs} />
           ) : isFanCategory ? (
-            <FanStatsCards jobs={displayedJobs} />
+            <FanStatsCards jobs={jobs} />
           ) : (
-            <StatsCards jobs={displayedJobs} allJobs={jobs} />
+            <StatsCards jobs={jobs} allJobs={jobs} />
           )}
         </div>
 
@@ -1458,7 +1469,7 @@ const Index = () => {
                         : 'Jobs Database'}
               </h2>
               <p className="text-xs text-muted-foreground">
-                {displayedJobs.length} of {activeDatabaseTab === 'booked' ? bookedJobsCount : activeDatabaseTab === 'completed' ? completedJobsCount : activeDatabaseTab === 'refer_back' ? referBackJobsCount : jobs.length} jobs
+                {displayedJobs.length} of {activeDatabaseTab === 'booked' ? bookedJobsCount : activeDatabaseTab === 'completed' ? completedJobsCount : activeDatabaseTab === 'refer_back' ? referBackJobsCount : allTabJobsCount} jobs
                 {activeMonthFolder && (
                   <span className="ml-1">
                     • Showing {format(new Date(activeMonthFolder + '-01'), 'MMMM yyyy')}
@@ -1583,7 +1594,7 @@ const Index = () => {
             {/* Booked Date Sidebar - only show in booked tab */}
             {activeDatabaseTab === 'booked' && (
               <BookedDateSidebar
-                jobs={jobs.filter(j => (!!j.bookedDate || tradeBookings.has(j.id)) && !j.isCompleted && j.progress !== 100)}
+                jobs={jobs.filter(j => (!!j.bookedDate || tradeBookings.has(j.id)) && !(j.status === 'complete' || j.isCompleted))}
                 selectedDate={selectedBookedDate}
                 onDateSelect={setSelectedBookedDate}
                 isFanCategory={isFanCategory}
