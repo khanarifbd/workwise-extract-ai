@@ -1,4 +1,5 @@
-import { useState, useMemo, useEffect, forwardRef } from 'react';
+import { useState, useMemo, useEffect, forwardRef, useCallback } from 'react';
+import { BulkTeamAssignModal } from './BulkTeamAssignModal';
 import { Job, JobStatus, FanInfo, Team } from '@/types/job';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
