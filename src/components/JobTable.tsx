@@ -70,7 +70,7 @@ interface JobTableProps {
   onUpdateJob?: (job: Job) => void;
   onDeleteJob?: (jobId: string) => void;
   onToggleComplete?: (job: Job) => void;
-  onBatchUpdateTeam?: (jobIds: string[], teamName: string | null) => void;
+  onBatchUpdateTeam?: (jobIds: string[], team1: string | null, team2: string | null, replaceExisting: boolean) => void;
   onTransferJob?: (jobId: string, targetCategoryId: string) => void;
   onDuplicateToCategory?: (jobId: string, targetCategoryId: string, teamId: string) => void;
   onReferBack?: (job: Job, reason?: string) => void;
