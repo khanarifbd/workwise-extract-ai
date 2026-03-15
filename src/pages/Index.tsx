@@ -535,7 +535,7 @@ const Index = () => {
   const handleBatchUpdateTeam = async (jobIds: string[], team1: string | null, team2: string | null, replaceExisting: boolean) => {
     try {
       for (const jobId of jobIds) {
-        const existingJob = allJobs.find(j => j.id === jobId);
+        const existingJob = jobs.find(j => j.id === jobId);
         if (!replaceExisting && existingJob?.team && team1) {
           // Don't replace — only fill empty slots
           if (!existingJob.team2 && team1) {
