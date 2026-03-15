@@ -1,4 +1,5 @@
-import { useState, useMemo, useEffect, forwardRef } from 'react';
+import { useState, useMemo, useEffect, forwardRef, useCallback } from 'react';
+import { BulkTeamAssignModal } from './BulkTeamAssignModal';
 import { Job, JobStatus, FanInfo, Team } from '@/types/job';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -69,7 +70,7 @@ interface JobTableProps {
   onUpdateJob?: (job: Job) => void;
   onDeleteJob?: (jobId: string) => void;
   onToggleComplete?: (job: Job) => void;
-  onBatchUpdateTeam?: (jobIds: string[], teamName: string | null) => void;
+  onBatchUpdateTeam?: (jobIds: string[], team1: string | null, team2: string | null, replaceExisting: boolean) => void;
   onTransferJob?: (jobId: string, targetCategoryId: string) => void;
   onDuplicateToCategory?: (jobId: string, targetCategoryId: string, teamId: string) => void;
   onReferBack?: (job: Job, reason?: string) => void;
@@ -213,14 +214,13 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
     setShowTeamSelector(null);
   };
 
-  const handleBatchTeamSelect = (teamId: string | null) => {
-    if (onBatchUpdateTeam && selectedJobs.size > 0) {
-      const team = teamId ? teams.find(t => t.id === teamId) : null;
-      onBatchUpdateTeam(Array.from(selectedJobs), team?.name || null);
+  const handleBulkAssign = useCallback((jobIds: string[], team1: string | null, team2: string | null, replaceExisting: boolean) => {
+    if (onBatchUpdateTeam) {
+      onBatchUpdateTeam(jobIds, team1, team2, replaceExisting);
       setSelectedJobs(new Set());
     }
     setShowBatchTeamSelector(false);
-  };
+  }, [onBatchUpdateTeam]);
 
   const handleStatusProgressUpdate = (jobId: string, updates: { status?: JobStatus; progress?: number; progressNotes?: string; isCompleted?: boolean }) => {
     const job = jobs.find(j => j.id === jobId);
@@ -582,36 +582,17 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
             <Button
               variant="default"
               size="sm"
-              onClick={() => setShowBatchTeamSelector(!showBatchTeamSelector)}
+              onClick={() => setShowBatchTeamSelector(true)}
             >
               <Users className="w-3.5 h-3.5 mr-1" />
               Assign Team
             </Button>
             {showBatchTeamSelector && (
-              <div className="absolute top-full right-0 mt-2 z-50 bg-card border border-border rounded-lg shadow-xl p-2 min-w-[180px]">
-                <div className="text-xs font-medium text-muted-foreground px-2 py-1 mb-1">Select Team</div>
-                <ScrollArea className="max-h-64">
-                  <div className="space-y-0.5 pr-2">
-                    <button
-                      className="w-full text-left px-2 py-1.5 rounded hover:bg-muted text-sm flex items-center gap-2"
-                      onClick={() => handleBatchTeamSelect(null)}
-                    >
-                      <div className="w-3 h-3 rounded-full bg-muted-foreground/30" />
-                      Unassign
-                    </button>
-                    {teams.map(team => (
-                      <button
-                        key={team.id}
-                        className="w-full text-left px-2 py-1.5 rounded hover:bg-muted text-sm flex items-center gap-2"
-                        onClick={() => handleBatchTeamSelect(team.id)}
-                      >
-                        <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: team.color }} />
-                        <span className="truncate">{team.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                </ScrollArea>
-              </div>
+              <BulkTeamAssignModal
+                selectedJobs={jobs.filter(j => selectedJobs.has(j.id))}
+                onAssign={handleBulkAssign}
+                onClose={() => setShowBatchTeamSelector(false)}
+              />
             )}
           </div>
         </div>
