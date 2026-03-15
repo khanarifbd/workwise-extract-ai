@@ -582,36 +582,17 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
             <Button
               variant="default"
               size="sm"
-              onClick={() => setShowBatchTeamSelector(!showBatchTeamSelector)}
+              onClick={() => setShowBatchTeamSelector(true)}
             >
               <Users className="w-3.5 h-3.5 mr-1" />
               Assign Team
             </Button>
             {showBatchTeamSelector && (
-              <div className="absolute top-full right-0 mt-2 z-50 bg-card border border-border rounded-lg shadow-xl p-2 min-w-[180px]">
-                <div className="text-xs font-medium text-muted-foreground px-2 py-1 mb-1">Select Team</div>
-                <ScrollArea className="max-h-64">
-                  <div className="space-y-0.5 pr-2">
-                    <button
-                      className="w-full text-left px-2 py-1.5 rounded hover:bg-muted text-sm flex items-center gap-2"
-                      onClick={() => handleBatchTeamSelect(null)}
-                    >
-                      <div className="w-3 h-3 rounded-full bg-muted-foreground/30" />
-                      Unassign
-                    </button>
-                    {teams.map(team => (
-                      <button
-                        key={team.id}
-                        className="w-full text-left px-2 py-1.5 rounded hover:bg-muted text-sm flex items-center gap-2"
-                        onClick={() => handleBatchTeamSelect(team.id)}
-                      >
-                        <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: team.color }} />
-                        <span className="truncate">{team.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                </ScrollArea>
-              </div>
+              <BulkTeamAssignModal
+                selectedJobs={jobs.filter(j => selectedJobs.has(j.id))}
+                onAssign={handleBulkAssign}
+                onClose={() => setShowBatchTeamSelector(false)}
+              />
             )}
           </div>
         </div>
