@@ -532,14 +532,24 @@ const Index = () => {
     }
   };
 
-  const handleBatchUpdateTeam = async (jobIds: string[], teamName: string | null) => {
+  const handleBatchUpdateTeam = async (jobIds: string[], team1: string | null, team2: string | null, replaceExisting: boolean) => {
     try {
       for (const jobId of jobIds) {
-        await editJob(jobId, { team: teamName });
+        const existingJob = allJobs.find(j => j.id === jobId);
+        if (!replaceExisting && existingJob?.team && team1) {
+          // Don't replace — only fill empty slots
+          if (!existingJob.team2 && team1) {
+            await editJob(jobId, { team2: team1 });
+          }
+        } else {
+          // Replace or fresh assign
+          await editJob(jobId, { team: team1, team2: team2 });
+        }
       }
+      const teamNames = [team1, team2].filter(Boolean).join(' + ');
       toast({
         title: "Jobs Updated",
-        description: `${jobIds.length} jobs assigned to ${teamName || 'Unassigned'}.`,
+        description: `${jobIds.length} jobs assigned to ${teamNames || 'Unassigned'}.`,
       });
     } catch (error) {
       toast({
