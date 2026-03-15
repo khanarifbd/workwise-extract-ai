@@ -214,14 +214,13 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
     setShowTeamSelector(null);
   };
 
-  const handleBatchTeamSelect = (teamId: string | null) => {
-    if (onBatchUpdateTeam && selectedJobs.size > 0) {
-      const team = teamId ? teams.find(t => t.id === teamId) : null;
-      onBatchUpdateTeam(Array.from(selectedJobs), team?.name || null);
+  const handleBulkAssign = useCallback((jobIds: string[], team1: string | null, team2: string | null, replaceExisting: boolean) => {
+    if (onBatchUpdateTeam) {
+      onBatchUpdateTeam(jobIds, team1, team2, replaceExisting);
       setSelectedJobs(new Set());
     }
     setShowBatchTeamSelector(false);
-  };
+  }, [onBatchUpdateTeam]);
 
   const handleStatusProgressUpdate = (jobId: string, updates: { status?: JobStatus; progress?: number; progressNotes?: string; isCompleted?: boolean }) => {
     const job = jobs.find(j => j.id === jobId);
