@@ -225,7 +225,7 @@ export function ProgressorJobExpandedContent({
     <div className="border-t">
       <div className="px-4 py-3 bg-muted/20 space-y-3">
         {/* Key info row */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-xs">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-3 text-xs">
           <div>
             <span className="text-muted-foreground flex items-center gap-1"><User className="h-3 w-3" /> Tenant</span>
             <p className="font-medium">{job.name}</p>
