@@ -3,11 +3,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { Job, JOB_STATUS_OPTIONS } from '@/types/job';
 import { SubTask, SUB_TASK_STATUS_OPTIONS } from '@/types/subTask';
 import { useAuditLog } from '@/hooks/useAuditLog';
+import { useCategories } from '@/hooks/useCategories';
 import { ProgressorDescriptionEditor } from '@/components/progressor/ProgressorDescriptionEditor';
 import { ProgressorTodoList } from '@/components/progressor/ProgressorTodoList';
 import { ProgressorMediaUpload } from '@/components/progressor/ProgressorMediaUpload';
 import { SubTaskJobSheetPDF } from '@/components/progressor/SubTaskJobSheetPDF';
 import { ContactTimelineModal } from '@/components/ContactTimelineModal';
+import { FanEditor } from '@/components/FanEditor';
+import { TeamSelector } from '@/components/TeamSelector';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -17,7 +20,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   AlertTriangle, Phone, MapPin, User, Flag, Plus, MessageSquare,
-  Wrench, Users, Trash2, CalendarCheck, CheckCircle, CalendarClock, CornerDownRight, X,
+  Wrench, Users, Trash2, CalendarCheck, CheckCircle, CalendarClock, CornerDownRight, X, Fan,
 } from 'lucide-react';
 import { format, differenceInHours, isPast } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
