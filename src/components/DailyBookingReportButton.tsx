@@ -249,7 +249,7 @@ export const DailyBookingReportButton = ({
 
     toast({
       title: "Report Generated",
-      description: `Downloaded ${fileName} with ${dateJobs.length} job${dateJobs.length !== 1 ? 's' : ''}.`,
+      description: `${dateJobs.length} job${dateJobs.length !== 1 ? 's' : ''} — PDF opened in new tab.`,
     });
     } catch (error) {
       console.error('Error generating daily report:', error);

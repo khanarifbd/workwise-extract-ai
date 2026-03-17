@@ -2,7 +2,12 @@ import jsPDF from 'jspdf';
 
 /**
  * Reliable PDF download that works in sandboxed/iframe environments
- * where doc.save() can silently fail.
+ * where doc.save() and link.click() can silently fail.
+ *
+ * Strategy:
+ *  1. Open blob in a new browser tab (most reliable in sandboxed/iframe contexts)
+ *  2. Fallback: hidden anchor link.click()
+ *  3. Last resort: window.location.assign
  */
 export function downloadPDF(doc: jsPDF, filename: string) {
   const blob = doc.output('blob');
@@ -11,39 +16,34 @@ export function downloadPDF(doc: jsPDF, filename: string) {
   }
 
   const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
 
+  // Strategy 1: Open blob in a new tab — user sees the PDF and can save/download
+  // This is the most reliable approach in sandboxed iframes where download attr is blocked
+  const opened = window.open(url, '_blank');
+  if (opened) {
+    setTimeout(() => URL.revokeObjectURL(url), 120000);
+    return;
+  }
+
+  // Strategy 2: Hidden anchor click (works on non-sandboxed desktop browsers)
+  const link = document.createElement('a');
   link.href = url;
   link.download = filename;
+  link.target = '_blank';
   link.rel = 'noopener noreferrer';
   link.style.position = 'fixed';
   link.style.left = '-9999px';
-  link.style.top = '0';
-
-  const isIOSLike =
-    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-
   document.body.appendChild(link);
 
   try {
-    // Primary path: direct download to Downloads on desktop/Android browsers.
     link.click();
-
-    // Fallback for iOS/WebKit where `download` is commonly ignored.
-    if (isIOSLike) {
-      const opened = window.open(url, '_blank', 'noopener,noreferrer');
-      if (!opened) {
-        window.location.assign(url);
-      }
-    }
+  } catch {
+    // Strategy 3: Navigate to the blob URL directly
+    window.location.assign(url);
   } finally {
-    // Keep the URL alive briefly for slower browsers/webviews before cleanup.
-    window.setTimeout(() => {
-      if (document.body.contains(link)) {
-        document.body.removeChild(link);
-      }
+    setTimeout(() => {
+      if (document.body.contains(link)) document.body.removeChild(link);
       URL.revokeObjectURL(url);
-    }, 30000);
+    }, 120000);
   }
 }
