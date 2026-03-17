@@ -243,13 +243,30 @@ export const DailyBookingReportButton = ({
       );
     }
 
-    // Save the PDF using shared reliable downloader
+    // Save the PDF - try multiple strategies for maximum compatibility
     const fileName = `Allsaints_Daily_Report_${format(date, 'yyyy-MM-dd')}.pdf`;
-    downloadPDF(doc, fileName);
+    
+    // Strategy 1: Open blob in new tab (most reliable in sandboxed environments)
+    const blob = doc.output('blob');
+    const blobUrl = URL.createObjectURL(blob);
+    const opened = window.open(blobUrl, '_blank');
+    
+    if (!opened) {
+      // Strategy 2: Try doc.save() if popup was blocked
+      try {
+        doc.save(fileName);
+      } catch {
+        // Strategy 3: location.assign as last resort
+        window.location.assign(blobUrl);
+      }
+    }
+
+    // Clean up blob URL after delay
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
 
     toast({
       title: "Report Generated",
-      description: `Downloaded ${fileName} with ${dateJobs.length} job${dateJobs.length !== 1 ? 's' : ''}.`,
+      description: `${dateJobs.length} job${dateJobs.length !== 1 ? 's' : ''} — PDF opened in new tab. Save from there.`,
     });
     } catch (error) {
       console.error('Error generating daily report:', error);
