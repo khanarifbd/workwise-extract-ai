@@ -165,7 +165,37 @@ export function ProgressorJobExpandedContent({
     }
   };
 
-  const handleReferBackNPH = async () => {
+  const handleTeamAssign = async (teamValue: string | null) => {
+    try {
+      let team1: string | null = null;
+      let team2: string | null = null;
+      if (teamValue && teamValue.includes('|')) {
+        const parts = teamValue.split('|');
+        team1 = parts[0];
+        team2 = parts[1];
+      } else {
+        team1 = teamValue;
+      }
+      const { error } = await supabase
+        .from('jobs')
+        .update({ team: team1, team2: team2 })
+        .eq('id', job.id);
+      if (error) throw error;
+
+      await logAction({
+        action: 'update', tableName: 'jobs', recordId: job.id,
+        fieldChanged: 'team', oldValue: job.team || '', newValue: team1 || '',
+        metadata: { jobNumber: job.jobNumber, assignedByProgressor: true },
+      });
+
+      onJobUpdate(job.id, { team: team1, team2 });
+      setShowTeamSelector(false);
+      toast({ title: 'Team Updated', description: `Job #${job.jobNumber} team assignment updated.` });
+    } catch (err) {
+      console.error('Error assigning team:', err);
+      toast({ title: 'Error', description: 'Failed to assign team', variant: 'destructive' });
+    }
+  };
     if (!confirm(`Refer job #${job.jobNumber} - ${job.name} back to NPH? This will remove it from the Progressor Portal.`)) return;
     try {
       const { error } = await supabase
