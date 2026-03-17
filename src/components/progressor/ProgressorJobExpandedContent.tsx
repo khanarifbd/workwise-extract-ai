@@ -3,11 +3,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { Job, JOB_STATUS_OPTIONS } from '@/types/job';
 import { SubTask, SUB_TASK_STATUS_OPTIONS } from '@/types/subTask';
 import { useAuditLog } from '@/hooks/useAuditLog';
+import { useCategories } from '@/hooks/useCategories';
 import { ProgressorDescriptionEditor } from '@/components/progressor/ProgressorDescriptionEditor';
 import { ProgressorTodoList } from '@/components/progressor/ProgressorTodoList';
 import { ProgressorMediaUpload } from '@/components/progressor/ProgressorMediaUpload';
 import { SubTaskJobSheetPDF } from '@/components/progressor/SubTaskJobSheetPDF';
 import { ContactTimelineModal } from '@/components/ContactTimelineModal';
+import { FanEditor } from '@/components/FanEditor';
+import { TeamSelector } from '@/components/TeamSelector';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -17,7 +20,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   AlertTriangle, Phone, MapPin, User, Flag, Plus, MessageSquare,
-  Wrench, Users, Trash2, CalendarCheck, CheckCircle, CalendarClock, CornerDownRight, X,
+  Wrench, Users, Trash2, CalendarCheck, CheckCircle, CalendarClock, CornerDownRight, X, Fan,
 } from 'lucide-react';
 import { format, differenceInHours, isPast } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
@@ -71,10 +74,13 @@ export function ProgressorJobExpandedContent({
   onRefresh,
 }: ProgressorJobExpandedContentProps) {
   const { logAction } = useAuditLog();
+  const { categories } = useCategories();
   const [editingOngoingReason, setEditingOngoingReason] = useState(false);
   const [ongoingReasonDraft, setOngoingReasonDraft] = useState('');
   const [callLogOpen, setCallLogOpen] = useState(false);
+  const [showTeamSelector, setShowTeamSelector] = useState(false);
 
+  const fanCategoryId = categories.find(c => c.name.toLowerCase().includes('fan'))?.id;
   const expectedDatePast = job.expectedCompletionDate && isPast(job.expectedCompletionDate);
 
   const startEditingOngoingReason = () => {
@@ -159,6 +165,37 @@ export function ProgressorJobExpandedContent({
     }
   };
 
+  const handleTeamAssign = async (teamValue: string | null) => {
+    try {
+      let team1: string | null = null;
+      let team2: string | null = null;
+      if (teamValue && teamValue.includes('|')) {
+        const parts = teamValue.split('|');
+        team1 = parts[0];
+        team2 = parts[1];
+      } else {
+        team1 = teamValue;
+      }
+      const { error } = await supabase
+        .from('jobs')
+        .update({ team: team1, team2: team2 })
+        .eq('id', job.id);
+      if (error) throw error;
+
+      await logAction({
+        action: 'update', tableName: 'jobs', recordId: job.id,
+        fieldChanged: 'team', oldValue: job.team || '', newValue: team1 || '',
+        metadata: { jobNumber: job.jobNumber, assignedByProgressor: true },
+      });
+
+      onJobUpdate(job.id, { team: team1, team2 });
+      setShowTeamSelector(false);
+      toast({ title: 'Team Updated', description: `Job #${job.jobNumber} team assignment updated.` });
+    } catch (err) {
+      console.error('Error assigning team:', err);
+      toast({ title: 'Error', description: 'Failed to assign team', variant: 'destructive' });
+    }
+  };
   const handleReferBackNPH = async () => {
     if (!confirm(`Refer job #${job.jobNumber} - ${job.name} back to NPH? This will remove it from the Progressor Portal.`)) return;
     try {
@@ -189,7 +226,7 @@ export function ProgressorJobExpandedContent({
     <div className="border-t">
       <div className="px-4 py-3 bg-muted/20 space-y-3">
         {/* Key info row */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-xs">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-3 text-xs">
           <div>
             <span className="text-muted-foreground flex items-center gap-1"><User className="h-3 w-3" /> Tenant</span>
             <p className="font-medium">{job.name}</p>
@@ -217,9 +254,41 @@ export function ProgressorJobExpandedContent({
             <span className="text-muted-foreground">Booked Date</span>
             <p className="font-medium">{job.bookedDate ? format(job.bookedDate, 'dd MMM yyyy') : '—'}</p>
           </div>
+          <div className="relative">
+            <span className="text-muted-foreground flex items-center gap-1"><Users className="h-3 w-3" /> Team</span>
+            <div className="flex items-center gap-1.5">
+              <p className="font-medium">{job.team || '—'}{job.team2 ? ` + ${job.team2}` : ''}</p>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-5 px-1.5 text-[10px]"
+                onClick={(e) => { e.stopPropagation(); setShowTeamSelector(true); }}
+              >
+                <Users className="h-3 w-3" />
+              </Button>
+            </div>
+            {showTeamSelector && (
+              <TeamSelector
+                job={job}
+                currentCategoryId={undefined}
+                onSelect={handleTeamAssign}
+                onClose={() => setShowTeamSelector(false)}
+              />
+            )}
+          </div>
+          {/* Fan Editor */}
           <div>
-            <span className="text-muted-foreground">Team</span>
-            <p className="font-medium">{job.team || '—'}{job.team2 ? ` + ${job.team2}` : ''}</p>
+            <span className="text-muted-foreground flex items-center gap-1"><Fan className="h-3 w-3" /> Fans</span>
+            <FanEditor
+              fanInfo={job.fanInfo || []}
+              onUpdate={(fanInfo) => onJobUpdate(job.id, { fanInfo })}
+              job={job}
+              fanCategoryId={fanCategoryId}
+              onJobUpdated={(updates) => {
+                onJobUpdate(job.id, updates);
+                onRefresh();
+              }}
+            />
           </div>
         </div>
 
