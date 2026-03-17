@@ -4,7 +4,7 @@ import { FileText } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import jsPDF from 'jspdf';
 import { useToast } from '@/hooks/use-toast';
-import { downloadPDF } from '@/lib/pdfDownload';
+
 
 interface DailyBookingReportButtonProps {
   jobs: Job[];
