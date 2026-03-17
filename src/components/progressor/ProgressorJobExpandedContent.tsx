@@ -74,10 +74,13 @@ export function ProgressorJobExpandedContent({
   onRefresh,
 }: ProgressorJobExpandedContentProps) {
   const { logAction } = useAuditLog();
+  const { categories } = useCategories();
   const [editingOngoingReason, setEditingOngoingReason] = useState(false);
   const [ongoingReasonDraft, setOngoingReasonDraft] = useState('');
   const [callLogOpen, setCallLogOpen] = useState(false);
+  const [showTeamSelector, setShowTeamSelector] = useState(false);
 
+  const fanCategoryId = categories.find(c => c.name.toLowerCase().includes('fan'))?.id;
   const expectedDatePast = job.expectedCompletionDate && isPast(job.expectedCompletionDate);
 
   const startEditingOngoingReason = () => {
