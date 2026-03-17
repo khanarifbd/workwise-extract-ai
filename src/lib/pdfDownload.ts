@@ -5,9 +5,9 @@ import jsPDF from 'jspdf';
  * where doc.save() and link.click() can silently fail.
  *
  * Strategy:
- *  1. Try opening a new tab with the blob URL (works in most environments)
- *  2. Fallback: use a data URI approach
- *  3. Last resort: location.assign
+ *  1. Open blob in a new browser tab (most reliable in sandboxed/iframe contexts)
+ *  2. Fallback: hidden anchor link.click()
+ *  3. Last resort: window.location.assign
  */
 export function downloadPDF(doc: jsPDF, filename: string) {
   const blob = doc.output('blob');
@@ -15,27 +15,17 @@ export function downloadPDF(doc: jsPDF, filename: string) {
     throw new Error('Generated PDF is empty');
   }
 
-  // Try the standard doc.save() first — it uses FileSaver internally
-  // and works on most non-sandboxed environments
-  try {
-    doc.save(filename);
-    return;
-  } catch {
-    // doc.save() threw — fall through to manual approaches
-  }
-
-  // Manual blob URL approach
   const url = URL.createObjectURL(blob);
 
-  // Strategy 1: Open blob in a new tab — browser will show PDF and user can save
+  // Strategy 1: Open blob in a new tab — user sees the PDF and can save/download
+  // This is the most reliable approach in sandboxed iframes where download attr is blocked
   const opened = window.open(url, '_blank');
   if (opened) {
-    // Revoke after generous delay
-    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    setTimeout(() => URL.revokeObjectURL(url), 120000);
     return;
   }
 
-  // Strategy 2: Hidden anchor with click
+  // Strategy 2: Hidden anchor click (works on non-sandboxed desktop browsers)
   const link = document.createElement('a');
   link.href = url;
   link.download = filename;
@@ -43,17 +33,17 @@ export function downloadPDF(doc: jsPDF, filename: string) {
   link.rel = 'noopener noreferrer';
   link.style.position = 'fixed';
   link.style.left = '-9999px';
-  link.style.top = '0';
   document.body.appendChild(link);
 
   try {
     link.click();
+  } catch {
+    // Strategy 3: Navigate to the blob URL directly
+    window.location.assign(url);
   } finally {
     setTimeout(() => {
-      if (document.body.contains(link)) {
-        document.body.removeChild(link);
-      }
+      if (document.body.contains(link)) document.body.removeChild(link);
       URL.revokeObjectURL(url);
-    }, 60000);
+    }, 120000);
   }
 }
