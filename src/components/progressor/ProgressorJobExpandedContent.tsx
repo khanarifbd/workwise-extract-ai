@@ -196,6 +196,7 @@ export function ProgressorJobExpandedContent({
       toast({ title: 'Error', description: 'Failed to assign team', variant: 'destructive' });
     }
   };
+  const handleReferBackNPH = async () => {
     if (!confirm(`Refer job #${job.jobNumber} - ${job.name} back to NPH? This will remove it from the Progressor Portal.`)) return;
     try {
       const { error } = await supabase
