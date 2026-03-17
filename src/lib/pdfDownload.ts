@@ -15,18 +15,35 @@ export function downloadPDF(doc: jsPDF, filename: string) {
 
   link.href = url;
   link.download = filename;
-  link.target = '_blank';
   link.rel = 'noopener noreferrer';
-  link.style.display = 'none';
+  link.style.position = 'fixed';
+  link.style.left = '-9999px';
+  link.style.top = '0';
+
+  const isIOSLike =
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
   document.body.appendChild(link);
-  link.click();
 
-  // Keep the URL alive briefly for slower browsers/webviews before cleanup.
-  window.setTimeout(() => {
-    if (document.body.contains(link)) {
-      document.body.removeChild(link);
+  try {
+    // Primary path: direct download to Downloads on desktop/Android browsers.
+    link.click();
+
+    // Fallback for iOS/WebKit where `download` is commonly ignored.
+    if (isIOSLike) {
+      const opened = window.open(url, '_blank', 'noopener,noreferrer');
+      if (!opened) {
+        window.location.assign(url);
+      }
     }
-    URL.revokeObjectURL(url);
-  }, 30000);
+  } finally {
+    // Keep the URL alive briefly for slower browsers/webviews before cleanup.
+    window.setTimeout(() => {
+      if (document.body.contains(link)) {
+        document.body.removeChild(link);
+      }
+      URL.revokeObjectURL(url);
+    }, 30000);
+  }
 }
