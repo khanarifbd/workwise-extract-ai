@@ -4,6 +4,7 @@ import { FileText } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import jsPDF from 'jspdf';
 import { useToast } from '@/hooks/use-toast';
+import { downloadPDF } from '@/lib/pdfDownload';
 
 interface DailyBookingReportButtonProps {
   jobs: Job[];
@@ -242,17 +243,9 @@ export const DailyBookingReportButton = ({
       );
     }
 
-    // Save the PDF using blob URL for reliable downloads
+    // Save the PDF using shared reliable downloader
     const fileName = `Allsaints_Daily_Report_${format(date, 'yyyy-MM-dd')}.pdf`;
-    const blob = doc.output('blob');
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = fileName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    downloadPDF(doc, fileName);
 
     toast({
       title: "Report Generated",
