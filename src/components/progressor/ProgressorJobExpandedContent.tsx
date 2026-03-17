@@ -253,9 +253,41 @@ export function ProgressorJobExpandedContent({
             <span className="text-muted-foreground">Booked Date</span>
             <p className="font-medium">{job.bookedDate ? format(job.bookedDate, 'dd MMM yyyy') : '—'}</p>
           </div>
+          <div className="relative">
+            <span className="text-muted-foreground flex items-center gap-1"><Users className="h-3 w-3" /> Team</span>
+            <div className="flex items-center gap-1.5">
+              <p className="font-medium">{job.team || '—'}{job.team2 ? ` + ${job.team2}` : ''}</p>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-5 px-1.5 text-[10px]"
+                onClick={(e) => { e.stopPropagation(); setShowTeamSelector(true); }}
+              >
+                <Users className="h-3 w-3" />
+              </Button>
+            </div>
+            {showTeamSelector && (
+              <TeamSelector
+                job={job}
+                currentCategoryId={job.categoryId || undefined}
+                onSelect={handleTeamAssign}
+                onClose={() => setShowTeamSelector(false)}
+              />
+            )}
+          </div>
+          {/* Fan Editor */}
           <div>
-            <span className="text-muted-foreground">Team</span>
-            <p className="font-medium">{job.team || '—'}{job.team2 ? ` + ${job.team2}` : ''}</p>
+            <span className="text-muted-foreground flex items-center gap-1"><Fan className="h-3 w-3" /> Fans</span>
+            <FanEditor
+              fanInfo={job.fanInfo || []}
+              onUpdate={(fanInfo) => onJobUpdate(job.id, { fanInfo })}
+              job={job}
+              fanCategoryId={fanCategoryId}
+              onJobUpdated={(updates) => {
+                onJobUpdate(job.id, updates);
+                onRefresh();
+              }}
+            />
           </div>
         </div>
 
