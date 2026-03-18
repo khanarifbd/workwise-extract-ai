@@ -431,7 +431,6 @@ export function ProgressorJobExpandedContent({
               </Button>
             </div>
           </div>
-          </div>
         </div>
 
         {/* Ongoing Reason — editable */}
