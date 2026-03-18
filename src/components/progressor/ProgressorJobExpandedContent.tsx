@@ -300,8 +300,27 @@ export function ProgressorJobExpandedContent({
             <p className="font-medium">{job.name}</p>
           </div>
           <div>
-            <span className="text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" /> Address</span>
-            <p className="font-medium">{job.address}</p>
+            <span className="text-muted-foreground flex items-center gap-1">
+              <MapPin className="h-3 w-3" /> Address
+              {!editingAddress && (
+                <button onClick={(e) => { e.stopPropagation(); setEditingAddress(true); setAddressDraft(job.address || ''); }}
+                  className="ml-1 text-primary hover:text-primary/80"><Pencil className="h-2.5 w-2.5" /></button>
+              )}
+            </span>
+            {editingAddress ? (
+              <div className="flex items-center gap-1 mt-0.5">
+                <Input value={addressDraft} onChange={(e) => setAddressDraft(e.target.value)}
+                  className="h-6 text-xs flex-1" autoFocus onKeyDown={(e) => e.key === 'Enter' && handleSaveAddress()} />
+                <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-emerald-600" onClick={handleSaveAddress}>
+                  <CheckCircle className="h-3 w-3" />
+                </Button>
+                <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => setEditingAddress(false)}>
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            ) : (
+              <p className="font-medium">{job.address || '—'}</p>
+            )}
           </div>
           <div>
             <span className="text-muted-foreground flex items-center gap-1"><Phone className="h-3 w-3" /> Phone</span>
