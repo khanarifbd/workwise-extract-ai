@@ -605,17 +605,44 @@ const ExpandedJobDetail = ({
             Description & Notes
           </h4>
 
-          {/* Full Description */}
-          {job.description ? (
-            <div className="bg-white/60 dark:bg-white/5 rounded-lg px-3 py-2 border border-cyan-200/30 dark:border-cyan-800/20">
+          {/* Editable Description */}
+          <div className="bg-white/60 dark:bg-white/5 rounded-lg px-3 py-2 border border-cyan-200/30 dark:border-cyan-800/20">
+            <div className="flex items-center justify-between mb-1">
               <span className="text-[9px] font-bold text-cyan-600 dark:text-cyan-400 uppercase tracking-wider">Description</span>
-              <p className="text-[11px] text-foreground leading-relaxed mt-0.5 whitespace-pre-wrap">
-                {job.description}
-              </p>
+              {!isEditingDesc ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-5 text-[9px] px-1.5 text-cyan-600 hover:text-cyan-700"
+                  onClick={() => { setDescDraft(job.description); setIsEditingDesc(true); }}
+                >
+                  <Edit3 className="h-3 w-3 mr-0.5" /> Edit
+                </Button>
+              ) : (
+                <div className="flex gap-1">
+                  <Button variant="ghost" size="sm" className="h-5 text-[9px] px-1.5" onClick={() => setIsEditingDesc(false)} disabled={isSavingDesc}>
+                    <X className="h-3 w-3" />
+                  </Button>
+                  <Button size="sm" className="h-5 text-[9px] px-1.5 bg-cyan-600 hover:bg-cyan-700" onClick={saveDescription} disabled={isSavingDesc}>
+                    {isSavingDesc ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3 mr-0.5" />}
+                    Save
+                  </Button>
+                </div>
+              )}
             </div>
-          ) : (
-            <p className="text-[11px] text-muted-foreground italic">No description</p>
-          )}
+            {isEditingDesc ? (
+              <Textarea
+                value={descDraft}
+                onChange={(e) => setDescDraft(e.target.value)}
+                className="min-h-[80px] text-[11px] resize-y"
+                placeholder="Enter description..."
+              />
+            ) : (
+              <p className="text-[11px] text-foreground leading-relaxed whitespace-pre-wrap">
+                {job.description || <span className="text-muted-foreground italic">No description — click Edit to add one</span>}
+              </p>
+            )}
+          </div>
 
           {/* Summary of Works */}
           {job.summaryOfWorks && (
