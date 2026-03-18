@@ -1,21 +1,18 @@
 import { useMemo, useState, useEffect, useCallback } from 'react';
-import { Job, FanInfo } from '@/types/job';
+import { Job } from '@/types/job';
+import { SubTask, mapDbSubTask } from '@/types/subTask';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { format } from 'date-fns';
 import { 
   Wrench, ChevronDown, ChevronRight, MapPin, Clock, 
-  CheckCircle2, CalendarCheck, ListTodo, FileText, Zap,
-  Layers, ArrowRight, AlertCircle, Phone, StickyNote,
-  Calendar, Edit3, Save, X, Loader2, Fan, Users
+  CalendarCheck, Zap, Layers, ArrowRight, Phone
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { FanEditor } from '@/components/FanEditor';
-import { TeamSelector } from '@/components/TeamSelector';
+import { ProgressorJobExpandedContent } from '@/components/progressor/ProgressorJobExpandedContent';
+import { AddSubTaskModal } from '@/components/progressor/AddSubTaskModal';
 
 interface TradeBookingInfo {
   jobId: string;
@@ -27,26 +24,13 @@ interface TradeBookingInfo {
   taskType?: string;
 }
 
-interface SubTaskRow {
+interface ContactRecord {
   id: string;
-  parent_job_id: string;
-  trade: string;
-  assigned_team: string | null;
-  booked_date: string | null;
-  deadline_date: string | null;
-  status: string;
-  completion_date: string | null;
-  description: string | null;
-  task_type: string;
+  outcome: string;
   notes: string | null;
-}
-
-interface TodoRow {
-  id: string;
-  job_id: string;
-  label: string;
-  is_completed: boolean;
-  custom_text: string | null;
+  contact_date: string;
+  next_action: string | null;
+  next_action_date: string | null;
 }
 
 interface ProgressorBookedSectionProps {
@@ -71,8 +55,9 @@ const ProgressorIcon = ({ className }: { className?: string }) => (
 
 export const ProgressorBookedSection = ({ jobs, tradeBookings, onJobClick, onJobUpdate, refreshJobs, fanCategoryId, currentCategoryId }: ProgressorBookedSectionProps) => {
   const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set());
-  const [subTasks, setSubTasks] = useState<Map<string, SubTaskRow[]>>(new Map());
-  const [todos, setTodos] = useState<Map<string, TodoRow[]>>(new Map());
+  const [subTasksMap, setSubTasksMap] = useState<Map<string, SubTask[]>>(new Map());
+  const [contactsMap, setContactsMap] = useState<Map<string, ContactRecord[]>>(new Map());
+  const [addSubTaskJob, setAddSubTaskJob] = useState<Job | null>(null);
 
   const progressorJobs = useMemo(() => {
     return jobs.filter(job => tradeBookings.has(job.id));
@@ -82,96 +67,49 @@ export const ProgressorBookedSection = ({ jobs, tradeBookings, onJobClick, onJob
     if (progressorJobs.length === 0) return;
     const jobIds = progressorJobs.map(j => j.id);
 
-    const [subTaskRes, todoRes] = await Promise.all([
+    const [subTaskRes, contactRes] = await Promise.all([
       supabase
         .from('job_sub_tasks')
-        .select('id, parent_job_id, trade, assigned_team, booked_date, deadline_date, status, completion_date, description, task_type, notes')
-        .in('parent_job_id', jobIds),
+        .select('*')
+        .in('parent_job_id', jobIds)
+        .order('created_at', { ascending: true }),
       supabase
-        .from('progressor_todos')
-        .select('id, job_id, label, is_completed, custom_text')
-        .in('job_id', jobIds),
+        .from('contact_history')
+        .select('*')
+        .in('job_id', jobIds)
+        .order('contact_date', { ascending: false }),
     ]);
 
     if (subTaskRes.data) {
-      const map = new Map<string, SubTaskRow[]>();
-      subTaskRes.data.forEach((st: any) => {
-        if (!map.has(st.parent_job_id)) map.set(st.parent_job_id, []);
-        map.get(st.parent_job_id)!.push(st);
+      const map = new Map<string, SubTask[]>();
+      subTaskRes.data.forEach((row: any) => {
+        if (!map.has(row.parent_job_id)) map.set(row.parent_job_id, []);
+        map.get(row.parent_job_id)!.push(mapDbSubTask(row));
       });
-      setSubTasks(map);
+      setSubTasksMap(map);
     }
 
-    if (todoRes.data) {
-      const map = new Map<string, TodoRow[]>();
-      todoRes.data.forEach((t: any) => {
-        if (!map.has(t.job_id)) map.set(t.job_id, []);
-        map.get(t.job_id)!.push(t);
+    if (contactRes.data) {
+      const map = new Map<string, ContactRecord[]>();
+      contactRes.data.forEach((row: any) => {
+        if (!map.has(row.job_id)) map.set(row.job_id, []);
+        map.get(row.job_id)!.push(row);
       });
-      setTodos(map);
+      setContactsMap(map);
     }
   }, [progressorJobs]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const toggleTradeStatus = async (st: SubTaskRow) => {
-    const isDone = completedStatuses.includes(st.status) || !!st.completion_date;
-    const newStatus = isDone ? 'scheduled' : 'completed_awaiting_portal';
-    const newCompletionDate = isDone ? null : new Date().toISOString();
-
-    // Optimistic update
-    setSubTasks(prev => {
-      const next = new Map(prev);
-      const list = [...(next.get(st.parent_job_id) || [])];
-      const idx = list.findIndex(s => s.id === st.id);
-      if (idx >= 0) {
-        list[idx] = { ...list[idx], status: newStatus, completion_date: newCompletionDate };
-      }
-      next.set(st.parent_job_id, list);
-      return next;
-    });
-
-    const { error } = await supabase
-      .from('job_sub_tasks')
-      .update({ status: newStatus, completion_date: newCompletionDate })
-      .eq('id', st.id);
-
-    if (error) {
-      toast.error('Failed to update trade status');
-      fetchData();
-    } else {
-      toast.success(`${st.trade} marked as ${isDone ? 'pending' : 'completed'}`);
-    }
-  };
-
-  const toggleTodo = async (todo: TodoRow) => {
-    const newCompleted = !todo.is_completed;
-
-    // Optimistic update
-    setTodos(prev => {
-      const next = new Map(prev);
-      const list = [...(next.get(todo.job_id) || [])];
-      const idx = list.findIndex(t => t.id === todo.id);
-      if (idx >= 0) {
-        list[idx] = { ...list[idx], is_completed: newCompleted };
-      }
-      next.set(todo.job_id, list);
-      return next;
-    });
-
-    const { error } = await supabase
-      .from('progressor_todos')
-      .update({ 
-        is_completed: newCompleted, 
-        completed_at: newCompleted ? new Date().toISOString() : null 
-      })
-      .eq('id', todo.id);
-
-    if (error) {
-      toast.error('Failed to update to-do');
-      fetchData();
-    }
-  };
+  // Realtime for sub-tasks
+  useEffect(() => {
+    const channel = supabase
+      .channel('genie-progressor-subtasks')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'job_sub_tasks' }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'contact_history' }, () => fetchData())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [fetchData]);
 
   const toggleExpand = (jobId: string) => {
     setExpandedJobs(prev => {
@@ -180,6 +118,64 @@ export const ProgressorBookedSection = ({ jobs, tradeBookings, onJobClick, onJob
       else next.add(jobId);
       return next;
     });
+  };
+
+  const handleJobUpdate = (jobId: string, updates: Partial<Job>) => {
+    onJobUpdate?.(jobId, updates);
+  };
+
+  const handleSubTaskUpdate = async (subTask: SubTask, field: string, value: any) => {
+    const dbFieldMap: Record<string, string> = {
+      trade: 'trade',
+      assignedTeam: 'assigned_team',
+      bookedDate: 'booked_date',
+      deadlineDate: 'deadline_date',
+      completionDate: 'completion_date',
+      status: 'status',
+      portalUpdated: 'portal_updated',
+      signedOff: 'signed_off',
+      notes: 'notes',
+      description: 'description',
+    };
+
+    const dbField = dbFieldMap[field] || field;
+    let dbValue = value;
+
+    // Handle date fields
+    if (['bookedDate', 'deadlineDate', 'completionDate'].includes(field)) {
+      dbValue = value ? new Date(value).toISOString() : null;
+    }
+
+    const { error } = await supabase
+      .from('job_sub_tasks')
+      .update({ [dbField]: dbValue })
+      .eq('id', subTask.id);
+
+    if (error) {
+      toast.error(`Failed to update ${field}`);
+    } else {
+      fetchData();
+    }
+  };
+
+  const handleDeleteSubTask = async (subTask: SubTask) => {
+    if (!confirm(`Delete trade "${subTask.trade}"?`)) return;
+    const { error } = await supabase
+      .from('job_sub_tasks')
+      .delete()
+      .eq('id', subTask.id);
+
+    if (error) {
+      toast.error('Failed to delete trade');
+    } else {
+      toast.success(`${subTask.trade} deleted`);
+      fetchData();
+    }
+  };
+
+  const handleRefresh = () => {
+    fetchData();
+    refreshJobs?.();
   };
 
   if (progressorJobs.length === 0) return null;
@@ -220,13 +216,12 @@ export const ProgressorBookedSection = ({ jobs, tradeBookings, onJobClick, onJob
       <div className="border-2 border-t-0 border-cyan-500/30 rounded-b-xl overflow-hidden bg-gradient-to-b from-cyan-50/90 via-blue-50/50 to-indigo-50/30 dark:from-cyan-950/40 dark:via-blue-950/20 dark:to-indigo-950/10 shadow-lg shadow-cyan-500/5">
         {progressorJobs.map((job, idx) => {
           const tradeInfo = tradeBookings.get(job.id)!;
-          const jobSubTasks = subTasks.get(job.id) || [];
-          const jobTodos = todos.get(job.id) || [];
+          const jobSubTasks = subTasksMap.get(job.id) || [];
+          const jobContacts = contactsMap.get(job.id) || [];
           const isExpanded = expandedJobs.has(job.id);
-          const completedCount = jobSubTasks.filter(st => completedStatuses.includes(st.status) || !!st.completion_date).length;
+          const completedCount = jobSubTasks.filter(st => completedStatuses.includes(st.status) || !!st.completionDate).length;
           const totalTasks = jobSubTasks.length;
           const progressPct = totalTasks > 0 ? Math.round((completedCount / totalTasks) * 100) : 0;
-          const todoCompletedCount = jobTodos.filter(t => t.is_completed).length;
 
           return (
             <div 
@@ -296,411 +291,49 @@ export const ProgressorBookedSection = ({ jobs, tradeBookings, onJobClick, onJob
                 )}
               </div>
 
-              {/* ── Expanded Detail ── */}
+              {/* ── Expanded Detail — uses shared ProgressorJobExpandedContent ── */}
               {isExpanded && (
-                <ExpandedJobDetail
-                  job={job}
-                  jobSubTasks={jobSubTasks}
-                  jobTodos={jobTodos}
-                  totalTasks={totalTasks}
-                  completedCount={completedCount}
-                  todoCompletedCount={todoCompletedCount}
-                  onToggleTrade={toggleTradeStatus}
-                  onToggleTodo={toggleTodo}
-                  onJobClick={onJobClick}
-                  onJobUpdate={onJobUpdate}
-                  refreshJobs={refreshJobs}
-                  fanCategoryId={fanCategoryId}
-                  currentCategoryId={currentCategoryId}
-                />
+                <div className="bg-white/80 dark:bg-cyan-950/30 border-t border-cyan-200/50 dark:border-cyan-800/30">
+                  <ProgressorJobExpandedContent
+                    job={job}
+                    jobSubTasks={jobSubTasks}
+                    jobContacts={jobContacts}
+                    onJobUpdate={handleJobUpdate}
+                    onSubTaskUpdate={handleSubTaskUpdate}
+                    onDeleteSubTask={handleDeleteSubTask}
+                    onAddSubTask={(j) => setAddSubTaskJob(j)}
+                    onRefresh={handleRefresh}
+                  />
+                </div>
               )}
             </div>
           );
         })}
       </div>
 
+      {/* Add Sub Task Modal */}
+      {addSubTaskJob && (
+        <AddSubTaskModal
+          open={!!addSubTaskJob}
+          onOpenChange={(open) => { if (!open) setAddSubTaskJob(null); }}
+          job={{
+            id: addSubTaskJob.id,
+            jobNumber: addSubTaskJob.jobNumber,
+            name: addSubTaskJob.name,
+            address: addSubTaskJob.address || '',
+          }}
+          onCreated={() => {
+            setAddSubTaskJob(null);
+            handleRefresh();
+          }}
+        />
+      )}
+
       {/* Separator */}
       <div className="flex items-center gap-3 my-4 px-2">
         <div className="flex-1 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
         <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Standard Bookings</span>
         <div className="flex-1 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
-      </div>
-    </div>
-  );
-};
-
-/* ── Expanded Job Detail (sub-component) ── */
-interface ExpandedJobDetailProps {
-  job: Job;
-  jobSubTasks: SubTaskRow[];
-  jobTodos: TodoRow[];
-  totalTasks: number;
-  completedCount: number;
-  todoCompletedCount: number;
-  onToggleTrade: (st: SubTaskRow) => void;
-  onToggleTodo: (todo: TodoRow) => void;
-  onJobClick?: (job: Job) => void;
-  onJobUpdate?: (jobId: string, updates: Partial<Job>) => void;
-  refreshJobs?: () => void;
-  fanCategoryId?: string;
-  currentCategoryId?: string;
-}
-
-const ExpandedJobDetail = ({
-  job, jobSubTasks, jobTodos, totalTasks, completedCount, todoCompletedCount,
-  onToggleTrade, onToggleTodo, onJobClick, onJobUpdate, refreshJobs, fanCategoryId, currentCategoryId,
-}: ExpandedJobDetailProps) => {
-  const [isEditingDesc, setIsEditingDesc] = useState(false);
-  const [descDraft, setDescDraft] = useState(job.description);
-  const [isSavingDesc, setIsSavingDesc] = useState(false);
-  const [showTeamSelector, setShowTeamSelector] = useState(false);
-
-  const saveDescription = async () => {
-    setIsSavingDesc(true);
-    try {
-      const { error } = await supabase
-        .from('jobs')
-        .update({ description: descDraft })
-        .eq('id', job.id);
-      if (error) throw error;
-      onJobUpdate?.(job.id, { description: descDraft });
-      setIsEditingDesc(false);
-      toast.success('Description updated');
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to save');
-    } finally {
-      setIsSavingDesc(false);
-    }
-  };
-
-  const handleTeamAssign = async (teamValue: string | null) => {
-    if (!teamValue) return;
-    const parts = teamValue.split(' | ').map(s => s.trim());
-    const team1 = parts[0] || null;
-    const team2 = parts[1] || null;
-    
-    try {
-      const { error } = await supabase
-        .from('jobs')
-        .update({ team: team1, team2: team2 })
-        .eq('id', job.id);
-      if (error) throw error;
-      onJobUpdate?.(job.id, { team: team1, team2 });
-      toast.success(`Team updated: ${teamValue}`);
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to assign team');
-    }
-    setShowTeamSelector(false);
-  };
-
-  const handleFanUpdate = async (fanInfo: FanInfo[]) => {
-    try {
-      const { error } = await supabase
-        .from('jobs')
-        .update({ fan_info: fanInfo as any })
-        .eq('id', job.id);
-      if (error) throw error;
-      onJobUpdate?.(job.id, { fanInfo });
-      refreshJobs?.();
-    } catch (err: any) {
-      toast.error('Failed to update fans');
-    }
-  };
-  return (
-    <div className="px-5 pb-5 pt-3 bg-white/80 dark:bg-cyan-950/30 border-t border-cyan-200/50 dark:border-cyan-800/30">
-      {/* Key Info Grid - matching Progressor portal layout */}
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-3 text-xs mb-4">
-        <div>
-          <span className="text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" /> Address</span>
-          <p className="font-medium truncate">{job.address || '—'}</p>
-        </div>
-        <div>
-          <span className="text-muted-foreground flex items-center gap-1"><Phone className="h-3 w-3" /> Phone</span>
-          {job.phoneNumber ? (
-            <a href={`tel:${job.phoneNumber}`} className="font-medium text-primary hover:underline">{job.phoneNumber}</a>
-          ) : <p className="font-medium">—</p>}
-        </div>
-        <div>
-          <span className="text-muted-foreground">Booked Date</span>
-          <p className="font-medium">{job.bookedDate ? format(job.bookedDate instanceof Date ? job.bookedDate : new Date(job.bookedDate), 'dd MMM yyyy') : '—'}</p>
-        </div>
-        <div>
-          <span className="text-muted-foreground">ECD</span>
-          <p className="font-medium">{job.expectedCompletionDate ? format(new Date(job.expectedCompletionDate), 'dd MMM yyyy') : '—'}</p>
-        </div>
-        {/* Team Assignment */}
-        <div className="relative" onClick={e => e.stopPropagation()}>
-          <span className="text-muted-foreground flex items-center gap-1"><Users className="h-3 w-3" /> Team</span>
-          <div className="flex items-center gap-1.5">
-            <p className="font-medium">{job.team || '—'}{job.team2 ? ` + ${job.team2}` : ''}</p>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-5 px-1.5 text-[10px]"
-              onClick={() => setShowTeamSelector(true)}
-            >
-              <Users className="h-3 w-3" />
-            </Button>
-          </div>
-          {showTeamSelector && (
-            <TeamSelector
-              job={job}
-              currentCategoryId={currentCategoryId}
-              onSelect={handleTeamAssign}
-              onClose={() => setShowTeamSelector(false)}
-            />
-          )}
-        </div>
-        {/* Fan Editor */}
-        <div onClick={e => e.stopPropagation()}>
-          <span className="text-muted-foreground flex items-center gap-1"><Fan className="h-3 w-3" /> Fans</span>
-          <FanEditor
-            fanInfo={job.fanInfo || []}
-            onUpdate={handleFanUpdate}
-            job={job}
-            fanCategoryId={fanCategoryId}
-            onJobUpdated={(updates) => {
-              onJobUpdate?.(job.id, updates);
-              refreshJobs?.();
-            }}
-          />
-        </div>
-      </div>
-
-      {/* Action bar */}
-      <div className="flex flex-wrap items-center gap-2 mb-4">
-        {job.isOngoing && (
-          <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px]">
-            <AlertCircle className="w-3 h-3 mr-1" />
-            Ongoing
-          </Badge>
-        )}
-        <button 
-          onClick={(e) => { e.stopPropagation(); onJobClick?.(job); }}
-          className="ml-auto flex items-center gap-1 text-[11px] text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 font-semibold transition-colors bg-cyan-50 dark:bg-cyan-900/30 rounded-md px-2.5 py-1"
-        >
-          Open Full Details <ArrowRight className="w-3 h-3" />
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* ── Column 1: Scheduled Trades ── */}
-        <div className="space-y-2">
-          <h4 className="text-xs font-bold text-cyan-700 dark:text-cyan-300 flex items-center gap-1.5 uppercase tracking-wider pb-1 border-b border-cyan-200/50 dark:border-cyan-800/30">
-            <Wrench className="w-3.5 h-3.5" />
-            Scheduled Trades
-            <span className="ml-auto font-mono text-[10px] bg-cyan-100 dark:bg-cyan-900/50 rounded px-1.5 py-0.5">
-              {completedCount}/{totalTasks}
-            </span>
-          </h4>
-          <div className="space-y-1.5">
-            {jobSubTasks.map(st => {
-              const isDone = completedStatuses.includes(st.status) || !!st.completion_date;
-              return (
-                <div 
-                  key={st.id}
-                  className={cn(
-                    "rounded-lg px-3 py-2 text-[11px] transition-all",
-                    isDone
-                      ? "bg-emerald-50/80 dark:bg-emerald-900/20 border border-emerald-200/50 dark:border-emerald-800/30"
-                      : st.task_type === 'dm_team'
-                        ? "bg-blue-50/80 dark:bg-blue-900/20 border-l-3 border border-l-blue-400 border-blue-200/50 dark:border-blue-800/30"
-                        : "bg-cyan-50/80 dark:bg-cyan-900/20 border-l-3 border border-l-cyan-400 border-cyan-200/50 dark:border-cyan-800/30"
-                  )}
-                >
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      checked={isDone}
-                      onCheckedChange={() => onToggleTrade(st)}
-                      className={cn(
-                        "h-4 w-4 rounded-sm",
-                        isDone ? "border-emerald-500 data-[state=checked]:bg-emerald-500" : "border-cyan-400"
-                      )}
-                    />
-                    <span className={cn("font-semibold flex-1", isDone && "line-through text-muted-foreground")}>
-                      {st.trade}
-                    </span>
-                    {st.task_type === 'dm_team' && (
-                      <Badge className="bg-blue-100 text-blue-700 border-blue-300 text-[9px] px-1.5 py-0">DM</Badge>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-3 mt-1 ml-6 text-[10px] text-muted-foreground">
-                    {st.assigned_team && (
-                      <span>Team: <strong className="text-foreground">{st.assigned_team}</strong></span>
-                    )}
-                    {st.booked_date && (
-                      <span className="flex items-center gap-0.5">
-                        <Calendar className="w-2.5 h-2.5" />
-                        {format(new Date(st.booked_date), 'dd/MM/yy')}
-                      </span>
-                    )}
-                    {st.deadline_date && (
-                      <span className="text-orange-500 flex items-center gap-0.5">
-                        <Clock className="w-2.5 h-2.5" />
-                        Due: {format(new Date(st.deadline_date), 'dd/MM')}
-                      </span>
-                    )}
-                    {isDone && st.completion_date && (
-                      <span className="text-emerald-600">
-                        ✓ {format(new Date(st.completion_date), 'dd/MM/yy')}
-                      </span>
-                    )}
-                  </div>
-                  {st.description && (
-                    <p className="mt-1 ml-6 text-[10px] text-muted-foreground italic">{st.description}</p>
-                  )}
-                  {st.notes && st.notes.trim() && (
-                    <p className="mt-0.5 ml-6 text-[10px] text-indigo-600 dark:text-indigo-400">
-                      <StickyNote className="w-2.5 h-2.5 inline mr-0.5" />
-                      {st.notes}
-                    </p>
-                  )}
-                </div>
-              );
-            })}
-            {totalTasks === 0 && (
-              <p className="text-[11px] text-muted-foreground italic py-2">No trades scheduled</p>
-            )}
-          </div>
-        </div>
-
-        {/* ── Column 2: To-Do List ── */}
-        <div className="space-y-2">
-          <h4 className="text-xs font-bold text-cyan-700 dark:text-cyan-300 flex items-center gap-1.5 uppercase tracking-wider pb-1 border-b border-cyan-200/50 dark:border-cyan-800/30">
-            <ListTodo className="w-3.5 h-3.5" />
-            To-Do List
-            <span className="ml-auto font-mono text-[10px] bg-cyan-100 dark:bg-cyan-900/50 rounded px-1.5 py-0.5">
-              {todoCompletedCount}/{jobTodos.length}
-            </span>
-          </h4>
-          <div className="space-y-1">
-            {jobTodos.map(todo => (
-              <div 
-                key={todo.id}
-                className={cn(
-                  "flex items-center gap-2 text-[11px] px-2.5 py-1.5 rounded-md cursor-pointer transition-all hover:bg-cyan-100/50 dark:hover:bg-cyan-800/20",
-                  todo.is_completed 
-                    ? "bg-emerald-50/50 dark:bg-emerald-900/10" 
-                    : "bg-white/50 dark:bg-white/5"
-                )}
-                onClick={() => onToggleTodo(todo)}
-              >
-                <Checkbox
-                  checked={todo.is_completed}
-                  onCheckedChange={() => onToggleTodo(todo)}
-                  className={cn(
-                    "h-3.5 w-3.5 rounded-sm",
-                    todo.is_completed ? "border-emerald-500 data-[state=checked]:bg-emerald-500" : "border-cyan-400"
-                  )}
-                />
-                <span className={cn(
-                  "flex-1",
-                  todo.is_completed 
-                    ? "text-muted-foreground line-through" 
-                    : "text-foreground font-medium"
-                )}>
-                  {todo.custom_text || todo.label}
-                </span>
-              </div>
-            ))}
-            {jobTodos.length === 0 && (
-              <p className="text-[11px] text-muted-foreground italic py-2">No to-dos assigned</p>
-            )}
-          </div>
-        </div>
-
-        {/* ── Column 3: Description, Notes & Ongoing ── */}
-        <div className="space-y-3">
-          <h4 className="text-xs font-bold text-cyan-700 dark:text-cyan-300 flex items-center gap-1.5 uppercase tracking-wider pb-1 border-b border-cyan-200/50 dark:border-cyan-800/30">
-            <FileText className="w-3.5 h-3.5" />
-            Description & Notes
-          </h4>
-
-          {/* Editable Description */}
-          <div className="bg-white/60 dark:bg-white/5 rounded-lg px-3 py-2 border border-cyan-200/30 dark:border-cyan-800/20">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[9px] font-bold text-cyan-600 dark:text-cyan-400 uppercase tracking-wider">Description</span>
-              {!isEditingDesc ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-5 text-[9px] px-1.5 text-cyan-600 hover:text-cyan-700"
-                  onClick={() => { setDescDraft(job.description); setIsEditingDesc(true); }}
-                >
-                  <Edit3 className="h-3 w-3 mr-0.5" /> Edit
-                </Button>
-              ) : (
-                <div className="flex gap-1">
-                  <Button variant="ghost" size="sm" className="h-5 text-[9px] px-1.5" onClick={() => setIsEditingDesc(false)} disabled={isSavingDesc}>
-                    <X className="h-3 w-3" />
-                  </Button>
-                  <Button size="sm" className="h-5 text-[9px] px-1.5 bg-cyan-600 hover:bg-cyan-700" onClick={saveDescription} disabled={isSavingDesc}>
-                    {isSavingDesc ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3 mr-0.5" />}
-                    Save
-                  </Button>
-                </div>
-              )}
-            </div>
-            {isEditingDesc ? (
-              <Textarea
-                value={descDraft}
-                onChange={(e) => setDescDraft(e.target.value)}
-                className="min-h-[80px] text-[11px] resize-y"
-                placeholder="Enter description..."
-              />
-            ) : (
-              <p className="text-[11px] text-foreground leading-relaxed whitespace-pre-wrap">
-                {job.description || <span className="text-muted-foreground italic">No description — click Edit to add one</span>}
-              </p>
-            )}
-          </div>
-
-          {/* Summary of Works */}
-          {job.summaryOfWorks && (
-            <div className="bg-indigo-50/60 dark:bg-indigo-900/10 rounded-lg px-3 py-2 border border-indigo-200/30 dark:border-indigo-800/20">
-              <span className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">Summary of Works</span>
-              <p className="text-[11px] text-foreground leading-relaxed mt-0.5 whitespace-pre-wrap">
-                {job.summaryOfWorks}
-              </p>
-            </div>
-          )}
-
-          {/* Ongoing Reason */}
-          {job.ongoingReason && (
-            <div className="bg-amber-50/80 dark:bg-amber-900/10 rounded-lg px-3 py-2 border border-amber-300/40 dark:border-amber-800/20">
-              <span className="text-[9px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider flex items-center gap-1">
-                <AlertCircle className="w-3 h-3" />
-                Ongoing Reason
-              </span>
-              <p className="text-[11px] text-foreground leading-relaxed mt-0.5 whitespace-pre-wrap">
-                {job.ongoingReason}
-              </p>
-            </div>
-          )}
-
-          {/* Progress Notes */}
-          {job.progressNotes && (
-            <div className="bg-white/50 dark:bg-white/5 rounded-lg px-3 py-2 border border-cyan-200/20 dark:border-cyan-800/15">
-              <span className="text-[9px] font-bold text-cyan-600 dark:text-cyan-400 uppercase tracking-wider flex items-center gap-1">
-                <StickyNote className="w-3 h-3" />
-                Progress Notes
-              </span>
-              <p className="text-[11px] text-foreground leading-relaxed mt-0.5 whitespace-pre-wrap">
-                {job.progressNotes}
-              </p>
-            </div>
-          )}
-
-          {/* Booking Notes */}
-          {job.bookingNotes && (
-            <div className="bg-white/50 dark:bg-white/5 rounded-lg px-3 py-2 border border-cyan-200/20 dark:border-cyan-800/15">
-              <span className="text-[9px] font-bold text-cyan-600 dark:text-cyan-400 uppercase tracking-wider">Booking Notes</span>
-              <p className="text-[11px] text-foreground leading-relaxed mt-0.5 whitespace-pre-wrap">
-                {job.bookingNotes}
-              </p>
-            </div>
-          )}
-        </div>
       </div>
     </div>
   );
