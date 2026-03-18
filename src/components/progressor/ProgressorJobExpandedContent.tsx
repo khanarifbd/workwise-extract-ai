@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Job, JOB_STATUS_OPTIONS } from '@/types/job';
+import { Job, JOB_STATUS_OPTIONS, FanInfo } from '@/types/job';
 import { SubTask, SUB_TASK_STATUS_OPTIONS } from '@/types/subTask';
 import { useAuditLog } from '@/hooks/useAuditLog';
 import { useCategories } from '@/hooks/useCategories';
@@ -10,6 +10,7 @@ import { ProgressorMediaUpload } from '@/components/progressor/ProgressorMediaUp
 import { SubTaskJobSheetPDF } from '@/components/progressor/SubTaskJobSheetPDF';
 import { ContactTimelineModal } from '@/components/ContactTimelineModal';
 import { FanEditor } from '@/components/FanEditor';
+import { FanBookingDateDialog } from '@/components/FanBookingDateDialog';
 import { TeamSelector } from '@/components/TeamSelector';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,9 +20,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { BookedDateCell } from '@/components/BookedDateCell';
+import { extractFansWithAI, createLinkedFanJob, syncLinkedFanJob } from '@/lib/api';
 import {
   AlertTriangle, Phone, MapPin, User, Flag, Plus, MessageSquare,
-  Wrench, Users, Trash2, CalendarCheck, CheckCircle, CalendarClock, CornerDownRight, X, Fan, Pencil,
+  Wrench, Users, Trash2, CalendarCheck, CheckCircle, CalendarClock, CornerDownRight, X, Fan, Pencil, Loader2, Wand2,
 } from 'lucide-react';
 import { format, differenceInHours, isPast } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
