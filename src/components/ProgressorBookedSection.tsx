@@ -408,24 +408,52 @@ const ExpandedJobDetail = ({
   };
   return (
     <div className="px-5 pb-5 pt-3 bg-white/80 dark:bg-cyan-950/30 border-t border-cyan-200/50 dark:border-cyan-800/30">
-      {/* Top info bar */}
-      <div className="flex flex-wrap items-center gap-3 mb-4">
-        {job.phoneNumber && (
-          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground bg-muted/50 rounded-md px-2.5 py-1">
-            <Phone className="w-3 h-3" />
-            {job.phoneNumber}
+      {/* Key Info Grid - matching Progressor portal layout */}
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3 text-xs mb-4">
+        <div>
+          <span className="text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" /> Address</span>
+          <p className="font-medium truncate">{job.address || '—'}</p>
+        </div>
+        <div>
+          <span className="text-muted-foreground flex items-center gap-1"><Phone className="h-3 w-3" /> Phone</span>
+          {job.phoneNumber ? (
+            <a href={`tel:${job.phoneNumber}`} className="font-medium text-primary hover:underline">{job.phoneNumber}</a>
+          ) : <p className="font-medium">—</p>}
+        </div>
+        <div>
+          <span className="text-muted-foreground">Booked Date</span>
+          <p className="font-medium">{job.bookedDate ? format(job.bookedDate instanceof Date ? job.bookedDate : new Date(job.bookedDate), 'dd MMM yyyy') : '—'}</p>
+        </div>
+        <div>
+          <span className="text-muted-foreground">ECD</span>
+          <p className="font-medium">{job.expectedCompletionDate ? format(new Date(job.expectedCompletionDate), 'dd MMM yyyy') : '—'}</p>
+        </div>
+        {/* Team Assignment */}
+        <div className="relative" onClick={e => e.stopPropagation()}>
+          <span className="text-muted-foreground flex items-center gap-1"><Users className="h-3 w-3" /> Team</span>
+          <div className="flex items-center gap-1.5">
+            <p className="font-medium">{job.team || '—'}{job.team2 ? ` + ${job.team2}` : ''}</p>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-5 px-1.5 text-[10px]"
+              onClick={() => setShowTeamSelector(true)}
+            >
+              <Users className="h-3 w-3" />
+            </Button>
           </div>
-        )}
-        {job.isOngoing && (
-          <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px]">
-            <AlertCircle className="w-3 h-3 mr-1" />
-            Ongoing
-          </Badge>
-        )}
-
+          {showTeamSelector && (
+            <TeamSelector
+              job={job}
+              currentCategoryId={currentCategoryId}
+              onSelect={handleTeamAssign}
+              onClose={() => setShowTeamSelector(false)}
+            />
+          )}
+        </div>
         {/* Fan Editor */}
-        <div className="flex items-center gap-1 text-[11px]" onClick={e => e.stopPropagation()}>
-          <Fan className="w-3 h-3 text-cyan-500" />
+        <div onClick={e => e.stopPropagation()}>
+          <span className="text-muted-foreground flex items-center gap-1"><Fan className="h-3 w-3" /> Fans</span>
           <FanEditor
             fanInfo={job.fanInfo || []}
             onUpdate={handleFanUpdate}
@@ -437,32 +465,15 @@ const ExpandedJobDetail = ({
             }}
           />
         </div>
+      </div>
 
-        {/* Team Assignment */}
-        <div className="relative" onClick={e => e.stopPropagation()}>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-6 text-[10px] px-2 border-cyan-400/50"
-            onClick={() => setShowTeamSelector(true)}
-          >
-            <Users className="w-3 h-3 mr-1" />
-            {job.team ? `${job.team}${job.team2 ? ` | ${job.team2}` : ''}` : 'Assign Team'}
-          </Button>
-          {showTeamSelector && (
-            <TeamSelector
-              job={job}
-              currentCategoryId={currentCategoryId}
-              onSelect={handleTeamAssign}
-              onClose={() => setShowTeamSelector(false)}
-            />
-          )}
-        </div>
-        {job.expectedCompletionDate && (
-          <div className="flex items-center gap-1.5 text-[11px] text-orange-600 dark:text-orange-400 font-semibold bg-orange-50/80 dark:bg-orange-900/20 rounded-md px-2.5 py-1">
-            <Clock className="w-3 h-3" />
-            ECD: {format(new Date(job.expectedCompletionDate), 'dd MMM yyyy')}
-          </div>
+      {/* Action bar */}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        {job.isOngoing && (
+          <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px]">
+            <AlertCircle className="w-3 h-3 mr-1" />
+            Ongoing
+          </Badge>
         )}
         <button 
           onClick={(e) => { e.stopPropagation(); onJobClick?.(job); }}

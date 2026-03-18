@@ -91,12 +91,12 @@ export const FanEditor = ({ fanInfo, onUpdate, job, fanCategoryId, onJobUpdated 
           {currentTotal > 0 ? (
             <Badge className="bg-cyan-500/20 text-cyan-700 dark:text-cyan-400 border-cyan-500/30 cursor-pointer hover:bg-cyan-500/30">
               <Fan className="w-3 h-3 mr-1" />
-              {currentTotal}
+              FAN {currentTotal}
             </Badge>
           ) : (
             <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
               <Fan className="w-3 h-3 mr-1" />
-              Add
+              FAN
             </Button>
           )}
         </button>
