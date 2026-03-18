@@ -95,6 +95,67 @@ export function ProgressorJobExpandedContent({
     setOngoingReasonDraft(job.ongoingReason || '');
   };
 
+  const handleSaveAddress = async () => {
+    try {
+      const { error } = await supabase.from('jobs').update({ address: addressDraft }).eq('id', job.id);
+      if (error) throw error;
+      await logAction({
+        action: 'update', tableName: 'jobs', recordId: job.id,
+        fieldChanged: 'address', oldValue: job.address || '', newValue: addressDraft,
+        metadata: { jobNumber: job.jobNumber, updatedByProgressor: true },
+      });
+      onJobUpdate(job.id, { address: addressDraft });
+      setEditingAddress(false);
+      toast({ title: 'Address Updated', description: `Address saved for #${job.jobNumber}` });
+    } catch (err) {
+      console.error('Error saving address:', err);
+      toast({ title: 'Error', description: 'Failed to update address', variant: 'destructive' });
+    }
+  };
+
+  const handleAIFanScan = async () => {
+    setIsScanningFans(true);
+    try {
+      const result = await extractFansWithAI(job.description || job.summaryOfWorks || '', job.workItems);
+      if (result && result.hasFans) {
+        // Update fan info on the job
+        const { error } = await supabase.from('jobs').update({ fan_info: JSON.parse(JSON.stringify(result.fans)) }).eq('id', job.id);
+        if (error) throw error;
+        onJobUpdate(job.id, { fanInfo: result.fans });
+        
+        // Show booking dialog for the detected fans
+        setFanBookingDialogData({ fanInfo: result.fans, totalFanCount: result.totalFanCount });
+        toast({ title: 'Fans Detected!', description: `Found ${result.totalFanCount} fan(s) in job #${job.jobNumber}` });
+      } else {
+        // Mark as scanned with no fans
+        const noFans = [{ type: '__SCANNED_NO_FANS__', quantity: 0, location: '' }];
+        await supabase.from('jobs').update({ fan_info: JSON.parse(JSON.stringify(noFans)) }).eq('id', job.id);
+        onJobUpdate(job.id, { fanInfo: noFans as FanInfo[] });
+        toast({ title: 'No Fans Found', description: `No fans detected in job #${job.jobNumber}` });
+      }
+    } catch (err) {
+      console.error('Error scanning fans:', err);
+      toast({ title: 'Fan Scan Failed', description: 'Could not scan for fans', variant: 'destructive' });
+    } finally {
+      setIsScanningFans(false);
+    }
+  };
+
+  const handleFanBookingConfirm = async (bookedDate: Date | null) => {
+    if (!fanBookingDialogData || !fanCategoryId) return;
+    try {
+      const result = await createLinkedFanJob(job, fanBookingDialogData.fanInfo, fanCategoryId, bookedDate || undefined);
+      if (result?.linkedFanJobId) {
+        onJobUpdate(job.id, { linkedFanJobId: result.linkedFanJobId });
+      }
+      onRefresh();
+      toast({ title: 'Fan Job Created', description: `Fan job created${bookedDate ? ` and booked for ${format(bookedDate, 'dd MMM yyyy')}` : ''}` });
+    } catch (err) {
+      console.error('Error creating fan job:', err);
+      toast({ title: 'Error', description: 'Failed to create fan job', variant: 'destructive' });
+    }
+  };
+
   const handleSaveOngoingReason = async () => {
     try {
       const existingReason = job.ongoingReason || '';
