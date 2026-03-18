@@ -18,9 +18,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { BookedDateCell } from '@/components/BookedDateCell';
 import {
   AlertTriangle, Phone, MapPin, User, Flag, Plus, MessageSquare,
-  Wrench, Users, Trash2, CalendarCheck, CheckCircle, CalendarClock, CornerDownRight, X, Fan,
+  Wrench, Users, Trash2, CalendarCheck, CheckCircle, CalendarClock, CornerDownRight, X, Fan, Pencil,
 } from 'lucide-react';
 import { format, differenceInHours, isPast } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
