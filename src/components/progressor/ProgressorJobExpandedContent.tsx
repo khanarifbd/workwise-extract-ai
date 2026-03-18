@@ -18,9 +18,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { BookedDateCell } from '@/components/BookedDateCell';
 import {
   AlertTriangle, Phone, MapPin, User, Flag, Plus, MessageSquare,
-  Wrench, Users, Trash2, CalendarCheck, CheckCircle, CalendarClock, CornerDownRight, X, Fan,
+  Wrench, Users, Trash2, CalendarCheck, CheckCircle, CalendarClock, CornerDownRight, X, Fan, Pencil,
 } from 'lucide-react';
 import { format, differenceInHours, isPast } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
@@ -251,8 +252,50 @@ export function ProgressorJobExpandedContent({
             ) : <p className="font-medium">—</p>}
           </div>
           <div>
-            <span className="text-muted-foreground">Booked Date</span>
-            <p className="font-medium">{job.bookedDate ? format(job.bookedDate, 'dd MMM yyyy') : '—'}</p>
+            <span className="text-muted-foreground flex items-center gap-1"><CalendarCheck className="h-3 w-3" /> Booking</span>
+            <BookedDateCell
+              bookedDate={job.bookedDate}
+              bookingNotes={job.bookingNotes || ''}
+              teamName={job.team}
+              isFlexible={job.isFlexibleBooking}
+              onDateChange={async (date) => {
+                try {
+                  const updates: any = { booked_date: date ? date.toISOString() : null };
+                  if (date && job.isCompleted) {
+                    updates.is_completed = false;
+                    updates.status = 'started';
+                    updates.completion_date = null;
+                    updates.progress = 50;
+                  }
+                  const { error } = await supabase.from('jobs').update(updates).eq('id', job.id);
+                  if (error) throw error;
+                  await logAction({
+                    action: 'update', tableName: 'jobs', recordId: job.id,
+                    fieldChanged: 'booked_date',
+                    oldValue: job.bookedDate ? format(job.bookedDate, 'yyyy-MM-dd') : '',
+                    newValue: date ? format(date, 'yyyy-MM-dd') : '',
+                    metadata: { jobNumber: job.jobNumber, updatedByProgressor: true },
+                  });
+                  onJobUpdate(job.id, {
+                    bookedDate: date,
+                    ...(date && job.isCompleted ? { isCompleted: false, status: 'started' as const, completionDate: null, progress: 50 } : {}),
+                  });
+                  toast({ title: date ? 'Job Booked' : 'Booking Removed', description: `#${job.jobNumber} ${date ? format(date, 'dd MMM yyyy') : 'unbooked'}` });
+                } catch (err) {
+                  console.error('Error updating booking:', err);
+                  toast({ title: 'Error', description: 'Failed to update booking', variant: 'destructive' });
+                }
+              }}
+              onNotesChange={async (notes) => {
+                try {
+                  const { error } = await supabase.from('jobs').update({ booking_notes: notes }).eq('id', job.id);
+                  if (error) throw error;
+                  onJobUpdate(job.id, { bookingNotes: notes });
+                } catch (err) {
+                  console.error('Error updating booking notes:', err);
+                }
+              }}
+            />
           </div>
           <div className="relative">
             <span className="text-muted-foreground flex items-center gap-1"><Users className="h-3 w-3" /> Team</span>
@@ -627,8 +670,12 @@ export function ProgressorJobExpandedContent({
                       )}>
                         <td className="px-3 py-2.5">
                           <div className="flex items-center gap-1.5">
-                            <Wrench className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-                            <span className="font-semibold text-xs">{st.trade}</span>
+                            <Wrench className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                            <Input
+                              value={st.trade}
+                              onChange={(e) => onSubTaskUpdate(st, 'trade', e.target.value)}
+                              className="h-7 text-xs font-semibold w-[120px]"
+                            />
                           </div>
                           {st.description && (
                             <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">{st.description}</p>
