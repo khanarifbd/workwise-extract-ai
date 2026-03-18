@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Job, JOB_STATUS_OPTIONS } from '@/types/job';
+import { Job, JOB_STATUS_OPTIONS, FanInfo } from '@/types/job';
 import { SubTask, SUB_TASK_STATUS_OPTIONS } from '@/types/subTask';
 import { useAuditLog } from '@/hooks/useAuditLog';
 import { useCategories } from '@/hooks/useCategories';
@@ -10,6 +10,7 @@ import { ProgressorMediaUpload } from '@/components/progressor/ProgressorMediaUp
 import { SubTaskJobSheetPDF } from '@/components/progressor/SubTaskJobSheetPDF';
 import { ContactTimelineModal } from '@/components/ContactTimelineModal';
 import { FanEditor } from '@/components/FanEditor';
+import { FanBookingDateDialog } from '@/components/FanBookingDateDialog';
 import { TeamSelector } from '@/components/TeamSelector';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,9 +20,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { BookedDateCell } from '@/components/BookedDateCell';
+import { extractFansWithAI, createLinkedFanJob, syncLinkedFanJob } from '@/lib/api';
 import {
   AlertTriangle, Phone, MapPin, User, Flag, Plus, MessageSquare,
-  Wrench, Users, Trash2, CalendarCheck, CheckCircle, CalendarClock, CornerDownRight, X, Fan, Pencil,
+  Wrench, Users, Trash2, CalendarCheck, CheckCircle, CalendarClock, CornerDownRight, X, Fan, Pencil, Loader2, Wand2,
 } from 'lucide-react';
 import { format, differenceInHours, isPast } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
@@ -80,6 +82,10 @@ export function ProgressorJobExpandedContent({
   const [ongoingReasonDraft, setOngoingReasonDraft] = useState('');
   const [callLogOpen, setCallLogOpen] = useState(false);
   const [showTeamSelector, setShowTeamSelector] = useState(false);
+  const [editingAddress, setEditingAddress] = useState(false);
+  const [addressDraft, setAddressDraft] = useState('');
+  const [isScanningFans, setIsScanningFans] = useState(false);
+  const [fanBookingDialogData, setFanBookingDialogData] = useState<{ fanInfo: FanInfo[]; totalFanCount: number } | null>(null);
 
   const fanCategoryId = categories.find(c => c.name.toLowerCase().includes('fan'))?.id;
   const expectedDatePast = job.expectedCompletionDate && isPast(job.expectedCompletionDate);
@@ -87,6 +93,67 @@ export function ProgressorJobExpandedContent({
   const startEditingOngoingReason = () => {
     setEditingOngoingReason(true);
     setOngoingReasonDraft(job.ongoingReason || '');
+  };
+
+  const handleSaveAddress = async () => {
+    try {
+      const { error } = await supabase.from('jobs').update({ address: addressDraft }).eq('id', job.id);
+      if (error) throw error;
+      await logAction({
+        action: 'update', tableName: 'jobs', recordId: job.id,
+        fieldChanged: 'address', oldValue: job.address || '', newValue: addressDraft,
+        metadata: { jobNumber: job.jobNumber, updatedByProgressor: true },
+      });
+      onJobUpdate(job.id, { address: addressDraft });
+      setEditingAddress(false);
+      toast({ title: 'Address Updated', description: `Address saved for #${job.jobNumber}` });
+    } catch (err) {
+      console.error('Error saving address:', err);
+      toast({ title: 'Error', description: 'Failed to update address', variant: 'destructive' });
+    }
+  };
+
+  const handleAIFanScan = async () => {
+    setIsScanningFans(true);
+    try {
+      const result = await extractFansWithAI(job.description || job.summaryOfWorks || '', job.workItems);
+      if (result && result.hasFans) {
+        // Update fan info on the job
+        const { error } = await supabase.from('jobs').update({ fan_info: JSON.parse(JSON.stringify(result.fans)) }).eq('id', job.id);
+        if (error) throw error;
+        onJobUpdate(job.id, { fanInfo: result.fans });
+        
+        // Show booking dialog for the detected fans
+        setFanBookingDialogData({ fanInfo: result.fans, totalFanCount: result.totalFanCount });
+        toast({ title: 'Fans Detected!', description: `Found ${result.totalFanCount} fan(s) in job #${job.jobNumber}` });
+      } else {
+        // Mark as scanned with no fans
+        const noFans = [{ type: '__SCANNED_NO_FANS__', quantity: 0, location: '' }];
+        await supabase.from('jobs').update({ fan_info: JSON.parse(JSON.stringify(noFans)) }).eq('id', job.id);
+        onJobUpdate(job.id, { fanInfo: noFans as FanInfo[] });
+        toast({ title: 'No Fans Found', description: `No fans detected in job #${job.jobNumber}` });
+      }
+    } catch (err) {
+      console.error('Error scanning fans:', err);
+      toast({ title: 'Fan Scan Failed', description: 'Could not scan for fans', variant: 'destructive' });
+    } finally {
+      setIsScanningFans(false);
+    }
+  };
+
+  const handleFanBookingConfirm = async (bookedDate: Date | null) => {
+    if (!fanBookingDialogData || !fanCategoryId) return;
+    try {
+      const result = await createLinkedFanJob(job, fanBookingDialogData.fanInfo, fanCategoryId, bookedDate || undefined);
+      if (result?.linkedFanJobId) {
+        onJobUpdate(job.id, { linkedFanJobId: result.linkedFanJobId });
+      }
+      onRefresh();
+      toast({ title: 'Fan Job Created', description: `Fan job created${bookedDate ? ` and booked for ${format(bookedDate, 'dd MMM yyyy')}` : ''}` });
+    } catch (err) {
+      console.error('Error creating fan job:', err);
+      toast({ title: 'Error', description: 'Failed to create fan job', variant: 'destructive' });
+    }
   };
 
   const handleSaveOngoingReason = async () => {
@@ -233,8 +300,27 @@ export function ProgressorJobExpandedContent({
             <p className="font-medium">{job.name}</p>
           </div>
           <div>
-            <span className="text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" /> Address</span>
-            <p className="font-medium">{job.address}</p>
+            <span className="text-muted-foreground flex items-center gap-1">
+              <MapPin className="h-3 w-3" /> Address
+              {!editingAddress && (
+                <button onClick={(e) => { e.stopPropagation(); setEditingAddress(true); setAddressDraft(job.address || ''); }}
+                  className="ml-1 text-primary hover:text-primary/80"><Pencil className="h-2.5 w-2.5" /></button>
+              )}
+            </span>
+            {editingAddress ? (
+              <div className="flex items-center gap-1 mt-0.5">
+                <Input value={addressDraft} onChange={(e) => setAddressDraft(e.target.value)}
+                  className="h-6 text-xs flex-1" autoFocus onKeyDown={(e) => e.key === 'Enter' && handleSaveAddress()} />
+                <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-emerald-600" onClick={handleSaveAddress}>
+                  <CheckCircle className="h-3 w-3" />
+                </Button>
+                <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => setEditingAddress(false)}>
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            ) : (
+              <p className="font-medium">{job.address || '—'}</p>
+            )}
           </div>
           <div>
             <span className="text-muted-foreground flex items-center gap-1"><Phone className="h-3 w-3" /> Phone</span>
@@ -319,19 +405,31 @@ export function ProgressorJobExpandedContent({
               />
             )}
           </div>
-          {/* Fan Editor */}
+          {/* Fan Editor with AI Scan */}
           <div>
-            <span className="text-muted-foreground flex items-center gap-1"><Fan className="h-3 w-3" /> Fans</span>
-            <FanEditor
-              fanInfo={job.fanInfo || []}
-              onUpdate={(fanInfo) => onJobUpdate(job.id, { fanInfo })}
-              job={job}
-              fanCategoryId={fanCategoryId}
-              onJobUpdated={(updates) => {
-                onJobUpdate(job.id, updates);
-                onRefresh();
-              }}
-            />
+            <span className="text-muted-foreground flex items-center gap-1"><Fan className="h-3 w-3" /> FAN</span>
+            <div className="flex items-center gap-1.5">
+              <FanEditor
+                fanInfo={job.fanInfo || []}
+                onUpdate={(fanInfo) => onJobUpdate(job.id, { fanInfo })}
+                job={job}
+                fanCategoryId={fanCategoryId}
+                onJobUpdated={(updates) => {
+                  onJobUpdate(job.id, updates);
+                  onRefresh();
+                }}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 px-1.5 text-[10px]"
+                onClick={(e) => { e.stopPropagation(); handleAIFanScan(); }}
+                disabled={isScanningFans}
+                title="AI Scan for Fans"
+              >
+                {isScanningFans ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -761,6 +859,18 @@ export function ProgressorJobExpandedContent({
           </div>
         )}
       </div>
+
+      {/* Fan Booking Date Dialog */}
+      {fanBookingDialogData && (
+        <FanBookingDateDialog
+          open={!!fanBookingDialogData}
+          onOpenChange={(open) => { if (!open) setFanBookingDialogData(null); }}
+          job={job}
+          fanInfo={fanBookingDialogData.fanInfo}
+          totalFanCount={fanBookingDialogData.totalFanCount}
+          onConfirm={handleFanBookingConfirm}
+        />
+      )}
     </div>
   );
 }
