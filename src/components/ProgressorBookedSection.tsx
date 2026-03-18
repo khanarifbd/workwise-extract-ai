@@ -53,6 +53,10 @@ interface ProgressorBookedSectionProps {
   jobs: Job[];
   tradeBookings: Map<string, TradeBookingInfo>;
   onJobClick?: (job: Job) => void;
+  onJobUpdate?: (jobId: string, updates: Partial<Job>) => void;
+  refreshJobs?: () => void;
+  fanCategoryId?: string;
+  currentCategoryId?: string;
 }
 
 const completedStatuses = ['completed_awaiting_portal', 'completed_signed_off'];
