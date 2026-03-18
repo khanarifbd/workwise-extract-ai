@@ -1,17 +1,21 @@
 import { useMemo, useState, useEffect, useCallback } from 'react';
-import { Job } from '@/types/job';
+import { Job, FanInfo } from '@/types/job';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import { format } from 'date-fns';
 import { 
   Wrench, ChevronDown, ChevronRight, MapPin, Clock, 
   CheckCircle2, CalendarCheck, ListTodo, FileText, Zap,
   Layers, ArrowRight, AlertCircle, Phone, StickyNote,
-  Calendar
+  Calendar, Edit3, Save, X, Loader2, Fan, Users
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { FanEditor } from '@/components/FanEditor';
+import { TeamSelector } from '@/components/TeamSelector';
 
 interface TradeBookingInfo {
   jobId: string;
@@ -49,6 +53,10 @@ interface ProgressorBookedSectionProps {
   jobs: Job[];
   tradeBookings: Map<string, TradeBookingInfo>;
   onJobClick?: (job: Job) => void;
+  onJobUpdate?: (jobId: string, updates: Partial<Job>) => void;
+  refreshJobs?: () => void;
+  fanCategoryId?: string;
+  currentCategoryId?: string;
 }
 
 const completedStatuses = ['completed_awaiting_portal', 'completed_signed_off'];
@@ -61,7 +69,7 @@ const ProgressorIcon = ({ className }: { className?: string }) => (
   </div>
 );
 
-export const ProgressorBookedSection = ({ jobs, tradeBookings, onJobClick }: ProgressorBookedSectionProps) => {
+export const ProgressorBookedSection = ({ jobs, tradeBookings, onJobClick, onJobUpdate, refreshJobs, fanCategoryId, currentCategoryId }: ProgressorBookedSectionProps) => {
   const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set());
   const [subTasks, setSubTasks] = useState<Map<string, SubTaskRow[]>>(new Map());
   const [todos, setTodos] = useState<Map<string, TodoRow[]>>(new Map());
@@ -300,6 +308,10 @@ export const ProgressorBookedSection = ({ jobs, tradeBookings, onJobClick }: Pro
                   onToggleTrade={toggleTradeStatus}
                   onToggleTodo={toggleTodo}
                   onJobClick={onJobClick}
+                  onJobUpdate={onJobUpdate}
+                  refreshJobs={refreshJobs}
+                  fanCategoryId={fanCategoryId}
+                  currentCategoryId={currentCategoryId}
                 />
               )}
             </div>
@@ -328,12 +340,72 @@ interface ExpandedJobDetailProps {
   onToggleTrade: (st: SubTaskRow) => void;
   onToggleTodo: (todo: TodoRow) => void;
   onJobClick?: (job: Job) => void;
+  onJobUpdate?: (jobId: string, updates: Partial<Job>) => void;
+  refreshJobs?: () => void;
+  fanCategoryId?: string;
+  currentCategoryId?: string;
 }
 
 const ExpandedJobDetail = ({
   job, jobSubTasks, jobTodos, totalTasks, completedCount, todoCompletedCount,
-  onToggleTrade, onToggleTodo, onJobClick,
+  onToggleTrade, onToggleTodo, onJobClick, onJobUpdate, refreshJobs, fanCategoryId, currentCategoryId,
 }: ExpandedJobDetailProps) => {
+  const [isEditingDesc, setIsEditingDesc] = useState(false);
+  const [descDraft, setDescDraft] = useState(job.description);
+  const [isSavingDesc, setIsSavingDesc] = useState(false);
+  const [showTeamSelector, setShowTeamSelector] = useState(false);
+
+  const saveDescription = async () => {
+    setIsSavingDesc(true);
+    try {
+      const { error } = await supabase
+        .from('jobs')
+        .update({ description: descDraft })
+        .eq('id', job.id);
+      if (error) throw error;
+      onJobUpdate?.(job.id, { description: descDraft });
+      setIsEditingDesc(false);
+      toast.success('Description updated');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to save');
+    } finally {
+      setIsSavingDesc(false);
+    }
+  };
+
+  const handleTeamAssign = async (teamValue: string | null) => {
+    if (!teamValue) return;
+    const parts = teamValue.split(' | ').map(s => s.trim());
+    const team1 = parts[0] || null;
+    const team2 = parts[1] || null;
+    
+    try {
+      const { error } = await supabase
+        .from('jobs')
+        .update({ team: team1, team2: team2 })
+        .eq('id', job.id);
+      if (error) throw error;
+      onJobUpdate?.(job.id, { team: team1, team2 });
+      toast.success(`Team updated: ${teamValue}`);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to assign team');
+    }
+    setShowTeamSelector(false);
+  };
+
+  const handleFanUpdate = async (fanInfo: FanInfo[]) => {
+    try {
+      const { error } = await supabase
+        .from('jobs')
+        .update({ fan_info: fanInfo as any })
+        .eq('id', job.id);
+      if (error) throw error;
+      onJobUpdate?.(job.id, { fanInfo });
+      refreshJobs?.();
+    } catch (err: any) {
+      toast.error('Failed to update fans');
+    }
+  };
   return (
     <div className="px-5 pb-5 pt-3 bg-white/80 dark:bg-cyan-950/30 border-t border-cyan-200/50 dark:border-cyan-800/30">
       {/* Top info bar */}
@@ -350,6 +422,42 @@ const ExpandedJobDetail = ({
             Ongoing
           </Badge>
         )}
+
+        {/* Fan Editor */}
+        <div className="flex items-center gap-1 text-[11px]" onClick={e => e.stopPropagation()}>
+          <Fan className="w-3 h-3 text-cyan-500" />
+          <FanEditor
+            fanInfo={job.fanInfo || []}
+            onUpdate={handleFanUpdate}
+            job={job}
+            fanCategoryId={fanCategoryId}
+            onJobUpdated={(updates) => {
+              onJobUpdate?.(job.id, updates);
+              refreshJobs?.();
+            }}
+          />
+        </div>
+
+        {/* Team Assignment */}
+        <div className="relative" onClick={e => e.stopPropagation()}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-6 text-[10px] px-2 border-cyan-400/50"
+            onClick={() => setShowTeamSelector(true)}
+          >
+            <Users className="w-3 h-3 mr-1" />
+            {job.team ? `${job.team}${job.team2 ? ` | ${job.team2}` : ''}` : 'Assign Team'}
+          </Button>
+          {showTeamSelector && (
+            <TeamSelector
+              job={job}
+              currentCategoryId={currentCategoryId}
+              onSelect={handleTeamAssign}
+              onClose={() => setShowTeamSelector(false)}
+            />
+          )}
+        </div>
         {job.expectedCompletionDate && (
           <div className="flex items-center gap-1.5 text-[11px] text-orange-600 dark:text-orange-400 font-semibold bg-orange-50/80 dark:bg-orange-900/20 rounded-md px-2.5 py-1">
             <Clock className="w-3 h-3" />
@@ -497,17 +605,44 @@ const ExpandedJobDetail = ({
             Description & Notes
           </h4>
 
-          {/* Full Description */}
-          {job.description ? (
-            <div className="bg-white/60 dark:bg-white/5 rounded-lg px-3 py-2 border border-cyan-200/30 dark:border-cyan-800/20">
+          {/* Editable Description */}
+          <div className="bg-white/60 dark:bg-white/5 rounded-lg px-3 py-2 border border-cyan-200/30 dark:border-cyan-800/20">
+            <div className="flex items-center justify-between mb-1">
               <span className="text-[9px] font-bold text-cyan-600 dark:text-cyan-400 uppercase tracking-wider">Description</span>
-              <p className="text-[11px] text-foreground leading-relaxed mt-0.5 whitespace-pre-wrap">
-                {job.description}
-              </p>
+              {!isEditingDesc ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-5 text-[9px] px-1.5 text-cyan-600 hover:text-cyan-700"
+                  onClick={() => { setDescDraft(job.description); setIsEditingDesc(true); }}
+                >
+                  <Edit3 className="h-3 w-3 mr-0.5" /> Edit
+                </Button>
+              ) : (
+                <div className="flex gap-1">
+                  <Button variant="ghost" size="sm" className="h-5 text-[9px] px-1.5" onClick={() => setIsEditingDesc(false)} disabled={isSavingDesc}>
+                    <X className="h-3 w-3" />
+                  </Button>
+                  <Button size="sm" className="h-5 text-[9px] px-1.5 bg-cyan-600 hover:bg-cyan-700" onClick={saveDescription} disabled={isSavingDesc}>
+                    {isSavingDesc ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3 mr-0.5" />}
+                    Save
+                  </Button>
+                </div>
+              )}
             </div>
-          ) : (
-            <p className="text-[11px] text-muted-foreground italic">No description</p>
-          )}
+            {isEditingDesc ? (
+              <Textarea
+                value={descDraft}
+                onChange={(e) => setDescDraft(e.target.value)}
+                className="min-h-[80px] text-[11px] resize-y"
+                placeholder="Enter description..."
+              />
+            ) : (
+              <p className="text-[11px] text-foreground leading-relaxed whitespace-pre-wrap">
+                {job.description || <span className="text-muted-foreground italic">No description — click Edit to add one</span>}
+              </p>
+            )}
+          </div>
 
           {/* Summary of Works */}
           {job.summaryOfWorks && (
