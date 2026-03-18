@@ -82,6 +82,10 @@ export function ProgressorJobExpandedContent({
   const [ongoingReasonDraft, setOngoingReasonDraft] = useState('');
   const [callLogOpen, setCallLogOpen] = useState(false);
   const [showTeamSelector, setShowTeamSelector] = useState(false);
+  const [editingAddress, setEditingAddress] = useState(false);
+  const [addressDraft, setAddressDraft] = useState('');
+  const [isScanningFans, setIsScanningFans] = useState(false);
+  const [fanBookingDialogData, setFanBookingDialogData] = useState<{ fanInfo: FanInfo[]; totalFanCount: number } | null>(null);
 
   const fanCategoryId = categories.find(c => c.name.toLowerCase().includes('fan'))?.id;
   const expectedDatePast = job.expectedCompletionDate && isPast(job.expectedCompletionDate);
