@@ -340,12 +340,72 @@ interface ExpandedJobDetailProps {
   onToggleTrade: (st: SubTaskRow) => void;
   onToggleTodo: (todo: TodoRow) => void;
   onJobClick?: (job: Job) => void;
+  onJobUpdate?: (jobId: string, updates: Partial<Job>) => void;
+  refreshJobs?: () => void;
+  fanCategoryId?: string;
+  currentCategoryId?: string;
 }
 
 const ExpandedJobDetail = ({
   job, jobSubTasks, jobTodos, totalTasks, completedCount, todoCompletedCount,
-  onToggleTrade, onToggleTodo, onJobClick,
+  onToggleTrade, onToggleTodo, onJobClick, onJobUpdate, refreshJobs, fanCategoryId, currentCategoryId,
 }: ExpandedJobDetailProps) => {
+  const [isEditingDesc, setIsEditingDesc] = useState(false);
+  const [descDraft, setDescDraft] = useState(job.description);
+  const [isSavingDesc, setIsSavingDesc] = useState(false);
+  const [showTeamSelector, setShowTeamSelector] = useState(false);
+
+  const saveDescription = async () => {
+    setIsSavingDesc(true);
+    try {
+      const { error } = await supabase
+        .from('jobs')
+        .update({ description: descDraft })
+        .eq('id', job.id);
+      if (error) throw error;
+      onJobUpdate?.(job.id, { description: descDraft });
+      setIsEditingDesc(false);
+      toast.success('Description updated');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to save');
+    } finally {
+      setIsSavingDesc(false);
+    }
+  };
+
+  const handleTeamAssign = async (teamValue: string | null) => {
+    if (!teamValue) return;
+    const parts = teamValue.split(' | ').map(s => s.trim());
+    const team1 = parts[0] || null;
+    const team2 = parts[1] || null;
+    
+    try {
+      const { error } = await supabase
+        .from('jobs')
+        .update({ team: team1, team2: team2 })
+        .eq('id', job.id);
+      if (error) throw error;
+      onJobUpdate?.(job.id, { team: team1, team2 });
+      toast.success(`Team updated: ${teamValue}`);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to assign team');
+    }
+    setShowTeamSelector(false);
+  };
+
+  const handleFanUpdate = async (fanInfo: FanInfo[]) => {
+    try {
+      const { error } = await supabase
+        .from('jobs')
+        .update({ fan_info: fanInfo as any })
+        .eq('id', job.id);
+      if (error) throw error;
+      onJobUpdate?.(job.id, { fanInfo });
+      refreshJobs?.();
+    } catch (err: any) {
+      toast.error('Failed to update fans');
+    }
+  };
   return (
     <div className="px-5 pb-5 pt-3 bg-white/80 dark:bg-cyan-950/30 border-t border-cyan-200/50 dark:border-cyan-800/30">
       {/* Top info bar */}
