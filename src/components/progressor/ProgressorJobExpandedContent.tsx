@@ -860,6 +860,18 @@ export function ProgressorJobExpandedContent({
           </div>
         )}
       </div>
+
+      {/* Fan Booking Date Dialog */}
+      {fanBookingDialogData && (
+        <FanBookingDateDialog
+          open={!!fanBookingDialogData}
+          onOpenChange={(open) => { if (!open) setFanBookingDialogData(null); }}
+          job={job}
+          fanInfo={fanBookingDialogData.fanInfo}
+          totalFanCount={fanBookingDialogData.totalFanCount}
+          onConfirm={handleFanBookingConfirm}
+        />
+      )}
     </div>
   );
 }
