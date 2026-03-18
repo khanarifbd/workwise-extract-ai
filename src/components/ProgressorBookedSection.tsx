@@ -308,6 +308,10 @@ export const ProgressorBookedSection = ({ jobs, tradeBookings, onJobClick, onJob
                   onToggleTrade={toggleTradeStatus}
                   onToggleTodo={toggleTodo}
                   onJobClick={onJobClick}
+                  onJobUpdate={onJobUpdate}
+                  refreshJobs={refreshJobs}
+                  fanCategoryId={fanCategoryId}
+                  currentCategoryId={currentCategoryId}
                 />
               )}
             </div>
