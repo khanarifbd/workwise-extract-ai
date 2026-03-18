@@ -405,19 +405,32 @@ export function ProgressorJobExpandedContent({
               />
             )}
           </div>
-          {/* Fan Editor */}
+          {/* Fan Editor with AI Scan */}
           <div>
-            <span className="text-muted-foreground flex items-center gap-1"><Fan className="h-3 w-3" /> Fans</span>
-            <FanEditor
-              fanInfo={job.fanInfo || []}
-              onUpdate={(fanInfo) => onJobUpdate(job.id, { fanInfo })}
-              job={job}
-              fanCategoryId={fanCategoryId}
-              onJobUpdated={(updates) => {
-                onJobUpdate(job.id, updates);
-                onRefresh();
-              }}
-            />
+            <span className="text-muted-foreground flex items-center gap-1"><Fan className="h-3 w-3" /> FAN</span>
+            <div className="flex items-center gap-1.5">
+              <FanEditor
+                fanInfo={job.fanInfo || []}
+                onUpdate={(fanInfo) => onJobUpdate(job.id, { fanInfo })}
+                job={job}
+                fanCategoryId={fanCategoryId}
+                onJobUpdated={(updates) => {
+                  onJobUpdate(job.id, updates);
+                  onRefresh();
+                }}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 px-1.5 text-[10px]"
+                onClick={(e) => { e.stopPropagation(); handleAIFanScan(); }}
+                disabled={isScanningFans}
+                title="AI Scan for Fans"
+              >
+                {isScanningFans ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
+              </Button>
+            </div>
+          </div>
           </div>
         </div>
 
