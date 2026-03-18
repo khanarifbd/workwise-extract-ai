@@ -1,17 +1,21 @@
 import { useMemo, useState, useEffect, useCallback } from 'react';
-import { Job } from '@/types/job';
+import { Job, FanInfo } from '@/types/job';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import { format } from 'date-fns';
 import { 
   Wrench, ChevronDown, ChevronRight, MapPin, Clock, 
   CheckCircle2, CalendarCheck, ListTodo, FileText, Zap,
   Layers, ArrowRight, AlertCircle, Phone, StickyNote,
-  Calendar
+  Calendar, Edit3, Save, X, Loader2, Fan, Users
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { FanEditor } from '@/components/FanEditor';
+import { TeamSelector } from '@/components/TeamSelector';
 
 interface TradeBookingInfo {
   jobId: string;
