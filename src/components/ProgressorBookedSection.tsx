@@ -69,7 +69,7 @@ const ProgressorIcon = ({ className }: { className?: string }) => (
   </div>
 );
 
-export const ProgressorBookedSection = ({ jobs, tradeBookings, onJobClick }: ProgressorBookedSectionProps) => {
+export const ProgressorBookedSection = ({ jobs, tradeBookings, onJobClick, onJobUpdate, refreshJobs, fanCategoryId, currentCategoryId }: ProgressorBookedSectionProps) => {
   const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set());
   const [subTasks, setSubTasks] = useState<Map<string, SubTaskRow[]>>(new Map());
   const [todos, setTodos] = useState<Map<string, TodoRow[]>>(new Map());
