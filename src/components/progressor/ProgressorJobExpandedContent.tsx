@@ -252,8 +252,50 @@ export function ProgressorJobExpandedContent({
             ) : <p className="font-medium">—</p>}
           </div>
           <div>
-            <span className="text-muted-foreground">Booked Date</span>
-            <p className="font-medium">{job.bookedDate ? format(job.bookedDate, 'dd MMM yyyy') : '—'}</p>
+            <span className="text-muted-foreground flex items-center gap-1"><CalendarCheck className="h-3 w-3" /> Booking</span>
+            <BookedDateCell
+              bookedDate={job.bookedDate}
+              bookingNotes={job.bookingNotes || ''}
+              teamName={job.team}
+              isFlexible={job.isFlexibleBooking}
+              onDateChange={async (date) => {
+                try {
+                  const updates: any = { booked_date: date ? date.toISOString() : null };
+                  if (date && job.isCompleted) {
+                    updates.is_completed = false;
+                    updates.status = 'started';
+                    updates.completion_date = null;
+                    updates.progress = 50;
+                  }
+                  const { error } = await supabase.from('jobs').update(updates).eq('id', job.id);
+                  if (error) throw error;
+                  await logAction({
+                    action: 'update', tableName: 'jobs', recordId: job.id,
+                    fieldChanged: 'booked_date',
+                    oldValue: job.bookedDate ? format(job.bookedDate, 'yyyy-MM-dd') : '',
+                    newValue: date ? format(date, 'yyyy-MM-dd') : '',
+                    metadata: { jobNumber: job.jobNumber, updatedByProgressor: true },
+                  });
+                  onJobUpdate(job.id, {
+                    bookedDate: date,
+                    ...(date && job.isCompleted ? { isCompleted: false, status: 'started' as const, completionDate: null, progress: 50 } : {}),
+                  });
+                  toast({ title: date ? 'Job Booked' : 'Booking Removed', description: `#${job.jobNumber} ${date ? format(date, 'dd MMM yyyy') : 'unbooked'}` });
+                } catch (err) {
+                  console.error('Error updating booking:', err);
+                  toast({ title: 'Error', description: 'Failed to update booking', variant: 'destructive' });
+                }
+              }}
+              onNotesChange={async (notes) => {
+                try {
+                  const { error } = await supabase.from('jobs').update({ booking_notes: notes }).eq('id', job.id);
+                  if (error) throw error;
+                  onJobUpdate(job.id, { bookingNotes: notes });
+                } catch (err) {
+                  console.error('Error updating booking notes:', err);
+                }
+              }}
+            />
           </div>
           <div className="relative">
             <span className="text-muted-foreground flex items-center gap-1"><Users className="h-3 w-3" /> Team</span>
