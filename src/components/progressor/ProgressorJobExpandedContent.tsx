@@ -670,8 +670,12 @@ export function ProgressorJobExpandedContent({
                       )}>
                         <td className="px-3 py-2.5">
                           <div className="flex items-center gap-1.5">
-                            <Wrench className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-                            <span className="font-semibold text-xs">{st.trade}</span>
+                            <Wrench className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                            <Input
+                              value={st.trade}
+                              onChange={(e) => onSubTaskUpdate(st, 'trade', e.target.value)}
+                              className="h-7 text-xs font-semibold w-[120px]"
+                            />
                           </div>
                           {st.description && (
                             <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">{st.description}</p>
