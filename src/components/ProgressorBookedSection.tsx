@@ -422,6 +422,42 @@ const ExpandedJobDetail = ({
             Ongoing
           </Badge>
         )}
+
+        {/* Fan Editor */}
+        <div className="flex items-center gap-1 text-[11px]" onClick={e => e.stopPropagation()}>
+          <Fan className="w-3 h-3 text-cyan-500" />
+          <FanEditor
+            fanInfo={job.fanInfo || []}
+            onUpdate={handleFanUpdate}
+            job={job}
+            fanCategoryId={fanCategoryId}
+            onJobUpdated={(updates) => {
+              onJobUpdate?.(job.id, updates);
+              refreshJobs?.();
+            }}
+          />
+        </div>
+
+        {/* Team Assignment */}
+        <div className="relative" onClick={e => e.stopPropagation()}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-6 text-[10px] px-2 border-cyan-400/50"
+            onClick={() => setShowTeamSelector(true)}
+          >
+            <Users className="w-3 h-3 mr-1" />
+            {job.team ? `${job.team}${job.team2 ? ` | ${job.team2}` : ''}` : 'Assign Team'}
+          </Button>
+          {showTeamSelector && (
+            <TeamSelector
+              job={job}
+              currentCategoryId={currentCategoryId}
+              onSelect={handleTeamAssign}
+              onClose={() => setShowTeamSelector(false)}
+            />
+          )}
+        </div>
         {job.expectedCompletionDate && (
           <div className="flex items-center gap-1.5 text-[11px] text-orange-600 dark:text-orange-400 font-semibold bg-orange-50/80 dark:bg-orange-900/20 rounded-md px-2.5 py-1">
             <Clock className="w-3 h-3" />
