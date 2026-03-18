@@ -1620,6 +1620,12 @@ const Index = () => {
                   jobs={displayedJobs}
                   tradeBookings={tradeBookings}
                   onJobClick={setSelectedJobForModal}
+                  onJobUpdate={(jobId, updates) => {
+                    refreshJobs();
+                  }}
+                  refreshJobs={refreshJobs}
+                  fanCategoryId={categories.find(c => c.name.toLowerCase().includes('fan'))?.id}
+                  currentCategoryId={activeCategory || undefined}
                 />
               )}
               {viewType === 'table' ? (
