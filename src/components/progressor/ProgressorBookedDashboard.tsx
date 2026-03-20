@@ -141,6 +141,21 @@ export function ProgressorBookedDashboard() {
 
   useEffect(() => { fetchBookedJobs(); }, [fetchBookedJobs]);
 
+  // Realtime: refresh when any job's booked_date changes so folders stay in sync
+  useEffect(() => {
+    const channel = supabase
+      .channel('progressor-booked-realtime')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'jobs' }, (payload) => {
+        const oldDate = (payload.old as any)?.booked_date;
+        const newDate = (payload.new as any)?.booked_date;
+        if (oldDate !== newDate) {
+          fetchBookedJobs();
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [fetchBookedJobs]);
+
   const handleRefresh = useCallback(() => {
     refetchTradeBookings();
     fetchBookedJobs();
