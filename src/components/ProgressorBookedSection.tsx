@@ -267,7 +267,10 @@ export const ProgressorBookedSection = ({ jobs, tradeBookings, onJobClick, onJob
 
                 <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gradient-to-r from-cyan-600 to-blue-600 text-white text-xs font-bold flex-shrink-0 shadow-sm">
                   <CalendarCheck className="w-3.5 h-3.5" />
-                  {format(job.bookedDate || tradeInfo.effectiveBookedDate, 'dd/MM/yy')}
+                  {selectedBookedDate
+                    ? format(new Date(selectedBookedDate + 'T12:00:00'), 'dd/MM/yy')
+                    : format(job.bookedDate || tradeInfo.effectiveBookedDate, 'dd/MM/yy')
+                  }
                 </div>
 
                 <div className="flex items-center gap-2 flex-shrink-0 min-w-[100px]">
