@@ -1626,6 +1626,7 @@ const Index = () => {
                   refreshJobs={refreshJobs}
                   fanCategoryId={categories.find(c => c.name.toLowerCase().includes('fan'))?.id}
                   currentCategoryId={activeCategory || undefined}
+                  selectedBookedDate={selectedBookedDate}
                 />
               )}
               {viewType === 'table' ? (

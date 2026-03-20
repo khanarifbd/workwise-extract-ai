@@ -41,6 +41,7 @@ interface ProgressorBookedSectionProps {
   refreshJobs?: () => void;
   fanCategoryId?: string;
   currentCategoryId?: string;
+  selectedBookedDate?: string | null;
 }
 
 const completedStatuses = ['completed_awaiting_portal', 'completed_signed_off'];
