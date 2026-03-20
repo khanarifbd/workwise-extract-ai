@@ -122,6 +122,10 @@ export const ProgressorBookedSection = ({ jobs, tradeBookings, onJobClick, onJob
 
   const handleJobUpdate = (jobId: string, updates: Partial<Job>) => {
     onJobUpdate?.(jobId, updates);
+    // If booked date changed, refresh the entire job list so the Genie sidebar regroups correctly
+    if ('bookedDate' in updates) {
+      refreshJobs?.();
+    }
   };
 
   const handleSubTaskUpdate = async (subTask: SubTask, field: string, value: any) => {
@@ -262,7 +266,7 @@ export const ProgressorBookedSection = ({ jobs, tradeBookings, onJobClick, onJob
 
                 <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gradient-to-r from-cyan-600 to-blue-600 text-white text-xs font-bold flex-shrink-0 shadow-sm">
                   <CalendarCheck className="w-3.5 h-3.5" />
-                  {format(tradeInfo.effectiveBookedDate, 'dd/MM/yy')}
+                  {format(job.bookedDate || tradeInfo.effectiveBookedDate, 'dd/MM/yy')}
                 </div>
 
                 <div className="flex items-center gap-2 flex-shrink-0 min-w-[100px]">

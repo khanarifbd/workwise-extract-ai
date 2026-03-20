@@ -141,6 +141,21 @@ export function ProgressorBookedDashboard() {
 
   useEffect(() => { fetchBookedJobs(); }, [fetchBookedJobs]);
 
+  // Realtime: refresh when any job's booked_date changes so folders stay in sync
+  useEffect(() => {
+    const channel = supabase
+      .channel('progressor-booked-realtime')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'jobs' }, (payload) => {
+        const oldDate = (payload.old as any)?.booked_date;
+        const newDate = (payload.new as any)?.booked_date;
+        if (oldDate !== newDate) {
+          fetchBookedJobs();
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [fetchBookedJobs]);
+
   const handleRefresh = useCallback(() => {
     refetchTradeBookings();
     fetchBookedJobs();
@@ -584,6 +599,8 @@ export function ProgressorBookedDashboard() {
                               const newDate = e.target.value ? new Date(e.target.value).toISOString() : null;
                               await supabase.from('jobs').update({ booked_date: newDate }).eq('id', job.id);
                               setJobs(prev => prev.map(j => j.id === job.id ? { ...j, bookedDate: newDate ? new Date(newDate) : null } : j));
+                              // Refresh to ensure sidebar and trade bookings are in sync
+                              handleRefresh();
                             }}
                             className="h-7 text-xs w-[130px] font-medium"
                           />
@@ -606,6 +623,10 @@ export function ProgressorBookedDashboard() {
                         jobContacts={jobContacts}
                         onJobUpdate={(jobId, updates) => {
                           setJobs(prev => prev.map(j => j.id === jobId ? { ...j, ...updates } : j));
+                          // If bookedDate changed, refresh so the job moves to the correct date folder
+                          if ('bookedDate' in updates) {
+                            handleRefresh();
+                          }
                         }}
                         onSubTaskUpdate={handleSubTaskUpdate}
                         onDeleteSubTask={handleDeleteSubTask}

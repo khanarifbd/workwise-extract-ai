@@ -366,7 +366,9 @@ export function ProgressorJobExpandedContent({
                     bookedDate: date,
                     ...(date && job.isCompleted ? { isCompleted: false, status: 'started' as const, completionDate: null, progress: 50 } : {}),
                   });
-                  toast({ title: date ? 'Job Booked' : 'Booking Removed', description: `#${job.jobNumber} ${date ? format(date, 'dd MMM yyyy') : 'unbooked'}` });
+                  toast({ title: date ? 'Job Rebooked' : 'Booking Removed', description: `#${job.jobNumber} ${date ? `moved to ${format(date, 'dd MMM yyyy')}` : 'unbooked'}` });
+                  // Refresh all views so the job moves to the correct date folder
+                  onRefresh();
                 } catch (err) {
                   console.error('Error updating booking:', err);
                   toast({ title: 'Error', description: 'Failed to update booking', variant: 'destructive' });
