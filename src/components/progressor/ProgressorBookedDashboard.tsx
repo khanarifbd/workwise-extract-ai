@@ -584,6 +584,8 @@ export function ProgressorBookedDashboard() {
                               const newDate = e.target.value ? new Date(e.target.value).toISOString() : null;
                               await supabase.from('jobs').update({ booked_date: newDate }).eq('id', job.id);
                               setJobs(prev => prev.map(j => j.id === job.id ? { ...j, bookedDate: newDate ? new Date(newDate) : null } : j));
+                              // Refresh to ensure sidebar and trade bookings are in sync
+                              handleRefresh();
                             }}
                             className="h-7 text-xs w-[130px] font-medium"
                           />
