@@ -608,6 +608,10 @@ export function ProgressorBookedDashboard() {
                         jobContacts={jobContacts}
                         onJobUpdate={(jobId, updates) => {
                           setJobs(prev => prev.map(j => j.id === jobId ? { ...j, ...updates } : j));
+                          // If bookedDate changed, refresh so the job moves to the correct date folder
+                          if ('bookedDate' in updates) {
+                            handleRefresh();
+                          }
                         }}
                         onSubTaskUpdate={handleSubTaskUpdate}
                         onDeleteSubTask={handleDeleteSubTask}
