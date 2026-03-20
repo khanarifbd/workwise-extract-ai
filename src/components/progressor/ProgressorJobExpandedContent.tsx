@@ -401,7 +401,7 @@ export function ProgressorJobExpandedContent({
             {showTeamSelector && (
               <TeamSelector
                 job={job}
-                currentCategoryId={job.categoryId || undefined}
+                currentCategoryId={undefined}
                 onSelect={handleTeamAssign}
                 onClose={() => setShowTeamSelector(false)}
               />

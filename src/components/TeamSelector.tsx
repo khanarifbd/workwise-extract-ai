@@ -135,8 +135,13 @@ export const TeamSelector = ({ job, currentCategoryId, onSelect, onClose, onDupl
     setIsSending(true);
     try {
       // Collect team names for assignments in current category
-      const currentCategoryAssignments = assignments.filter(a => a.categoryId === currentCategoryId);
-      const otherCategoryAssignments = assignments.filter(a => a.categoryId !== currentCategoryId);
+      // If no currentCategoryId is set (e.g. Progressor portal), treat ALL assignments as current
+      const currentCategoryAssignments = currentCategoryId 
+        ? assignments.filter(a => a.categoryId === currentCategoryId)
+        : assignments;
+      const otherCategoryAssignments = currentCategoryId
+        ? assignments.filter(a => a.categoryId !== currentCategoryId)
+        : [];
       
       // For current category: assign team(s) - support up to 2 teams
       if (currentCategoryAssignments.length > 0) {
