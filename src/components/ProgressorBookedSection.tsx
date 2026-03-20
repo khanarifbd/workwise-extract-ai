@@ -122,6 +122,10 @@ export const ProgressorBookedSection = ({ jobs, tradeBookings, onJobClick, onJob
 
   const handleJobUpdate = (jobId: string, updates: Partial<Job>) => {
     onJobUpdate?.(jobId, updates);
+    // If booked date changed, refresh the entire job list so the Genie sidebar regroups correctly
+    if ('bookedDate' in updates) {
+      refreshJobs?.();
+    }
   };
 
   const handleSubTaskUpdate = async (subTask: SubTask, field: string, value: any) => {
