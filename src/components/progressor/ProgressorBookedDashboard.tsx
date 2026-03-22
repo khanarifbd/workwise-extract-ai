@@ -142,19 +142,30 @@ export function ProgressorBookedDashboard() {
 
   useEffect(() => { fetchBookedJobs(); }, [fetchBookedJobs]);
 
-  // Realtime: refresh when any job's booked_date changes so folders stay in sync
+  // Realtime: refresh on ANY job change (booking, completion, status) for full sync with Genie
   useEffect(() => {
     const channel = supabase
-      .channel('progressor-booked-realtime')
+      .channel('progressor-booked-realtime-sync')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'jobs' }, (payload) => {
-        const oldDate = (payload.old as any)?.booked_date;
-        const newDate = (payload.new as any)?.booked_date;
-        if (oldDate !== newDate) {
+        const o = payload.old as any;
+        const n = payload.new as any;
+        // Refresh on booked_date, is_completed, status, or team changes
+        if (o?.booked_date !== n?.booked_date || o?.is_completed !== n?.is_completed ||
+            o?.status !== n?.status || o?.team !== n?.team || o?.progress !== n?.progress) {
           fetchBookedJobs();
         }
       })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'jobs' }, () => {
+        fetchBookedJobs();
+      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
+  }, [fetchBookedJobs]);
+
+  // Periodic sync every 30s to catch any missed updates
+  useEffect(() => {
+    const interval = setInterval(fetchBookedJobs, 30000);
+    return () => clearInterval(interval);
   }, [fetchBookedJobs]);
 
   const handleRefresh = useCallback(() => {
