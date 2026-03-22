@@ -705,6 +705,13 @@ export default function ProgressorPanel() {
                         expectedDatePast && !isExpanded && "animate-flash-alert ring-2 ring-red-500",
                       )}
                     >
+                      {/* 12-hour overdue flash alert */}
+                      {hoursPastBooked >= 12 && !job.isCompleted && job.progress !== 100 && (
+                        <div className="bg-red-600 text-white text-[11px] font-bold px-4 py-1.5 flex items-center gap-2 animate-pulse">
+                          <AlertTriangle className="h-3.5 w-3.5" />
+                          <span>OVERDUE — {Math.round(hoursPastBooked)}h since booked. Not signed off. Requires immediate action.</span>
+                        </div>
+                      )}
                       {/* Job Header */}
                       <div
                         className={cn(
