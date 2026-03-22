@@ -161,6 +161,22 @@ export default function ProgressorPanel() {
 
   useEffect(() => { fetchJobs(); }, [fetchJobs]);
 
+  // Realtime: bi-directional sync with Genie — refresh when jobs are booked/completed/updated
+  useEffect(() => {
+    const channel = supabase
+      .channel('progressor-panel-realtime-sync')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'jobs' }, (payload) => {
+        const o = payload.old as any;
+        const n = payload.new as any;
+        if (o?.booked_date !== n?.booked_date || o?.is_completed !== n?.is_completed ||
+            o?.status !== n?.status || o?.team !== n?.team || o?.progress !== n?.progress) {
+          fetchJobs();
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [fetchJobs]);
+
   // Periodic scan: clear awaiting_trade status for jobs with no remaining sub-tasks
   useEffect(() => {
     const scanAndClearOrphanedAwaitingTrade = async () => {
@@ -689,6 +705,13 @@ export default function ProgressorPanel() {
                         expectedDatePast && !isExpanded && "animate-flash-alert ring-2 ring-red-500",
                       )}
                     >
+                      {/* 12-hour overdue flash alert */}
+                      {hoursPastBooked >= 12 && !job.isCompleted && job.progress !== 100 && (
+                        <div className="bg-red-600 text-white text-[11px] font-bold px-4 py-1.5 flex items-center gap-2 animate-pulse">
+                          <AlertTriangle className="h-3.5 w-3.5" />
+                          <span>OVERDUE — {Math.round(hoursPastBooked)}h since booked. Not signed off. Requires immediate action.</span>
+                        </div>
+                      )}
                       {/* Job Header */}
                       <div
                         className={cn(

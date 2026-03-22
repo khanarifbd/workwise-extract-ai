@@ -1,5 +1,6 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { differenceInHours } from 'date-fns';
 import { Job } from '@/types/job';
 import { SubTask, SUB_TASK_STATUS_OPTIONS } from '@/types/subTask';
 import { mapDatabaseJobToJob } from '@/lib/api';
@@ -22,7 +23,7 @@ import {
 } from '@/components/ui/collapsible';
 import {
   Calendar, ChevronDown, Search, Loader2, Users,
-  Phone, MapPin, RefreshCw, Clock, Wrench,
+  Phone, MapPin, RefreshCw, Clock, Wrench, AlertTriangle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -141,19 +142,30 @@ export function ProgressorBookedDashboard() {
 
   useEffect(() => { fetchBookedJobs(); }, [fetchBookedJobs]);
 
-  // Realtime: refresh when any job's booked_date changes so folders stay in sync
+  // Realtime: refresh on ANY job change (booking, completion, status) for full sync with Genie
   useEffect(() => {
     const channel = supabase
-      .channel('progressor-booked-realtime')
+      .channel('progressor-booked-realtime-sync')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'jobs' }, (payload) => {
-        const oldDate = (payload.old as any)?.booked_date;
-        const newDate = (payload.new as any)?.booked_date;
-        if (oldDate !== newDate) {
+        const o = payload.old as any;
+        const n = payload.new as any;
+        // Refresh on booked_date, is_completed, status, or team changes
+        if (o?.booked_date !== n?.booked_date || o?.is_completed !== n?.is_completed ||
+            o?.status !== n?.status || o?.team !== n?.team || o?.progress !== n?.progress) {
           fetchBookedJobs();
         }
       })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'jobs' }, () => {
+        fetchBookedJobs();
+      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
+  }, [fetchBookedJobs]);
+
+  // Periodic sync every 30s to catch any missed updates
+  useEffect(() => {
+    const interval = setInterval(fetchBookedJobs, 30000);
+    return () => clearInterval(interval);
   }, [fetchBookedJobs]);
 
   const handleRefresh = useCallback(() => {
@@ -508,6 +520,19 @@ export function ProgressorBookedDashboard() {
                           ? "opacity-70 bg-emerald-50/50 dark:bg-emerald-950/10"
                           : "",
                   )}>
+                    {/* 12-hour overdue flash alert */}
+                    {(() => {
+                      const effectiveDate = job.bookedDate || (job.tradeInfo?.pendingTrades?.[0]?.bookedDate);
+                      const hoursSinceBooked = effectiveDate ? differenceInHours(new Date(), effectiveDate) : 0;
+                      const isOverdue12h = effectiveDate && hoursSinceBooked >= 12 && !job.isCompleted && job.progress !== 100;
+                      if (!isOverdue12h) return null;
+                      return (
+                        <div className="bg-red-600 text-white text-[11px] font-bold px-4 py-1.5 flex items-center gap-2 animate-pulse">
+                          <AlertTriangle className="h-3.5 w-3.5" />
+                          <span>OVERDUE — {Math.round(hoursSinceBooked)}h since booked date. Requires immediate attention.</span>
+                        </div>
+                      );
+                    })()}
                     {/* Clickable Header */}
                     <div
                       className="px-4 py-3 cursor-pointer hover:bg-muted/30 transition-colors flex items-start gap-3"
