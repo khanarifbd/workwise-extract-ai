@@ -520,6 +520,19 @@ export function ProgressorBookedDashboard() {
                           ? "opacity-70 bg-emerald-50/50 dark:bg-emerald-950/10"
                           : "",
                   )}>
+                    {/* 12-hour overdue flash alert */}
+                    {(() => {
+                      const effectiveDate = job.bookedDate || (job.tradeInfo?.pendingTrades?.[0]?.bookedDate);
+                      const hoursSinceBooked = effectiveDate ? differenceInHours(new Date(), effectiveDate) : 0;
+                      const isOverdue12h = effectiveDate && hoursSinceBooked >= 12 && !job.isCompleted && job.progress !== 100;
+                      if (!isOverdue12h) return null;
+                      return (
+                        <div className="bg-red-600 text-white text-[11px] font-bold px-4 py-1.5 flex items-center gap-2 animate-pulse">
+                          <AlertTriangle className="h-3.5 w-3.5" />
+                          <span>OVERDUE — {Math.round(hoursSinceBooked)}h since booked date. Requires immediate attention.</span>
+                        </div>
+                      );
+                    })()}
                     {/* Clickable Header */}
                     <div
                       className="px-4 py-3 cursor-pointer hover:bg-muted/30 transition-colors flex items-start gap-3"
