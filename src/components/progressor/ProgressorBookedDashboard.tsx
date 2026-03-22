@@ -1,5 +1,6 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { differenceInHours } from 'date-fns';
 import { Job } from '@/types/job';
 import { SubTask, SUB_TASK_STATUS_OPTIONS } from '@/types/subTask';
 import { mapDatabaseJobToJob } from '@/lib/api';
