@@ -161,6 +161,22 @@ export default function ProgressorPanel() {
 
   useEffect(() => { fetchJobs(); }, [fetchJobs]);
 
+  // Realtime: bi-directional sync with Genie — refresh when jobs are booked/completed/updated
+  useEffect(() => {
+    const channel = supabase
+      .channel('progressor-panel-realtime-sync')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'jobs' }, (payload) => {
+        const o = payload.old as any;
+        const n = payload.new as any;
+        if (o?.booked_date !== n?.booked_date || o?.is_completed !== n?.is_completed ||
+            o?.status !== n?.status || o?.team !== n?.team || o?.progress !== n?.progress) {
+          fetchJobs();
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [fetchJobs]);
+
   // Periodic scan: clear awaiting_trade status for jobs with no remaining sub-tasks
   useEffect(() => {
     const scanAndClearOrphanedAwaitingTrade = async () => {
