@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/collapsible';
 import {
   Calendar, ChevronDown, Search, Loader2, Users,
-  Phone, MapPin, RefreshCw, Clock, Wrench,
+  Phone, MapPin, RefreshCw, Clock, Wrench, AlertTriangle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
