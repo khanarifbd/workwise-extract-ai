@@ -83,13 +83,13 @@ export default function ProgressorPanel() {
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [tradeFilter, setTradeFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>(() => searchParams.get('status') || 'all');
+  const [tradeFilter, setTradeFilter] = useState<string>(() => searchParams.get('trade') || 'all');
   const [riskFilter, setRiskFilter] = useState<string>('all');
   const [teamFilter, setTeamFilter] = useState<string>('all');
 
   // Sorting
-  const [sortBy, setSortBy] = useState<'urgency' | 'newest' | 'oldest' | 'name'>('urgency');
+  const [sortBy, setSortBy] = useState<'urgency' | 'newest' | 'oldest' | 'name'>(() => (searchParams.get('sort') as any) || 'urgency');
   const [activeTab, setActiveTab] = useState<string>(() => searchParams.get('ptab') || 'incomplete');
 
   // Add sub-task modal
