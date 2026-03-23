@@ -1001,6 +1001,7 @@ const Index = () => {
   const bookedJobsCount = useMemo(() => {
     return jobs.filter(j => {
       if (j.status === 'complete' || j.isCompleted) return false;
+      if (j.referBack) return false;
       return !!j.bookedDate || tradeBookings.has(j.id);
     }).length;
   }, [jobs, tradeBookings]);
