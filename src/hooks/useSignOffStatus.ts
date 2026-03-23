@@ -100,10 +100,16 @@ export const useSignOffStatus = (jobIds: string[]) => {
     };
   }, [signOffMap]);
 
+  const getLatestSignOffDate = useCallback((jobId: string): string | null => {
+    return signOffDateMap.get(jobId) || null;
+  }, [signOffDateMap]);
+
   return {
     signOffMap,
+    signOffDateMap,
     isLoading,
     getSignOffStatus,
+    getLatestSignOffDate,
     refresh: fetchSignOffs,
   };
 };
