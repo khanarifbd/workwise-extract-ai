@@ -33,7 +33,7 @@ export const useSignOffStatus = (jobIds: string[]) => {
         const chunk = jobIds.slice(i, i + chunkSize);
         const { data, error } = await supabase
           .from('team_sign_offs')
-          .select('job_id, team_name')
+          .select('job_id, team_name, signed_off_at')
           .in('job_id', chunk);
 
         if (error) throw error;
