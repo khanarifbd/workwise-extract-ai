@@ -86,7 +86,7 @@ const Index = () => {
   
   // Get job IDs for sign-off status
   const jobIds = useMemo(() => jobs.map(j => j.id), [jobs]);
-  const { getSignOffStatus } = useSignOffStatus(jobIds);
+  const { getSignOffStatus, getLatestSignOffDate } = useSignOffStatus(jobIds);
   
   // Contact history for refer back PDF is now fetched on-demand inside ReferBackPDFButton
 
