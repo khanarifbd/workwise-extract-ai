@@ -135,7 +135,13 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
   const [currentPage, setCurrentPage] = useState(0);
   
   // Sort jobs once, then paginate
+  // Preserve parent sort order (e.g. completion date sort) when all jobs share the same status
   const sortedJobs = useMemo(() => {
+    const allSameCompletion = jobs.length > 0 && jobs.every(j => 
+      j.status === 'complete' || j.isCompleted || j.progress === 100
+    );
+    if (allSameCompletion) return jobs; // Already sorted by parent (completion date)
+    
     return [...jobs].sort((a, b) => {
       const aCompleted = a.status === 'complete' || a.isCompleted || a.progress === 100;
       const bCompleted = b.status === 'complete' || b.isCompleted || b.progress === 100;
