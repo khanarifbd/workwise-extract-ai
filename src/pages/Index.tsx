@@ -847,8 +847,9 @@ const Index = () => {
             if (!matchesDate) return false;
           }
         } else if (activeDatabaseTab === 'completed') {
-          // Show ALL completed jobs regardless of booked date
+          // Show ALL completed jobs regardless of booked date, but NOT refer back jobs
           if (!isJobCompleted) return false;
+          if (job.referBack) return false;
         } else if (activeDatabaseTab === 'refer_back') {
           // Show only refer back jobs
           if (!job.referBack) return false;
