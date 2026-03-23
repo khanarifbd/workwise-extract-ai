@@ -86,7 +86,7 @@ const Index = () => {
   
   // Get job IDs for sign-off status
   const jobIds = useMemo(() => jobs.map(j => j.id), [jobs]);
-  const { getSignOffStatus } = useSignOffStatus(jobIds);
+  const { getSignOffStatus, getLatestSignOffDate } = useSignOffStatus(jobIds);
   
   // Contact history for refer back PDF is now fetched on-demand inside ReferBackPDFButton
 
@@ -974,17 +974,19 @@ const Index = () => {
       });
     }
     
-    // Sort by completion date if in completed tab
+    // Sort by sign-off date (latest sign-off) if in completed tab, fallback to completion date
     if (activeDatabaseTab === 'completed') {
       result.sort((a, b) => {
-        const dateA = a.completionDate ? new Date(a.completionDate).getTime() : new Date(a.dateIssued).getTime();
-        const dateB = b.completionDate ? new Date(b.completionDate).getTime() : new Date(b.dateIssued).getTime();
+        const signOffA = getLatestSignOffDate(a.id);
+        const signOffB = getLatestSignOffDate(b.id);
+        const dateA = signOffA ? new Date(signOffA).getTime() : (a.completionDate ? new Date(a.completionDate).getTime() : new Date(a.dateIssued).getTime());
+        const dateB = signOffB ? new Date(signOffB).getTime() : (b.completionDate ? new Date(b.completionDate).getTime() : new Date(b.dateIssued).getTime());
         return completedSortOrder === 'newest' ? dateB - dateA : dateA - dateB;
       });
     }
     
     return result;
-  }, [jobs, filters, isFanCategory, activeMonthFolder, activeDatabaseTab, bookedSortOrder, completedSortOrder, selectedBookedDate, getSignOffStatus, tradeBookings, completionDateFrom, completionDateTo]);
+  }, [jobs, filters, isFanCategory, activeMonthFolder, activeDatabaseTab, bookedSortOrder, completedSortOrder, selectedBookedDate, getSignOffStatus, getLatestSignOffDate, tradeBookings, completionDateFrom, completionDateTo]);
 
   // Apply fuzzy search on pre-filtered jobs using debounced search term
   const { matches: fuzzyFilteredJobs, hasSearch } = useFuzzySearch(

@@ -8,6 +8,7 @@ interface SignOffData {
 
 export const useSignOffStatus = (jobIds: string[]) => {
   const [signOffMap, setSignOffMap] = useState<Map<string, string[]>>(new Map());
+  const [signOffDateMap, setSignOffDateMap] = useState<Map<string, string>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
 
   // Stable dependency instead of jobIds.join(',') which creates huge strings
@@ -32,7 +33,7 @@ export const useSignOffStatus = (jobIds: string[]) => {
         const chunk = jobIds.slice(i, i + chunkSize);
         const { data, error } = await supabase
           .from('team_sign_offs')
-          .select('job_id, team_name')
+          .select('job_id, team_name, signed_off_at')
           .in('job_id', chunk);
 
         if (error) throw error;
@@ -40,12 +41,19 @@ export const useSignOffStatus = (jobIds: string[]) => {
       }
 
       const map = new Map<string, string[]>();
+      const dateMap = new Map<string, string>();
       allData.forEach(row => {
         const existing = map.get(row.job_id) || [];
         map.set(row.job_id, [...existing, row.team_name]);
+        // Track the latest sign-off date per job
+        const currentDate = dateMap.get(row.job_id);
+        if (!currentDate || row.signed_off_at > currentDate) {
+          dateMap.set(row.job_id, row.signed_off_at);
+        }
       });
 
       setSignOffMap(map);
+      setSignOffDateMap(dateMap);
     } catch (error) {
       console.error('Failed to fetch sign-off status:', error);
     } finally {
@@ -92,10 +100,16 @@ export const useSignOffStatus = (jobIds: string[]) => {
     };
   }, [signOffMap]);
 
+  const getLatestSignOffDate = useCallback((jobId: string): string | null => {
+    return signOffDateMap.get(jobId) || null;
+  }, [signOffDateMap]);
+
   return {
     signOffMap,
+    signOffDateMap,
     isLoading,
     getSignOffStatus,
+    getLatestSignOffDate,
     refresh: fetchSignOffs,
   };
 };
