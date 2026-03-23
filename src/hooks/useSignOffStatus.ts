@@ -41,12 +41,19 @@ export const useSignOffStatus = (jobIds: string[]) => {
       }
 
       const map = new Map<string, string[]>();
+      const dateMap = new Map<string, string>();
       allData.forEach(row => {
         const existing = map.get(row.job_id) || [];
         map.set(row.job_id, [...existing, row.team_name]);
+        // Track the latest sign-off date per job
+        const currentDate = dateMap.get(row.job_id);
+        if (!currentDate || row.signed_off_at > currentDate) {
+          dateMap.set(row.job_id, row.signed_off_at);
+        }
       });
 
       setSignOffMap(map);
+      setSignOffDateMap(dateMap);
     } catch (error) {
       console.error('Failed to fetch sign-off status:', error);
     } finally {
