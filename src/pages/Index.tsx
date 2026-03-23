@@ -862,8 +862,9 @@ const Index = () => {
         }
       }
 
-      // Monthly folder filter - skip for completed tab (show all completed jobs)
-      if (activeMonthFolder && activeDatabaseTab !== 'completed') {
+      // Monthly folder filter - skip for completed and booked tabs
+      // Booked tab uses the sidebar date picker for filtering, not monthly folders
+      if (activeMonthFolder && activeDatabaseTab !== 'completed' && activeDatabaseTab !== 'booked') {
         const date = job.dateIssued;
         if (!date || !isValid(date)) return false;
         const jobMonthKey = format(date, 'yyyy-MM');
