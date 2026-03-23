@@ -634,6 +634,12 @@ export function ProgressorBookedDashboard() {
                                         booked_date: newDate,
                                         status: newDate && matchingSt.status === 'not_scheduled' ? 'scheduled' : matchingSt.status,
                                       });
+                                      if (newDate) {
+                                        await supabase
+                                          .from('jobs')
+                                          .update({ refer_back: false, refer_back_reason: '', refer_back_date: null })
+                                          .eq('id', job.id);
+                                      }
                                       await fetchAllSubTasks(true);
                                       refetchTradeBookings();
                                     }}
@@ -665,7 +671,13 @@ export function ProgressorBookedDashboard() {
                             value={job.bookedDate ? format(job.bookedDate, 'yyyy-MM-dd') : ''}
                             onChange={async (e) => {
                               const newDate = e.target.value ? new Date(e.target.value).toISOString() : null;
-                              await supabase.from('jobs').update({ booked_date: newDate }).eq('id', job.id);
+                              await supabase
+                                .from('jobs')
+                                .update({
+                                  booked_date: newDate,
+                                  ...(newDate ? { refer_back: false, refer_back_reason: '', refer_back_date: null } : {}),
+                                })
+                                .eq('id', job.id);
                               setJobs(prev => prev.map(j => j.id === job.id ? { ...j, bookedDate: newDate ? new Date(newDate) : null } : j));
                               // Refresh to ensure sidebar and trade bookings are in sync
                               handleRefresh();

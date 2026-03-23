@@ -221,6 +221,16 @@ export const useJobs = (categoryId?: string) => {
       const previousStatus = currentJob?.status;
       const newStatus = updates.status;
 
+      // CRITICAL: Booking a job should always bring it back into active booked flow
+      // Clear refer-back flags when a new booking date is set
+      if (updates.bookedDate) {
+        updates.referBack = false;
+        updates.referBackDate = null;
+        if (updates.referBackReason === undefined && currentJob.referBack) {
+          updates.referBackReason = '';
+        }
+      }
+
       // CRITICAL: Booked date overrides completion status
       // When a booked date is set on a completed job, un-complete it
       if (updates.bookedDate && (currentJob.isCompleted || currentJob.status === 'complete')) {

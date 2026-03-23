@@ -346,7 +346,10 @@ export function ProgressorJobExpandedContent({
               isFlexible={job.isFlexibleBooking}
               onDateChange={async (date) => {
                 try {
-                  const updates: any = { booked_date: date ? date.toISOString() : null };
+                  const updates: any = {
+                    booked_date: date ? date.toISOString() : null,
+                    ...(date ? { refer_back: false, refer_back_reason: '', refer_back_date: null } : {}),
+                  };
                   if (date && job.isCompleted) {
                     updates.is_completed = false;
                     updates.status = 'started';
@@ -379,6 +382,7 @@ export function ProgressorJobExpandedContent({
                   });
                   onJobUpdate(job.id, {
                     bookedDate: date,
+                    ...(date ? { referBack: false, referBackReason: '', referBackDate: null } : {}),
                     ...(date && job.isCompleted ? { isCompleted: false, status: 'started' as const, completionDate: null, progress: 50 } : {}),
                   });
                   toast({ title: date ? 'Job Rebooked' : 'Booking Removed', description: `#${job.jobNumber} ${date ? `moved to ${format(date, 'dd MMM yyyy')}` : 'unbooked'}` });
@@ -564,8 +568,17 @@ export function ProgressorJobExpandedContent({
                   await supabase.from('jobs').update({
                     booked_date: bookedDate.toISOString(),
                     is_flexible_booking: isFlexible,
+                    refer_back: false,
+                    refer_back_reason: '',
+                    refer_back_date: null,
                   }).eq('id', job.id);
-                  onJobUpdate(job.id, { bookedDate, isFlexibleBooking: isFlexible });
+                  onJobUpdate(job.id, {
+                    bookedDate,
+                    isFlexibleBooking: isFlexible,
+                    referBack: false,
+                    referBackReason: '',
+                    referBackDate: null,
+                  });
                 } catch (err) { console.error('Error booking:', err); }
               }}
               onDescriptionChange={async (newDesc) => {
