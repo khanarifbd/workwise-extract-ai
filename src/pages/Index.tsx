@@ -1008,7 +1008,7 @@ const Index = () => {
 
   // Count completed jobs for badge - consistent with StatsCards and CompletedJobsPDFButton
   const completedJobsCount = useMemo(() => {
-    return jobs.filter(j => j.status === 'complete' || j.isCompleted).length;
+    return jobs.filter(j => (j.status === 'complete' || j.isCompleted) && !j.referBack).length;
   }, [jobs]);
 
   // Count refer back jobs for badge — exclude completed jobs (they belong in completed folder)
