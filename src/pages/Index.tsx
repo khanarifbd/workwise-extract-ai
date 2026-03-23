@@ -1013,7 +1013,7 @@ const Index = () => {
 
   // Count refer back jobs for badge — exclude completed jobs (they belong in completed folder)
   const referBackJobsCount = useMemo(() => {
-    return jobs.filter(j => j.referBack && !(j.status === 'complete' || j.isCompleted)).length;
+    return jobs.filter(j => j.referBack).length;
   }, [jobs]);
 
   // Count "all" tab jobs (excluding booked, completed, refer back) for accurate denominator
