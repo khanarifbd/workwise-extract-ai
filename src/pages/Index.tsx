@@ -823,9 +823,10 @@ const Index = () => {
         
         if (activeDatabaseTab === 'booked') {
           // Show jobs with a booked date OR jobs with trade-booked sub-tasks
-          // But NOT completed jobs — those belong in the completed folder
+          // But NOT completed or refer back jobs
           const hasTradeBooking = tradeBookings.has(job.id);
           if (isJobCompleted) return false;
+          if (job.referBack) return false;
           if (!job.bookedDate && !hasTradeBooking) return false;
           
           // Filter by selected booked date if any
@@ -846,8 +847,9 @@ const Index = () => {
             if (!matchesDate) return false;
           }
         } else if (activeDatabaseTab === 'completed') {
-          // Show ALL completed jobs regardless of booked date
+          // Show ALL completed jobs regardless of booked date, but NOT refer back jobs
           if (!isJobCompleted) return false;
+          if (job.referBack) return false;
         } else if (activeDatabaseTab === 'refer_back') {
           // Show only refer back jobs
           if (!job.referBack) return false;
@@ -999,18 +1001,19 @@ const Index = () => {
   const bookedJobsCount = useMemo(() => {
     return jobs.filter(j => {
       if (j.status === 'complete' || j.isCompleted) return false;
+      if (j.referBack) return false;
       return !!j.bookedDate || tradeBookings.has(j.id);
     }).length;
   }, [jobs, tradeBookings]);
 
   // Count completed jobs for badge - consistent with StatsCards and CompletedJobsPDFButton
   const completedJobsCount = useMemo(() => {
-    return jobs.filter(j => j.status === 'complete' || j.isCompleted).length;
+    return jobs.filter(j => (j.status === 'complete' || j.isCompleted) && !j.referBack).length;
   }, [jobs]);
 
   // Count refer back jobs for badge — exclude completed jobs (they belong in completed folder)
   const referBackJobsCount = useMemo(() => {
-    return jobs.filter(j => j.referBack && !(j.status === 'complete' || j.isCompleted)).length;
+    return jobs.filter(j => j.referBack).length;
   }, [jobs]);
 
   // Count "all" tab jobs (excluding booked, completed, refer back) for accurate denominator
