@@ -169,7 +169,8 @@ export default function ProgressorPanel() {
         const o = payload.old as any;
         const n = payload.new as any;
         if (o?.booked_date !== n?.booked_date || o?.is_completed !== n?.is_completed ||
-            o?.status !== n?.status || o?.team !== n?.team || o?.progress !== n?.progress) {
+            o?.status !== n?.status || o?.team !== n?.team || o?.progress !== n?.progress ||
+            o?.refer_back !== n?.refer_back) {
           fetchJobs();
         }
       })

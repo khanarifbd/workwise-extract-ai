@@ -89,6 +89,7 @@ export function ProgressorBookedDashboard() {
         .select('id, job_number, name, address, phone_number, status, team, team2, progress, is_completed, is_ongoing, ongoing_reason, booked_date, completion_date, expected_completion_date, created_at, date_issued, description, work_items, fan_info, category_id, progress_notes, scheduled_trades, booking_notes, is_flexible_booking, attachments, additional_works, summary_of_works, costs, private_notes, refer_back, refer_back_reason, refer_back_date, insulation_info, linked_fan_job_id, linked_insulation_job_id')
         .is('deleted_at', null)
         .not('booked_date', 'is', null)
+        .eq('refer_back', false)
         .or(`category_id.is.null,category_id.neq.${FAN_CATEGORY_ID}`)
         .order('booked_date', { ascending: true });
 
@@ -151,7 +152,8 @@ export function ProgressorBookedDashboard() {
         const n = payload.new as any;
         // Refresh on booked_date, is_completed, status, or team changes
         if (o?.booked_date !== n?.booked_date || o?.is_completed !== n?.is_completed ||
-            o?.status !== n?.status || o?.team !== n?.team || o?.progress !== n?.progress) {
+            o?.status !== n?.status || o?.team !== n?.team || o?.progress !== n?.progress ||
+            o?.refer_back !== n?.refer_back) {
           fetchBookedJobs();
         }
       })
