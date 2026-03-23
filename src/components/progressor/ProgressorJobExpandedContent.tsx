@@ -382,6 +382,7 @@ export function ProgressorJobExpandedContent({
                   });
                   onJobUpdate(job.id, {
                     bookedDate: date,
+                    ...(date ? { referBack: false, referBackReason: '', referBackDate: null } : {}),
                     ...(date && job.isCompleted ? { isCompleted: false, status: 'started' as const, completionDate: null, progress: 50 } : {}),
                   });
                   toast({ title: date ? 'Job Rebooked' : 'Booking Removed', description: `#${job.jobNumber} ${date ? `moved to ${format(date, 'dd MMM yyyy')}` : 'unbooked'}` });
