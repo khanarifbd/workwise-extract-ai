@@ -301,7 +301,11 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
   const handleBookedDateChange = (jobId: string, bookedDate: Date | null, isFlexible: boolean = false) => {
     const job = jobs.find(j => j.id === jobId);
     if (job) {
-      const updates: Partial<Job> = { bookedDate, isFlexibleBooking: isFlexible };
+      const updates: Partial<Job> = {
+        bookedDate,
+        isFlexibleBooking: isFlexible,
+        ...(bookedDate ? { referBack: false, referBackDate: null, referBackReason: '' } : {}),
+      };
       // Booked date overrides completion - if setting a new booked date on a completed job,
       // un-complete it so it moves to the booked tab
       if (bookedDate && (job.isCompleted || job.status === 'complete')) {

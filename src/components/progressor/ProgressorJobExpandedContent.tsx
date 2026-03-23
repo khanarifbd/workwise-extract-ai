@@ -572,7 +572,13 @@ export function ProgressorJobExpandedContent({
                     refer_back_reason: '',
                     refer_back_date: null,
                   }).eq('id', job.id);
-                  onJobUpdate(job.id, { bookedDate, isFlexibleBooking: isFlexible });
+                  onJobUpdate(job.id, {
+                    bookedDate,
+                    isFlexibleBooking: isFlexible,
+                    referBack: false,
+                    referBackReason: '',
+                    referBackDate: null,
+                  });
                 } catch (err) { console.error('Error booking:', err); }
               }}
               onDescriptionChange={async (newDesc) => {
