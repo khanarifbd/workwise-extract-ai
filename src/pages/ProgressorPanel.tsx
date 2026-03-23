@@ -83,14 +83,14 @@ export default function ProgressorPanel() {
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [tradeFilter, setTradeFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>(() => searchParams.get('status') || 'all');
+  const [tradeFilter, setTradeFilter] = useState<string>(() => searchParams.get('trade') || 'all');
   const [riskFilter, setRiskFilter] = useState<string>('all');
   const [teamFilter, setTeamFilter] = useState<string>('all');
 
   // Sorting
-  const [sortBy, setSortBy] = useState<'urgency' | 'newest' | 'oldest' | 'name'>('urgency');
-  const [activeTab, setActiveTab] = useState<string>('incomplete');
+  const [sortBy, setSortBy] = useState<'urgency' | 'newest' | 'oldest' | 'name'>(() => (searchParams.get('sort') as any) || 'urgency');
+  const [activeTab, setActiveTab] = useState<string>(() => searchParams.get('ptab') || 'incomplete');
 
   // Add sub-task modal
   const [addSubTaskJob, setAddSubTaskJob] = useState<Job | null>(null);
@@ -160,6 +160,31 @@ export default function ProgressorPanel() {
   }, []);
 
   useEffect(() => { fetchJobs(); }, [fetchJobs]);
+
+  // Persist UI state to URL so browser tab-switching preserves the view
+  useEffect(() => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      // Active tab
+      if (activeTab && activeTab !== 'incomplete') {
+        next.set('ptab', activeTab);
+      } else {
+        next.delete('ptab');
+      }
+      // Expanded job
+      const expandedArr = Array.from(expandedJobs);
+      if (expandedArr.length === 1) {
+        next.set('job', expandedArr[0]);
+      } else {
+        next.delete('job');
+      }
+      // Filters
+      if (statusFilter !== 'all') next.set('status', statusFilter); else next.delete('status');
+      if (tradeFilter !== 'all') next.set('trade', tradeFilter); else next.delete('trade');
+      if (sortBy !== 'urgency') next.set('sort', sortBy); else next.delete('sort');
+      return next;
+    }, { replace: true });
+  }, [activeTab, expandedJobs, statusFilter, tradeFilter, sortBy, setSearchParams]);
 
   // Realtime: bi-directional sync with Genie — refresh when jobs are booked/completed/updated
   useEffect(() => {
