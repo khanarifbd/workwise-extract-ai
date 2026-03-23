@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -13,6 +13,7 @@ interface ProgressorAuthState {
 }
 
 export const useProgressorAuth = () => {
+  const lastRoleCheckUserIdRef = useRef<string | null>(null);
   const [state, setState] = useState<ProgressorAuthState>({
     user: null,
     session: null,
@@ -55,16 +56,20 @@ export const useProgressorAuth = () => {
           return;
         }
 
+        const nextUserId = session?.user?.id ?? null;
+        const shouldCheckRoles = !!nextUserId && lastRoleCheckUserIdRef.current !== nextUserId;
+
         setState(prev => ({
           ...prev,
           session,
           user: session?.user ?? null,
-          isCheckingRoles: !!session?.user,
+          isCheckingRoles: shouldCheckRoles,
         }));
 
-        if (session?.user) {
+        if (nextUserId && shouldCheckRoles) {
           setTimeout(async () => {
-            const roles = await checkRoles(session.user.id);
+            const roles = await checkRoles(nextUserId);
+            lastRoleCheckUserIdRef.current = nextUserId;
             setState(prev => ({
               ...prev,
               ...roles,
@@ -72,7 +77,14 @@ export const useProgressorAuth = () => {
               isCheckingRoles: false,
             }));
           }, 0);
+        } else if (nextUserId) {
+          setState(prev => ({
+            ...prev,
+            isLoading: false,
+            isCheckingRoles: false,
+          }));
         } else {
+          lastRoleCheckUserIdRef.current = null;
           setState(prev => ({
             ...prev,
             isJobProgressor: false,
@@ -89,8 +101,10 @@ export const useProgressorAuth = () => {
 
       if (session?.user) {
         const roles = await checkRoles(session.user.id);
-        setState(prev => ({ ...prev, ...roles, isLoading: false }));
+        lastRoleCheckUserIdRef.current = session.user.id;
+        setState(prev => ({ ...prev, ...roles, isLoading: false, isCheckingRoles: false }));
       } else {
+        lastRoleCheckUserIdRef.current = null;
         setState(prev => ({ ...prev, isLoading: false }));
       }
     });
