@@ -161,24 +161,30 @@ export default function ProgressorPanel() {
 
   useEffect(() => { fetchJobs(); }, [fetchJobs]);
 
-  // Persist activeTab and expanded job to URL so tab-switching preserves state
+  // Persist UI state to URL so browser tab-switching preserves the view
   useEffect(() => {
     setSearchParams(prev => {
       const next = new URLSearchParams(prev);
+      // Active tab
       if (activeTab && activeTab !== 'incomplete') {
         next.set('ptab', activeTab);
       } else {
         next.delete('ptab');
       }
+      // Expanded job
       const expandedArr = Array.from(expandedJobs);
       if (expandedArr.length === 1) {
         next.set('job', expandedArr[0]);
       } else {
         next.delete('job');
       }
+      // Filters
+      if (statusFilter !== 'all') next.set('status', statusFilter); else next.delete('status');
+      if (tradeFilter !== 'all') next.set('trade', tradeFilter); else next.delete('trade');
+      if (sortBy !== 'urgency') next.set('sort', sortBy); else next.delete('sort');
       return next;
     }, { replace: true });
-  }, [activeTab, expandedJobs, setSearchParams]);
+  }, [activeTab, expandedJobs, statusFilter, tradeFilter, sortBy, setSearchParams]);
 
   // Realtime: bi-directional sync with Genie — refresh when jobs are booked/completed/updated
   useEffect(() => {
