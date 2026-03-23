@@ -67,6 +67,7 @@ export function ProgressorBookedDashboard() {
   const { tradeBookings, refetch: refetchTradeBookings } = useTradeBookedJobs();
   const { subTasks, updateSubTask, fetchAll: fetchAllSubTasks } = useAllSubTasks();
   const { logAction } = useAuditLog();
+  const hasInitializedFetchRef = useRef(false);
 
   // Group sub-tasks by parent job
   const subTasksByJob = useMemo(() => {
@@ -143,10 +144,23 @@ export function ProgressorBookedDashboard() {
     }
   }, [tradeBookings]);
 
-  useEffect(() => { void fetchBookedJobs(false); }, [fetchBookedJobs]);
+  useEffect(() => {
+    const background = hasInitializedFetchRef.current;
+    void fetchBookedJobs(background);
+    hasInitializedFetchRef.current = true;
+  }, [fetchBookedJobs]);
 
   // Realtime: refresh in background and debounce to avoid disruptive UI flicker
   useEffect(() => {
+    const FAN_CATEGORY_ID = '913c5a29-2b7f-4da9-992a-1b49e51d9d8a';
+
+    const isRelevantBookedRecord = (record: any) => {
+      if (!record || record.deleted_at) return false;
+      if (record.category_id === FAN_CATEGORY_ID) return false;
+      if (record.refer_back === true) return false;
+      return !!record.booked_date;
+    };
+
     const queueBackgroundRefresh = () => {
       if (realtimeRefreshTimeoutRef.current) {
         clearTimeout(realtimeRefreshTimeoutRef.current);
@@ -161,6 +175,9 @@ export function ProgressorBookedDashboard() {
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'jobs' }, (payload) => {
         const o = payload.old as any;
         const n = payload.new as any;
+
+        if (!isRelevantBookedRecord(o) && !isRelevantBookedRecord(n)) return;
+
         // Refresh on booked_date, is_completed, status, or team changes
         if (o?.booked_date !== n?.booked_date || o?.is_completed !== n?.is_completed ||
             o?.status !== n?.status || o?.team !== n?.team || o?.progress !== n?.progress ||
@@ -168,8 +185,11 @@ export function ProgressorBookedDashboard() {
           queueBackgroundRefresh();
         }
       })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'jobs' }, () => {
-        queueBackgroundRefresh();
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'jobs' }, (payload) => {
+        const n = payload.new as any;
+        if (isRelevantBookedRecord(n)) {
+          queueBackgroundRefresh();
+        }
       })
       .subscribe();
 
@@ -182,11 +202,12 @@ export function ProgressorBookedDashboard() {
     };
   }, [fetchBookedJobs]);
 
-  // Periodic sync every 30s to catch missed updates without forcing visible loading state
+  // Periodic sync every 2 min to catch missed updates without forcing visible loading state
   useEffect(() => {
     const interval = setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
       void fetchBookedJobs(true);
-    }, 30000);
+    }, 120000);
     return () => clearInterval(interval);
   }, [fetchBookedJobs]);
 

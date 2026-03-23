@@ -31,12 +31,17 @@ export const useJobs = (categoryId?: string) => {
   
   // Refs to prevent race conditions
   const loadingRef = useRef(false);
+  const jobsLengthRef = useRef(0);
   const pendingUpdatesRef = useRef<Set<string>>(new Set());
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastFetchRef = useRef<number>(0);
   const integrityIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const loadJobs = useCallback(async (force = false) => {
+  useEffect(() => {
+    jobsLengthRef.current = jobs.length;
+  }, [jobs.length]);
+
+  const loadJobs = useCallback(async (force = false, background = false) => {
     // Prevent concurrent fetches unless forced
     if (loadingRef.current && !force) {
       console.log('Skipping fetch - already loading');
@@ -52,7 +57,7 @@ export const useJobs = (categoryId?: string) => {
 
     try {
       loadingRef.current = true;
-      setIsLoading(true);
+      if (!background) setIsLoading(true);
       lastFetchRef.current = Date.now();
       
       const data = await fetchJobs(categoryId);
@@ -89,7 +94,7 @@ export const useJobs = (categoryId?: string) => {
       });
     } finally {
       loadingRef.current = false;
-      setIsLoading(false);
+      if (!background) setIsLoading(false);
     }
   }, [categoryId, toast]);
 
@@ -102,7 +107,7 @@ export const useJobs = (categoryId?: string) => {
     debounceTimerRef.current = setTimeout(() => {
       // Only reload if no pending updates (to prevent overwriting optimistic state)
       if (pendingUpdatesRef.current.size === 0) {
-        loadJobs();
+        loadJobs(false, true);
       } else {
         console.log('Skipping realtime reload - pending updates exist');
       }
@@ -125,6 +130,13 @@ export const useJobs = (categoryId?: string) => {
         (payload) => {
           const newRecord = payload.new as Record<string, unknown> | null;
           const oldRecord = payload.old as Record<string, unknown> | null;
+
+          const newCategoryId = (newRecord?.category_id as string | null | undefined) ?? null;
+          const oldCategoryId = (oldRecord?.category_id as string | null | undefined) ?? null;
+          const isRelevantToCurrentCategory = !categoryId || newCategoryId === categoryId || oldCategoryId === categoryId;
+
+          if (!isRelevantToCurrentCategory) return;
+
           console.log('Realtime update received:', payload.eventType, newRecord?.id || oldRecord?.id);
           
           // For DELETE events, update state immediately
@@ -155,6 +167,7 @@ export const useJobs = (categoryId?: string) => {
 
     // Periodic integrity check: verify local count matches DB every 30s
     const runIntegrityCheck = async () => {
+      if (document.visibilityState !== 'visible') return;
       if (loadingRef.current || pendingUpdatesRef.current.size > 0) return;
       try {
         let query = supabase
@@ -163,14 +176,14 @@ export const useJobs = (categoryId?: string) => {
           .is('deleted_at', null);
         if (categoryId) query = query.eq('category_id', categoryId);
         const { count } = await query;
-        if (count !== null && count !== jobs.length) {
-          console.log(`Integrity mismatch: local=${jobs.length}, db=${count}. Auto-refreshing...`);
-          loadJobs(true);
+        if (count !== null && count !== jobsLengthRef.current) {
+          console.log(`Integrity mismatch: local=${jobsLengthRef.current}, db=${count}. Auto-refreshing...`);
+          loadJobs(true, true);
         }
       } catch { /* silent */ }
     };
 
-    integrityIntervalRef.current = setInterval(runIntegrityCheck, 30000);
+    integrityIntervalRef.current = setInterval(runIntegrityCheck, 180000);
 
     return () => {
       if (debounceTimerRef.current) {
@@ -181,7 +194,7 @@ export const useJobs = (categoryId?: string) => {
       }
       supabase.removeChannel(channel);
     };
-  }, [categoryId, loadJobs, debouncedReload, jobs.length]);
+  }, [categoryId, loadJobs, debouncedReload]);
 
   const addJob = async (job: Omit<Job, 'id'>) => {
     try {
@@ -458,6 +471,6 @@ export const useJobs = (categoryId?: string) => {
     editJob,
     removeJob,
     toggleComplete,
-    refreshJobs: () => loadJobs(true) // Force refresh
+    refreshJobs: () => loadJobs(true, false) // Force refresh
   };
 };
