@@ -45,6 +45,16 @@ export const useProgressorAuth = () => {
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        // TOKEN_REFRESHED: update session/user silently without triggering loading states
+        if (event === 'TOKEN_REFRESHED') {
+          setState(prev => ({
+            ...prev,
+            session,
+            user: session?.user ?? null,
+          }));
+          return;
+        }
+
         setState(prev => ({
           ...prev,
           session,
