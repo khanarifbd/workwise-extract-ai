@@ -161,6 +161,25 @@ export default function ProgressorPanel() {
 
   useEffect(() => { fetchJobs(); }, [fetchJobs]);
 
+  // Persist activeTab and expanded job to URL so tab-switching preserves state
+  useEffect(() => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (activeTab && activeTab !== 'incomplete') {
+        next.set('ptab', activeTab);
+      } else {
+        next.delete('ptab');
+      }
+      const expandedArr = Array.from(expandedJobs);
+      if (expandedArr.length === 1) {
+        next.set('job', expandedArr[0]);
+      } else {
+        next.delete('job');
+      }
+      return next;
+    }, { replace: true });
+  }, [activeTab, expandedJobs, setSearchParams]);
+
   // Realtime: bi-directional sync with Genie — refresh when jobs are booked/completed/updated
   useEffect(() => {
     const channel = supabase
