@@ -64,8 +64,8 @@ export const useAllSubTasks = () => {
   const [subTasks, setSubTasks] = useState<SubTask[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchAll = useCallback(async () => {
-    setIsLoading(true);
+  const fetchAll = useCallback(async (background = false) => {
+    if (!background) setIsLoading(true);
     try {
       const { data, error } = await supabase
         .from('job_sub_tasks')
@@ -77,11 +77,11 @@ export const useAllSubTasks = () => {
     } catch (err) {
       console.error('Error fetching all sub-tasks:', err);
     } finally {
-      setIsLoading(false);
+      if (!background) setIsLoading(false);
     }
   }, []);
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  useEffect(() => { fetchAll(false); }, [fetchAll]);
 
   // Realtime
   useEffect(() => {
@@ -92,7 +92,7 @@ export const useAllSubTasks = () => {
         schema: 'public',
         table: 'job_sub_tasks',
       }, () => {
-        fetchAll();
+        fetchAll(true);
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -104,7 +104,7 @@ export const useAllSubTasks = () => {
       .update(updates)
       .eq('id', id);
     if (error) throw error;
-    await fetchAll();
+    await fetchAll(true);
   };
 
   return { subTasks, isLoading, fetchAll, updateSubTask };
