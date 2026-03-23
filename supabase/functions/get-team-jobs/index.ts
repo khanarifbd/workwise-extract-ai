@@ -176,7 +176,8 @@ Deno.serve(async (req) => {
           .select("*")
           .is("deleted_at", null)
           .gt("updated_at", sinceDate.toISOString())
-          .order("updated_at", { ascending: false });
+          .order("updated_at", { ascending: false })
+          .limit(5000);
 
         if (error) {
           console.error("Failed to fetch delta jobs:", error.message);
@@ -195,7 +196,8 @@ Deno.serve(async (req) => {
           .is("deleted_at", null)
           .not("booked_date", "is", null)
           .or("team.not.is.null,team2.not.is.null")
-          .order("booked_date", { ascending: true });
+          .order("booked_date", { ascending: true })
+          .limit(5000);
 
         if (error) {
           console.error("Failed to fetch jobs:", error.message);
@@ -213,7 +215,8 @@ Deno.serve(async (req) => {
         .from("jobs")
         .select("*")
         .is("deleted_at", null)
-        .order("updated_at", { ascending: false });
+        .order("updated_at", { ascending: false })
+        .limit(5000);
 
       if (sinceDate) {
         // DELTA POLL for regular teams: return all recently-updated jobs
