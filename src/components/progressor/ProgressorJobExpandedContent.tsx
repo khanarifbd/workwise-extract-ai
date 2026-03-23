@@ -355,6 +355,21 @@ export function ProgressorJobExpandedContent({
                   }
                   const { error } = await supabase.from('jobs').update(updates).eq('id', job.id);
                   if (error) throw error;
+
+                  // Also update ALL pending (non-completed) sub-task booked dates so the
+                  // trade-based scheduling stays in sync with the parent job date
+                  if (date && jobSubTasks.length > 0) {
+                    const pendingIds = jobSubTasks
+                      .filter(st => !st.completionDate && !['completed_awaiting_portal', 'completed_signed_off'].includes(st.status))
+                      .map(st => st.id);
+                    if (pendingIds.length > 0) {
+                      await supabase
+                        .from('job_sub_tasks')
+                        .update({ booked_date: date.toISOString() })
+                        .in('id', pendingIds);
+                    }
+                  }
+
                   await logAction({
                     action: 'update', tableName: 'jobs', recordId: job.id,
                     fieldChanged: 'booked_date',
