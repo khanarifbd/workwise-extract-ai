@@ -974,11 +974,13 @@ const Index = () => {
       });
     }
     
-    // Sort by completion date if in completed tab
+    // Sort by sign-off date (latest sign-off) if in completed tab, fallback to completion date
     if (activeDatabaseTab === 'completed') {
       result.sort((a, b) => {
-        const dateA = a.completionDate ? new Date(a.completionDate).getTime() : new Date(a.dateIssued).getTime();
-        const dateB = b.completionDate ? new Date(b.completionDate).getTime() : new Date(b.dateIssued).getTime();
+        const signOffA = getLatestSignOffDate(a.id);
+        const signOffB = getLatestSignOffDate(b.id);
+        const dateA = signOffA ? new Date(signOffA).getTime() : (a.completionDate ? new Date(a.completionDate).getTime() : new Date(a.dateIssued).getTime());
+        const dateB = signOffB ? new Date(signOffB).getTime() : (b.completionDate ? new Date(b.completionDate).getTime() : new Date(b.dateIssued).getTime());
         return completedSortOrder === 'newest' ? dateB - dateA : dateA - dateB;
       });
     }
