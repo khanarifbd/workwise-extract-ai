@@ -568,6 +568,9 @@ export function ProgressorJobExpandedContent({
                   await supabase.from('jobs').update({
                     booked_date: bookedDate.toISOString(),
                     is_flexible_booking: isFlexible,
+                    refer_back: false,
+                    refer_back_reason: '',
+                    refer_back_date: null,
                   }).eq('id', job.id);
                   onJobUpdate(job.id, { bookedDate, isFlexibleBooking: isFlexible });
                 } catch (err) { console.error('Error booking:', err); }
