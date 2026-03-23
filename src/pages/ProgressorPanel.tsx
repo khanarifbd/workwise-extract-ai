@@ -193,15 +193,38 @@ export default function ProgressorPanel() {
 
   // Realtime: bi-directional sync with Genie — debounced background refresh
   useEffect(() => {
+    const FAN_CATEGORY_ID = '913c5a29-2b7f-4da9-992a-1b49e51d9d8a';
+
+    const isRelevantProgressorRecord = (record: any) => {
+      if (!record || record.deleted_at) return false;
+      if (record.category_id === FAN_CATEGORY_ID) return false;
+      if (record.is_completed === true) return false;
+      if (!record.booked_date) return false;
+
+      const bookedDate = new Date(record.booked_date);
+      if (Number.isNaN(bookedDate.getTime())) return false;
+
+      return differenceInHours(new Date(), bookedDate) >= 12;
+    };
+
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     const channel = supabase
       .channel('progressor-panel-realtime-sync')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'jobs' }, (payload) => {
         const o = payload.old as any;
         const n = payload.new as any;
-        if (o?.booked_date !== n?.booked_date || o?.is_completed !== n?.is_completed ||
-            o?.status !== n?.status || o?.team !== n?.team || o?.progress !== n?.progress ||
-            o?.refer_back !== n?.refer_back) {
+        const touchesTrackedFields =
+          o?.booked_date !== n?.booked_date ||
+          o?.is_completed !== n?.is_completed ||
+          o?.status !== n?.status ||
+          o?.team !== n?.team ||
+          o?.progress !== n?.progress ||
+          o?.refer_back !== n?.refer_back;
+
+        if (!touchesTrackedFields) return;
+        if (!isRelevantProgressorRecord(o) && !isRelevantProgressorRecord(n)) return;
+
+        if (document.visibilityState === 'visible') {
           // Debounce: wait 2s after last change to avoid rapid reloads
           if (debounceTimer) clearTimeout(debounceTimer);
           debounceTimer = setTimeout(() => fetchJobs(true), 2000);
