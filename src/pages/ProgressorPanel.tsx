@@ -186,8 +186,9 @@ export default function ProgressorPanel() {
     }, { replace: true });
   }, [activeTab, expandedJobs, statusFilter, tradeFilter, sortBy, setSearchParams]);
 
-  // Realtime: bi-directional sync with Genie — refresh when jobs are booked/completed/updated
+  // Realtime: bi-directional sync with Genie — debounced background refresh
   useEffect(() => {
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     const channel = supabase
       .channel('progressor-panel-realtime-sync')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'jobs' }, (payload) => {
@@ -196,11 +197,16 @@ export default function ProgressorPanel() {
         if (o?.booked_date !== n?.booked_date || o?.is_completed !== n?.is_completed ||
             o?.status !== n?.status || o?.team !== n?.team || o?.progress !== n?.progress ||
             o?.refer_back !== n?.refer_back) {
-          fetchJobs();
+          // Debounce: wait 2s after last change to avoid rapid reloads
+          if (debounceTimer) clearTimeout(debounceTimer);
+          debounceTimer = setTimeout(() => fetchJobs(true), 2000);
         }
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      supabase.removeChannel(channel);
+    };
   }, [fetchJobs]);
 
   // Periodic scan: clear awaiting_trade status for jobs with no remaining sub-tasks
