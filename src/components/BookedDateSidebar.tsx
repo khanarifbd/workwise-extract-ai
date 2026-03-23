@@ -139,7 +139,7 @@ export const BookedDateSidebar = forwardRef<HTMLDivElement, BookedDateSidebarPro
 
     return {
       monthGroups: sortedMonths,
-      totalCount: jobs.filter(j => !!j.bookedDate).length,
+      totalCount: allDates.reduce((sum, dateGroup) => sum + dateGroup.count, 0),
     };
   }, [jobs, tradeBookings]);
 
