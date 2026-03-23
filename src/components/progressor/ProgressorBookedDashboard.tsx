@@ -152,7 +152,8 @@ export function ProgressorBookedDashboard() {
         const n = payload.new as any;
         // Refresh on booked_date, is_completed, status, or team changes
         if (o?.booked_date !== n?.booked_date || o?.is_completed !== n?.is_completed ||
-            o?.status !== n?.status || o?.team !== n?.team || o?.progress !== n?.progress) {
+            o?.status !== n?.status || o?.team !== n?.team || o?.progress !== n?.progress ||
+            o?.refer_back !== n?.refer_back) {
           fetchBookedJobs();
         }
       })
