@@ -79,8 +79,10 @@ export function ProgressorBookedDashboard() {
     return map;
   }, [subTasks]);
 
-  const fetchBookedJobs = useCallback(async () => {
-    setLoading(true);
+  const realtimeRefreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const fetchBookedJobs = useCallback(async (background = false) => {
+    if (!background) setLoading(true);
     try {
       const FAN_CATEGORY_ID = '913c5a29-2b7f-4da9-992a-1b49e51d9d8a';
       
@@ -137,14 +139,23 @@ export function ProgressorBookedDashboard() {
     } catch (err) {
       console.error('Error fetching booked jobs:', err);
     } finally {
-      setLoading(false);
+      if (!background) setLoading(false);
     }
   }, [tradeBookings]);
 
-  useEffect(() => { fetchBookedJobs(); }, [fetchBookedJobs]);
+  useEffect(() => { void fetchBookedJobs(false); }, [fetchBookedJobs]);
 
-  // Realtime: refresh on ANY job change (booking, completion, status) for full sync with Genie
+  // Realtime: refresh in background and debounce to avoid disruptive UI flicker
   useEffect(() => {
+    const queueBackgroundRefresh = () => {
+      if (realtimeRefreshTimeoutRef.current) {
+        clearTimeout(realtimeRefreshTimeoutRef.current);
+      }
+      realtimeRefreshTimeoutRef.current = setTimeout(() => {
+        void fetchBookedJobs(true);
+      }, 1200);
+    };
+
     const channel = supabase
       .channel('progressor-booked-realtime-sync')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'jobs' }, (payload) => {
@@ -154,26 +165,35 @@ export function ProgressorBookedDashboard() {
         if (o?.booked_date !== n?.booked_date || o?.is_completed !== n?.is_completed ||
             o?.status !== n?.status || o?.team !== n?.team || o?.progress !== n?.progress ||
             o?.refer_back !== n?.refer_back) {
-          fetchBookedJobs();
+          queueBackgroundRefresh();
         }
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'jobs' }, () => {
-        fetchBookedJobs();
+        queueBackgroundRefresh();
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+
+    return () => {
+      if (realtimeRefreshTimeoutRef.current) {
+        clearTimeout(realtimeRefreshTimeoutRef.current);
+        realtimeRefreshTimeoutRef.current = null;
+      }
+      supabase.removeChannel(channel);
+    };
   }, [fetchBookedJobs]);
 
-  // Periodic sync every 30s to catch any missed updates
+  // Periodic sync every 30s to catch missed updates without forcing visible loading state
   useEffect(() => {
-    const interval = setInterval(fetchBookedJobs, 30000);
+    const interval = setInterval(() => {
+      void fetchBookedJobs(true);
+    }, 30000);
     return () => clearInterval(interval);
   }, [fetchBookedJobs]);
 
   const handleRefresh = useCallback(() => {
     refetchTradeBookings();
-    fetchBookedJobs();
-    fetchAllSubTasks();
+    void fetchBookedJobs(false);
+    void fetchAllSubTasks(true);
   }, [refetchTradeBookings, fetchBookedJobs, fetchAllSubTasks]);
 
   const handleSubTaskUpdate = async (subTask: SubTask, field: string, value: any) => {
