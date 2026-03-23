@@ -159,6 +159,11 @@ export default function ProgressorPanel() {
     }
   }, []);
 
+  const refreshPanelData = useCallback((background = true) => {
+    void fetchJobs(background);
+    void fetchAll(background);
+  }, [fetchJobs, fetchAll]);
+
   useEffect(() => { fetchJobs(); }, [fetchJobs]);
 
   // Persist UI state to URL so browser tab-switching preserves the view
@@ -496,7 +501,7 @@ export default function ProgressorPanel() {
         ));
       }
 
-      await fetchAll();
+      await fetchAll(true);
     } catch (err) {
       console.error('Error deleting sub-task:', err);
     }
@@ -521,7 +526,9 @@ export default function ProgressorPanel() {
     setTeamFilter('all');
   };
 
-  if (jobsLoading || subTasksLoading) {
+  const showInitialLoader = (jobsLoading || subTasksLoading) && jobs.length === 0 && subTasks.length === 0;
+
+  if (showInitialLoader) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
@@ -558,7 +565,7 @@ export default function ProgressorPanel() {
                 <Building2 className="h-3.5 w-3.5 mr-1" />
                 Contacts
               </Button>
-              <Button variant="outline" size="sm" onClick={() => { fetchJobs(); fetchAll(); }}>
+              <Button variant="outline" size="sm" onClick={() => refreshPanelData(true)}>
                 <RefreshCw className="h-3.5 w-3.5 mr-1" />
                 Refresh
               </Button>
@@ -866,8 +873,7 @@ export default function ProgressorPanel() {
                                   fieldChanged: 'refer_back', oldValue: 'false', newValue: 'true',
                                   metadata: { jobNumber: job.jobNumber, referredByProgressor: true },
                                 });
-                                fetchJobs();
-                                fetchAll();
+                                refreshPanelData(true);
                               } catch (err) {
                                 console.error('Error referring back job:', err);
                               }
@@ -890,7 +896,7 @@ export default function ProgressorPanel() {
                           onSubTaskUpdate={handleSubTaskUpdate}
                           onDeleteSubTask={handleDeleteSubTask}
                           onAddSubTask={(j) => setAddSubTaskJob(j)}
-                          onRefresh={() => { fetchJobs(); fetchAll(); }}
+                          onRefresh={() => refreshPanelData(true)}
                         />
                       )}
                     </Card>
@@ -976,7 +982,7 @@ export default function ProgressorPanel() {
                               onSubTaskUpdate={handleSubTaskUpdate}
                               onDeleteSubTask={handleDeleteSubTask}
                               onAddSubTask={(j) => setAddSubTaskJob(j)}
-                              onRefresh={() => { fetchJobs(); fetchAll(); }}
+                              onRefresh={() => refreshPanelData(true)}
                             />
                           )}
                         </Card>
@@ -1001,7 +1007,7 @@ export default function ProgressorPanel() {
               setExpandedJobs(prev => new Set([...prev, jobId]));
               setSearchParams(p => { const n = new URLSearchParams(p); n.set('job', jobId); return n; }, { replace: true });
               // Fetch sub-tasks first (fast), then jobs
-              fetchAll().then(() => fetchJobs());
+              fetchAll(true).then(() => fetchJobs(true));
             }}
           />
         )}
