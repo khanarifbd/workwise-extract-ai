@@ -634,6 +634,12 @@ export function ProgressorBookedDashboard() {
                                         booked_date: newDate,
                                         status: newDate && matchingSt.status === 'not_scheduled' ? 'scheduled' : matchingSt.status,
                                       });
+                                      if (newDate) {
+                                        await supabase
+                                          .from('jobs')
+                                          .update({ refer_back: false, refer_back_reason: '', refer_back_date: null })
+                                          .eq('id', job.id);
+                                      }
                                       await fetchAllSubTasks(true);
                                       refetchTradeBookings();
                                     }}

@@ -346,7 +346,10 @@ export function ProgressorJobExpandedContent({
               isFlexible={job.isFlexibleBooking}
               onDateChange={async (date) => {
                 try {
-                  const updates: any = { booked_date: date ? date.toISOString() : null };
+                  const updates: any = {
+                    booked_date: date ? date.toISOString() : null,
+                    ...(date ? { refer_back: false, refer_back_reason: '', refer_back_date: null } : {}),
+                  };
                   if (date && job.isCompleted) {
                     updates.is_completed = false;
                     updates.status = 'started';
