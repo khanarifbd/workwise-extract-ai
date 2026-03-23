@@ -99,8 +99,8 @@ export default function ProgressorPanel() {
   const [referredBackJobs, setReferredBackJobs] = useState<Job[]>([]);
 
   // Fetch incomplete jobs where booked date is 12+ hours past
-  const fetchJobs = useCallback(async () => {
-    setJobsLoading(true);
+  const fetchJobs = useCallback(async (background = false) => {
+    if (!background) setJobsLoading(true);
     try {
       // Fetch all non-deleted, non-FAN jobs - select only needed columns
       const FAN_CATEGORY_ID = '913c5a29-2b7f-4da9-992a-1b49e51d9d8a';
@@ -155,7 +155,7 @@ export default function ProgressorPanel() {
     } catch (err) {
       console.error('Error fetching jobs:', err);
     } finally {
-      setJobsLoading(false);
+      if (!background) setJobsLoading(false);
     }
   }, []);
 
