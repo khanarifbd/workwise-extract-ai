@@ -8,6 +8,7 @@ interface SignOffData {
 
 export const useSignOffStatus = (jobIds: string[]) => {
   const [signOffMap, setSignOffMap] = useState<Map<string, string[]>>(new Map());
+  const [signOffDateMap, setSignOffDateMap] = useState<Map<string, string>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
 
   // Stable dependency instead of jobIds.join(',') which creates huge strings
