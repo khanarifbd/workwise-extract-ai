@@ -217,6 +217,8 @@ export default function ProgressorPanel() {
   // Periodic scan: clear awaiting_trade status for jobs with no remaining sub-tasks
   useEffect(() => {
     const scanAndClearOrphanedAwaitingTrade = async () => {
+      if (document.visibilityState !== 'visible') return;
+
       try {
         // Find all jobs with awaiting_trade status
         const { data: awaitingJobs } = await supabase
@@ -227,33 +229,35 @@ export default function ProgressorPanel() {
 
         if (!awaitingJobs || awaitingJobs.length === 0) return;
 
-        // For each, check if any sub-tasks exist
-        for (const job of awaitingJobs) {
-          const { data: tasks } = await supabase
-            .from('job_sub_tasks')
-            .select('id')
-            .eq('parent_job_id', job.id)
-            .limit(1);
+        const awaitingJobIds = awaitingJobs.map(job => job.id);
 
-          if (!tasks || tasks.length === 0) {
-            await supabase
-              .from('jobs')
-              .update({ status: 'started', is_ongoing: false, ongoing_reason: '' })
-              .eq('id', job.id);
-            // Update local state
-            setJobs(prev => prev.map(j =>
-              j.id === job.id ? { ...j, status: 'started', isOngoing: false, ongoingReason: '' } : j
-            ));
-          }
-        }
+        // Fetch existing sub-task parents in one query (instead of one query per job)
+        const { data: subTaskParents } = await supabase
+          .from('job_sub_tasks')
+          .select('parent_job_id')
+          .in('parent_job_id', awaitingJobIds);
+
+        const jobsWithSubTasks = new Set((subTaskParents || []).map(row => row.parent_job_id));
+        const orphanedIds = awaitingJobIds.filter(id => !jobsWithSubTasks.has(id));
+
+        if (orphanedIds.length === 0) return;
+
+        await supabase
+          .from('jobs')
+          .update({ status: 'started', is_ongoing: false, ongoing_reason: '' })
+          .in('id', orphanedIds);
+
+        setJobs(prev => prev.map(j =>
+          orphanedIds.includes(j.id) ? { ...j, status: 'started', isOngoing: false, ongoingReason: '' } : j
+        ));
       } catch (err) {
         console.error('Awaiting trade scan error:', err);
       }
     };
 
-    // Run immediately and then every 30 seconds
+    // Run immediately and then periodically (lightweight + visibility aware)
     scanAndClearOrphanedAwaitingTrade();
-    const interval = setInterval(scanAndClearOrphanedAwaitingTrade, 30000);
+    const interval = setInterval(scanAndClearOrphanedAwaitingTrade, 180000);
     return () => clearInterval(interval);
   }, []);
 
