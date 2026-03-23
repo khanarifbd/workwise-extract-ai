@@ -192,7 +192,7 @@ export function ProgressorBookedDashboard() {
 
   const handleRefresh = useCallback(() => {
     refetchTradeBookings();
-    void fetchBookedJobs(false);
+    void fetchBookedJobs(true);
     void fetchAllSubTasks(true);
   }, [refetchTradeBookings, fetchBookedJobs, fetchAllSubTasks]);
 
@@ -613,7 +613,7 @@ export function ProgressorBookedDashboard() {
                                         booked_date: newDate,
                                         status: newDate && matchingSt.status === 'not_scheduled' ? 'scheduled' : matchingSt.status,
                                       });
-                                      await fetchAllSubTasks();
+                                      await fetchAllSubTasks(true);
                                       refetchTradeBookings();
                                     }}
                                     className="h-5 text-[10px] w-[100px] px-1 border-violet-300"
@@ -698,7 +698,7 @@ export function ProgressorBookedDashboard() {
           onCreated={() => {
             const jobId = addSubTaskJob.id;
             setExpandedJobs(prev => new Set([...prev, jobId]));
-            fetchAllSubTasks().then(() => fetchBookedJobs());
+            fetchAllSubTasks(true).then(() => fetchBookedJobs(true));
           }}
         />
       )}
