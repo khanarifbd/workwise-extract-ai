@@ -1740,3 +1740,7 @@ const Index = () => {
 };
 
 export default Index;
+
+// Disable React Fast Refresh for this large component to prevent
+// "Should have a queue" HMR errors during development
+// @refresh reset
