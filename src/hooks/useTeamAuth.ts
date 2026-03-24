@@ -134,6 +134,9 @@ export const useTeamAuth = () => {
       videos?: string[]; 
       documents?: { name: string; url: string; type: string }[];
       workItemUpdates?: Record<string, { isConfirmed?: boolean; hasModification?: boolean; variation?: string }>;
+      isOngoing?: boolean;
+      ongoingReason?: string;
+      isCompletion?: boolean;
     }
   ) => {
     if (!session) {

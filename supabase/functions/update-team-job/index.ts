@@ -292,6 +292,9 @@ Deno.serve(async (req) => {
     const jobUpdates: Record<string, unknown> = {};
     const timestamp = new Date().toISOString();
     
+    // Always set updated_at so realtime subscriptions and delta polling detect changes
+    jobUpdates.updated_at = timestamp;
+    
     if (updates.status) {
       jobUpdates.status = updates.status;
       // If status is 'complete', also set is_completed and completion_date
@@ -323,10 +326,10 @@ Deno.serve(async (req) => {
       }
     }
     
-    if (updates.notes) {
+    if (updates.notes !== undefined) {
       // Translate notes to English if user has a different language preference
       let notesToSave = updates.notes;
-      if (languagePreference && languagePreference !== 'en') {
+      if (languagePreference && languagePreference !== 'en' && notesToSave) {
         console.log(`Translating notes from ${languagePreference} to English`);
         notesToSave = await translateToEnglish(updates.notes, languagePreference);
         console.log('Notes translated successfully');
