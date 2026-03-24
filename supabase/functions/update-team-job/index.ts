@@ -292,6 +292,9 @@ Deno.serve(async (req) => {
     const jobUpdates: Record<string, unknown> = {};
     const timestamp = new Date().toISOString();
     
+    // Always set updated_at so realtime subscriptions and delta polling detect changes
+    jobUpdates.updated_at = timestamp;
+    
     if (updates.status) {
       jobUpdates.status = updates.status;
       // If status is 'complete', also set is_completed and completion_date
