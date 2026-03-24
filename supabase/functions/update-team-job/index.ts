@@ -323,10 +323,10 @@ Deno.serve(async (req) => {
       }
     }
     
-    if (updates.notes) {
+    if (updates.notes !== undefined) {
       // Translate notes to English if user has a different language preference
       let notesToSave = updates.notes;
-      if (languagePreference && languagePreference !== 'en') {
+      if (languagePreference && languagePreference !== 'en' && notesToSave) {
         console.log(`Translating notes from ${languagePreference} to English`);
         notesToSave = await translateToEnglish(updates.notes, languagePreference);
         console.log('Notes translated successfully');
