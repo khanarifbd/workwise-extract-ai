@@ -1,3 +1,4 @@
+/* @refresh reset */
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useSessionPersistence } from '@/hooks/useSessionPersistence';
 import { Job } from '@/types/job';
