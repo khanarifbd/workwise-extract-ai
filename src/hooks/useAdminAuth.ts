@@ -24,12 +24,14 @@ export const useAdminAuth = () => {
   });
 
   const resolveRoles = useCallback(async (userId: string): Promise<{ isAdmin: boolean; isViewer: boolean }> => {
-    // Retry once to avoid transient auth timing issues right after sign-in
-    for (let attempt = 0; attempt < 2; attempt += 1) {
+    const maxAttempts = 5;
+
+    // Retry with backoff to handle brief token/session propagation delays
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
       try {
         const [{ data: isAdmin, error: adminError }, { data: isViewer, error: viewerError }] = await Promise.all([
-          supabase.rpc('has_role', { _user_id: userId, _role: 'admin' }),
-          supabase.rpc('has_role', { _user_id: userId, _role: 'viewer' }),
+          supabase.rpc('is_admin', { _user_id: userId }),
+          supabase.rpc('is_viewer', { _user_id: userId }),
         ]);
 
         if (adminError || viewerError) {
@@ -41,12 +43,12 @@ export const useAdminAuth = () => {
           isViewer: Boolean(isViewer),
         };
       } catch (err) {
-        if (attempt === 1) {
+        if (attempt === maxAttempts - 1) {
           console.error('Failed to resolve admin roles:', err);
           return { isAdmin: false, isViewer: false };
         }
 
-        await new Promise((resolve) => setTimeout(resolve, 120));
+        await new Promise((resolve) => setTimeout(resolve, 200 * (attempt + 1)));
       }
     }
 
