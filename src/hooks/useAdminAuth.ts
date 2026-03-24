@@ -23,43 +23,39 @@ export const useAdminAuth = () => {
     error: null,
   });
 
-  const checkRole = useCallback(async (userId: string, role: 'admin' | 'viewer'): Promise<boolean> => {
-    try {
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('role', role)
-        .maybeSingle();
+  const resolveRoles = useCallback(async (userId: string): Promise<{ isAdmin: boolean; isViewer: boolean }> => {
+    // Retry once to avoid transient auth timing issues right after sign-in
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const [{ data: isAdmin, error: adminError }, { data: isViewer, error: viewerError }] = await Promise.all([
+          supabase.rpc('has_role', { _user_id: userId, _role: 'admin' }),
+          supabase.rpc('has_role', { _user_id: userId, _role: 'viewer' }),
+        ]);
 
-      if (error) {
-        console.error('Error checking role:', error.message);
-        return false;
+        if (adminError || viewerError) {
+          throw adminError ?? viewerError;
+        }
+
+        return {
+          isAdmin: Boolean(isAdmin),
+          isViewer: Boolean(isViewer),
+        };
+      } catch (err) {
+        if (attempt === 1) {
+          console.error('Failed to resolve admin roles:', err);
+          return { isAdmin: false, isViewer: false };
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 120));
       }
-
-      return !!data;
-    } catch (err) {
-      console.error('Failed to check role:', err);
-      return false;
     }
+
+    return { isAdmin: false, isViewer: false };
   }, []);
 
-  // Check if user has admin role
-  const checkAdminRole = useCallback((userId: string) => checkRole(userId, 'admin'), [checkRole]);
-
-  // Check if user has viewer role
-  const checkViewerRole = useCallback((userId: string) => checkRole(userId, 'viewer'), [checkRole]);
-
-  // Check if user has any admin access (admin or viewer)
-  const checkHasAdminAccess = useCallback(async (userId: string): Promise<boolean> => {
-    const [isAdmin, isViewer] = await Promise.all([
-      checkAdminRole(userId),
-      checkViewerRole(userId),
-    ]);
-    return isAdmin || isViewer;
-  }, [checkAdminRole, checkViewerRole]);
-
   useEffect(() => {
+    let isMounted = true;
+
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
@@ -68,6 +64,8 @@ export const useAdminAuth = () => {
         // unmount/remount (which loses all page state and redirects the user).
         if (event === 'TOKEN_REFRESHED') {
           // Silently update session/user refs without touching role flags
+          if (!isMounted) return;
+
           setState(prev => ({
             ...prev,
             session,
@@ -77,6 +75,8 @@ export const useAdminAuth = () => {
         }
 
         // For SIGNED_IN, SIGNED_OUT, USER_UPDATED etc. do the full flow
+        if (!isMounted) return;
+
         setState(prev => ({
           ...prev,
           session,
@@ -87,10 +87,10 @@ export const useAdminAuth = () => {
         // Defer role checks with setTimeout to prevent deadlock
         if (session?.user) {
           setTimeout(async () => {
-            const [isAdmin, isViewer] = await Promise.all([
-              checkAdminRole(session.user.id),
-              checkViewerRole(session.user.id),
-            ]);
+            const { isAdmin, isViewer } = await resolveRoles(session.user.id);
+
+            if (!isMounted) return;
+
             setState(prev => ({
               ...prev,
               isAdmin,
@@ -113,33 +113,41 @@ export const useAdminAuth = () => {
 
     // THEN check for existing session
     supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!isMounted) return;
+
       setState(prev => ({
         ...prev,
         session,
         user: session?.user ?? null,
+        isCheckingRoles: !!session?.user,
       }));
 
       if (session?.user) {
-        const [isAdmin, isViewer] = await Promise.all([
-          checkAdminRole(session.user.id),
-          checkViewerRole(session.user.id),
-        ]);
+        const { isAdmin, isViewer } = await resolveRoles(session.user.id);
+
+        if (!isMounted) return;
+
         setState(prev => ({
           ...prev,
           isAdmin,
           isViewer,
           isLoading: false,
+          isCheckingRoles: false,
         }));
       } else {
         setState(prev => ({
           ...prev,
           isLoading: false,
+          isCheckingRoles: false,
         }));
       }
     });
 
-    return () => subscription.unsubscribe();
-  }, [checkAdminRole, checkViewerRole]);
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, [resolveRoles]);
 
   const signIn = async (email: string, password: string): Promise<{ error: Error | null }> => {
     setState(prev => ({ ...prev, error: null }));
