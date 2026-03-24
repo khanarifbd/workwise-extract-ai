@@ -1,3 +1,4 @@
+/* @refresh reset */
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useSessionPersistence } from '@/hooks/useSessionPersistence';
 import { Job } from '@/types/job';
@@ -1740,7 +1741,3 @@ const Index = () => {
 };
 
 export default Index;
-
-// Disable React Fast Refresh for this large component to prevent
-// "Should have a queue" HMR errors during development
-// @refresh reset
