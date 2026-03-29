@@ -1268,8 +1268,26 @@ const Index = () => {
         onRefresh={refreshJobs}
         overdueCount={overdueCount}
         onShowOverdue={() => setShowOverdueDashboard(true)}
+        danniCount={danniCount}
+        onShowDanni={() => setShowDanniDashboard(true)}
       />
       
+      {/* Danni Sign-Off Readiness Dashboard */}
+      {showDanniDashboard && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <DanniDashboard
+            jobs={jobs}
+            signOffStatuses={signOffStatusesMap}
+            onClose={() => setShowDanniDashboard(false)}
+            onJobClick={(job) => {
+              setShowDanniDashboard(false);
+              setSelectedJobForModal(job);
+            }}
+            onJobUpdated={refreshJobs}
+          />
+        </div>
+      )}
+
       {/* Overdue Jobs Dashboard Modal */}
       {showOverdueDashboard && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
