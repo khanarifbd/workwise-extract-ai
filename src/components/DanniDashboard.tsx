@@ -11,7 +11,7 @@ import { Calendar } from '@/components/ui/calendar';
 import {
   AlertTriangle, Clock, MapPin, Phone, Users, X, ExternalLink,
   Camera, FileText, Wrench, ShieldAlert, DoorOpen, PenLine,
-  CalendarDays, ChevronDown, Tag, Save, RotateCcw
+  CalendarDays, ChevronDown, Tag, Save, RotateCcw, Zap, BarChart3, Loader2
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
