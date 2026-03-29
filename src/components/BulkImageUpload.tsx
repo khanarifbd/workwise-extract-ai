@@ -222,6 +222,10 @@ export const BulkImageUpload = ({ onJobsExtracted, onClose, initialFiles }: Bulk
           referBackReason: '',
           referBackDate: null,
           expectedCompletionDate: null,
+          blockerType: null,
+          blockerNotes: '',
+          blockerSetAt: null,
+          blockerChaseDate: null,
         };
 
         extractedJobs.push(newJob);

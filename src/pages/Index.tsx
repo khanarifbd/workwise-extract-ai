@@ -288,6 +288,10 @@ const Index = () => {
         referBackReason: '',
         referBackDate: null,
         expectedCompletionDate: null,
+        blockerType: null,
+        blockerNotes: '',
+        blockerSetAt: null,
+        blockerChaseDate: null,
       };
       
       // Check for duplicates before adding
