@@ -11,7 +11,7 @@ import { Calendar } from '@/components/ui/calendar';
 import {
   AlertTriangle, Clock, MapPin, Phone, Users, X, ExternalLink,
   Camera, FileText, Wrench, ShieldAlert, DoorOpen, PenLine,
-  CalendarDays, ChevronDown, Tag, Save, RotateCcw
+  CalendarDays, ChevronDown, Tag, Save, RotateCcw, Zap, BarChart3, Loader2
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -37,6 +37,7 @@ interface DanniDashboardProps {
   onClose: () => void;
   onJobClick: (job: Job) => void;
   onJobUpdated?: () => void;
+  onShowMetrics?: () => void;
 }
 
 interface ReadinessJob extends Job {
@@ -54,6 +55,7 @@ export const DanniDashboard = ({
   onClose,
   onJobClick,
   onJobUpdated,
+  onShowMetrics,
 }: DanniDashboardProps) => {
   const [selectedTeam, setSelectedTeam] = useState<string>('all');
   const [filterBlocker, setFilterBlocker] = useState<string>('all');
@@ -64,7 +66,30 @@ export const DanniDashboard = ({
     chaseDate: Date | undefined;
   }>({ type: '', notes: '', chaseDate: undefined });
   const [savingBlocker, setSavingBlocker] = useState(false);
+  const [runningChase, setRunningChase] = useState(false);
   const { toast } = useToast();
+
+  const handleRunChase = useCallback(async () => {
+    setRunningChase(true);
+    try {
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const url = `https://${projectId}.supabase.co/functions/v1/auto-chase-signoff`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      toast({
+        title: 'Chase messages sent',
+        description: `${data.chased} message${data.chased !== 1 ? 's' : ''} sent to teams`,
+      });
+    } catch (err: any) {
+      toast({ title: 'Chase failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setRunningChase(false);
+    }
+  }, [toast]);
 
   // Compute readiness data for all jobs 24h+ past booked date
   const readinessJobs = useMemo(() => {
@@ -275,6 +300,26 @@ export const DanniDashboard = ({
             <Badge variant="secondary" className="text-xs">
               Showing {filteredJobs.length} of {readinessJobs.length}
             </Badge>
+            <div className="flex-1" />
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs gap-1"
+              onClick={onShowMetrics}
+            >
+              <BarChart3 className="w-3 h-3" />
+              Team Report
+            </Button>
+            <Button
+              variant="default"
+              size="sm"
+              className="h-7 text-xs gap-1"
+              disabled={runningChase || readinessJobs.length === 0}
+              onClick={handleRunChase}
+            >
+              {runningChase ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
+              {runningChase ? 'Chasing...' : 'Chase Teams'}
+            </Button>
           </div>
         </div>
       </CardHeader>

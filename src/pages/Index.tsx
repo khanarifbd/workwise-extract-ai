@@ -26,6 +26,7 @@ import { CompletedJobsPDFButton } from '@/components/CompletedJobsPDFButton';
 import { ManualJobEntry } from '@/components/ManualJobEntry';
 import { OverdueJobsDashboard } from '@/components/OverdueJobsDashboard';
 import { DanniDashboard } from '@/components/DanniDashboard';
+import { TeamAccountabilityMetrics } from '@/components/TeamAccountabilityMetrics';
 import { ReferBackPDFButton } from '@/components/ReferBackPDFButton';
 import { downloadReferBackJobPDF } from '@/components/ReferBackJobPDF';
 import { useJobAlerts } from '@/hooks/useJobAlerts';
@@ -97,6 +98,7 @@ const Index = () => {
   const [showExport, setShowExport] = useState(false);
   const [showOverdueDashboard, setShowOverdueDashboard] = useState(false);
   const [showDanniDashboard, setShowDanniDashboard] = useState(false);
+  const [showTeamMetrics, setShowTeamMetrics] = useState(false);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [bulkUploadInitialFiles, setBulkUploadInitialFiles] = useState<Array<{ file: File; type: FileType }>>([]);
   const [showManualEntry, setShowManualEntry] = useState(false);
@@ -1284,7 +1286,18 @@ const Index = () => {
               setSelectedJobForModal(job);
             }}
             onJobUpdated={refreshJobs}
+            onShowMetrics={() => {
+              setShowDanniDashboard(false);
+              setShowTeamMetrics(true);
+            }}
           />
+        </div>
+      )}
+
+      {/* Team Accountability Metrics */}
+      {showTeamMetrics && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <TeamAccountabilityMetrics onClose={() => setShowTeamMetrics(false)} />
         </div>
       )}
 
