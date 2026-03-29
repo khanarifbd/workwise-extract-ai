@@ -866,6 +866,10 @@ export const mapJobToDatabase = (job: Partial<Job>): any => {
   if (job.referBackReason !== undefined) dbJob.refer_back_reason = job.referBackReason;
   if (job.referBackDate !== undefined) dbJob.refer_back_date = job.referBackDate;
   if (job.expectedCompletionDate !== undefined) dbJob.expected_completion_date = job.expectedCompletionDate;
+  if (job.blockerType !== undefined) dbJob.blocker_type = job.blockerType;
+  if (job.blockerNotes !== undefined) dbJob.blocker_notes = job.blockerNotes;
+  if (job.blockerSetAt !== undefined) dbJob.blocker_set_at = job.blockerSetAt;
+  if (job.blockerChaseDate !== undefined) dbJob.blocker_chase_date = job.blockerChaseDate;
   
   return dbJob;
 };
