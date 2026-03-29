@@ -1285,7 +1285,7 @@ const Index = () => {
           ) : isFanCategory ? (
             <FanStatsCards jobs={jobs} />
           ) : (
-            <StatsCards jobs={jobs} allJobs={jobs} />
+            <StatsCards jobs={jobs} allJobs={jobs} tradeBookings={tradeBookings} />
           )}
         </div>
 

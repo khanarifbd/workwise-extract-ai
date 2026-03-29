@@ -34,6 +34,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 interface StatsCardsProps {
   jobs: Job[];
   allJobs?: Job[];
+  tradeBookings?: Map<string, unknown>;
 }
 
 const PRIORITY_KEYWORDS = ['emergency', 'urgent', 'priority', 'critical', 'asap', 'immediate'];
@@ -55,7 +56,7 @@ function isCompleted(j: Job): boolean {
   return j.status === 'complete' || j.isCompleted;
 }
 
-export const StatsCards = forwardRef<HTMLDivElement, StatsCardsProps>(({ jobs, allJobs }, ref) => {
+export const StatsCards = forwardRef<HTMLDivElement, StatsCardsProps>(({ jobs, allJobs, tradeBookings }, ref) => {
   const now = useMemo(() => getGMTNow(), []);
   const [activeOpen, setActiveOpen] = useState(false);
   const [monthlyOpen, setMonthlyOpen] = useState(false);
@@ -88,10 +89,12 @@ export const StatsCards = forwardRef<HTMLDivElement, StatsCardsProps>(({ jobs, a
     const noShow = unbookedJobs.filter(j => j.status === 'no_show').length;
     const totalUnbooked = unbookedJobs.length;
 
-    // Booked (incomplete, has booked date)
-    const booked = (allJobs || jobs).filter(j => {
+    // Booked (incomplete, has booked date or trade booking, NOT refer back)
+    const sourceJobs = allJobs || jobs;
+    const booked = sourceJobs.filter(j => {
       if (isCompleted(j)) return false;
-      return !!j.bookedDate;
+      if (j.referBack) return false;
+      return !!j.bookedDate || (tradeBookings ? tradeBookings.has(j.id) : false);
     }).length;
 
     // Other active statuses

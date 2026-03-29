@@ -519,6 +519,25 @@ Deno.serve(async (req) => {
         console.log(`Team sign-off recorded for ${teamName} on job ${jobId}`);
       }
 
+      // CRITICAL: Update the job FIRST before sending notifications
+      // This prevents orphaned notifications if the job update fails
+      if (Object.keys(jobUpdates).length > 0) {
+        const { error: earlyUpdateError } = await supabase
+          .from("jobs")
+          .update(jobUpdates)
+          .eq("id", jobId);
+
+        if (earlyUpdateError) {
+          console.error("Failed to update job during sign-off:", earlyUpdateError.message);
+          return new Response(
+            JSON.stringify({ error: "Failed to update job" }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        // Mark as already updated so we don't update again at the end
+        jobUpdates._alreadyUpdated = true;
+      }
+
       // Send push notifications to all Operations Managers about this sign-off
       try {
         // Get all Operations Managers
@@ -661,11 +680,15 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Update the job
-    if (Object.keys(jobUpdates).length > 0) {
+    // Update the job (skip if already updated during sign-off flow)
+    if (Object.keys(jobUpdates).length > 0 && !(jobUpdates as any)._alreadyUpdated) {
+      // Remove internal flag before sending to DB
+      const cleanUpdates = { ...jobUpdates };
+      delete (cleanUpdates as any)._alreadyUpdated;
+      
       const { error: updateError } = await supabase
         .from("jobs")
-        .update(jobUpdates)
+        .update(cleanUpdates)
         .eq("id", jobId);
 
       if (updateError) {
