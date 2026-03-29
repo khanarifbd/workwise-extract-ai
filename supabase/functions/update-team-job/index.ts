@@ -680,11 +680,15 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Update the job
-    if (Object.keys(jobUpdates).length > 0) {
+    // Update the job (skip if already updated during sign-off flow)
+    if (Object.keys(jobUpdates).length > 0 && !(jobUpdates as any)._alreadyUpdated) {
+      // Remove internal flag before sending to DB
+      const cleanUpdates = { ...jobUpdates };
+      delete (cleanUpdates as any)._alreadyUpdated;
+      
       const { error: updateError } = await supabase
         .from("jobs")
-        .update(jobUpdates)
+        .update(cleanUpdates)
         .eq("id", jobId);
 
       if (updateError) {
