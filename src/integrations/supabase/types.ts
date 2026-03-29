@@ -242,6 +242,10 @@ export type Database = {
           additional_works: Json | null
           address: string | null
           attachments: Json | null
+          blocker_chase_date: string | null
+          blocker_notes: string | null
+          blocker_set_at: string | null
+          blocker_type: string | null
           booked_date: string | null
           booking_notes: string | null
           category_id: string | null
@@ -283,6 +287,10 @@ export type Database = {
           additional_works?: Json | null
           address?: string | null
           attachments?: Json | null
+          blocker_chase_date?: string | null
+          blocker_notes?: string | null
+          blocker_set_at?: string | null
+          blocker_type?: string | null
           booked_date?: string | null
           booking_notes?: string | null
           category_id?: string | null
@@ -324,6 +332,10 @@ export type Database = {
           additional_works?: Json | null
           address?: string | null
           attachments?: Json | null
+          blocker_chase_date?: string | null
+          blocker_notes?: string | null
+          blocker_set_at?: string | null
+          blocker_type?: string | null
           booked_date?: string | null
           booking_notes?: string | null
           category_id?: string | null
