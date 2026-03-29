@@ -847,6 +847,30 @@ export const TeamJobDetail = ({
             <span className="text-[11px] font-bold text-white">{progress}%</span>
           </div>
         </div>
+
+        {/* Blocker alert banner */}
+        {job.blockerType && (
+          <div className={cn(
+            "mx-3 mb-2 px-3 py-2 rounded-lg flex items-center gap-2 text-white text-xs font-semibold",
+            job.blockerType === 'awaiting_photos' ? "bg-blue-600" :
+            job.blockerType === 'awaiting_description' ? "bg-indigo-600" :
+            job.blockerType === 'photos_and_description' ? "bg-violet-600" :
+            job.blockerType === 'rework_required' ? "bg-red-600" :
+            job.blockerType === 'awaiting_trade' ? "bg-amber-600" :
+            "bg-gray-600"
+          )}>
+            <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+            <span>
+              {job.blockerType === 'awaiting_photos' ? '📸 Photos required to complete sign-off' :
+               job.blockerType === 'awaiting_description' ? '📝 Description required to complete sign-off' :
+               job.blockerType === 'photos_and_description' ? '📸📝 Photos AND description required' :
+               job.blockerType === 'rework_required' ? '🔄 Rework required on this job' :
+               job.blockerType === 'awaiting_trade' ? '🔧 Trade booking pending' :
+               job.blockerType === 'no_access' ? '🚪 No access - contact office' :
+               '⚠️ Action required - contact office'}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Content - Mobile optimized */}
