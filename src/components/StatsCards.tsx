@@ -89,10 +89,12 @@ export const StatsCards = forwardRef<HTMLDivElement, StatsCardsProps>(({ jobs, a
     const noShow = unbookedJobs.filter(j => j.status === 'no_show').length;
     const totalUnbooked = unbookedJobs.length;
 
-    // Booked (incomplete, has booked date)
-    const booked = (allJobs || jobs).filter(j => {
+    // Booked (incomplete, has booked date or trade booking, NOT refer back)
+    const sourceJobs = allJobs || jobs;
+    const booked = sourceJobs.filter(j => {
       if (isCompleted(j)) return false;
-      return !!j.bookedDate;
+      if (j.referBack) return false;
+      return !!j.bookedDate || (tradeBookings ? tradeBookings.has(j.id) : false);
     }).length;
 
     // Other active statuses
