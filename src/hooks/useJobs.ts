@@ -165,7 +165,8 @@ export const useJobs = (categoryId?: string) => {
       )
       .subscribe();
 
-    // Periodic integrity check: verify local count matches DB every 30s
+    // Periodic integrity check: verify local count matches DB every 3 minutes
+    // Uses visibility API to avoid wasting resources when tab is hidden
     const runIntegrityCheck = async () => {
       if (document.visibilityState !== 'visible') return;
       if (loadingRef.current || pendingUpdatesRef.current.size > 0) return;
@@ -188,9 +189,11 @@ export const useJobs = (categoryId?: string) => {
     return () => {
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
       }
       if (integrityIntervalRef.current) {
         clearInterval(integrityIntervalRef.current);
+        integrityIntervalRef.current = null;
       }
       supabase.removeChannel(channel);
     };
