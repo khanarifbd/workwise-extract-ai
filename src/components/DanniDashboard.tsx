@@ -1,5 +1,5 @@
 import { useMemo, useState, useCallback } from 'react';
-import { Job } from '@/types/job';
+import { Job, ALLSAINTS_TEAMS, FAN_TEAMS } from '@/types/job';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,7 +11,8 @@ import { Calendar } from '@/components/ui/calendar';
 import {
   AlertTriangle, Clock, MapPin, Phone, Users, X, ExternalLink,
   Camera, FileText, Wrench, ShieldAlert, DoorOpen, PenLine,
-  CalendarDays, ChevronDown, Tag, Save, RotateCcw, Zap, BarChart3, Loader2
+  CalendarDays, ChevronDown, Tag, Save, RotateCcw, Zap, BarChart3, Loader2,
+  CalendarPlus, SendHorizonal
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -23,6 +24,7 @@ import { useToast } from '@/hooks/use-toast';
 const BLOCKER_TYPES = [
   { value: 'awaiting_photos', label: 'Awaiting Photos', icon: Camera, color: 'bg-blue-500' },
   { value: 'awaiting_description', label: 'Awaiting Description', icon: PenLine, color: 'bg-indigo-500' },
+  { value: 'photos_and_description', label: 'Photos & Description', icon: FileText, color: 'bg-violet-500' },
   { value: 'awaiting_trade', label: 'Awaiting Trade', icon: Wrench, color: 'bg-amber-500' },
   { value: 'awaiting_nph', label: 'Awaiting NPH', icon: ShieldAlert, color: 'bg-purple-500' },
   { value: 'rework_required', label: 'Rework Required', icon: RotateCcw, color: 'bg-red-500' },
@@ -38,6 +40,7 @@ interface DanniDashboardProps {
   onJobClick: (job: Job) => void;
   onJobUpdated?: () => void;
   onShowMetrics?: () => void;
+  editJob?: (id: string, updates: Partial<Job>) => Promise<any>;
 }
 
 interface ReadinessJob extends Job {
@@ -56,10 +59,14 @@ export const DanniDashboard = ({
   onJobClick,
   onJobUpdated,
   onShowMetrics,
+  editJob,
 }: DanniDashboardProps) => {
   const [selectedTeam, setSelectedTeam] = useState<string>('all');
   const [filterBlocker, setFilterBlocker] = useState<string>('all');
   const [editingBlocker, setEditingBlocker] = useState<string | null>(null);
+  const [rebookingJob, setRebookingJob] = useState<string | null>(null);
+  const [rebookDate, setRebookDate] = useState<Date | undefined>(undefined);
+  const [savingRebook, setSavingRebook] = useState(false);
   const [blockerForm, setBlockerForm] = useState<{
     type: BlockerType | '';
     notes: string;
@@ -120,7 +127,7 @@ export const DanniDashboard = ({
 
       // Auto-detect most likely blocker
       let autoBlocker: string | null = null;
-      if (!hasPhotos && !hasDescription) autoBlocker = 'awaiting_photos';
+      if (!hasPhotos && !hasDescription) autoBlocker = 'photos_and_description';
       else if (!hasPhotos) autoBlocker = 'awaiting_photos';
       else if (!hasDescription) autoBlocker = 'awaiting_description';
       else if (hasTradePending) autoBlocker = 'awaiting_trade';
@@ -156,11 +163,9 @@ export const DanniDashboard = ({
     }
     if (filterBlocker !== 'all') {
       if (filterBlocker === 'untagged') {
-        result = result.filter(j => !(j as any).blocker_type && !(j as any).blockerType);
+        result = result.filter(j => !j.blockerType);
       } else {
-        result = result.filter(j => 
-          (j as any).blocker_type === filterBlocker || (j as any).blockerType === filterBlocker
-        );
+        result = result.filter(j => j.blockerType === filterBlocker);
       }
     }
     return result;
@@ -175,18 +180,26 @@ export const DanniDashboard = ({
     if (!blockerForm.type) return;
     setSavingBlocker(true);
     try {
-      const { error } = await supabase
-        .from('jobs')
-        .update({
-          blocker_type: blockerForm.type,
-          blocker_notes: blockerForm.notes,
-          blocker_set_at: new Date().toISOString(),
-          blocker_chase_date: blockerForm.chaseDate?.toISOString() || null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', jobId);
-
-      if (error) throw error;
+      if (editJob) {
+        await editJob(jobId, {
+          blockerType: blockerForm.type,
+          blockerNotes: blockerForm.notes,
+          blockerSetAt: new Date(),
+          blockerChaseDate: blockerForm.chaseDate || null,
+        });
+      } else {
+        const { error } = await supabase
+          .from('jobs')
+          .update({
+            blocker_type: blockerForm.type,
+            blocker_notes: blockerForm.notes,
+            blocker_set_at: new Date().toISOString(),
+            blocker_chase_date: blockerForm.chaseDate?.toISOString() || null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', jobId);
+        if (error) throw error;
+      }
 
       toast({ title: 'Blocker tagged', description: `Job tagged as "${BLOCKER_TYPES.find(b => b.value === blockerForm.type)?.label}"` });
       setEditingBlocker(null);
@@ -198,31 +211,89 @@ export const DanniDashboard = ({
     } finally {
       setSavingBlocker(false);
     }
-  }, [blockerForm, toast, onJobUpdated]);
+  }, [blockerForm, toast, onJobUpdated, editJob]);
 
   const handleClearBlocker = useCallback(async (jobId: string) => {
     try {
-      const { error } = await supabase
-        .from('jobs')
-        .update({
-          blocker_type: null,
-          blocker_notes: '',
-          blocker_set_at: null,
-          blocker_chase_date: null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', jobId);
-      if (error) throw error;
+      if (editJob) {
+        await editJob(jobId, {
+          blockerType: null,
+          blockerNotes: '',
+          blockerSetAt: null,
+          blockerChaseDate: null,
+        });
+      } else {
+        const { error } = await supabase
+          .from('jobs')
+          .update({
+            blocker_type: null,
+            blocker_notes: '',
+            blocker_set_at: null,
+            blocker_chase_date: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', jobId);
+        if (error) throw error;
+      }
       toast({ title: 'Blocker cleared' });
       onJobUpdated?.();
     } catch (err) {
       toast({ title: 'Error', description: 'Failed to clear blocker', variant: 'destructive' });
     }
-  }, [toast, onJobUpdated]);
+  }, [toast, onJobUpdated, editJob]);
+
+  const handleRebook = useCallback(async (job: ReadinessJob) => {
+    if (!rebookDate || !editJob) return;
+    setSavingRebook(true);
+    try {
+      // Rebook with same team that did original works
+      await editJob(job.id, {
+        bookedDate: rebookDate,
+        // Clear blocker since we're rebooking
+        blockerType: null,
+        blockerNotes: '',
+        blockerSetAt: null,
+        blockerChaseDate: null,
+      });
+
+      toast({
+        title: 'Job rebooked',
+        description: `${job.name} rebooked for ${format(rebookDate, 'EEE dd MMM')} with ${job.team || 'same team'}`,
+      });
+      setRebookingJob(null);
+      setRebookDate(undefined);
+      onJobUpdated?.();
+    } catch (err) {
+      console.error('Failed to rebook:', err);
+      toast({ title: 'Error', description: 'Failed to rebook job', variant: 'destructive' });
+    } finally {
+      setSavingRebook(false);
+    }
+  }, [rebookDate, editJob, toast, onJobUpdated]);
+
+  const handleQuickTag = useCallback(async (jobId: string, type: BlockerType) => {
+    setSavingBlocker(true);
+    try {
+      if (editJob) {
+        await editJob(jobId, {
+          blockerType: type,
+          blockerNotes: '',
+          blockerSetAt: new Date(),
+          blockerChaseDate: null,
+        });
+      }
+      const label = BLOCKER_TYPES.find(b => b.value === type)?.label;
+      toast({ title: 'Tagged', description: `Job tagged as "${label}"` });
+      onJobUpdated?.();
+    } catch (err) {
+      toast({ title: 'Error', description: 'Failed to tag', variant: 'destructive' });
+    } finally {
+      setSavingBlocker(false);
+    }
+  }, [editJob, toast, onJobUpdated]);
 
   const getBlockerInfo = (job: ReadinessJob) => {
-    const type = (job as any).blocker_type || (job as any).blockerType;
-    return BLOCKER_TYPES.find(b => b.value === type) || null;
+    return BLOCKER_TYPES.find(b => b.value === job.blockerType) || null;
   };
 
   return (
@@ -336,6 +407,7 @@ export const DanniDashboard = ({
               {filteredJobs.map((job) => {
                 const blockerInfo = getBlockerInfo(job);
                 const isEditing = editingBlocker === job.id;
+                const isRebooking = rebookingJob === job.id;
 
                 return (
                   <div
@@ -408,30 +480,54 @@ export const DanniDashboard = ({
 
                         {/* Blocker tag display */}
                         {blockerInfo && !isEditing && (
-                          <div className="mt-2 flex items-center gap-2">
+                          <div className="mt-2 flex items-center gap-2 flex-wrap">
                             <Badge className={cn("text-white text-[10px] px-2 py-0.5", blockerInfo.color)}>
                               <blockerInfo.icon className="w-3 h-3 mr-1" />
                               {blockerInfo.label}
                             </Badge>
-                            {(job as any).blocker_chase_date && (
+                            {job.blockerChaseDate && (
                               <span className="text-[10px] text-muted-foreground">
-                                Chase: {format(new Date((job as any).blocker_chase_date), 'dd MMM')}
+                                Chase: {format(job.blockerChaseDate instanceof Date ? job.blockerChaseDate : new Date(job.blockerChaseDate as any), 'dd MMM')}
                               </span>
                             )}
-                            {(job as any).blocker_notes && (
+                            {job.blockerNotes && (
                               <span className="text-[10px] text-muted-foreground truncate max-w-[200px]">
-                                {(job as any).blocker_notes}
+                                {job.blockerNotes}
                               </span>
                             )}
                           </div>
                         )}
 
-                        {/* Auto-suggested action */}
+                        {/* Quick action buttons for untagged jobs */}
                         {!blockerInfo && !isEditing && job.autoBlocker && (
-                          <div className="mt-1.5">
-                            <span className="text-[10px] text-orange-600 dark:text-orange-400 font-medium">
-                              ⚡ Suggested: {BLOCKER_TYPES.find(b => b.value === job.autoBlocker)?.label}
+                          <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[10px] text-orange-600 dark:text-orange-400 font-medium mr-1">
+                              ⚡ Suggested:
                             </span>
+                            {!job.hasPhotos && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-5 text-[10px] px-1.5 py-0 gap-0.5"
+                                onClick={(e) => { e.stopPropagation(); handleQuickTag(job.id, !job.hasDescription ? 'photos_and_description' : 'awaiting_photos'); }}
+                                disabled={savingBlocker}
+                              >
+                                <Camera className="w-2.5 h-2.5" />
+                                {!job.hasDescription ? 'Photos & Desc' : 'Photos'}
+                              </Button>
+                            )}
+                            {job.hasPhotos && !job.hasDescription && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-5 text-[10px] px-1.5 py-0 gap-0.5"
+                                onClick={(e) => { e.stopPropagation(); handleQuickTag(job.id, 'awaiting_description'); }}
+                                disabled={savingBlocker}
+                              >
+                                <PenLine className="w-2.5 h-2.5" />
+                                Description
+                              </Button>
+                            )}
                           </div>
                         )}
                       </div>
@@ -457,11 +553,11 @@ export const DanniDashboard = ({
                               setEditingBlocker(null);
                             } else {
                               setEditingBlocker(job.id);
-                              const existing = getBlockerInfo(job);
+                              setRebookingJob(null);
                               setBlockerForm({
-                                type: ((job as any).blocker_type || '') as BlockerType | '',
-                                notes: (job as any).blocker_notes || '',
-                                chaseDate: (job as any).blocker_chase_date ? new Date((job as any).blocker_chase_date) : undefined,
+                                type: (job.blockerType || '') as BlockerType | '',
+                                notes: job.blockerNotes || '',
+                                chaseDate: job.blockerChaseDate ? new Date(job.blockerChaseDate as any) : undefined,
                               });
                             }
                           }}
@@ -469,8 +565,71 @@ export const DanniDashboard = ({
                         >
                           <Tag className="h-3.5 w-3.5" />
                         </Button>
+                        <Button
+                          variant={isRebooking ? "secondary" : "ghost"}
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (isRebooking) {
+                              setRebookingJob(null);
+                            } else {
+                              setRebookingJob(job.id);
+                              setEditingBlocker(null);
+                              setRebookDate(undefined);
+                            }
+                          }}
+                          title="Rebook with same team"
+                        >
+                          <CalendarPlus className="h-3.5 w-3.5" />
+                        </Button>
                       </div>
                     </div>
+
+                    {/* Rebook panel */}
+                    {isRebooking && (
+                      <div className="mt-3 pt-3 border-t space-y-2" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <CalendarPlus className="w-4 h-4 text-primary" />
+                          <span className="text-xs font-semibold text-foreground">
+                            Rebook with {job.team || 'original team'}
+                          </span>
+                        </div>
+                        <div className="bg-muted/50 rounded-lg p-2">
+                          <Calendar
+                            mode="single"
+                            selected={rebookDate}
+                            onSelect={(d) => setRebookDate(d || undefined)}
+                            disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))}
+                            className="rounded-md"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 text-xs text-muted-foreground">
+                            {rebookDate
+                              ? `Rebook for ${format(rebookDate, 'EEE dd MMM yyyy')}`
+                              : 'Select a date above'}
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={() => { setRebookingJob(null); setRebookDate(undefined); }}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="h-7 text-xs gap-1"
+                            disabled={!rebookDate || savingRebook}
+                            onClick={() => handleRebook(job)}
+                          >
+                            {savingRebook ? <Loader2 className="w-3 h-3 animate-spin" /> : <SendHorizonal className="w-3 h-3" />}
+                            {savingRebook ? 'Booking...' : 'Rebook'}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Blocker editing panel */}
                     {isEditing && (
