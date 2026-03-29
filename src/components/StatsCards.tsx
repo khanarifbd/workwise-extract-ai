@@ -34,6 +34,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 interface StatsCardsProps {
   jobs: Job[];
   allJobs?: Job[];
+  tradeBookings?: Map<string, unknown>;
 }
 
 const PRIORITY_KEYWORDS = ['emergency', 'urgent', 'priority', 'critical', 'asap', 'immediate'];
