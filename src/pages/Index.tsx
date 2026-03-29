@@ -25,6 +25,7 @@ import { DuplicateJobAlert } from '@/components/DuplicateJobAlert';
 import { CompletedJobsPDFButton } from '@/components/CompletedJobsPDFButton';
 import { ManualJobEntry } from '@/components/ManualJobEntry';
 import { OverdueJobsDashboard } from '@/components/OverdueJobsDashboard';
+import { DanniDashboard } from '@/components/DanniDashboard';
 import { ReferBackPDFButton } from '@/components/ReferBackPDFButton';
 import { downloadReferBackJobPDF } from '@/components/ReferBackJobPDF';
 import { useJobAlerts } from '@/hooks/useJobAlerts';
@@ -39,6 +40,7 @@ import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { ChevronDown, ChevronUp, Loader2, Images, PenLine, CalendarDays, X as XIcon } from 'lucide-react';
 import { isAfter, isBefore, startOfDay, endOfDay, format, parseISO, isValid } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { getGMTNow, getHoursDifferenceGMT } from '@/lib/dateUtils';
 import { useJobs } from '@/hooks/useJobs';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { useCategories } from '@/hooks/useCategories';
@@ -94,6 +96,7 @@ const Index = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [showOverdueDashboard, setShowOverdueDashboard] = useState(false);
+  const [showDanniDashboard, setShowDanniDashboard] = useState(false);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [bulkUploadInitialFiles, setBulkUploadInitialFiles] = useState<Array<{ file: File; type: FileType }>>([]);
   const [showManualEntry, setShowManualEntry] = useState(false);
@@ -1046,6 +1049,21 @@ const Index = () => {
   const overdueJobs = getAlertJobs();
   const overdueCount = overdueJobs.length;
 
+  // Danni count: jobs 24h+ past booked date without sign-off
+  const danniCount = useMemo(() => {
+    const now = getGMTNow();
+    let count = 0;
+    for (const job of jobs) {
+      if (job.isCompleted || job.progress === 100 || job.status === 'complete' || job.referBack) continue;
+      if (!job.bookedDate) continue;
+      const bd = job.bookedDate instanceof Date ? job.bookedDate : new Date(job.bookedDate);
+      if (isNaN(bd.getTime()) || bd.getTime() >= now.getTime()) continue;
+      if (getHoursDifferenceGMT(now, bd) <= 24) continue;
+      if (signOffStatusesMap[job.id]?.allSignedOff) continue;
+      count++;
+    }
+    return count;
+  }, [jobs, signOffStatusesMap]);
   // Real-time overdue notifications with toast and sound alerts
   useOverdueNotifications({
     jobs,
@@ -1250,8 +1268,26 @@ const Index = () => {
         onRefresh={refreshJobs}
         overdueCount={overdueCount}
         onShowOverdue={() => setShowOverdueDashboard(true)}
+        danniCount={danniCount}
+        onShowDanni={() => setShowDanniDashboard(true)}
       />
       
+      {/* Danni Sign-Off Readiness Dashboard */}
+      {showDanniDashboard && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <DanniDashboard
+            jobs={jobs}
+            signOffStatuses={signOffStatusesMap}
+            onClose={() => setShowDanniDashboard(false)}
+            onJobClick={(job) => {
+              setShowDanniDashboard(false);
+              setSelectedJobForModal(job);
+            }}
+            onJobUpdated={refreshJobs}
+          />
+        </div>
+      )}
+
       {/* Overdue Jobs Dashboard Modal */}
       {showOverdueDashboard && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">

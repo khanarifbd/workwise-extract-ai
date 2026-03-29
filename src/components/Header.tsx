@@ -1,4 +1,4 @@
-import { FileDown, Moon, Sun, Settings, History, KeyRound, Users, LogOut, ChevronDown, CalendarDays, CheckCircle2, Briefcase, AlertTriangle, Mic, MessageSquare } from 'lucide-react';
+import { FileDown, Moon, Sun, Settings, History, KeyRound, Users, LogOut, ChevronDown, CalendarDays, CheckCircle2, Briefcase, AlertTriangle, Mic, MessageSquare, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
@@ -29,9 +29,11 @@ interface HeaderProps {
   onRefresh?: () => void;
   overdueCount?: number;
   onShowOverdue?: () => void;
+  danniCount?: number;
+  onShowDanni?: () => void;
 }
 
-export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount = 0, onShowOverdue }: HeaderProps) => {
+export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount = 0, onShowOverdue, danniCount = 0, onShowDanni }: HeaderProps) => {
   const [isDark, setIsDark] = useState(() => {
     // Initialize from localStorage or system preference
     const stored = localStorage.getItem('theme');
@@ -168,6 +170,21 @@ export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            {danniCount > 0 && onShowDanni && (
+              <Button
+                variant="outline"
+                size="icon"
+                className="relative md:w-auto md:px-4 border-red-300 text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-950"
+                onClick={onShowDanni}
+                title={`${danniCount} job${danniCount !== 1 ? 's' : ''} awaiting sign-off`}
+              >
+                <Clock className="w-4 h-4 md:mr-2" />
+                <span className="hidden md:inline">Danni</span>
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full h-4 min-w-4 flex items-center justify-center px-1">
+                  {danniCount > 99 ? '99+' : danniCount}
+                </span>
+              </Button>
+            )}
             {overdueCount > 0 && onShowOverdue && (
               <Button 
                 variant="outline" 
