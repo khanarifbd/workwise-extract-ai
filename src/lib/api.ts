@@ -916,6 +916,10 @@ export const createLinkedFanJob = async (
     referBackReason: '',
     referBackDate: null,
     expectedCompletionDate: null,
+    blockerType: null,
+    blockerNotes: '',
+    blockerSetAt: null,
+    blockerChaseDate: null,
   };
 
   const dbJob = mapJobToDatabase(fanJob);
