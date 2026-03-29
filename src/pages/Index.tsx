@@ -1048,6 +1048,21 @@ const Index = () => {
   const overdueJobs = getAlertJobs();
   const overdueCount = overdueJobs.length;
 
+  // Danni count: jobs 24h+ past booked date without sign-off
+  const danniCount = useMemo(() => {
+    const now = getGMTNow();
+    let count = 0;
+    for (const job of jobs) {
+      if (job.isCompleted || job.progress === 100 || job.status === 'complete' || job.referBack) continue;
+      if (!job.bookedDate) continue;
+      const bd = job.bookedDate instanceof Date ? job.bookedDate : new Date(job.bookedDate);
+      if (isNaN(bd.getTime()) || bd.getTime() >= now.getTime()) continue;
+      if (getHoursDifferenceGMT(now, bd) <= 24) continue;
+      if (signOffStatusesMap[job.id]?.allSignedOff) continue;
+      count++;
+    }
+    return count;
+  }, [jobs, signOffStatusesMap]);
   // Real-time overdue notifications with toast and sound alerts
   useOverdueNotifications({
     jobs,
