@@ -26,6 +26,7 @@ import { CompletedJobsPDFButton } from '@/components/CompletedJobsPDFButton';
 import { ManualJobEntry } from '@/components/ManualJobEntry';
 import { OverdueJobsDashboard } from '@/components/OverdueJobsDashboard';
 import { DanniDashboard } from '@/components/DanniDashboard';
+import { TeamAccountabilityMetrics } from '@/components/TeamAccountabilityMetrics';
 import { ReferBackPDFButton } from '@/components/ReferBackPDFButton';
 import { downloadReferBackJobPDF } from '@/components/ReferBackJobPDF';
 import { useJobAlerts } from '@/hooks/useJobAlerts';
