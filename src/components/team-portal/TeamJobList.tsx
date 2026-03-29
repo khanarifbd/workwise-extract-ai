@@ -533,6 +533,24 @@ export const TeamJobList = ({
               </Badge>
             )}
             <AwabsComplianceBadge job={job} hasContactHistory={false} compact />
+            {/* Blocker alert from Danni */}
+            {(job as any).blockerType && (
+              <Badge className={cn(
+                "text-[10px] px-1.5 py-0 h-[18px] rounded-full text-white animate-pulse",
+                (job as any).blockerType === 'awaiting_photos' ? "bg-blue-500" :
+                (job as any).blockerType === 'awaiting_description' ? "bg-indigo-500" :
+                (job as any).blockerType === 'photos_and_description' ? "bg-violet-500" :
+                (job as any).blockerType === 'rework_required' ? "bg-red-500" :
+                "bg-amber-500"
+              )}>
+                {(job as any).blockerType === 'awaiting_photos' ? '📸 Photos Needed' :
+                 (job as any).blockerType === 'awaiting_description' ? '📝 Description Needed' :
+                 (job as any).blockerType === 'photos_and_description' ? '📸📝 Photos & Desc Needed' :
+                 (job as any).blockerType === 'rework_required' ? '🔄 Rework Required' :
+                 (job as any).blockerType === 'awaiting_trade' ? '🔧 Trade Pending' :
+                 '⚠️ Action Required'}
+              </Badge>
+            )}
           </div>
 
           {/* Row 2: Name */}

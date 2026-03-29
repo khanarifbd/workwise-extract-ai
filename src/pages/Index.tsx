@@ -1294,6 +1294,7 @@ const Index = () => {
               setShowDanniDashboard(false);
               setShowTeamMetrics(true);
             }}
+            editJob={editJob}
           />
         </div>
       )}
