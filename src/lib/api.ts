@@ -494,6 +494,10 @@ export function mapDatabaseJobToJob(dbJob: any): Job {
     referBackReason: dbJob.refer_back_reason || '',
     referBackDate: dbJob.refer_back_date ? new Date(dbJob.refer_back_date) : null,
     expectedCompletionDate: dbJob.expected_completion_date ? new Date(dbJob.expected_completion_date) : null,
+    blockerType: dbJob.blocker_type || null,
+    blockerNotes: dbJob.blocker_notes || '',
+    blockerSetAt: dbJob.blocker_set_at ? new Date(dbJob.blocker_set_at) : null,
+    blockerChaseDate: dbJob.blocker_chase_date ? new Date(dbJob.blocker_chase_date) : null,
   };
 }
 
