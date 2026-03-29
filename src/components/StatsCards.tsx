@@ -56,7 +56,7 @@ function isCompleted(j: Job): boolean {
   return j.status === 'complete' || j.isCompleted;
 }
 
-export const StatsCards = forwardRef<HTMLDivElement, StatsCardsProps>(({ jobs, allJobs }, ref) => {
+export const StatsCards = forwardRef<HTMLDivElement, StatsCardsProps>(({ jobs, allJobs, tradeBookings }, ref) => {
   const now = useMemo(() => getGMTNow(), []);
   const [activeOpen, setActiveOpen] = useState(false);
   const [monthlyOpen, setMonthlyOpen] = useState(false);
