@@ -55,6 +55,7 @@ export const DanniDashboard = ({
   onClose,
   onJobClick,
   onJobUpdated,
+  onShowMetrics,
 }: DanniDashboardProps) => {
   const [selectedTeam, setSelectedTeam] = useState<string>('all');
   const [filterBlocker, setFilterBlocker] = useState<string>('all');
