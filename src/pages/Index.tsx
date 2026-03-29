@@ -40,6 +40,7 @@ import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { ChevronDown, ChevronUp, Loader2, Images, PenLine, CalendarDays, X as XIcon } from 'lucide-react';
 import { isAfter, isBefore, startOfDay, endOfDay, format, parseISO, isValid } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { getGMTNow, getHoursDifferenceGMT } from '@/lib/dateUtils';
 import { useJobs } from '@/hooks/useJobs';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { useCategories } from '@/hooks/useCategories';
