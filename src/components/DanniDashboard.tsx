@@ -66,7 +66,30 @@ export const DanniDashboard = ({
     chaseDate: Date | undefined;
   }>({ type: '', notes: '', chaseDate: undefined });
   const [savingBlocker, setSavingBlocker] = useState(false);
+  const [runningChase, setRunningChase] = useState(false);
   const { toast } = useToast();
+
+  const handleRunChase = useCallback(async () => {
+    setRunningChase(true);
+    try {
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const url = `https://${projectId}.supabase.co/functions/v1/auto-chase-signoff`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      toast({
+        title: 'Chase messages sent',
+        description: `${data.chased} message${data.chased !== 1 ? 's' : ''} sent to teams`,
+      });
+    } catch (err: any) {
+      toast({ title: 'Chase failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setRunningChase(false);
+    }
+  }, [toast]);
 
   // Compute readiness data for all jobs 24h+ past booked date
   const readinessJobs = useMemo(() => {
