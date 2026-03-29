@@ -37,6 +37,7 @@ interface DanniDashboardProps {
   onClose: () => void;
   onJobClick: (job: Job) => void;
   onJobUpdated?: () => void;
+  onShowMetrics?: () => void;
 }
 
 interface ReadinessJob extends Job {
