@@ -98,6 +98,7 @@ const Index = () => {
   const [showExport, setShowExport] = useState(false);
   const [showOverdueDashboard, setShowOverdueDashboard] = useState(false);
   const [showDanniDashboard, setShowDanniDashboard] = useState(false);
+  const [showTeamMetrics, setShowTeamMetrics] = useState(false);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [bulkUploadInitialFiles, setBulkUploadInitialFiles] = useState<Array<{ file: File; type: FileType }>>([]);
   const [showManualEntry, setShowManualEntry] = useState(false);
