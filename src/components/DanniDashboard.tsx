@@ -300,6 +300,26 @@ export const DanniDashboard = ({
             <Badge variant="secondary" className="text-xs">
               Showing {filteredJobs.length} of {readinessJobs.length}
             </Badge>
+            <div className="flex-1" />
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs gap-1"
+              onClick={onShowMetrics}
+            >
+              <BarChart3 className="w-3 h-3" />
+              Team Report
+            </Button>
+            <Button
+              variant="default"
+              size="sm"
+              className="h-7 text-xs gap-1"
+              disabled={runningChase || readinessJobs.length === 0}
+              onClick={handleRunChase}
+            >
+              {runningChase ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
+              {runningChase ? 'Chasing...' : 'Chase Teams'}
+            </Button>
           </div>
         </div>
       </CardHeader>
