@@ -29,6 +29,8 @@ interface HeaderProps {
   onRefresh?: () => void;
   overdueCount?: number;
   onShowOverdue?: () => void;
+  danniCount?: number;
+  onShowDanni?: () => void;
 }
 
 export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount = 0, onShowOverdue }: HeaderProps) => {
