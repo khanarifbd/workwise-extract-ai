@@ -169,6 +169,10 @@ export const ManualJobEntry = forwardRef<HTMLDivElement, ManualJobEntryProps>(({
         referBackReason: '',
         referBackDate: null,
         expectedCompletionDate: null,
+        blockerType: null,
+        blockerNotes: '',
+        blockerSetAt: null,
+        blockerChaseDate: null,
       };
 
       await onJobCreate(newJob);

@@ -109,6 +109,10 @@ export interface Job {
   referBackReason: string; // Reason for refer back
   referBackDate: Date | null; // When it was referred back
   expectedCompletionDate: Date | null; // Progressor-set expected completion date
+  blockerType: string | null; // Danni blocker tag
+  blockerNotes: string; // Blocker notes
+  blockerSetAt: Date | null; // When blocker was tagged
+  blockerChaseDate: Date | null; // Chase follow-up date
 }
 
 export interface Attachment {
