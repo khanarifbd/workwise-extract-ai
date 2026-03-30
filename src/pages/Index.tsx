@@ -1060,17 +1060,12 @@ const Index = () => {
     return map;
   }, [jobs, getSignOffStatus]);
 
-  // Filter to DM jobs only for overdue count
+  // DM category ID for overdue/Danni counts
   const dmCategoryId = useMemo(() => categories.find(c => c.slug === 'dm-jobs')?.id, [categories]);
-  const dmJobs = useMemo(() => {
-    if (!dmCategoryId) return [];
-    return jobs.filter(j => j.categoryId === dmCategoryId);
-  }, [jobs, dmCategoryId]);
 
-  // Use job alerts hook for overdue jobs count — DM only
-  const { getAlertJobs } = useJobAlerts(dmJobs, signOffStatusesMap);
-  const overdueJobs = getAlertJobs();
-  const overdueCount = overdueJobs.length;
+  // Overdue count uses danniCount (both are DM-only, same criteria)
+  // useJobAlerts still used for inline badge rendering on current tab's jobs
+  const { getAlertJobs } = useJobAlerts(jobs, signOffStatusesMap);
 
   // Danni count: DM jobs 24h+ past booked date without sign-off + manually flagged ongoing
   const [danniCount, setDanniCount] = useState(0);
