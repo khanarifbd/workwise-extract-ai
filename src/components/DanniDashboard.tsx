@@ -519,7 +519,7 @@ export const DanniDashboard = ({
   }
 
   return (
-    <Card className="w-full max-w-5xl mx-auto max-h-[90vh] flex flex-col">
+    <Card className="w-full max-w-5xl mx-auto max-h-[90vh] flex flex-col relative overflow-hidden">
       <CardHeader className="pb-3 flex-shrink-0">
         <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between">
