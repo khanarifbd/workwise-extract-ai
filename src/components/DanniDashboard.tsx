@@ -346,6 +346,18 @@ export const DanniDashboard = ({
     return result;
   }, [readinessJobs, selectedTeam, filterBlocker]);
 
+  // Build notes-per-job lookup for displaying on cards
+  const notesByJobId = useMemo(() => {
+    const map: Record<string, any[]> = {};
+    for (const note of danniNotes) {
+      if (note.job_id) {
+        if (!map[note.job_id]) map[note.job_id] = [];
+        map[note.job_id].push(note);
+      }
+    }
+    return map;
+  }, [danniNotes]);
+
   const missingPhotos = readinessJobs.filter(j => !j.hasPhotos).length;
   const missingDescription = readinessJobs.filter(j => !j.hasDescription).length;
   const awaitingTrade = readinessJobs.filter(j => j.hasTradePending).length;
