@@ -140,7 +140,7 @@ export const DanniDashboard = ({
         supabase
           .from('jobs')
           .select('id, job_number, name, address, phone_number, team, team2, description, attachments, booked_date, status, is_completed, is_ongoing, blocker_type, blocker_notes, blocker_chase_date, refer_back, ongoing_reason')
-          .eq('category_id', dmCategoryId)
+          .eq('category_id', dmCatId)
           .is('deleted_at', null),
         supabase
           .from('team_sign_offs')
