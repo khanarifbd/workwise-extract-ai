@@ -16,8 +16,9 @@ import {
   Camera, FileText, Wrench, ShieldAlert, DoorOpen, PenLine,
   CalendarDays, Tag, Save, RotateCcw, BarChart3, Loader2,
   CalendarPlus, SendHorizonal, UserPlus, StickyNote, Bell, BellRing,
-  Plus, Trash2
+  Plus, Trash2, ChevronDown
 } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { format, isPast, isToday } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { getGMTNow, getHoursDifferenceGMT } from '@/lib/dateUtils';
@@ -103,6 +104,7 @@ export const DanniDashboard = ({
   const [newNoteAlertDate, setNewNoteAlertDate] = useState<Date | undefined>(undefined);
   const [savingNote, setSavingNote] = useState(false);
   const [activeAlerts, setActiveAlerts] = useState<any[]>([]);
+  const [expandedNotes, setExpandedNotes] = useState<Record<string, boolean>>({});
   const alertAudioRef = useRef<HTMLAudioElement | null>(null);
   
   const { toast } = useToast();
@@ -741,49 +743,67 @@ export const DanniDashboard = ({
                           />
                         </div>
 
-                        {/* Notes preview on card */}
+                        {/* Collapsible notes preview on card */}
                         {(() => {
-                          const jobNotes = notesByJobId[job.id];
-                          if (!jobNotes || jobNotes.length === 0) return null;
+                          const jobNotes = notesByJobId[job.id] || [];
                           const latestNotes = jobNotes.slice(0, 3);
                           const hasActiveAlert = jobNotes.some((n: any) => n.alert_date && !n.alert_dismissed && new Date(n.alert_date) <= new Date());
                           return (
-                            <div
-                              className={cn(
-                                "mt-2 rounded-md border p-2 cursor-pointer hover:bg-accent/50 transition-colors",
-                                hasActiveAlert ? "border-destructive/50 bg-destructive/5" : "border-border bg-muted/30"
-                              )}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setNotepadJobId(job.id);
-                                setShowNotepad(true);
-                              }}
-                              title="Click to view/add notes for this job"
+                            <Collapsible
+                              open={expandedNotes[job.id] ?? hasActiveAlert}
+                              onOpenChange={(open) => setExpandedNotes(prev => ({ ...prev, [job.id]: open }))}
                             >
-                              <div className="flex items-center gap-1.5 mb-1">
-                                <StickyNote className="w-3 h-3 text-primary" />
-                                <span className="text-[10px] font-semibold text-primary">
-                                  Notes ({jobNotes.length})
-                                </span>
-                                {hasActiveAlert && (
-                                  <BellRing className="w-3 h-3 text-destructive animate-pulse ml-auto" />
+                              <div
+                                className={cn(
+                                  "mt-2 rounded-md border transition-colors",
+                                  hasActiveAlert ? "border-destructive/50 bg-destructive/5" : "border-border bg-muted/30"
                                 )}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <CollapsibleTrigger asChild>
+                                  <button className="w-full flex items-center gap-1.5 p-2 hover:bg-accent/50 transition-colors rounded-t-md text-left">
+                                    <StickyNote className="w-3 h-3 text-primary flex-shrink-0" />
+                                    <span className="text-[10px] font-semibold text-primary">
+                                      Notes {jobNotes.length > 0 ? `(${jobNotes.length})` : ''}
+                                    </span>
+                                    {hasActiveAlert && (
+                                      <BellRing className="w-3 h-3 text-destructive animate-pulse ml-auto" />
+                                    )}
+                                    {jobNotes.length === 0 && (
+                                      <span className="text-[10px] text-muted-foreground ml-auto">Click to add</span>
+                                    )}
+                                    <ChevronDown className={cn(
+                                      "w-3 h-3 text-muted-foreground transition-transform duration-200 flex-shrink-0",
+                                      (expandedNotes[job.id] ?? hasActiveAlert) && "rotate-180"
+                                    )} />
+                                  </button>
+                                </CollapsibleTrigger>
+                                <CollapsibleContent>
+                                  <div className="px-2 pb-2 space-y-0.5">
+                                    {latestNotes.map((note: any) => (
+                                      <div key={note.id} className="flex items-start gap-1.5 text-[10px] text-muted-foreground">
+                                        {note.alert_date && !note.alert_dismissed && (
+                                          <Bell className="w-2.5 h-2.5 text-amber-500 mt-0.5 flex-shrink-0" />
+                                        )}
+                                        <span className="truncate">{note.note_text}</span>
+                                        <span className="text-[9px] opacity-60 flex-shrink-0 ml-auto">
+                                          {format(new Date(note.created_at), 'dd MMM')}
+                                        </span>
+                                      </div>
+                                    ))}
+                                    {jobNotes.length > 3 && (
+                                      <p className="text-[9px] text-primary">+{jobNotes.length - 3} more...</p>
+                                    )}
+                                    <button
+                                      className="w-full text-[10px] text-primary font-medium mt-1 hover:underline text-left"
+                                      onClick={() => { setNotepadJobId(job.id); setShowNotepad(true); }}
+                                    >
+                                      {jobNotes.length > 0 ? '→ View all / Add note' : '→ Add a note'}
+                                    </button>
+                                  </div>
+                                </CollapsibleContent>
                               </div>
-                              {latestNotes.map((note: any) => (
-                                <div key={note.id} className="flex items-start gap-1.5 text-[10px] text-muted-foreground">
-                                  {note.alert_date && !note.alert_dismissed && (
-                                    <Bell className="w-2.5 h-2.5 text-amber-500 mt-0.5 flex-shrink-0" />
-                                  )}
-                                  <span className="truncate">{note.note_text}</span>
-                                  <span className="text-[9px] opacity-60 flex-shrink-0 ml-auto">
-                                    {format(new Date(note.created_at), 'dd MMM')}
-                                  </span>
-                                </div>
-                              ))}
-                              {jobNotes.length > 3 && (
-                                <p className="text-[9px] text-primary mt-0.5">+{jobNotes.length - 3} more...</p>
-                              )}
-                            </div>
+                            </Collapsible>
                           );
                         })()}
 
