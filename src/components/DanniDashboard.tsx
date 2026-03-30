@@ -132,8 +132,8 @@ export const DanniDashboard = ({
         .single();
 
       if (!catData) return;
-
-      const dmCategoryId = catData.id;
+      const dmCatId = catData.id;
+      setDmCategoryId(dmCatId);
 
       // Fetch DM jobs and sign-offs in parallel
       const [jobsRes, signOffRes] = await Promise.all([
