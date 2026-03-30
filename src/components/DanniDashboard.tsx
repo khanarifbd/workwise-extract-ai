@@ -524,51 +524,131 @@ export const DanniDashboard = ({
     return BLOCKER_TYPES.find(b => b.value === job.blockerType) || null;
   };
 
-  // Convert ReadinessJob to partial Job for onJobClick
-  const handleJobClick = useCallback((rj: ReadinessJob) => {
-    const jobForModal: Job = {
-      id: rj.id,
-      jobNumber: rj.jobNumber,
-      name: rj.name,
-      address: rj.address,
-      phoneNumber: rj.phoneNumber,
-      summaryOfWorks: '',
-      description: rj.description,
-      workItems: [],
-      additionalWorks: [],
-      team: rj.team,
-      team2: rj.team2,
-      progress: 0,
-      progressNotes: '',
-      isCompleted: rj.isCompleted,
-      isOngoing: rj.isOngoing,
-      ongoingReason: '',
-      scheduledTrades: [],
-      createdAt: new Date(),
-      dateIssued: new Date(),
-      bookedDate: rj.bookedDate,
-      isFlexibleBooking: false,
-      bookingNotes: '',
-      completionDate: null,
-      attachments: rj.attachments,
-      status: rj.status as any,
-      fanInfo: null,
-      linkedFanJobId: null,
-      insulationInfo: null,
-      linkedInsulationJobId: null,
-      costs: null,
-      privateNotes: '',
-      referBack: rj.referBack,
-      referBackReason: '',
-      referBackDate: null,
-      expectedCompletionDate: null,
-      blockerType: rj.blockerType,
-      blockerNotes: rj.blockerNotes,
-      blockerSetAt: null,
-      blockerChaseDate: rj.blockerChaseDate,
-    };
-    onJobClick(jobForModal);
-  }, [onJobClick]);
+  // Convert ReadinessJob to full Job by fetching from DB
+  const handleJobClick = useCallback(async (rj: ReadinessJob) => {
+    try {
+      const { data, error } = await supabase
+        .from('jobs')
+        .select('*')
+        .eq('id', rj.id)
+        .single();
+      
+      if (error || !data) {
+        toast({ title: 'Error', description: 'Failed to load job details', variant: 'destructive' });
+        return;
+      }
+
+      const jobForModal: Job = {
+        id: data.id,
+        jobNumber: data.job_number,
+        name: data.name,
+        address: data.address || '',
+        phoneNumber: data.phone_number || '',
+        summaryOfWorks: data.summary_of_works || '',
+        description: data.description || '',
+        workItems: Array.isArray(data.work_items) ? (data.work_items as any[]) : [],
+        additionalWorks: Array.isArray(data.additional_works) ? (data.additional_works as any[]) : [],
+        team: data.team,
+        team2: data.team2,
+        progress: data.progress || 0,
+        progressNotes: data.progress_notes || '',
+        isCompleted: data.is_completed || false,
+        isOngoing: data.is_ongoing || false,
+        ongoingReason: data.ongoing_reason || '',
+        scheduledTrades: Array.isArray(data.scheduled_trades) ? (data.scheduled_trades as any[]) : [],
+        createdAt: new Date(data.created_at),
+        dateIssued: data.date_issued ? new Date(data.date_issued) : new Date(),
+        bookedDate: data.booked_date ? new Date(data.booked_date) : null,
+        isFlexibleBooking: data.is_flexible_booking || false,
+        bookingNotes: data.booking_notes || '',
+        completionDate: data.completion_date ? new Date(data.completion_date) : null,
+        attachments: Array.isArray(data.attachments) ? (data.attachments as any[]) : [],
+        status: (data.status || 'pending') as any,
+        fanInfo: Array.isArray(data.fan_info) ? (data.fan_info as any[]) : null,
+        linkedFanJobId: data.linked_fan_job_id,
+        insulationInfo: Array.isArray(data.insulation_info) ? (data.insulation_info as any[]) : null,
+        linkedInsulationJobId: data.linked_insulation_job_id,
+        costs: data.costs as any,
+        privateNotes: data.private_notes || '',
+        referBack: data.refer_back || false,
+        referBackReason: data.refer_back_reason || '',
+        referBackDate: data.refer_back_date ? new Date(data.refer_back_date) : null,
+        expectedCompletionDate: data.expected_completion_date ? new Date(data.expected_completion_date) : null,
+        blockerType: data.blocker_type,
+        blockerNotes: data.blocker_notes || '',
+        blockerSetAt: data.blocker_set_at ? new Date(data.blocker_set_at) : null,
+        blockerChaseDate: data.blocker_chase_date ? new Date(data.blocker_chase_date) : null,
+      };
+      onJobClick(jobForModal);
+    } catch (err) {
+      console.error('Failed to open job:', err);
+      toast({ title: 'Error', description: 'Failed to open job', variant: 'destructive' });
+    }
+  }, [onJobClick, toast]);
+
+  // Sign off a job - marks complete and creates sign-off record
+  const handleSignOff = useCallback(async (job: ReadinessJob) => {
+    setSigningOffJob(job.id);
+    try {
+      const attachments: Attachment[] = job.attachments || [];
+      const photosCount = attachments.filter(a => a.type === 'image').length;
+      const videosCount = attachments.filter(a => a.type === 'video').length;
+      const documentsCount = attachments.filter(a => a.type === 'document').length;
+
+      // Create sign-off record
+      const signOffData = {
+        job_id: job.id,
+        team_id: job.team || 'danni',
+        team_name: job.team || 'Danni',
+        photos_count: photosCount,
+        videos_count: videosCount,
+        documents_count: documentsCount,
+        work_items_total: 0,
+        work_items_modified: 0,
+        progress_notes: `Signed off by Danni from Sign-Off Dashboard`,
+      };
+
+      const [signOffRes, jobUpdateRes] = await Promise.all([
+        supabase.from('team_sign_offs').insert(signOffData),
+        supabase.from('jobs').update({
+          is_completed: true,
+          status: 'complete',
+          progress: 100,
+          completion_date: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }).eq('id', job.id),
+      ]);
+
+      if (signOffRes.error) throw signOffRes.error;
+      if (jobUpdateRes.error) throw jobUpdateRes.error;
+
+      // Also create notification for admin dashboard
+      await supabase.from('team_sign_off_notifications').insert({
+        job_id: job.id,
+        job_number: job.jobNumber,
+        job_name: job.name,
+        team_id: job.team || 'danni',
+        team_name: job.team || 'Danni',
+        photos_count: photosCount,
+        videos_count: videosCount,
+        documents_count: documentsCount,
+        work_items_total: 0,
+        work_items_modified: 0,
+        progress_notes: 'Signed off by Danni',
+      });
+
+      toast({
+        title: 'Job signed off ✓',
+        description: `${job.name} moved to Completed folder`,
+      });
+      handleRefresh();
+    } catch (err: any) {
+      console.error('Sign-off failed:', err);
+      toast({ title: 'Sign-off failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setSigningOffJob(null);
+    }
+  }, [toast, handleRefresh]);
 
   if (loading) {
     return (
