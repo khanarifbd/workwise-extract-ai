@@ -1315,17 +1315,14 @@ const Index = () => {
               setSelectedJobForModal(job);
             }}
             onJobUpdated={refreshJobs}
-            onShowMetrics={() => {
-              setShowDanniDashboard(false);
-              setShowTeamMetrics(true);
-            }}
+            onShowMetrics={() => setShowTeamMetrics(true)}
           />
         </div>
       )}
 
-      {/* Team Accountability Metrics */}
+      {/* Team Accountability Metrics - layered on top of Danni */}
       {showTeamMetrics && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[55] bg-black/50 flex items-center justify-center p-4">
           <TeamAccountabilityMetrics onClose={() => setShowTeamMetrics(false)} />
         </div>
       )}

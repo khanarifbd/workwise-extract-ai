@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, useEffect } from 'react';
+import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { Job, Attachment } from '@/types/job';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -11,10 +11,11 @@ import { Calendar } from '@/components/ui/calendar';
 import {
   Clock, MapPin, Users, X, ExternalLink,
   Camera, FileText, Wrench, ShieldAlert, DoorOpen, PenLine,
-  CalendarDays, Tag, Save, RotateCcw, Zap, BarChart3, Loader2,
-  CalendarPlus, SendHorizonal, UserPlus
+  CalendarDays, Tag, Save, RotateCcw, BarChart3, Loader2,
+  CalendarPlus, SendHorizonal, UserPlus, StickyNote, Bell, BellRing,
+  Plus, Trash2
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, isPast, isToday } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { getGMTNow, getHoursDifferenceGMT } from '@/lib/dateUtils';
 import { supabase } from '@/integrations/supabase/client';
