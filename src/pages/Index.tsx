@@ -106,11 +106,14 @@ const Index = () => {
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [uploadExpanded, setUploadExpanded] = useState(false);
   const [kanbanGroupBy, setKanbanGroupBy] = useState<KanbanGroupBy>('team');
+  const [directJobForModal, setDirectJobForModal] = useState<Job | null>(null);
   const selectedJobForModal = useMemo(() => {
+    if (directJobForModal) return directJobForModal;
     if (!selectedJobId) return null;
     return jobs.find(j => j.id === selectedJobId) || null;
-  }, [selectedJobId, jobs]);
+  }, [selectedJobId, jobs, directJobForModal]);
   const setSelectedJobForModal = useCallback((job: Job | null) => {
+    setDirectJobForModal(job);
     setSelectedJobId(job?.id || null);
   }, [setSelectedJobId]);
   const [filters, setFilters] = useState<FilterState>(getDefaultFilterState());
