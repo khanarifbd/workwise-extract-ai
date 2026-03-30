@@ -130,6 +130,47 @@ export type Database = {
           },
         ]
       }
+      danni_notes: {
+        Row: {
+          alert_date: string | null
+          alert_dismissed: boolean
+          created_at: string
+          id: string
+          job_id: string | null
+          note_text: string
+          team_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          alert_date?: string | null
+          alert_dismissed?: boolean
+          created_at?: string
+          id?: string
+          job_id?: string | null
+          note_text?: string
+          team_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          alert_date?: string | null
+          alert_dismissed?: boolean
+          created_at?: string
+          id?: string
+          job_id?: string | null
+          note_text?: string
+          team_name?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "danni_notes_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       geocode_cache: {
         Row: {
           address: string
