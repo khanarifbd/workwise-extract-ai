@@ -104,6 +104,7 @@ export const DanniDashboard = ({
   const [newNoteAlertDate, setNewNoteAlertDate] = useState<Date | undefined>(undefined);
   const [savingNote, setSavingNote] = useState(false);
   const [activeAlerts, setActiveAlerts] = useState<any[]>([]);
+  const [expandedNotes, setExpandedNotes] = useState<Record<string, boolean>>({});
   const alertAudioRef = useRef<HTMLAudioElement | null>(null);
   
   const { toast } = useToast();
