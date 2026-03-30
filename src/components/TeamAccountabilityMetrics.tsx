@@ -192,9 +192,9 @@ export const TeamAccountabilityMetrics = ({ onClose }: TeamAccountabilityMetrics
               <BarChart3 className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
             </div>
             <div>
-              <CardTitle className="text-xl">Team Accountability Report</CardTitle>
+              <CardTitle className="text-xl">DM Team Accountability Report</CardTitle>
               <p className="text-sm text-muted-foreground mt-0.5">
-                Sign-off performance metrics per team
+                Sign-off performance metrics for DM teams
               </p>
             </div>
           </div>
