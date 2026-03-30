@@ -112,6 +112,11 @@ export const shouldShowOngoingAlert = (
     return { showAlert: false, isAutoTriggered: false, hoursOverdue: 0 };
   }
 
+  // Skip refer back jobs
+  if (job.referBack) {
+    return { showAlert: false, isAutoTriggered: false, hoursOverdue: 0 };
+  }
+
   // Skip completed jobs
   if (job.isCompleted || job.progress === 100) {
     return { showAlert: false, isAutoTriggered: false, hoursOverdue: 0 };
