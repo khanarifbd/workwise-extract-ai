@@ -1309,11 +1309,9 @@ const Index = () => {
       {showDanniDashboard && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
           <DanniDashboard
-            jobs={jobs}
-            signOffStatuses={signOffStatusesMap}
             onClose={() => setShowDanniDashboard(false)}
             onJobClick={(job) => {
-              setShowDanniDashboard(false);
+              // Keep Danni open - it will stay visible behind the job modal
               setSelectedJobForModal(job);
             }}
             onJobUpdated={refreshJobs}
@@ -1321,7 +1319,6 @@ const Index = () => {
               setShowDanniDashboard(false);
               setShowTeamMetrics(true);
             }}
-            editJob={editJob}
           />
         </div>
       )}
