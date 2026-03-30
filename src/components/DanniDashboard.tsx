@@ -1,7 +1,7 @@
 import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { NotepadPanel } from '@/components/DanniNotepadPanel';
 import { DanniNewJobPanel } from '@/components/DanniNewJobPanel';
-import { Job, Attachment } from '@/types/job';
+import { Job, Attachment, WorkItem } from '@/types/job';
 import { ContactCell } from '@/components/ContactCell';
 import { useAllContactHistory } from '@/hooks/useContactHistory';
 import { Badge } from '@/components/ui/badge';
@@ -17,7 +17,7 @@ import {
   Camera, FileText, Wrench, ShieldAlert, DoorOpen, PenLine,
   CalendarDays, Tag, Save, RotateCcw, BarChart3, Loader2,
   CalendarPlus, SendHorizonal, UserPlus, StickyNote, Bell, BellRing,
-  Plus, Trash2, ChevronDown
+  Plus, Trash2, ChevronDown, CheckCircle2, Link2, CircleDot
 } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { format, isPast, isToday } from 'date-fns';
