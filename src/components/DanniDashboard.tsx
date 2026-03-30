@@ -594,6 +594,26 @@ export const DanniDashboard = ({
               Showing {filteredJobs.length} of {readinessJobs.length}
             </Badge>
             <div className="flex-1" />
+            {activeAlerts.length > 0 && (
+              <Button
+                variant="destructive"
+                size="sm"
+                className="h-7 text-xs gap-1 animate-pulse"
+                onClick={() => setShowNotepad(true)}
+              >
+                <BellRing className="w-3 h-3" />
+                {activeAlerts.length} Alert{activeAlerts.length !== 1 ? 's' : ''}
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs gap-1"
+              onClick={() => setShowNotepad(!showNotepad)}
+            >
+              <StickyNote className="w-3 h-3" />
+              Notes
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -602,16 +622,6 @@ export const DanniDashboard = ({
             >
               <BarChart3 className="w-3 h-3" />
               Team Report
-            </Button>
-            <Button
-              variant="default"
-              size="sm"
-              className="h-7 text-xs gap-1"
-              disabled={runningChase || readinessJobs.length === 0}
-              onClick={handleRunChase}
-            >
-              {runningChase ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
-              {runningChase ? 'Chasing...' : 'Chase Teams'}
             </Button>
           </div>
         </div>
