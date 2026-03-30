@@ -1060,15 +1060,20 @@ const Index = () => {
     return map;
   }, [jobs, getSignOffStatus]);
 
-  // Use job alerts hook for overdue jobs count
-  const { getAlertJobs } = useJobAlerts(jobs, signOffStatusesMap);
+  // Filter to DM jobs only for overdue count
+  const dmCategoryId = useMemo(() => categories.find(c => c.slug === 'dm-jobs')?.id, [categories]);
+  const dmJobs = useMemo(() => {
+    if (!dmCategoryId) return [];
+    return jobs.filter(j => j.categoryId === dmCategoryId);
+  }, [jobs, dmCategoryId]);
+
+  // Use job alerts hook for overdue jobs count — DM only
+  const { getAlertJobs } = useJobAlerts(dmJobs, signOffStatusesMap);
   const overdueJobs = getAlertJobs();
   const overdueCount = overdueJobs.length;
 
-  // Danni count: DM jobs 24h+ past booked date without sign-off
-  // Uses a lightweight query to count only DM category jobs
+  // Danni count: DM jobs 24h+ past booked date without sign-off + manually flagged ongoing
   const [danniCount, setDanniCount] = useState(0);
-  const dmCategoryId = useMemo(() => categories.find(c => c.slug === 'dm-jobs')?.id, [categories]);
   useEffect(() => {
     if (!dmCategoryId) return;
     const computeCount = async () => {
@@ -1076,10 +1081,9 @@ const Index = () => {
         const [jobsRes, signOffRes] = await Promise.all([
           supabase
             .from('jobs')
-            .select('id, booked_date, is_completed, status, refer_back')
+            .select('id, booked_date, is_completed, status, refer_back, is_ongoing')
             .eq('category_id', dmCategoryId)
             .is('deleted_at', null)
-            .not('booked_date', 'is', null)
             .eq('is_completed', false)
             .eq('refer_back', false),
           supabase
@@ -1091,6 +1095,13 @@ const Index = () => {
         let count = 0;
         for (const job of (jobsRes.data || [])) {
           if (job.status === 'complete') continue;
+          // Include manually flagged ongoing jobs
+          if (job.is_ongoing) {
+            count++;
+            continue;
+          }
+          // Auto-trigger: 24h+ past booked date
+          if (!job.booked_date) continue;
           const bd = new Date(job.booked_date);
           if (isNaN(bd.getTime()) || bd.getTime() >= now.getTime()) continue;
           if (getHoursDifferenceGMT(now, bd) <= 24) continue;
@@ -1103,7 +1114,6 @@ const Index = () => {
       }
     };
     computeCount();
-    // Refresh every 2 minutes
     const interval = setInterval(computeCount, 120000);
     return () => clearInterval(interval);
   }, [dmCategoryId, jobs]);
