@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, useEffect } from 'react';
+import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { Job, Attachment } from '@/types/job';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -11,10 +11,11 @@ import { Calendar } from '@/components/ui/calendar';
 import {
   Clock, MapPin, Users, X, ExternalLink,
   Camera, FileText, Wrench, ShieldAlert, DoorOpen, PenLine,
-  CalendarDays, Tag, Save, RotateCcw, Zap, BarChart3, Loader2,
-  CalendarPlus, SendHorizonal, UserPlus
+  CalendarDays, Tag, Save, RotateCcw, BarChart3, Loader2,
+  CalendarPlus, SendHorizonal, UserPlus, StickyNote, Bell, BellRing,
+  Plus, Trash2
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, isPast, isToday } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { getGMTNow, getHoursDifferenceGMT } from '@/lib/dateUtils';
 import { supabase } from '@/integrations/supabase/client';
@@ -87,10 +88,20 @@ export const DanniDashboard = ({
     chaseDate: Date | undefined;
   }>({ type: '', notes: '', chaseDate: undefined });
   const [savingBlocker, setSavingBlocker] = useState(false);
-  const [runningChase, setRunningChase] = useState(false);
   const [dmJobs, setDmJobs] = useState<any[]>([]);
   const [signOffs, setSignOffs] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
+  
+  // Notepad state
+  const [showNotepad, setShowNotepad] = useState(false);
+  const [notepadJobId, setNotepadJobId] = useState<string | null>(null);
+  const [danniNotes, setDanniNotes] = useState<any[]>([]);
+  const [newNoteText, setNewNoteText] = useState('');
+  const [newNoteAlertDate, setNewNoteAlertDate] = useState<Date | undefined>(undefined);
+  const [savingNote, setSavingNote] = useState(false);
+  const [activeAlerts, setActiveAlerts] = useState<any[]>([]);
+  const alertAudioRef = useRef<HTMLAudioElement | null>(null);
+  
   const { toast } = useToast();
   const { settings: teamSettings } = useTeamSettings();
 
@@ -147,30 +158,102 @@ export const DanniDashboard = ({
 
   const handleRefresh = useCallback(() => {
     fetchDmJobs();
+    fetchDanniNotes();
     onJobUpdated?.();
   }, [fetchDmJobs, onJobUpdated]);
 
-  const handleRunChase = useCallback(async () => {
-    setRunningChase(true);
+  // Fetch Danni notes
+  const fetchDanniNotes = useCallback(async () => {
     try {
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      const url = `https://${projectId}.supabase.co/functions/v1/auto-chase-signoff`;
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      toast({
-        title: 'Chase messages sent',
-        description: `${data.chased} message${data.chased !== 1 ? 's' : ''} sent to teams`,
-      });
-    } catch (err: any) {
-      toast({ title: 'Chase failed', description: err.message, variant: 'destructive' });
-    } finally {
-      setRunningChase(false);
+      const { data } = await supabase
+        .from('danni_notes')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (data) {
+        setDanniNotes(data);
+        // Check for active alerts (due now or overdue, not dismissed)
+        const now = new Date();
+        const alerts = data.filter((n: any) => 
+          n.alert_date && !n.alert_dismissed && new Date(n.alert_date) <= now
+        );
+        setActiveAlerts(alerts);
+        if (alerts.length > 0) {
+          // Play alert sound
+          try {
+            const ctx = new AudioContext();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.frequency.value = 800;
+            gain.gain.value = 0.3;
+            osc.start();
+            osc.stop(ctx.currentTime + 0.3);
+            setTimeout(() => {
+              const osc2 = ctx.createOscillator();
+              const gain2 = ctx.createGain();
+              osc2.connect(gain2);
+              gain2.connect(ctx.destination);
+              osc2.frequency.value = 1000;
+              gain2.gain.value = 0.3;
+              osc2.start();
+              osc2.stop(ctx.currentTime + 0.3);
+            }, 350);
+          } catch {}
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch danni notes:', err);
     }
-  }, [toast]);
+  }, []);
+
+  useEffect(() => {
+    fetchDanniNotes();
+    const interval = setInterval(fetchDanniNotes, 60000); // check alerts every minute
+    return () => clearInterval(interval);
+  }, [fetchDanniNotes]);
+
+  const handleSaveNote = useCallback(async () => {
+    if (!newNoteText.trim()) return;
+    setSavingNote(true);
+    try {
+      const noteData: any = {
+        note_text: newNoteText.trim(),
+        job_id: notepadJobId || null,
+        alert_date: newNoteAlertDate?.toISOString() || null,
+      };
+      // Find team name from job if job-specific
+      if (notepadJobId) {
+        const job = dmJobs.find(j => j.id === notepadJobId);
+        if (job?.team) noteData.team_name = job.team;
+      }
+      const { error } = await supabase.from('danni_notes').insert(noteData);
+      if (error) throw error;
+      setNewNoteText('');
+      setNewNoteAlertDate(undefined);
+      toast({ title: 'Note saved' });
+      fetchDanniNotes();
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setSavingNote(false);
+    }
+  }, [newNoteText, notepadJobId, newNoteAlertDate, dmJobs, toast, fetchDanniNotes]);
+
+  const handleDeleteNote = useCallback(async (noteId: string) => {
+    try {
+      await supabase.from('danni_notes').delete().eq('id', noteId);
+      fetchDanniNotes();
+    } catch {}
+  }, [fetchDanniNotes]);
+
+  const handleDismissAlert = useCallback(async (noteId: string) => {
+    try {
+      await supabase.from('danni_notes').update({ alert_dismissed: true }).eq('id', noteId);
+      fetchDanniNotes();
+      toast({ title: 'Alert dismissed' });
+    } catch {}
+  }, [fetchDanniNotes, toast]);
 
   // Compute readiness data for DM jobs 24h+ past booked date
   const readinessJobs = useMemo(() => {
@@ -436,7 +519,7 @@ export const DanniDashboard = ({
   }
 
   return (
-    <Card className="w-full max-w-5xl mx-auto max-h-[90vh] flex flex-col">
+    <Card className="w-full max-w-5xl mx-auto max-h-[90vh] flex flex-col relative overflow-hidden">
       <CardHeader className="pb-3 flex-shrink-0">
         <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between">
@@ -511,6 +594,26 @@ export const DanniDashboard = ({
               Showing {filteredJobs.length} of {readinessJobs.length}
             </Badge>
             <div className="flex-1" />
+            {activeAlerts.length > 0 && (
+              <Button
+                variant="destructive"
+                size="sm"
+                className="h-7 text-xs gap-1 animate-pulse"
+                onClick={() => setShowNotepad(true)}
+              >
+                <BellRing className="w-3 h-3" />
+                {activeAlerts.length} Alert{activeAlerts.length !== 1 ? 's' : ''}
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs gap-1"
+              onClick={() => setShowNotepad(!showNotepad)}
+            >
+              <StickyNote className="w-3 h-3" />
+              Notes
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -519,16 +622,6 @@ export const DanniDashboard = ({
             >
               <BarChart3 className="w-3 h-3" />
               Team Report
-            </Button>
-            <Button
-              variant="default"
-              size="sm"
-              className="h-7 text-xs gap-1"
-              disabled={runningChase || readinessJobs.length === 0}
-              onClick={handleRunChase}
-            >
-              {runningChase ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
-              {runningChase ? 'Chasing...' : 'Chase Teams'}
             </Button>
           </div>
         </div>
@@ -872,6 +965,200 @@ export const DanniDashboard = ({
           </ScrollArea>
         )}
       </CardContent>
+
+      {/* Notepad Slide Panel */}
+      {showNotepad && (
+        <div className="absolute inset-0 z-10 bg-background rounded-lg flex flex-col">
+          <div className="flex items-center justify-between p-4 border-b">
+            <div className="flex items-center gap-2">
+              <StickyNote className="w-5 h-5 text-primary" />
+              <h3 className="font-semibold text-foreground">Danni's Notepad</h3>
+              {activeAlerts.length > 0 && (
+                <Badge variant="destructive" className="text-[10px] animate-pulse">
+                  {activeAlerts.length} due
+                </Badge>
+              )}
+            </div>
+            <Button variant="ghost" size="icon" onClick={() => setShowNotepad(false)}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {/* Active alerts */}
+          {activeAlerts.length > 0 && (
+            <div className="px-4 pt-3 space-y-2">
+              {activeAlerts.map((alert: any) => {
+                const job = dmJobs.find(j => j.id === alert.job_id);
+                return (
+                  <div key={alert.id} className="bg-destructive/10 border border-destructive/30 rounded-lg p-2.5 flex items-start gap-2">
+                    <BellRing className="w-4 h-4 text-destructive mt-0.5 flex-shrink-0 animate-bounce" />
+                    <div className="flex-1 min-w-0">
+                      {job && (
+                        <p className="text-[11px] font-bold text-destructive">
+                          #{job.job_number} — {job.name}
+                        </p>
+                      )}
+                      <p className="text-xs text-foreground">{alert.note_text}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        Due: {format(new Date(alert.alert_date), 'dd MMM HH:mm')}
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 text-[10px] px-2"
+                      onClick={() => handleDismissAlert(alert.id)}
+                    >
+                      Dismiss
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* New note form */}
+          <div className="px-4 pt-3 space-y-2 border-b pb-3">
+            <div className="flex items-center gap-2">
+              <Select
+                value={notepadJobId || 'general'}
+                onValueChange={(v) => setNotepadJobId(v === 'general' ? null : v)}
+              >
+                <SelectTrigger className="h-7 text-xs flex-1">
+                  <SelectValue placeholder="Attach to job..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="general">General Note</SelectItem>
+                  {readinessJobs.map(j => (
+                    <SelectItem key={j.id} value={j.id}>
+                      #{j.jobNumber} — {j.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Textarea
+              placeholder="Write a note... (chase reminder, booking, action item)"
+              value={newNoteText}
+              onChange={(e) => setNewNoteText(e.target.value)}
+              className="h-16 text-xs"
+            />
+            <div className="flex items-center gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1">
+                    <Bell className="w-3 h-3" />
+                    {newNoteAlertDate ? format(newNoteAlertDate, 'dd MMM HH:mm') : 'Set reminder'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={newNoteAlertDate}
+                    onSelect={(d) => {
+                      if (d) {
+                        // Default to 9am on selected day
+                        d.setHours(9, 0, 0, 0);
+                        setNewNoteAlertDate(d);
+                      }
+                    }}
+                  />
+                  {newNoteAlertDate && (
+                    <div className="px-3 pb-3 flex gap-1 flex-wrap">
+                      {[9, 12, 14, 16].map(h => (
+                        <Button
+                          key={h}
+                          variant={newNoteAlertDate.getHours() === h ? 'default' : 'outline'}
+                          size="sm"
+                          className="h-6 text-[10px] px-2"
+                          onClick={() => {
+                            const d = new Date(newNoteAlertDate);
+                            d.setHours(h, 0, 0, 0);
+                            setNewNoteAlertDate(d);
+                          }}
+                        >
+                          {h}:00
+                        </Button>
+                      ))}
+                    </div>
+                  )}
+                </PopoverContent>
+              </Popover>
+              {newNoteAlertDate && (
+                <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setNewNoteAlertDate(undefined)}>
+                  Clear
+                </Button>
+              )}
+              <div className="flex-1" />
+              <Button
+                size="sm"
+                className="h-7 text-xs gap-1"
+                disabled={!newNoteText.trim() || savingNote}
+                onClick={handleSaveNote}
+              >
+                {savingNote ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+                Add Note
+              </Button>
+            </div>
+          </div>
+
+          {/* Notes list */}
+          <ScrollArea className="flex-1 px-4 py-2">
+            <div className="space-y-2">
+              {danniNotes.map((note: any) => {
+                const job = dmJobs.find(j => j.id === note.job_id);
+                const hasAlert = note.alert_date && !note.alert_dismissed;
+                const alertDue = hasAlert && new Date(note.alert_date) <= new Date();
+                return (
+                  <div
+                    key={note.id}
+                    className={cn(
+                      "border rounded-lg p-2.5 text-xs",
+                      alertDue ? "border-destructive/50 bg-destructive/5" : "border-border"
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        {job && (
+                          <span className="text-[10px] font-bold text-primary">
+                            #{job.job_number} — {job.name}
+                          </span>
+                        )}
+                        {note.team_name && !job && (
+                          <span className="text-[10px] font-medium text-muted-foreground">
+                            Team: {note.team_name}
+                          </span>
+                        )}
+                        <p className="text-foreground mt-0.5 whitespace-pre-wrap">{note.note_text}</p>
+                        <div className="flex items-center gap-2 mt-1 text-[10px] text-muted-foreground">
+                          <span>{format(new Date(note.created_at), 'dd MMM HH:mm')}</span>
+                          {hasAlert && (
+                            <span className={cn("flex items-center gap-0.5", alertDue ? "text-destructive font-bold" : "text-amber-600")}>
+                              <Bell className="w-2.5 h-2.5" />
+                              {format(new Date(note.alert_date), 'dd MMM HH:mm')}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                        onClick={() => handleDeleteNote(note.id)}
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+              {danniNotes.length === 0 && (
+                <p className="text-center text-muted-foreground py-8 text-sm">No notes yet. Start tracking jobs above.</p>
+              )}
+            </div>
+          </ScrollArea>
+        </div>
+      )}
     </Card>
   );
 };
