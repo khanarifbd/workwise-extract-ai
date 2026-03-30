@@ -1107,6 +1107,26 @@ export const DanniDashboard = ({
                         >
                           <CalendarPlus className="h-3.5 w-3.5" />
                         </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className={cn("h-7 w-7", signingOffJob === job.id && "opacity-50")}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (signingOffJob) return;
+                            if (window.confirm(`Sign off "${job.name}" and move to Completed?`)) {
+                              handleSignOff(job);
+                            }
+                          }}
+                          disabled={signingOffJob === job.id}
+                          title="Sign off job"
+                        >
+                          {signingOffJob === job.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                          )}
+                        </Button>
                       </div>
                     </div>
 
