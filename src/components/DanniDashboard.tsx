@@ -741,7 +741,52 @@ export const DanniDashboard = ({
                           />
                         </div>
 
-                        {blockerInfo && !isEditing && (
+                        {/* Notes preview on card */}
+                        {(() => {
+                          const jobNotes = notesByJobId[job.id];
+                          if (!jobNotes || jobNotes.length === 0) return null;
+                          const latestNotes = jobNotes.slice(0, 3);
+                          const hasActiveAlert = jobNotes.some((n: any) => n.alert_date && !n.alert_dismissed && new Date(n.alert_date) <= new Date());
+                          return (
+                            <div
+                              className={cn(
+                                "mt-2 rounded-md border p-2 cursor-pointer hover:bg-accent/50 transition-colors",
+                                hasActiveAlert ? "border-destructive/50 bg-destructive/5" : "border-border bg-muted/30"
+                              )}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setNotepadJobId(job.id);
+                                setShowNotepad(true);
+                              }}
+                              title="Click to view/add notes for this job"
+                            >
+                              <div className="flex items-center gap-1.5 mb-1">
+                                <StickyNote className="w-3 h-3 text-primary" />
+                                <span className="text-[10px] font-semibold text-primary">
+                                  Notes ({jobNotes.length})
+                                </span>
+                                {hasActiveAlert && (
+                                  <BellRing className="w-3 h-3 text-destructive animate-pulse ml-auto" />
+                                )}
+                              </div>
+                              {latestNotes.map((note: any) => (
+                                <div key={note.id} className="flex items-start gap-1.5 text-[10px] text-muted-foreground">
+                                  {note.alert_date && !note.alert_dismissed && (
+                                    <Bell className="w-2.5 h-2.5 text-amber-500 mt-0.5 flex-shrink-0" />
+                                  )}
+                                  <span className="truncate">{note.note_text}</span>
+                                  <span className="text-[9px] opacity-60 flex-shrink-0 ml-auto">
+                                    {format(new Date(note.created_at), 'dd MMM')}
+                                  </span>
+                                </div>
+                              ))}
+                              {jobNotes.length > 3 && (
+                                <p className="text-[9px] text-primary mt-0.5">+{jobNotes.length - 3} more...</p>
+                              )}
+                            </div>
+                          );
+                        })()}
+
                           <div className="mt-2 flex items-center gap-2 flex-wrap">
                             <Badge className={cn("text-white text-[10px] px-2 py-0.5", blockerInfo.color)}>
                               <blockerInfo.icon className="w-3 h-3 mr-1" />
