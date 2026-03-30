@@ -1,5 +1,6 @@
 import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { NotepadPanel } from '@/components/DanniNotepadPanel';
+import { DanniNewJobPanel } from '@/components/DanniNewJobPanel';
 import { Job, Attachment } from '@/types/job';
 import { ContactCell } from '@/components/ContactCell';
 import { useAllContactHistory } from '@/hooks/useContactHistory';
@@ -93,6 +94,7 @@ export const DanniDashboard = ({
   }>({ type: '', notes: '', chaseDate: undefined });
   const [savingBlocker, setSavingBlocker] = useState(false);
   const [dmJobs, setDmJobs] = useState<any[]>([]);
+  const [dmCategoryId, setDmCategoryId] = useState<string>('');
   const [signOffs, setSignOffs] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   
@@ -130,15 +132,15 @@ export const DanniDashboard = ({
         .single();
 
       if (!catData) return;
-
-      const dmCategoryId = catData.id;
+      const dmCatId = catData.id;
+      setDmCategoryId(dmCatId);
 
       // Fetch DM jobs and sign-offs in parallel
       const [jobsRes, signOffRes] = await Promise.all([
         supabase
           .from('jobs')
           .select('id, job_number, name, address, phone_number, team, team2, description, attachments, booked_date, status, is_completed, is_ongoing, blocker_type, blocker_notes, blocker_chase_date, refer_back, ongoing_reason')
-          .eq('category_id', dmCategoryId)
+          .eq('category_id', dmCatId)
           .is('deleted_at', null),
         supabase
           .from('team_sign_offs')
@@ -806,6 +808,21 @@ export const DanniDashboard = ({
                             </Collapsible>
                           );
                         })()}
+
+                        {/* New Linked Job panel */}
+                        <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+                          <DanniNewJobPanel
+                            parentJobId={job.id}
+                            parentJobNumber={job.jobNumber}
+                            parentName={job.name}
+                            parentAddress={job.address}
+                            parentPhone={job.phoneNumber}
+                            parentTeam={job.team}
+                            dmCategoryId={dmCategoryId}
+                            dmTeams={dmTeams}
+                            onJobCreated={handleRefresh}
+                          />
+                        </div>
 
                         {blockerInfo && !isEditing && (
                           <div className="mt-2 flex items-center gap-2 flex-wrap">
