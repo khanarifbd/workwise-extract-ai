@@ -158,30 +158,102 @@ export const DanniDashboard = ({
 
   const handleRefresh = useCallback(() => {
     fetchDmJobs();
+    fetchDanniNotes();
     onJobUpdated?.();
   }, [fetchDmJobs, onJobUpdated]);
 
-  const handleRunChase = useCallback(async () => {
-    setRunningChase(true);
+  // Fetch Danni notes
+  const fetchDanniNotes = useCallback(async () => {
     try {
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      const url = `https://${projectId}.supabase.co/functions/v1/auto-chase-signoff`;
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      toast({
-        title: 'Chase messages sent',
-        description: `${data.chased} message${data.chased !== 1 ? 's' : ''} sent to teams`,
-      });
-    } catch (err: any) {
-      toast({ title: 'Chase failed', description: err.message, variant: 'destructive' });
-    } finally {
-      setRunningChase(false);
+      const { data } = await supabase
+        .from('danni_notes')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (data) {
+        setDanniNotes(data);
+        // Check for active alerts (due now or overdue, not dismissed)
+        const now = new Date();
+        const alerts = data.filter((n: any) => 
+          n.alert_date && !n.alert_dismissed && new Date(n.alert_date) <= now
+        );
+        setActiveAlerts(alerts);
+        if (alerts.length > 0) {
+          // Play alert sound
+          try {
+            const ctx = new AudioContext();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.frequency.value = 800;
+            gain.gain.value = 0.3;
+            osc.start();
+            osc.stop(ctx.currentTime + 0.3);
+            setTimeout(() => {
+              const osc2 = ctx.createOscillator();
+              const gain2 = ctx.createGain();
+              osc2.connect(gain2);
+              gain2.connect(ctx.destination);
+              osc2.frequency.value = 1000;
+              gain2.gain.value = 0.3;
+              osc2.start();
+              osc2.stop(ctx.currentTime + 0.3);
+            }, 350);
+          } catch {}
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch danni notes:', err);
     }
-  }, [toast]);
+  }, []);
+
+  useEffect(() => {
+    fetchDanniNotes();
+    const interval = setInterval(fetchDanniNotes, 60000); // check alerts every minute
+    return () => clearInterval(interval);
+  }, [fetchDanniNotes]);
+
+  const handleSaveNote = useCallback(async () => {
+    if (!newNoteText.trim()) return;
+    setSavingNote(true);
+    try {
+      const noteData: any = {
+        note_text: newNoteText.trim(),
+        job_id: notepadJobId || null,
+        alert_date: newNoteAlertDate?.toISOString() || null,
+      };
+      // Find team name from job if job-specific
+      if (notepadJobId) {
+        const job = dmJobs.find(j => j.id === notepadJobId);
+        if (job?.team) noteData.team_name = job.team;
+      }
+      const { error } = await supabase.from('danni_notes').insert(noteData);
+      if (error) throw error;
+      setNewNoteText('');
+      setNewNoteAlertDate(undefined);
+      toast({ title: 'Note saved' });
+      fetchDanniNotes();
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setSavingNote(false);
+    }
+  }, [newNoteText, notepadJobId, newNoteAlertDate, dmJobs, toast, fetchDanniNotes]);
+
+  const handleDeleteNote = useCallback(async (noteId: string) => {
+    try {
+      await supabase.from('danni_notes').delete().eq('id', noteId);
+      fetchDanniNotes();
+    } catch {}
+  }, [fetchDanniNotes]);
+
+  const handleDismissAlert = useCallback(async (noteId: string) => {
+    try {
+      await supabase.from('danni_notes').update({ alert_dismissed: true }).eq('id', noteId);
+      fetchDanniNotes();
+      toast({ title: 'Alert dismissed' });
+    } catch {}
+  }, [fetchDanniNotes, toast]);
 
   // Compute readiness data for DM jobs 24h+ past booked date
   const readinessJobs = useMemo(() => {
