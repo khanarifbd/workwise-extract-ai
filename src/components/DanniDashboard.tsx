@@ -1,7 +1,7 @@
 import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { NotepadPanel } from '@/components/DanniNotepadPanel';
 import { DanniNewJobPanel } from '@/components/DanniNewJobPanel';
-import { Job, Attachment } from '@/types/job';
+import { Job, Attachment, WorkItem } from '@/types/job';
 import { ContactCell } from '@/components/ContactCell';
 import { useAllContactHistory } from '@/hooks/useContactHistory';
 import { Badge } from '@/components/ui/badge';
@@ -17,7 +17,7 @@ import {
   Camera, FileText, Wrench, ShieldAlert, DoorOpen, PenLine,
   CalendarDays, Tag, Save, RotateCcw, BarChart3, Loader2,
   CalendarPlus, SendHorizonal, UserPlus, StickyNote, Bell, BellRing,
-  Plus, Trash2, ChevronDown
+  Plus, Trash2, ChevronDown, CheckCircle2, Link2, CircleDot
 } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { format, isPast, isToday } from 'date-fns';
@@ -97,6 +97,9 @@ export const DanniDashboard = ({
   const [dmCategoryId, setDmCategoryId] = useState<string>('');
   const [signOffs, setSignOffs] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
+  const [childJobsMap, setChildJobsMap] = useState<Record<string, any[]>>({});
+  const [expandedChildren, setExpandedChildren] = useState<Record<string, boolean>>({});
+  const [signingOffJob, setSigningOffJob] = useState<string | null>(null);
   
   // Notepad state
   const [showNotepad, setShowNotepad] = useState(false);
@@ -163,6 +166,42 @@ export const DanniDashboard = ({
     }
   }, []);
 
+  // Fetch linked child jobs for all DM jobs
+  const fetchChildJobs = useCallback(async () => {
+    if (dmJobs.length === 0) return;
+    try {
+      // Child jobs have private_notes containing parent job ID
+      const { data } = await supabase
+        .from('jobs')
+        .select('id, job_number, name, status, is_completed, progress, team, team2, booked_date, private_notes, attachments, description')
+        .is('deleted_at', null);
+      
+      if (!data) return;
+      
+      const map: Record<string, any[]> = {};
+      const parentIds = new Set(dmJobs.map((j: any) => j.id));
+      
+      for (const job of data) {
+        if (!job.private_notes) continue;
+        // Match pattern: "Linked from parent job #XXX (UUID)"
+        for (const parentId of parentIds) {
+          if (job.private_notes.includes(parentId)) {
+            if (!map[parentId]) map[parentId] = [];
+            map[parentId].push(job);
+            break;
+          }
+        }
+      }
+      setChildJobsMap(map);
+    } catch (err) {
+      console.error('Failed to fetch child jobs:', err);
+    }
+  }, [dmJobs]);
+
+  useEffect(() => {
+    fetchChildJobs();
+  }, [fetchChildJobs]);
+
   useEffect(() => {
     fetchDmJobs();
   }, [fetchDmJobs]);
@@ -170,8 +209,9 @@ export const DanniDashboard = ({
   const handleRefresh = useCallback(() => {
     fetchDmJobs();
     fetchDanniNotes();
+    fetchChildJobs();
     onJobUpdated?.();
-  }, [fetchDmJobs, onJobUpdated]);
+  }, [fetchDmJobs, onJobUpdated, fetchChildJobs]);
 
   // Fetch Danni notes
   const fetchDanniNotes = useCallback(async () => {
@@ -484,51 +524,131 @@ export const DanniDashboard = ({
     return BLOCKER_TYPES.find(b => b.value === job.blockerType) || null;
   };
 
-  // Convert ReadinessJob to partial Job for onJobClick
-  const handleJobClick = useCallback((rj: ReadinessJob) => {
-    const jobForModal: Job = {
-      id: rj.id,
-      jobNumber: rj.jobNumber,
-      name: rj.name,
-      address: rj.address,
-      phoneNumber: rj.phoneNumber,
-      summaryOfWorks: '',
-      description: rj.description,
-      workItems: [],
-      additionalWorks: [],
-      team: rj.team,
-      team2: rj.team2,
-      progress: 0,
-      progressNotes: '',
-      isCompleted: rj.isCompleted,
-      isOngoing: rj.isOngoing,
-      ongoingReason: '',
-      scheduledTrades: [],
-      createdAt: new Date(),
-      dateIssued: new Date(),
-      bookedDate: rj.bookedDate,
-      isFlexibleBooking: false,
-      bookingNotes: '',
-      completionDate: null,
-      attachments: rj.attachments,
-      status: rj.status as any,
-      fanInfo: null,
-      linkedFanJobId: null,
-      insulationInfo: null,
-      linkedInsulationJobId: null,
-      costs: null,
-      privateNotes: '',
-      referBack: rj.referBack,
-      referBackReason: '',
-      referBackDate: null,
-      expectedCompletionDate: null,
-      blockerType: rj.blockerType,
-      blockerNotes: rj.blockerNotes,
-      blockerSetAt: null,
-      blockerChaseDate: rj.blockerChaseDate,
-    };
-    onJobClick(jobForModal);
-  }, [onJobClick]);
+  // Convert ReadinessJob to full Job by fetching from DB
+  const handleJobClick = useCallback(async (rj: ReadinessJob) => {
+    try {
+      const { data, error } = await supabase
+        .from('jobs')
+        .select('*')
+        .eq('id', rj.id)
+        .single();
+      
+      if (error || !data) {
+        toast({ title: 'Error', description: 'Failed to load job details', variant: 'destructive' });
+        return;
+      }
+
+      const jobForModal: Job = {
+        id: data.id,
+        jobNumber: data.job_number,
+        name: data.name,
+        address: data.address || '',
+        phoneNumber: data.phone_number || '',
+        summaryOfWorks: data.summary_of_works || '',
+        description: data.description || '',
+        workItems: Array.isArray(data.work_items) ? (data.work_items as any[]) : [],
+        additionalWorks: Array.isArray(data.additional_works) ? (data.additional_works as any[]) : [],
+        team: data.team,
+        team2: data.team2,
+        progress: data.progress || 0,
+        progressNotes: data.progress_notes || '',
+        isCompleted: data.is_completed || false,
+        isOngoing: data.is_ongoing || false,
+        ongoingReason: data.ongoing_reason || '',
+        scheduledTrades: Array.isArray(data.scheduled_trades) ? (data.scheduled_trades as any[]) : [],
+        createdAt: new Date(data.created_at),
+        dateIssued: data.date_issued ? new Date(data.date_issued) : new Date(),
+        bookedDate: data.booked_date ? new Date(data.booked_date) : null,
+        isFlexibleBooking: data.is_flexible_booking || false,
+        bookingNotes: data.booking_notes || '',
+        completionDate: data.completion_date ? new Date(data.completion_date) : null,
+        attachments: Array.isArray(data.attachments) ? (data.attachments as any[]) : [],
+        status: (data.status || 'pending') as any,
+        fanInfo: Array.isArray(data.fan_info) ? (data.fan_info as any[]) : null,
+        linkedFanJobId: data.linked_fan_job_id,
+        insulationInfo: Array.isArray(data.insulation_info) ? (data.insulation_info as any[]) : null,
+        linkedInsulationJobId: data.linked_insulation_job_id,
+        costs: data.costs as any,
+        privateNotes: data.private_notes || '',
+        referBack: data.refer_back || false,
+        referBackReason: data.refer_back_reason || '',
+        referBackDate: data.refer_back_date ? new Date(data.refer_back_date) : null,
+        expectedCompletionDate: data.expected_completion_date ? new Date(data.expected_completion_date) : null,
+        blockerType: data.blocker_type,
+        blockerNotes: data.blocker_notes || '',
+        blockerSetAt: data.blocker_set_at ? new Date(data.blocker_set_at) : null,
+        blockerChaseDate: data.blocker_chase_date ? new Date(data.blocker_chase_date) : null,
+      };
+      onJobClick(jobForModal);
+    } catch (err) {
+      console.error('Failed to open job:', err);
+      toast({ title: 'Error', description: 'Failed to open job', variant: 'destructive' });
+    }
+  }, [onJobClick, toast]);
+
+  // Sign off a job - marks complete and creates sign-off record
+  const handleSignOff = useCallback(async (job: ReadinessJob) => {
+    setSigningOffJob(job.id);
+    try {
+      const attachments: Attachment[] = job.attachments || [];
+      const photosCount = attachments.filter(a => a.type === 'image').length;
+      const videosCount = attachments.filter(a => a.type === 'video').length;
+      const documentsCount = attachments.filter(a => a.type === 'document').length;
+
+      // Create sign-off record
+      const signOffData = {
+        job_id: job.id,
+        team_id: job.team || 'danni',
+        team_name: job.team || 'Danni',
+        photos_count: photosCount,
+        videos_count: videosCount,
+        documents_count: documentsCount,
+        work_items_total: 0,
+        work_items_modified: 0,
+        progress_notes: `Signed off by Danni from Sign-Off Dashboard`,
+      };
+
+      const [signOffRes, jobUpdateRes] = await Promise.all([
+        supabase.from('team_sign_offs').insert(signOffData),
+        supabase.from('jobs').update({
+          is_completed: true,
+          status: 'complete',
+          progress: 100,
+          completion_date: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }).eq('id', job.id),
+      ]);
+
+      if (signOffRes.error) throw signOffRes.error;
+      if (jobUpdateRes.error) throw jobUpdateRes.error;
+
+      // Also create notification for admin dashboard
+      await supabase.from('team_sign_off_notifications').insert({
+        job_id: job.id,
+        job_number: job.jobNumber,
+        job_name: job.name,
+        team_id: job.team || 'danni',
+        team_name: job.team || 'Danni',
+        photos_count: photosCount,
+        videos_count: videosCount,
+        documents_count: documentsCount,
+        work_items_total: 0,
+        work_items_modified: 0,
+        progress_notes: 'Signed off by Danni',
+      });
+
+      toast({
+        title: 'Job signed off ✓',
+        description: `${job.name} moved to Completed folder`,
+      });
+      handleRefresh();
+    } catch (err: any) {
+      console.error('Sign-off failed:', err);
+      toast({ title: 'Sign-off failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setSigningOffJob(null);
+    }
+  }, [toast, handleRefresh]);
 
   if (loading) {
     return (
@@ -824,6 +944,65 @@ export const DanniDashboard = ({
                           />
                         </div>
 
+                        {/* Linked Child Jobs */}
+                        {(() => {
+                          const children = childJobsMap[job.id] || [];
+                          if (children.length === 0) return null;
+                          return (
+                            <Collapsible
+                              open={expandedChildren[job.id] ?? false}
+                              onOpenChange={(open) => setExpandedChildren(prev => ({ ...prev, [job.id]: open }))}
+                            >
+                              <div className="mt-2 rounded-md border border-primary/20 bg-primary/5" onClick={(e) => e.stopPropagation()}>
+                                <CollapsibleTrigger asChild>
+                                  <button className="w-full flex items-center gap-1.5 p-2 hover:bg-accent/50 transition-colors rounded-t-md text-left">
+                                    <Link2 className="w-3 h-3 text-primary flex-shrink-0" />
+                                    <span className="text-[10px] font-semibold text-primary">
+                                      Linked Jobs ({children.length})
+                                    </span>
+                                    <ChevronDown className={cn(
+                                      "w-3 h-3 text-muted-foreground transition-transform duration-200 ml-auto flex-shrink-0",
+                                      expandedChildren[job.id] && "rotate-180"
+                                    )} />
+                                  </button>
+                                </CollapsibleTrigger>
+                                <CollapsibleContent>
+                                  <div className="px-2 pb-2 space-y-1.5">
+                                    {children.map((child: any) => {
+                                      const isChildComplete = child.is_completed || child.status === 'complete';
+                                      const childPhotos = Array.isArray(child.attachments) ? child.attachments.filter((a: any) => a.type === 'image').length : 0;
+                                      const childHasDesc = !!(child.description && child.description.trim().length > 10);
+                                      return (
+                                        <div key={child.id} className={cn(
+                                          "flex items-center gap-2 p-1.5 rounded border text-xs",
+                                          isChildComplete ? "bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800" : "bg-background border-border"
+                                        )}>
+                                          <CircleDot className={cn("w-3 h-3 flex-shrink-0", isChildComplete ? "text-emerald-500" : "text-amber-500")} />
+                                          <div className="flex-1 min-w-0">
+                                            <span className="font-mono text-[10px] font-bold">#{child.job_number}</span>
+                                            <span className="text-muted-foreground text-[10px] ml-1.5">{child.team || 'Unassigned'}</span>
+                                          </div>
+                                          <div className="flex items-center gap-1 flex-shrink-0">
+                                            <span className={cn("w-4 h-4 rounded-full flex items-center justify-center text-white", childPhotos > 0 ? "bg-emerald-500" : "bg-red-500")} title={`${childPhotos} photos`}>
+                                              <Camera className="w-2.5 h-2.5" />
+                                            </span>
+                                            <span className={cn("w-4 h-4 rounded-full flex items-center justify-center text-white", childHasDesc ? "bg-emerald-500" : "bg-red-500")} title={childHasDesc ? "Has description" : "No description"}>
+                                              <PenLine className="w-2.5 h-2.5" />
+                                            </span>
+                                          </div>
+                                          <Badge variant={isChildComplete ? "default" : "secondary"} className={cn("text-[9px] px-1.5 py-0", isChildComplete && "bg-emerald-600")}>
+                                            {isChildComplete ? 'Complete' : (child.status || 'Pending')}
+                                          </Badge>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </CollapsibleContent>
+                              </div>
+                            </Collapsible>
+                          );
+                        })()}
+
                         {blockerInfo && !isEditing && (
                           <div className="mt-2 flex items-center gap-2 flex-wrap">
                             <Badge className={cn("text-white text-[10px] px-2 py-0.5", blockerInfo.color)}>
@@ -927,6 +1106,26 @@ export const DanniDashboard = ({
                           title="Rebook job"
                         >
                           <CalendarPlus className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className={cn("h-7 w-7", signingOffJob === job.id && "opacity-50")}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (signingOffJob) return;
+                            if (window.confirm(`Sign off "${job.name}" and move to Completed?`)) {
+                              handleSignOff(job);
+                            }
+                          }}
+                          disabled={signingOffJob === job.id}
+                          title="Sign off job"
+                        >
+                          {signingOffJob === job.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                          )}
                         </Button>
                       </div>
                     </div>
