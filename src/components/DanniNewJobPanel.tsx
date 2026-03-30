@@ -17,7 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 interface TeamSetting {
   teamId: string;
   teamName: string;
-  type: string;
+  type?: string;
 }
 
 interface DanniNewJobPanelProps {
