@@ -16,8 +16,9 @@ import {
   Camera, FileText, Wrench, ShieldAlert, DoorOpen, PenLine,
   CalendarDays, Tag, Save, RotateCcw, BarChart3, Loader2,
   CalendarPlus, SendHorizonal, UserPlus, StickyNote, Bell, BellRing,
-  Plus, Trash2
+  Plus, Trash2, ChevronDown
 } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { format, isPast, isToday } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { getGMTNow, getHoursDifferenceGMT } from '@/lib/dateUtils';
