@@ -166,6 +166,42 @@ export const DanniDashboard = ({
     }
   }, []);
 
+  // Fetch linked child jobs for all DM jobs
+  const fetchChildJobs = useCallback(async () => {
+    if (dmJobs.length === 0) return;
+    try {
+      // Child jobs have private_notes containing parent job ID
+      const { data } = await supabase
+        .from('jobs')
+        .select('id, job_number, name, status, is_completed, progress, team, team2, booked_date, private_notes, attachments, description')
+        .is('deleted_at', null);
+      
+      if (!data) return;
+      
+      const map: Record<string, any[]> = {};
+      const parentIds = new Set(dmJobs.map((j: any) => j.id));
+      
+      for (const job of data) {
+        if (!job.private_notes) continue;
+        // Match pattern: "Linked from parent job #XXX (UUID)"
+        for (const parentId of parentIds) {
+          if (job.private_notes.includes(parentId)) {
+            if (!map[parentId]) map[parentId] = [];
+            map[parentId].push(job);
+            break;
+          }
+        }
+      }
+      setChildJobsMap(map);
+    } catch (err) {
+      console.error('Failed to fetch child jobs:', err);
+    }
+  }, [dmJobs]);
+
+  useEffect(() => {
+    fetchChildJobs();
+  }, [fetchChildJobs]);
+
   useEffect(() => {
     fetchDmJobs();
   }, [fetchDmJobs]);
@@ -173,8 +209,9 @@ export const DanniDashboard = ({
   const handleRefresh = useCallback(() => {
     fetchDmJobs();
     fetchDanniNotes();
+    fetchChildJobs();
     onJobUpdated?.();
-  }, [fetchDmJobs, onJobUpdated]);
+  }, [fetchDmJobs, onJobUpdated, fetchChildJobs]);
 
   // Fetch Danni notes
   const fetchDanniNotes = useCallback(async () => {
