@@ -809,6 +809,21 @@ export const DanniDashboard = ({
                           );
                         })()}
 
+                        {/* New Linked Job panel */}
+                        <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+                          <DanniNewJobPanel
+                            parentJobId={job.id}
+                            parentJobNumber={job.jobNumber}
+                            parentName={job.name}
+                            parentAddress={job.address}
+                            parentPhone={job.phoneNumber}
+                            parentTeam={job.team}
+                            dmCategoryId={dmCategoryId}
+                            dmTeams={dmTeams}
+                            onJobCreated={handleRefresh}
+                          />
+                        </div>
+
                         {blockerInfo && !isEditing && (
                           <div className="mt-2 flex items-center gap-2 flex-wrap">
                             <Badge className={cn("text-white text-[10px] px-2 py-0.5", blockerInfo.color)}>
