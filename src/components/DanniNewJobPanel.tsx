@@ -82,7 +82,7 @@ export const DanniNewJobPanel = ({
 
       const { data, error } = await supabase
         .from('jobs')
-        .insert(newJobData)
+        .insert(newJobData as any)
         .select('id, job_number')
         .single();
 
