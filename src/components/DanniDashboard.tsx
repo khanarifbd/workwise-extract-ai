@@ -88,10 +88,20 @@ export const DanniDashboard = ({
     chaseDate: Date | undefined;
   }>({ type: '', notes: '', chaseDate: undefined });
   const [savingBlocker, setSavingBlocker] = useState(false);
-  const [runningChase, setRunningChase] = useState(false);
   const [dmJobs, setDmJobs] = useState<any[]>([]);
   const [signOffs, setSignOffs] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
+  
+  // Notepad state
+  const [showNotepad, setShowNotepad] = useState(false);
+  const [notepadJobId, setNotepadJobId] = useState<string | null>(null);
+  const [danniNotes, setDanniNotes] = useState<any[]>([]);
+  const [newNoteText, setNewNoteText] = useState('');
+  const [newNoteAlertDate, setNewNoteAlertDate] = useState<Date | undefined>(undefined);
+  const [savingNote, setSavingNote] = useState(false);
+  const [activeAlerts, setActiveAlerts] = useState<any[]>([]);
+  const alertAudioRef = useRef<HTMLAudioElement | null>(null);
+  
   const { toast } = useToast();
   const { settings: teamSettings } = useTeamSettings();
 
