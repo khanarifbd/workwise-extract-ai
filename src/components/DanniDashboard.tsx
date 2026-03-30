@@ -108,6 +108,10 @@ export const DanniDashboard = ({
   const { toast } = useToast();
   const { settings: teamSettings } = useTeamSettings();
 
+  // Get all readiness job IDs for bulk contact history loading
+  const allJobIds = useMemo(() => dmJobs.map((j: any) => j.id), [dmJobs]);
+  const { historyMap: contactHistoryMap } = useAllContactHistory(allJobIds);
+
   // Get DM team members only
   const dmTeams = useMemo(() => {
     return teamSettings.filter(t => t.type === 'dm').sort((a, b) => a.teamName.localeCompare(b.teamName));
