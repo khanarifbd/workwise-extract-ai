@@ -1,5 +1,5 @@
-import { useMemo, useState, useCallback } from 'react';
-import { Job, ALLSAINTS_TEAMS, FAN_TEAMS } from '@/types/job';
+import { useMemo, useState, useCallback, useEffect } from 'react';
+import { Job } from '@/types/job';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,13 +12,17 @@ import {
   AlertTriangle, Clock, MapPin, Phone, Users, X, ExternalLink,
   Camera, FileText, Wrench, ShieldAlert, DoorOpen, PenLine,
   CalendarDays, ChevronDown, Tag, Save, RotateCcw, Zap, BarChart3, Loader2,
-  CalendarPlus, SendHorizonal
+  CalendarPlus, SendHorizonal, UserPlus
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { getGMTNow, getHoursDifferenceGMT } from '@/lib/dateUtils';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useTeamSettings } from '@/hooks/useTeamSettings';
+
+// DM category slug for filtering
+const DM_CATEGORY_SLUG = 'dm-jobs';
 
 // Blocker types with metadata
 const BLOCKER_TYPES = [
@@ -66,6 +70,8 @@ export const DanniDashboard = ({
   const [editingBlocker, setEditingBlocker] = useState<string | null>(null);
   const [rebookingJob, setRebookingJob] = useState<string | null>(null);
   const [rebookDate, setRebookDate] = useState<Date | undefined>(undefined);
+  const [rebookTeam, setRebookTeam] = useState<string>('same');
+  const [rebookTeam2, setRebookTeam2] = useState<string>('none');
   const [savingRebook, setSavingRebook] = useState(false);
   const [blockerForm, setBlockerForm] = useState<{
     type: BlockerType | '';
@@ -75,6 +81,12 @@ export const DanniDashboard = ({
   const [savingBlocker, setSavingBlocker] = useState(false);
   const [runningChase, setRunningChase] = useState(false);
   const { toast } = useToast();
+  const { settings: teamSettings } = useTeamSettings();
+
+  // Get DM team members only
+  const dmTeams = useMemo(() => {
+    return teamSettings.filter(t => t.type === 'dm').sort((a, b) => a.teamName.localeCompare(b.teamName));
+  }, [teamSettings]);
 
   const handleRunChase = useCallback(async () => {
     setRunningChase(true);
@@ -106,7 +118,6 @@ export const DanniDashboard = ({
     for (const job of jobs) {
       if (job.isCompleted || job.progress === 100 || job.status === 'complete') continue;
       if (job.referBack) continue;
-
       if (!job.bookedDate) continue;
 
       const bookedDate = job.bookedDate instanceof Date ? job.bookedDate : new Date(job.bookedDate);
@@ -246,9 +257,14 @@ export const DanniDashboard = ({
     if (!rebookDate || !editJob) return;
     setSavingRebook(true);
     try {
-      // Rebook with same team that did original works
+      // Determine team assignment
+      const newTeam = rebookTeam === 'same' ? job.team : rebookTeam;
+      const newTeam2 = rebookTeam2 === 'none' ? null : rebookTeam2;
+
       await editJob(job.id, {
         bookedDate: rebookDate,
+        team: newTeam,
+        team2: newTeam2,
         // Clear blocker since we're rebooking
         blockerType: null,
         blockerNotes: '',
@@ -256,12 +272,17 @@ export const DanniDashboard = ({
         blockerChaseDate: null,
       });
 
+      const teamLabel = newTeam || 'unassigned';
+      const team2Label = newTeam2 ? ` + ${newTeam2}` : '';
+
       toast({
         title: 'Job rebooked',
-        description: `${job.name} rebooked for ${format(rebookDate, 'EEE dd MMM')} with ${job.team || 'same team'}`,
+        description: `${job.name} rebooked for ${format(rebookDate, 'EEE dd MMM')} with ${teamLabel}${team2Label}`,
       });
       setRebookingJob(null);
       setRebookDate(undefined);
+      setRebookTeam('same');
+      setRebookTeam2('none');
       onJobUpdated?.();
     } catch (err) {
       console.error('Failed to rebook:', err);
@@ -269,7 +290,7 @@ export const DanniDashboard = ({
     } finally {
       setSavingRebook(false);
     }
-  }, [rebookDate, editJob, toast, onJobUpdated]);
+  }, [rebookDate, rebookTeam, rebookTeam2, editJob, toast, onJobUpdated]);
 
   const handleQuickTag = useCallback(async (jobId: string, type: BlockerType) => {
     setSavingBlocker(true);
@@ -308,7 +329,7 @@ export const DanniDashboard = ({
               <div>
                 <CardTitle className="text-xl">Danni's Sign-Off Readiness</CardTitle>
                 <p className="text-sm text-muted-foreground mt-0.5">
-                  {readinessJobs.length} job{readinessJobs.length !== 1 ? 's' : ''} overdue 24h+ without sign-off
+                  {readinessJobs.length} DM job{readinessJobs.length !== 1 ? 's' : ''} overdue 24h+ without sign-off
                 </p>
               </div>
             </div>
@@ -577,24 +598,71 @@ export const DanniDashboard = ({
                               setRebookingJob(job.id);
                               setEditingBlocker(null);
                               setRebookDate(undefined);
+                              setRebookTeam('same');
+                              setRebookTeam2('none');
                             }
                           }}
-                          title="Rebook with same team"
+                          title="Rebook job"
                         >
                           <CalendarPlus className="h-3.5 w-3.5" />
                         </Button>
                       </div>
                     </div>
 
-                    {/* Rebook panel */}
+                    {/* Rebook panel with team reassignment */}
                     {isRebooking && (
-                      <div className="mt-3 pt-3 border-t space-y-2" onClick={(e) => e.stopPropagation()}>
+                      <div className="mt-3 pt-3 border-t space-y-3" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center gap-2 mb-2">
                           <CalendarPlus className="w-4 h-4 text-primary" />
                           <span className="text-xs font-semibold text-foreground">
-                            Rebook with {job.team || 'original team'}
+                            Rebook Job
                           </span>
                         </div>
+
+                        {/* Team selection */}
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <UserPlus className="w-3.5 h-3.5 text-muted-foreground" />
+                            <span className="text-xs font-medium text-foreground">Team 1</span>
+                          </div>
+                          <Select value={rebookTeam} onValueChange={setRebookTeam}>
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="same">
+                                Same team ({job.team || 'unassigned'})
+                              </SelectItem>
+                              {dmTeams.map(t => (
+                                <SelectItem key={t.teamId} value={t.teamName}>
+                                  {t.teamName}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+
+                          <div className="flex items-center gap-2">
+                            <Users className="w-3.5 h-3.5 text-muted-foreground" />
+                            <span className="text-xs font-medium text-foreground">Team 2 (optional)</span>
+                          </div>
+                          <Select value={rebookTeam2} onValueChange={setRebookTeam2}>
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">No second team</SelectItem>
+                              {dmTeams
+                                .filter(t => t.teamName !== (rebookTeam === 'same' ? job.team : rebookTeam))
+                                .map(t => (
+                                  <SelectItem key={t.teamId} value={t.teamName}>
+                                    {t.teamName}
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Calendar */}
                         <div className="bg-muted/50 rounded-lg p-2">
                           <Calendar
                             mode="single"
@@ -614,7 +682,7 @@ export const DanniDashboard = ({
                             variant="ghost"
                             size="sm"
                             className="h-7 text-xs"
-                            onClick={() => { setRebookingJob(null); setRebookDate(undefined); }}
+                            onClick={() => { setRebookingJob(null); setRebookDate(undefined); setRebookTeam('same'); setRebookTeam2('none'); }}
                           >
                             Cancel
                           </Button>
