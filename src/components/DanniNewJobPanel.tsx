@@ -73,7 +73,7 @@ export const DanniNewJobPanel = ({
         is_completed: false,
         is_ongoing: false,
         refer_back: false,
-        attachments: attachments.length > 0 ? attachments : [],
+        attachments: (attachments.length > 0 ? JSON.parse(JSON.stringify(attachments)) : []) as any,
         work_items: [],
         additional_works: [],
         private_notes: `Linked from parent job #${parentJobNumber} (${parentJobId})`,
