@@ -97,7 +97,9 @@ const Index = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [showOverdueDashboard, setShowOverdueDashboard] = useState(false);
-  const [showDanniDashboard, setShowDanniDashboard] = useState(false);
+  const [showDanniDashboard, setShowDanniDashboard] = useState(() => {
+    return sessionStorage.getItem('danniDashboardOpen') === 'true';
+  });
   const [showTeamMetrics, setShowTeamMetrics] = useState(false);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [bulkUploadInitialFiles, setBulkUploadInitialFiles] = useState<Array<{ file: File; type: FileType }>>([]);
