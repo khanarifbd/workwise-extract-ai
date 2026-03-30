@@ -1055,21 +1055,48 @@ const Index = () => {
   const overdueJobs = getAlertJobs();
   const overdueCount = overdueJobs.length;
 
-  // Danni count: jobs 24h+ past booked date without sign-off
-  const danniCount = useMemo(() => {
-    const now = getGMTNow();
-    let count = 0;
-    for (const job of jobs) {
-      if (job.isCompleted || job.progress === 100 || job.status === 'complete' || job.referBack) continue;
-      if (!job.bookedDate) continue;
-      const bd = job.bookedDate instanceof Date ? job.bookedDate : new Date(job.bookedDate);
-      if (isNaN(bd.getTime()) || bd.getTime() >= now.getTime()) continue;
-      if (getHoursDifferenceGMT(now, bd) <= 24) continue;
-      if (signOffStatusesMap[job.id]?.allSignedOff) continue;
-      count++;
-    }
-    return count;
-  }, [jobs, signOffStatusesMap]);
+  // Danni count: DM jobs 24h+ past booked date without sign-off
+  // Uses a lightweight query to count only DM category jobs
+  const [danniCount, setDanniCount] = useState(0);
+  const dmCategoryId = useMemo(() => categories.find(c => c.slug === 'dm-jobs')?.id, [categories]);
+  useEffect(() => {
+    if (!dmCategoryId) return;
+    const computeCount = async () => {
+      try {
+        const [jobsRes, signOffRes] = await Promise.all([
+          supabase
+            .from('jobs')
+            .select('id, booked_date, is_completed, status, refer_back')
+            .eq('category_id', dmCategoryId)
+            .is('deleted_at', null)
+            .not('booked_date', 'is', null)
+            .eq('is_completed', false)
+            .eq('refer_back', false),
+          supabase
+            .from('team_sign_offs')
+            .select('job_id'),
+        ]);
+        const signedOffIds = new Set((signOffRes.data || []).map(s => s.job_id));
+        const now = getGMTNow();
+        let count = 0;
+        for (const job of (jobsRes.data || [])) {
+          if (job.status === 'complete') continue;
+          const bd = new Date(job.booked_date);
+          if (isNaN(bd.getTime()) || bd.getTime() >= now.getTime()) continue;
+          if (getHoursDifferenceGMT(now, bd) <= 24) continue;
+          if (signedOffIds.has(job.id)) continue;
+          count++;
+        }
+        setDanniCount(count);
+      } catch (err) {
+        console.error('Failed to compute Danni count:', err);
+      }
+    };
+    computeCount();
+    // Refresh every 2 minutes
+    const interval = setInterval(computeCount, 120000);
+    return () => clearInterval(interval);
+  }, [dmCategoryId, jobs]);
   // Real-time overdue notifications with toast and sound alerts
   useOverdueNotifications({
     jobs,
@@ -1282,11 +1309,9 @@ const Index = () => {
       {showDanniDashboard && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
           <DanniDashboard
-            jobs={jobs}
-            signOffStatuses={signOffStatusesMap}
             onClose={() => setShowDanniDashboard(false)}
             onJobClick={(job) => {
-              setShowDanniDashboard(false);
+              // Keep Danni open - it will stay visible behind the job modal
               setSelectedJobForModal(job);
             }}
             onJobUpdated={refreshJobs}
@@ -1294,7 +1319,6 @@ const Index = () => {
               setShowDanniDashboard(false);
               setShowTeamMetrics(true);
             }}
-            editJob={editJob}
           />
         </div>
       )}

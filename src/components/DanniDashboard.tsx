@@ -1,5 +1,5 @@
-import { useMemo, useState, useCallback } from 'react';
-import { Job, ALLSAINTS_TEAMS, FAN_TEAMS } from '@/types/job';
+import { useMemo, useState, useCallback, useEffect } from 'react';
+import { Job, Attachment } from '@/types/job';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,16 +9,17 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import {
-  AlertTriangle, Clock, MapPin, Phone, Users, X, ExternalLink,
+  Clock, MapPin, Users, X, ExternalLink,
   Camera, FileText, Wrench, ShieldAlert, DoorOpen, PenLine,
-  CalendarDays, ChevronDown, Tag, Save, RotateCcw, Zap, BarChart3, Loader2,
-  CalendarPlus, SendHorizonal
+  CalendarDays, Tag, Save, RotateCcw, Zap, BarChart3, Loader2,
+  CalendarPlus, SendHorizonal, UserPlus
 } from 'lucide-react';
-import { format, formatDistanceToNow } from 'date-fns';
+import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { getGMTNow, getHoursDifferenceGMT } from '@/lib/dateUtils';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useTeamSettings } from '@/hooks/useTeamSettings';
 
 // Blocker types with metadata
 const BLOCKER_TYPES = [
@@ -34,16 +35,30 @@ const BLOCKER_TYPES = [
 type BlockerType = typeof BLOCKER_TYPES[number]['value'];
 
 interface DanniDashboardProps {
-  jobs: Job[];
-  signOffStatuses: Record<string, { allSignedOff: boolean }>;
   onClose: () => void;
   onJobClick: (job: Job) => void;
   onJobUpdated?: () => void;
   onShowMetrics?: () => void;
-  editJob?: (id: string, updates: Partial<Job>) => Promise<any>;
 }
 
-interface ReadinessJob extends Job {
+interface ReadinessJob {
+  id: string;
+  jobNumber: string;
+  name: string;
+  address: string;
+  phoneNumber: string;
+  team: string | null;
+  team2: string | null;
+  description: string;
+  attachments: Attachment[];
+  bookedDate: Date | null;
+  status: string;
+  isCompleted: boolean;
+  isOngoing: boolean;
+  blockerType: string | null;
+  blockerNotes: string;
+  blockerChaseDate: Date | null;
+  referBack: boolean;
   hoursOverdue: number;
   hasPhotos: boolean;
   hasDescription: boolean;
@@ -53,19 +68,18 @@ interface ReadinessJob extends Job {
 }
 
 export const DanniDashboard = ({
-  jobs,
-  signOffStatuses,
   onClose,
   onJobClick,
   onJobUpdated,
   onShowMetrics,
-  editJob,
 }: DanniDashboardProps) => {
   const [selectedTeam, setSelectedTeam] = useState<string>('all');
   const [filterBlocker, setFilterBlocker] = useState<string>('all');
   const [editingBlocker, setEditingBlocker] = useState<string | null>(null);
   const [rebookingJob, setRebookingJob] = useState<string | null>(null);
   const [rebookDate, setRebookDate] = useState<Date | undefined>(undefined);
+  const [rebookTeam, setRebookTeam] = useState<string>('same');
+  const [rebookTeam2, setRebookTeam2] = useState<string>('none');
   const [savingRebook, setSavingRebook] = useState(false);
   const [blockerForm, setBlockerForm] = useState<{
     type: BlockerType | '';
@@ -74,7 +88,67 @@ export const DanniDashboard = ({
   }>({ type: '', notes: '', chaseDate: undefined });
   const [savingBlocker, setSavingBlocker] = useState(false);
   const [runningChase, setRunningChase] = useState(false);
+  const [dmJobs, setDmJobs] = useState<any[]>([]);
+  const [signOffs, setSignOffs] = useState<Record<string, boolean>>({});
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { settings: teamSettings } = useTeamSettings();
+
+  // Get DM team members only
+  const dmTeams = useMemo(() => {
+    return teamSettings.filter(t => t.type === 'dm').sort((a, b) => a.teamName.localeCompare(b.teamName));
+  }, [teamSettings]);
+
+  // Fetch DM jobs directly from database
+  const fetchDmJobs = useCallback(async () => {
+    try {
+      // Get DM category ID
+      const { data: catData } = await supabase
+        .from('categories')
+        .select('id')
+        .eq('slug', 'dm-jobs')
+        .single();
+
+      if (!catData) return;
+
+      const dmCategoryId = catData.id;
+
+      // Fetch DM jobs and sign-offs in parallel
+      const [jobsRes, signOffRes] = await Promise.all([
+        supabase
+          .from('jobs')
+          .select('id, job_number, name, address, phone_number, team, team2, description, attachments, booked_date, status, is_completed, is_ongoing, blocker_type, blocker_notes, blocker_chase_date, refer_back, ongoing_reason')
+          .eq('category_id', dmCategoryId)
+          .is('deleted_at', null),
+        supabase
+          .from('team_sign_offs')
+          .select('job_id')
+      ]);
+
+      if (jobsRes.data) setDmJobs(jobsRes.data);
+
+      // Build sign-off lookup
+      if (signOffRes.data) {
+        const signedOffJobIds = new Set(signOffRes.data.map(s => s.job_id));
+        const map: Record<string, boolean> = {};
+        signedOffJobIds.forEach(id => { map[id] = true; });
+        setSignOffs(map);
+      }
+    } catch (err) {
+      console.error('Failed to fetch DM jobs for Danni:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchDmJobs();
+  }, [fetchDmJobs]);
+
+  const handleRefresh = useCallback(() => {
+    fetchDmJobs();
+    onJobUpdated?.();
+  }, [fetchDmJobs, onJobUpdated]);
 
   const handleRunChase = useCallback(async () => {
     setRunningChase(true);
@@ -98,34 +172,29 @@ export const DanniDashboard = ({
     }
   }, [toast]);
 
-  // Compute readiness data for all jobs 24h+ past booked date
+  // Compute readiness data for DM jobs 24h+ past booked date
   const readinessJobs = useMemo(() => {
     const now = getGMTNow();
     const result: ReadinessJob[] = [];
 
-    for (const job of jobs) {
-      if (job.isCompleted || job.progress === 100 || job.status === 'complete') continue;
-      if (job.referBack) continue;
+    for (const raw of dmJobs) {
+      if (raw.is_completed || raw.status === 'complete') continue;
+      if (raw.refer_back) continue;
+      if (!raw.booked_date) continue;
 
-      if (!job.bookedDate) continue;
-
-      const bookedDate = job.bookedDate instanceof Date ? job.bookedDate : new Date(job.bookedDate);
+      const bookedDate = new Date(raw.booked_date);
       if (isNaN(bookedDate.getTime())) continue;
 
       const hoursPast = getHoursDifferenceGMT(now, bookedDate);
       if (bookedDate.getTime() >= now.getTime() || hoursPast <= 24) continue;
 
-      const signOff = signOffStatuses[job.id];
-      if (signOff?.allSignedOff) continue;
+      if (signOffs[raw.id]) continue;
 
-      // Auto-diagnose blockers
-      const attachments = job.attachments || [];
-      const hasPhotos = attachments.some(a => a.type === 'image');
-      const hasDescription = !!(job.description && job.description.trim().length > 10);
-      const hasSignOff = !!signOff?.allSignedOff;
-      const hasTradePending = job.status === 'awaiting_trade' || job.isOngoing;
+      const attachments: Attachment[] = Array.isArray(raw.attachments) ? raw.attachments : [];
+      const hasPhotos = attachments.some((a: any) => a.type === 'image');
+      const hasDescription = !!(raw.description && raw.description.trim().length > 10);
+      const hasTradePending = raw.status === 'awaiting_trade' || raw.is_ongoing;
 
-      // Auto-detect most likely blocker
       let autoBlocker: string | null = null;
       if (!hasPhotos && !hasDescription) autoBlocker = 'photos_and_description';
       else if (!hasPhotos) autoBlocker = 'awaiting_photos';
@@ -133,18 +202,34 @@ export const DanniDashboard = ({
       else if (hasTradePending) autoBlocker = 'awaiting_trade';
 
       result.push({
-        ...job,
+        id: raw.id,
+        jobNumber: raw.job_number,
+        name: raw.name,
+        address: raw.address || '',
+        phoneNumber: raw.phone_number || '',
+        team: raw.team,
+        team2: raw.team2,
+        description: raw.description || '',
+        attachments,
+        bookedDate,
+        status: raw.status || 'pending',
+        isCompleted: raw.is_completed || false,
+        isOngoing: raw.is_ongoing || false,
+        blockerType: raw.blocker_type,
+        blockerNotes: raw.blocker_notes || '',
+        blockerChaseDate: raw.blocker_chase_date ? new Date(raw.blocker_chase_date) : null,
+        referBack: raw.refer_back || false,
         hoursOverdue: Math.round(hoursPast - 24),
         hasPhotos,
         hasDescription,
-        hasSignOff,
+        hasSignOff: false,
         hasTradePending,
         autoBlocker,
       });
     }
 
     return result.sort((a, b) => b.hoursOverdue - a.hoursOverdue);
-  }, [jobs, signOffStatuses]);
+  }, [dmJobs, signOffs]);
 
   // Team filter
   const availableTeams = useMemo(() => {
@@ -171,7 +256,6 @@ export const DanniDashboard = ({
     return result;
   }, [readinessJobs, selectedTeam, filterBlocker]);
 
-  // Summary counts
   const missingPhotos = readinessJobs.filter(j => !j.hasPhotos).length;
   const missingDescription = readinessJobs.filter(j => !j.hasDescription).length;
   const awaitingTrade = readinessJobs.filter(j => j.hasTradePending).length;
@@ -180,121 +264,176 @@ export const DanniDashboard = ({
     if (!blockerForm.type) return;
     setSavingBlocker(true);
     try {
-      if (editJob) {
-        await editJob(jobId, {
-          blockerType: blockerForm.type,
-          blockerNotes: blockerForm.notes,
-          blockerSetAt: new Date(),
-          blockerChaseDate: blockerForm.chaseDate || null,
-        });
-      } else {
-        const { error } = await supabase
-          .from('jobs')
-          .update({
-            blocker_type: blockerForm.type,
-            blocker_notes: blockerForm.notes,
-            blocker_set_at: new Date().toISOString(),
-            blocker_chase_date: blockerForm.chaseDate?.toISOString() || null,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', jobId);
-        if (error) throw error;
-      }
+      const { error } = await supabase
+        .from('jobs')
+        .update({
+          blocker_type: blockerForm.type,
+          blocker_notes: blockerForm.notes,
+          blocker_set_at: new Date().toISOString(),
+          blocker_chase_date: blockerForm.chaseDate?.toISOString() || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', jobId);
+      if (error) throw error;
 
       toast({ title: 'Blocker tagged', description: `Job tagged as "${BLOCKER_TYPES.find(b => b.value === blockerForm.type)?.label}"` });
       setEditingBlocker(null);
       setBlockerForm({ type: '', notes: '', chaseDate: undefined });
-      onJobUpdated?.();
+      handleRefresh();
     } catch (err) {
       console.error('Failed to save blocker:', err);
       toast({ title: 'Error', description: 'Failed to save blocker tag', variant: 'destructive' });
     } finally {
       setSavingBlocker(false);
     }
-  }, [blockerForm, toast, onJobUpdated, editJob]);
+  }, [blockerForm, toast, handleRefresh]);
 
   const handleClearBlocker = useCallback(async (jobId: string) => {
     try {
-      if (editJob) {
-        await editJob(jobId, {
-          blockerType: null,
-          blockerNotes: '',
-          blockerSetAt: null,
-          blockerChaseDate: null,
-        });
-      } else {
-        const { error } = await supabase
-          .from('jobs')
-          .update({
-            blocker_type: null,
-            blocker_notes: '',
-            blocker_set_at: null,
-            blocker_chase_date: null,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', jobId);
-        if (error) throw error;
-      }
+      const { error } = await supabase
+        .from('jobs')
+        .update({
+          blocker_type: null,
+          blocker_notes: '',
+          blocker_set_at: null,
+          blocker_chase_date: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', jobId);
+      if (error) throw error;
       toast({ title: 'Blocker cleared' });
-      onJobUpdated?.();
+      handleRefresh();
     } catch (err) {
       toast({ title: 'Error', description: 'Failed to clear blocker', variant: 'destructive' });
     }
-  }, [toast, onJobUpdated, editJob]);
+  }, [toast, handleRefresh]);
 
   const handleRebook = useCallback(async (job: ReadinessJob) => {
-    if (!rebookDate || !editJob) return;
+    if (!rebookDate) return;
     setSavingRebook(true);
     try {
-      // Rebook with same team that did original works
-      await editJob(job.id, {
-        bookedDate: rebookDate,
-        // Clear blocker since we're rebooking
-        blockerType: null,
-        blockerNotes: '',
-        blockerSetAt: null,
-        blockerChaseDate: null,
-      });
+      const newTeam = rebookTeam === 'same' ? job.team : rebookTeam;
+      const newTeam2 = rebookTeam2 === 'none' ? null : rebookTeam2;
+
+      const { error } = await supabase
+        .from('jobs')
+        .update({
+          booked_date: rebookDate.toISOString(),
+          team: newTeam,
+          team2: newTeam2,
+          blocker_type: null,
+          blocker_notes: '',
+          blocker_set_at: null,
+          blocker_chase_date: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', job.id);
+      if (error) throw error;
+
+      const teamLabel = newTeam || 'unassigned';
+      const team2Label = newTeam2 ? ` + ${newTeam2}` : '';
 
       toast({
         title: 'Job rebooked',
-        description: `${job.name} rebooked for ${format(rebookDate, 'EEE dd MMM')} with ${job.team || 'same team'}`,
+        description: `${job.name} rebooked for ${format(rebookDate, 'EEE dd MMM')} with ${teamLabel}${team2Label}`,
       });
       setRebookingJob(null);
       setRebookDate(undefined);
-      onJobUpdated?.();
+      setRebookTeam('same');
+      setRebookTeam2('none');
+      handleRefresh();
     } catch (err) {
       console.error('Failed to rebook:', err);
       toast({ title: 'Error', description: 'Failed to rebook job', variant: 'destructive' });
     } finally {
       setSavingRebook(false);
     }
-  }, [rebookDate, editJob, toast, onJobUpdated]);
+  }, [rebookDate, rebookTeam, rebookTeam2, toast, handleRefresh]);
 
   const handleQuickTag = useCallback(async (jobId: string, type: BlockerType) => {
     setSavingBlocker(true);
     try {
-      if (editJob) {
-        await editJob(jobId, {
-          blockerType: type,
-          blockerNotes: '',
-          blockerSetAt: new Date(),
-          blockerChaseDate: null,
-        });
-      }
+      const { error } = await supabase
+        .from('jobs')
+        .update({
+          blocker_type: type,
+          blocker_notes: '',
+          blocker_set_at: new Date().toISOString(),
+          blocker_chase_date: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', jobId);
+      if (error) throw error;
       const label = BLOCKER_TYPES.find(b => b.value === type)?.label;
       toast({ title: 'Tagged', description: `Job tagged as "${label}"` });
-      onJobUpdated?.();
+      handleRefresh();
     } catch (err) {
       toast({ title: 'Error', description: 'Failed to tag', variant: 'destructive' });
     } finally {
       setSavingBlocker(false);
     }
-  }, [editJob, toast, onJobUpdated]);
+  }, [toast, handleRefresh]);
 
   const getBlockerInfo = (job: ReadinessJob) => {
     return BLOCKER_TYPES.find(b => b.value === job.blockerType) || null;
   };
+
+  // Convert ReadinessJob to partial Job for onJobClick
+  const handleJobClick = useCallback((rj: ReadinessJob) => {
+    const jobForModal: Job = {
+      id: rj.id,
+      jobNumber: rj.jobNumber,
+      name: rj.name,
+      address: rj.address,
+      phoneNumber: rj.phoneNumber,
+      summaryOfWorks: '',
+      description: rj.description,
+      workItems: [],
+      additionalWorks: [],
+      team: rj.team,
+      team2: rj.team2,
+      progress: 0,
+      progressNotes: '',
+      isCompleted: rj.isCompleted,
+      isOngoing: rj.isOngoing,
+      ongoingReason: '',
+      scheduledTrades: [],
+      createdAt: new Date(),
+      dateIssued: new Date(),
+      bookedDate: rj.bookedDate,
+      isFlexibleBooking: false,
+      bookingNotes: '',
+      completionDate: null,
+      attachments: rj.attachments,
+      status: rj.status as any,
+      fanInfo: null,
+      linkedFanJobId: null,
+      insulationInfo: null,
+      linkedInsulationJobId: null,
+      costs: null,
+      privateNotes: '',
+      referBack: rj.referBack,
+      referBackReason: '',
+      referBackDate: null,
+      expectedCompletionDate: null,
+      blockerType: rj.blockerType,
+      blockerNotes: rj.blockerNotes,
+      blockerSetAt: null,
+      blockerChaseDate: rj.blockerChaseDate,
+    };
+    onJobClick(jobForModal);
+  }, [onJobClick]);
+
+  if (loading) {
+    return (
+      <Card className="w-full max-w-5xl mx-auto max-h-[90vh] flex flex-col">
+        <CardContent className="flex items-center justify-center py-12">
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+          <span className="ml-2 text-muted-foreground">Loading DM jobs...</span>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="w-full max-w-5xl mx-auto max-h-[90vh] flex flex-col">
@@ -308,7 +447,7 @@ export const DanniDashboard = ({
               <div>
                 <CardTitle className="text-xl">Danni's Sign-Off Readiness</CardTitle>
                 <p className="text-sm text-muted-foreground mt-0.5">
-                  {readinessJobs.length} job{readinessJobs.length !== 1 ? 's' : ''} overdue 24h+ without sign-off
+                  {readinessJobs.length} DM job{readinessJobs.length !== 1 ? 's' : ''} overdue 24h+ without sign-off
                 </p>
               </div>
             </div>
@@ -399,7 +538,7 @@ export const DanniDashboard = ({
         {filteredJobs.length === 0 ? (
           <div className="text-center py-12">
             <Clock className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-40" />
-            <p className="text-muted-foreground">No matching overdue jobs</p>
+            <p className="text-muted-foreground">No matching overdue DM jobs</p>
           </div>
         ) : (
           <ScrollArea className="h-[calc(90vh-340px)]">
@@ -420,7 +559,6 @@ export const DanniDashboard = ({
                       "border-l-amber-400 bg-amber-50/20 dark:bg-amber-950/10"
                     )}
                   >
-                    {/* Top row: job info + readiness indicators */}
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -432,7 +570,6 @@ export const DanniDashboard = ({
                               ? `${Math.floor(job.hoursOverdue / 24)}d overdue`
                               : `${job.hoursOverdue}h overdue`}
                           </Badge>
-                          {/* Readiness traffic lights */}
                           <div className="flex items-center gap-1 ml-1">
                             <span title={job.hasPhotos ? 'Photos uploaded' : 'Missing photos'}
                               className={cn("w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px]",
@@ -473,12 +610,11 @@ export const DanniDashboard = ({
                           {job.bookedDate && (
                             <span className="flex items-center gap-1">
                               <CalendarDays className="w-3 h-3" />
-                              {format(job.bookedDate instanceof Date ? job.bookedDate : new Date(job.bookedDate as any), 'dd MMM')}
+                              {format(job.bookedDate, 'dd MMM')}
                             </span>
                           )}
                         </div>
 
-                        {/* Blocker tag display */}
                         {blockerInfo && !isEditing && (
                           <div className="mt-2 flex items-center gap-2 flex-wrap">
                             <Badge className={cn("text-white text-[10px] px-2 py-0.5", blockerInfo.color)}>
@@ -487,7 +623,7 @@ export const DanniDashboard = ({
                             </Badge>
                             {job.blockerChaseDate && (
                               <span className="text-[10px] text-muted-foreground">
-                                Chase: {format(job.blockerChaseDate instanceof Date ? job.blockerChaseDate : new Date(job.blockerChaseDate as any), 'dd MMM')}
+                                Chase: {format(job.blockerChaseDate, 'dd MMM')}
                               </span>
                             )}
                             {job.blockerNotes && (
@@ -498,7 +634,6 @@ export const DanniDashboard = ({
                           </div>
                         )}
 
-                        {/* Quick action buttons for untagged jobs */}
                         {!blockerInfo && !isEditing && job.autoBlocker && (
                           <div className="mt-2 flex items-center gap-1.5 flex-wrap">
                             <span className="text-[10px] text-orange-600 dark:text-orange-400 font-medium mr-1">
@@ -532,13 +667,12 @@ export const DanniDashboard = ({
                         )}
                       </div>
 
-                      {/* Action buttons */}
                       <div className="flex flex-col gap-1 flex-shrink-0">
                         <Button
                           variant="ghost"
                           size="icon"
                           className="h-7 w-7"
-                          onClick={(e) => { e.stopPropagation(); onJobClick(job); }}
+                          onClick={(e) => { e.stopPropagation(); handleJobClick(job); }}
                           title="View job"
                         >
                           <ExternalLink className="h-3.5 w-3.5" />
@@ -557,7 +691,7 @@ export const DanniDashboard = ({
                               setBlockerForm({
                                 type: (job.blockerType || '') as BlockerType | '',
                                 notes: job.blockerNotes || '',
-                                chaseDate: job.blockerChaseDate ? new Date(job.blockerChaseDate as any) : undefined,
+                                chaseDate: job.blockerChaseDate || undefined,
                               });
                             }
                           }}
@@ -577,24 +711,61 @@ export const DanniDashboard = ({
                               setRebookingJob(job.id);
                               setEditingBlocker(null);
                               setRebookDate(undefined);
+                              setRebookTeam('same');
+                              setRebookTeam2('none');
                             }
                           }}
-                          title="Rebook with same team"
+                          title="Rebook job"
                         >
                           <CalendarPlus className="h-3.5 w-3.5" />
                         </Button>
                       </div>
                     </div>
 
-                    {/* Rebook panel */}
+                    {/* Rebook panel with team reassignment */}
                     {isRebooking && (
-                      <div className="mt-3 pt-3 border-t space-y-2" onClick={(e) => e.stopPropagation()}>
+                      <div className="mt-3 pt-3 border-t space-y-3" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center gap-2 mb-2">
                           <CalendarPlus className="w-4 h-4 text-primary" />
-                          <span className="text-xs font-semibold text-foreground">
-                            Rebook with {job.team || 'original team'}
-                          </span>
+                          <span className="text-xs font-semibold text-foreground">Rebook Job</span>
                         </div>
+
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <UserPlus className="w-3.5 h-3.5 text-muted-foreground" />
+                            <span className="text-xs font-medium text-foreground">Team 1</span>
+                          </div>
+                          <Select value={rebookTeam} onValueChange={setRebookTeam}>
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="same">Same team ({job.team || 'unassigned'})</SelectItem>
+                              {dmTeams.map(t => (
+                                <SelectItem key={t.teamId} value={t.teamName}>{t.teamName}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+
+                          <div className="flex items-center gap-2">
+                            <Users className="w-3.5 h-3.5 text-muted-foreground" />
+                            <span className="text-xs font-medium text-foreground">Team 2 (optional)</span>
+                          </div>
+                          <Select value={rebookTeam2} onValueChange={setRebookTeam2}>
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">No second team</SelectItem>
+                              {dmTeams
+                                .filter(t => t.teamName !== (rebookTeam === 'same' ? job.team : rebookTeam))
+                                .map(t => (
+                                  <SelectItem key={t.teamId} value={t.teamName}>{t.teamName}</SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
                         <div className="bg-muted/50 rounded-lg p-2">
                           <Calendar
                             mode="single"
@@ -606,15 +777,13 @@ export const DanniDashboard = ({
                         </div>
                         <div className="flex items-center gap-2">
                           <div className="flex-1 text-xs text-muted-foreground">
-                            {rebookDate
-                              ? `Rebook for ${format(rebookDate, 'EEE dd MMM yyyy')}`
-                              : 'Select a date above'}
+                            {rebookDate ? `Rebook for ${format(rebookDate, 'EEE dd MMM yyyy')}` : 'Select a date above'}
                           </div>
                           <Button
                             variant="ghost"
                             size="sm"
                             className="h-7 text-xs"
-                            onClick={() => { setRebookingJob(null); setRebookDate(undefined); }}
+                            onClick={() => { setRebookingJob(null); setRebookDate(undefined); setRebookTeam('same'); setRebookTeam2('none'); }}
                           >
                             Cancel
                           </Button>

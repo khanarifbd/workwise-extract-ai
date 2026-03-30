@@ -32,7 +32,24 @@ export const TeamAccountabilityMetrics = ({ onClose }: TeamAccountabilityMetrics
     const fetchData = async () => {
       setLoading(true);
       try {
-        // Fetch sign-offs and jobs in parallel
+        // Get DM category ID first
+        const { data: catData } = await supabase
+          .from('categories')
+          .select('id')
+          .eq('slug', 'dm-jobs')
+          .single();
+
+        const dmCategoryId = catData?.id;
+
+        // Get DM team names to filter report
+        const { data: teamData } = await supabase
+          .from('team_notification_settings')
+          .select('team_name')
+          .eq('team_type', 'dm');
+
+        const dmTeamNames = new Set((teamData || []).map(t => t.team_name));
+
+        // Fetch sign-offs and DM jobs in parallel
         const [signOffRes, jobsRes] = await Promise.all([
           supabase
             .from('team_sign_offs')
@@ -42,10 +59,13 @@ export const TeamAccountabilityMetrics = ({ onClose }: TeamAccountabilityMetrics
             .from('jobs')
             .select('id, booked_date, team, team2, is_completed, status, refer_back')
             .not('booked_date', 'is', null)
-            .eq('refer_back', false),
+            .eq('refer_back', false)
+            .eq('category_id', dmCategoryId || ''),
         ]);
 
-        if (signOffRes.data) setSignOffs(signOffRes.data);
+        // Filter sign-offs to DM teams only
+        const dmSignOffs = (signOffRes.data || []).filter(s => dmTeamNames.has(s.team_name));
+        setSignOffs(dmSignOffs);
         if (jobsRes.data) setJobs(jobsRes.data);
       } catch (err) {
         console.error('Failed to fetch metrics data:', err);
@@ -172,9 +192,9 @@ export const TeamAccountabilityMetrics = ({ onClose }: TeamAccountabilityMetrics
               <BarChart3 className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
             </div>
             <div>
-              <CardTitle className="text-xl">Team Accountability Report</CardTitle>
+              <CardTitle className="text-xl">DM Team Accountability Report</CardTitle>
               <p className="text-sm text-muted-foreground mt-0.5">
-                Sign-off performance metrics per team
+                Sign-off performance metrics for DM teams
               </p>
             </div>
           </div>
