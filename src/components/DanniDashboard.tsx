@@ -715,6 +715,20 @@ export const DanniDashboard = ({
                           )}
                         </div>
 
+                        {/* Call Log - shared with Genie */}
+                        <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+                          <ContactCell
+                            jobId={job.id}
+                            jobNumber={job.jobNumber}
+                            tenantName={job.name}
+                            phoneNumber={job.phoneNumber}
+                            description={job.description}
+                            bookedDate={job.bookedDate}
+                            status={job.status}
+                            contactHistory={contactHistoryMap[job.id] || []}
+                          />
+                        </div>
+
                         {blockerInfo && !isEditing && (
                           <div className="mt-2 flex items-center gap-2 flex-wrap">
                             <Badge className={cn("text-white text-[10px] px-2 py-0.5", blockerInfo.color)}>
