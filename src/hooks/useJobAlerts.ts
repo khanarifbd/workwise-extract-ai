@@ -45,21 +45,23 @@ export const useJobAlerts = (
         // - Job is not completed
         // - Job is not signed off (if sign-off data available)
         // - Job status is not cancelled/paused
+        // - Job is not in refer back folder
         const bookedDateGMT = new Date(bookedDate);
         const isPastBookedDate = bookedDateGMT.getTime() < now.getTime();
         const isOldBookedDate = isPastBookedDate && hoursOverdue > 24;
         const isNotComplete = !job.isCompleted && job.progress !== 100;
         const isNotCancelled = job.status !== 'pause' && job.status !== 'jan2026';
+        const isNotReferBack = !job.referBack;
         
         // Check sign-off status if available
         const signOffData = signOffStatuses?.[job.id];
         const isNotSignedOff = !signOffData?.allSignedOff;
 
-        isOverdue = isOldBookedDate && isNotComplete && isNotCancelled && isNotSignedOff;
+        isOverdue = isOldBookedDate && isNotComplete && isNotCancelled && isNotSignedOff && isNotReferBack;
       }
 
       const isOngoing = job.isOngoing || false;
-      const requiresAttention = isOngoing || isOverdue;
+      const requiresAttention = isOverdue || isOngoing;
 
       statuses[job.id] = {
         isOverdue,
@@ -107,6 +109,11 @@ export const shouldShowOngoingAlert = (
 
   // Skip cancelled/paused jobs
   if (job.status === 'pause' || job.status === 'jan2026') {
+    return { showAlert: false, isAutoTriggered: false, hoursOverdue: 0 };
+  }
+
+  // Skip refer back jobs
+  if (job.referBack) {
     return { showAlert: false, isAutoTriggered: false, hoursOverdue: 0 };
   }
 

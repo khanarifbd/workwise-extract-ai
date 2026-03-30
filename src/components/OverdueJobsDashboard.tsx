@@ -41,6 +41,8 @@ export const OverdueJobsDashboard = ({
       // Skip completed or cancelled jobs
       if (job.isCompleted || job.progress === 100) continue;
       if (job.status === 'pause' || job.status === 'jan2026') continue;
+      // Skip refer back jobs — they live in their own folder
+      if (job.referBack) continue;
 
       // Check manual ongoing flag
       if (job.isOngoing) {
