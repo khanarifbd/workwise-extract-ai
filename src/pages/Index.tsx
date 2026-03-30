@@ -1351,7 +1351,7 @@ const Index = () => {
       {showOverdueDashboard && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
           <OverdueJobsDashboard
-            jobs={jobs}
+            jobs={dmJobs}
             signOffStatuses={signOffStatusesMap}
             onClose={() => setShowOverdueDashboard(false)}
             onJobClick={(job) => {

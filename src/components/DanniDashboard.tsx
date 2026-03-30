@@ -306,7 +306,7 @@ export const DanniDashboard = ({
     } catch {}
   }, [fetchDanniNotes, toast]);
 
-  // Compute readiness data for DM jobs 24h+ past booked date
+  // Compute readiness data for DM jobs: 24h+ past booked date OR manually flagged ongoing
   const readinessJobs = useMemo(() => {
     const now = getGMTNow();
     const result: ReadinessJob[] = [];
@@ -314,15 +314,27 @@ export const DanniDashboard = ({
     for (const raw of dmJobs) {
       if (raw.is_completed || raw.status === 'complete') continue;
       if (raw.refer_back) continue;
-      if (!raw.booked_date) continue;
 
-      const bookedDate = new Date(raw.booked_date);
-      if (isNaN(bookedDate.getTime())) continue;
+      // Determine if job qualifies: either 24h+ overdue OR manually flagged ongoing
+      let isAutoOverdue = false;
+      let hoursOverdue = 0;
+      let bookedDate: Date | null = null;
 
-      const hoursPast = getHoursDifferenceGMT(now, bookedDate);
-      if (bookedDate.getTime() >= now.getTime() || hoursPast <= 24) continue;
+      if (raw.booked_date) {
+        bookedDate = new Date(raw.booked_date);
+        if (!isNaN(bookedDate.getTime())) {
+          const hoursPast = getHoursDifferenceGMT(now, bookedDate);
+          if (bookedDate.getTime() < now.getTime() && hoursPast > 24 && !signOffs[raw.id]) {
+            isAutoOverdue = true;
+            hoursOverdue = Math.round(hoursPast - 24);
+          }
+        }
+      }
 
-      if (signOffs[raw.id]) continue;
+      const isManualOngoing = raw.is_ongoing && !signOffs[raw.id];
+
+      // Skip if neither overdue nor manually ongoing
+      if (!isAutoOverdue && !isManualOngoing) continue;
 
       const attachments: Attachment[] = Array.isArray(raw.attachments) ? raw.attachments : [];
       const hasPhotos = attachments.some((a: any) => a.type === 'image');
@@ -345,7 +357,7 @@ export const DanniDashboard = ({
         team2: raw.team2,
         description: raw.description || '',
         attachments,
-        bookedDate,
+        bookedDate: bookedDate || new Date(),
         status: raw.status || 'pending',
         isCompleted: raw.is_completed || false,
         isOngoing: raw.is_ongoing || false,
@@ -353,7 +365,7 @@ export const DanniDashboard = ({
         blockerNotes: raw.blocker_notes || '',
         blockerChaseDate: raw.blocker_chase_date ? new Date(raw.blocker_chase_date) : null,
         referBack: raw.refer_back || false,
-        hoursOverdue: Math.round(hoursPast - 24),
+        hoursOverdue,
         hasPhotos,
         hasDescription,
         hasSignOff: false,
@@ -362,7 +374,12 @@ export const DanniDashboard = ({
       });
     }
 
-    return result.sort((a, b) => b.hoursOverdue - a.hoursOverdue);
+    // Sort: manual ongoing first, then by hours overdue
+    return result.sort((a, b) => {
+      if (a.isOngoing && !b.isOngoing) return -1;
+      if (!a.isOngoing && b.isOngoing) return 1;
+      return b.hoursOverdue - a.hoursOverdue;
+    });
   }, [dmJobs, signOffs]);
 
   // Team filter
