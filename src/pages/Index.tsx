@@ -1314,7 +1314,7 @@ const Index = () => {
           }
         }}
         onRefresh={refreshJobs}
-        overdueCount={overdueCount}
+        overdueCount={danniCount}
         onShowOverdue={() => setShowOverdueDashboard(true)}
         danniCount={danniCount}
         onShowDanni={() => setShowDanniDashboard(true)}
