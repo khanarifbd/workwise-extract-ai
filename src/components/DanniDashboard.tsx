@@ -944,6 +944,65 @@ export const DanniDashboard = ({
                           />
                         </div>
 
+                        {/* Linked Child Jobs */}
+                        {(() => {
+                          const children = childJobsMap[job.id] || [];
+                          if (children.length === 0) return null;
+                          return (
+                            <Collapsible
+                              open={expandedChildren[job.id] ?? false}
+                              onOpenChange={(open) => setExpandedChildren(prev => ({ ...prev, [job.id]: open }))}
+                            >
+                              <div className="mt-2 rounded-md border border-primary/20 bg-primary/5" onClick={(e) => e.stopPropagation()}>
+                                <CollapsibleTrigger asChild>
+                                  <button className="w-full flex items-center gap-1.5 p-2 hover:bg-accent/50 transition-colors rounded-t-md text-left">
+                                    <Link2 className="w-3 h-3 text-primary flex-shrink-0" />
+                                    <span className="text-[10px] font-semibold text-primary">
+                                      Linked Jobs ({children.length})
+                                    </span>
+                                    <ChevronDown className={cn(
+                                      "w-3 h-3 text-muted-foreground transition-transform duration-200 ml-auto flex-shrink-0",
+                                      expandedChildren[job.id] && "rotate-180"
+                                    )} />
+                                  </button>
+                                </CollapsibleTrigger>
+                                <CollapsibleContent>
+                                  <div className="px-2 pb-2 space-y-1.5">
+                                    {children.map((child: any) => {
+                                      const isChildComplete = child.is_completed || child.status === 'complete';
+                                      const childPhotos = Array.isArray(child.attachments) ? child.attachments.filter((a: any) => a.type === 'image').length : 0;
+                                      const childHasDesc = !!(child.description && child.description.trim().length > 10);
+                                      return (
+                                        <div key={child.id} className={cn(
+                                          "flex items-center gap-2 p-1.5 rounded border text-xs",
+                                          isChildComplete ? "bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800" : "bg-background border-border"
+                                        )}>
+                                          <CircleDot className={cn("w-3 h-3 flex-shrink-0", isChildComplete ? "text-emerald-500" : "text-amber-500")} />
+                                          <div className="flex-1 min-w-0">
+                                            <span className="font-mono text-[10px] font-bold">#{child.job_number}</span>
+                                            <span className="text-muted-foreground text-[10px] ml-1.5">{child.team || 'Unassigned'}</span>
+                                          </div>
+                                          <div className="flex items-center gap-1 flex-shrink-0">
+                                            <span className={cn("w-4 h-4 rounded-full flex items-center justify-center text-white", childPhotos > 0 ? "bg-emerald-500" : "bg-red-500")} title={`${childPhotos} photos`}>
+                                              <Camera className="w-2.5 h-2.5" />
+                                            </span>
+                                            <span className={cn("w-4 h-4 rounded-full flex items-center justify-center text-white", childHasDesc ? "bg-emerald-500" : "bg-red-500")} title={childHasDesc ? "Has description" : "No description"}>
+                                              <PenLine className="w-2.5 h-2.5" />
+                                            </span>
+                                          </div>
+                                          <Badge variant={isChildComplete ? "default" : "secondary"} className={cn("text-[9px] px-1.5 py-0", isChildComplete && "bg-emerald-600")}>
+                                            {isChildComplete ? 'Complete' : (child.status || 'Pending')}
+                                          </Badge>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </CollapsibleContent>
+                              </div>
+                            </Collapsible>
+                          );
+                        })()}
+
                         {blockerInfo && !isEditing && (
                           <div className="mt-2 flex items-center gap-2 flex-wrap">
                             <Badge className={cn("text-white text-[10px] px-2 py-0.5", blockerInfo.color)}>
