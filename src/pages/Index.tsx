@@ -127,6 +127,11 @@ const Index = () => {
   } | null>(null);
   const { toast } = useToast();
 
+  // Persist Danni dashboard state across browser bounces
+  useEffect(() => {
+    sessionStorage.setItem('danniDashboardOpen', showDanniDashboard ? 'true' : 'false');
+  }, [showDanniDashboard]);
+
   // Set first category as active when loaded (only if no URL category)
   useEffect(() => {
     if (categories.length > 0 && !activeCategory) {
