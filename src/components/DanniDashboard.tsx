@@ -1,6 +1,8 @@
 import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { NotepadPanel } from '@/components/DanniNotepadPanel';
 import { Job, Attachment } from '@/types/job';
+import { ContactCell } from '@/components/ContactCell';
+import { useAllContactHistory } from '@/hooks/useContactHistory';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -105,6 +107,10 @@ export const DanniDashboard = ({
   
   const { toast } = useToast();
   const { settings: teamSettings } = useTeamSettings();
+
+  // Get all readiness job IDs for bulk contact history loading
+  const allJobIds = useMemo(() => dmJobs.map((j: any) => j.id), [dmJobs]);
+  const { historyMap: contactHistoryMap } = useAllContactHistory(allJobIds);
 
   // Get DM team members only
   const dmTeams = useMemo(() => {
@@ -707,6 +713,20 @@ export const DanniDashboard = ({
                               {format(job.bookedDate, 'dd MMM')}
                             </span>
                           )}
+                        </div>
+
+                        {/* Call Log - shared with Genie */}
+                        <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+                          <ContactCell
+                            jobId={job.id}
+                            jobNumber={job.jobNumber}
+                            tenantName={job.name}
+                            phoneNumber={job.phoneNumber}
+                            description={job.description}
+                            bookedDate={job.bookedDate}
+                            status={job.status}
+                            contactHistory={contactHistoryMap[job.id] || []}
+                          />
                         </div>
 
                         {blockerInfo && !isEditing && (
