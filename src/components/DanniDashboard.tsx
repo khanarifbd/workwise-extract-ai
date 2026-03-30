@@ -97,6 +97,9 @@ export const DanniDashboard = ({
   const [dmCategoryId, setDmCategoryId] = useState<string>('');
   const [signOffs, setSignOffs] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
+  const [childJobsMap, setChildJobsMap] = useState<Record<string, any[]>>({});
+  const [expandedChildren, setExpandedChildren] = useState<Record<string, boolean>>({});
+  const [signingOffJob, setSigningOffJob] = useState<string | null>(null);
   
   // Notepad state
   const [showNotepad, setShowNotepad] = useState(false);
