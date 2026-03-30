@@ -94,6 +94,7 @@ export const DanniDashboard = ({
   }>({ type: '', notes: '', chaseDate: undefined });
   const [savingBlocker, setSavingBlocker] = useState(false);
   const [dmJobs, setDmJobs] = useState<any[]>([]);
+  const [dmCategoryId, setDmCategoryId] = useState<string>('');
   const [signOffs, setSignOffs] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   
