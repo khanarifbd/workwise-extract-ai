@@ -1113,15 +1113,20 @@ export const DanniDashboard = ({
                                       const childPhotos = Array.isArray(child.attachments) ? child.attachments.filter((a: any) => a.type === 'image').length : 0;
                                       const childHasDesc = !!(child.description && child.description.trim().length > 10);
                                       return (
-                                        <div key={child.id} className={cn(
-                                          "flex items-center gap-2 p-1.5 rounded border text-xs",
-                                          isChildComplete ? "bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800" : "bg-background border-border"
-                                        )}>
+                                        <button
+                                          key={child.id}
+                                          onClick={(e) => { e.stopPropagation(); handleChildJobClick(child.id); }}
+                                          className={cn(
+                                            "w-full flex items-center gap-2 p-1.5 rounded border text-xs cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all",
+                                            isChildComplete ? "bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800" : "bg-background border-border"
+                                          )}
+                                        >
                                           <CircleDot className={cn("w-3 h-3 flex-shrink-0", isChildComplete ? "text-emerald-500" : "text-amber-500")} />
-                                          <div className="flex-1 min-w-0">
+                                          <div className="flex-1 min-w-0 text-left">
                                             <span className="font-mono text-[10px] font-bold">#{child.job_number}</span>
-                                            <span className="text-muted-foreground text-[10px] ml-1.5">{child.team || 'Unassigned'}</span>
+                                            <span className="text-muted-foreground text-[10px] ml-1.5">{child.name || child.team || 'Unassigned'}</span>
                                           </div>
+                                          <ExternalLink className="w-3 h-3 text-muted-foreground flex-shrink-0" />
                                           <div className="flex items-center gap-1 flex-shrink-0">
                                             <span className={cn("w-4 h-4 rounded-full flex items-center justify-center text-white", childPhotos > 0 ? "bg-emerald-500" : "bg-red-500")} title={`${childPhotos} photos`}>
                                               <Camera className="w-2.5 h-2.5" />
@@ -1133,7 +1138,7 @@ export const DanniDashboard = ({
                                           <Badge variant={isChildComplete ? "default" : "secondary"} className={cn("text-[9px] px-1.5 py-0", isChildComplete && "bg-emerald-600")}>
                                             {isChildComplete ? 'Complete' : (child.status || 'Pending')}
                                           </Badge>
-                                        </div>
+                                        </button>
                                       );
                                     })}
                                   </div>
