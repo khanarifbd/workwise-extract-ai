@@ -919,21 +919,47 @@ export const DanniDashboard = ({
           </div>
         ) : (
           <ScrollArea className="h-[calc(95vh-280px)]">
-            <div className="space-y-2 pr-3">
-              {filteredJobs.map((job) => {
+            <div className="space-y-3 pr-3">
+              {filteredJobs.map((job, index) => {
                 const blockerInfo = getBlockerInfo(job);
                 const isEditing = editingBlocker === job.id;
                 const isRebooking = rebookingJob === job.id;
+
+                const cardIndex = index;
+                const isEven = cardIndex % 2 === 0;
 
                 return (
                   <div
                     key={job.id}
                     className={cn(
-                      "border rounded-lg p-3 transition-all hover:shadow-md",
-                      "border-l-4",
-                      job.hoursOverdue > 72 ? "border-l-red-600 bg-red-50/50 dark:bg-red-950/20" :
-                      job.hoursOverdue > 48 ? "border-l-orange-500 bg-orange-50/30 dark:bg-orange-950/10" :
-                      "border-l-amber-400 bg-amber-50/20 dark:bg-amber-950/10"
+                      "border rounded-xl p-4 transition-all hover:shadow-lg hover:scale-[1.005]",
+                      "border-l-[5px]",
+                      // Urgency-based left border & background
+                      job.hoursOverdue > 72
+                        ? "border-l-red-600 dark:border-l-red-500"
+                        : job.hoursOverdue > 48
+                        ? "border-l-orange-500 dark:border-l-orange-400"
+                        : job.isOngoing
+                        ? "border-l-purple-500 dark:border-l-purple-400"
+                        : "border-l-amber-400 dark:border-l-amber-300",
+                      // Alternating row tints for visual separation
+                      isEven
+                        ? (job.hoursOverdue > 72
+                            ? "bg-red-50/60 dark:bg-red-950/25"
+                            : job.hoursOverdue > 48
+                            ? "bg-orange-50/50 dark:bg-orange-950/20"
+                            : job.isOngoing
+                            ? "bg-purple-50/40 dark:bg-purple-950/15"
+                            : "bg-amber-50/40 dark:bg-amber-950/15")
+                        : (job.hoursOverdue > 72
+                            ? "bg-red-100/40 dark:bg-red-900/20"
+                            : job.hoursOverdue > 48
+                            ? "bg-orange-100/35 dark:bg-orange-900/15"
+                            : job.isOngoing
+                            ? "bg-purple-100/30 dark:bg-purple-900/10"
+                            : "bg-amber-100/25 dark:bg-amber-900/10"),
+                      // Subtle top accent stripe via shadow
+                      "shadow-[inset_0_2px_0_0_rgba(0,0,0,0.06)] dark:shadow-[inset_0_2px_0_0_rgba(255,255,255,0.04)]"
                     )}
                   >
                     <div className="flex items-start justify-between gap-3">
