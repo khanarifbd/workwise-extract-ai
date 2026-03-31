@@ -42,11 +42,14 @@ export const DanniNewJobPanel = ({
   parentTeam,
   dmCategoryId,
   dmTeams,
+  existingChildCount = 0,
   onJobCreated,
 }: DanniNewJobPanelProps) => {
+  const nextNumber = existingChildCount + 1;
+  const autoJobNumber = `${parentJobNumber}-NEW-${nextNumber}`;
   const [isOpen, setIsOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [jobNumber, setJobNumber] = useState('');
+  const [jobNumber, setJobNumber] = useState(autoJobNumber);
   const [description, setDescription] = useState('');
   const [team, setTeam] = useState<string>(parentTeam || 'none');
   const [team2, setTeam2] = useState<string>('none');
