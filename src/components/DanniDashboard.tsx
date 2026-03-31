@@ -399,6 +399,21 @@ export const DanniDashboard = ({
 
   const filteredJobs = useMemo(() => {
     let result = readinessJobs;
+    
+    // Search filter - case insensitive across key fields
+    if (searchTerm.trim().length >= 2) {
+      const lower = searchTerm.trim().toLowerCase();
+      result = result.filter(j =>
+        j.jobNumber.toLowerCase().includes(lower) ||
+        j.name.toLowerCase().includes(lower) ||
+        j.address.toLowerCase().includes(lower) ||
+        j.phoneNumber.toLowerCase().includes(lower) ||
+        j.description.toLowerCase().includes(lower) ||
+        (j.team || '').toLowerCase().includes(lower) ||
+        (j.team2 || '').toLowerCase().includes(lower)
+      );
+    }
+    
     if (selectedTeam !== 'all') {
       result = result.filter(j => j.team === selectedTeam || j.team2 === selectedTeam);
     }
@@ -410,7 +425,7 @@ export const DanniDashboard = ({
       }
     }
     return result;
-  }, [readinessJobs, selectedTeam, filterBlocker]);
+  }, [readinessJobs, selectedTeam, filterBlocker, searchTerm]);
 
   // Build notes-per-job lookup for displaying on cards
   const notesByJobId = useMemo(() => {
