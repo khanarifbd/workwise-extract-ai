@@ -877,9 +877,7 @@ export const DanniDashboard = ({
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-mono text-sm font-bold text-primary">
-                            #{job.jobNumber}
-                          </span>
+                          <HighlightText text={`#${job.jobNumber}`} highlight={searchTerm} className="font-mono text-sm font-bold text-primary" />
                           <Badge className="bg-red-600 text-white text-[10px] px-1.5 py-0 font-bold">
                             {job.hoursOverdue > 48
                               ? `${Math.floor(job.hoursOverdue / 24)}d overdue`
@@ -908,13 +906,13 @@ export const DanniDashboard = ({
                         </div>
 
                         <h3 className="font-semibold text-foreground mt-1 truncate text-sm">
-                          {job.name}
+                          <HighlightText text={job.name} highlight={searchTerm} />
                         </h3>
 
                         <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1 text-xs text-muted-foreground">
                           {job.address && (
                             <span className="flex items-center gap-1 truncate max-w-[200px]">
-                              <MapPin className="w-3 h-3" />{job.address}
+                              <MapPin className="w-3 h-3" /><HighlightText text={job.address} highlight={searchTerm} />
                             </span>
                           )}
                           {job.team && (
