@@ -120,8 +120,8 @@ export const DanniNewJobPanel = ({
           className={cn(
             "w-full flex items-center gap-1.5 p-2 rounded-md border transition-all text-left",
             isOpen
-              ? "border-primary/40 bg-primary/5"
-              : "border-dashed border-muted-foreground/30 hover:border-primary/40 hover:bg-accent/30"
+              ? "border-amber-500/40 bg-amber-500/10"
+              : "border-dashed border-muted-foreground/30 hover:border-amber-500/40 hover:bg-amber-500/5"
           )}
           onClick={(e) => e.stopPropagation()}
         >
