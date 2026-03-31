@@ -920,7 +920,7 @@ export const DanniDashboard = ({
         ) : (
           <ScrollArea className="h-[calc(95vh-280px)]">
             <div className="space-y-2 pr-3">
-              {filteredJobs.map((job) => {
+              {filteredJobs.map((job, index) => {
                 const blockerInfo = getBlockerInfo(job);
                 const isEditing = editingBlocker === job.id;
                 const isRebooking = rebookingJob === job.id;
