@@ -4,20 +4,22 @@ import { DanniNewJobPanel } from '@/components/DanniNewJobPanel';
 import { Job, Attachment, WorkItem } from '@/types/job';
 import { ContactCell } from '@/components/ContactCell';
 import { useAllContactHistory } from '@/hooks/useContactHistory';
+import { HighlightText } from '@/components/HighlightText';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import {
-  Clock, MapPin, Users, X, ExternalLink,
+  Clock, MapPin, Users, X, ExternalLink, Search,
   Camera, FileText, Wrench, ShieldAlert, DoorOpen, PenLine,
   CalendarDays, Tag, Save, RotateCcw, BarChart3, Loader2,
   CalendarPlus, SendHorizonal, UserPlus, StickyNote, Bell, BellRing,
-  Plus, Trash2, ChevronDown, CheckCircle2, Link2, CircleDot
+  Plus, Trash2, ChevronDown, ChevronUp, CheckCircle2, Link2, CircleDot
 } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { format, isPast, isToday } from 'date-fns';
