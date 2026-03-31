@@ -139,7 +139,7 @@ export const DanniNewJobPanel = ({
       </CollapsibleTrigger>
       <CollapsibleContent>
         <div
-          className="mt-1 p-3 rounded-md border border-primary/20 bg-primary/5 space-y-3"
+          className="mt-1 p-3 rounded-md border-2 border-amber-500/50 bg-amber-500/10 dark:bg-amber-900/20 space-y-3 ring-1 ring-amber-400/30"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Inherited context */}
