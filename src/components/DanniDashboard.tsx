@@ -669,7 +669,7 @@ export const DanniDashboard = ({
 
   if (loading) {
     return (
-      <Card className="w-full max-w-5xl mx-auto max-h-[90vh] flex flex-col">
+      <Card className="w-full max-w-7xl mx-auto max-h-[95vh] flex flex-col">
         <CardContent className="flex items-center justify-center py-12">
           <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
           <span className="ml-2 text-muted-foreground">Loading DM jobs...</span>
@@ -679,7 +679,7 @@ export const DanniDashboard = ({
   }
 
   return (
-    <Card className="w-full max-w-5xl mx-auto max-h-[90vh] flex flex-col relative overflow-hidden">
+    <Card className="w-full max-w-7xl mx-auto max-h-[95vh] flex flex-col relative overflow-hidden">
       <CardHeader className="pb-3 flex-shrink-0">
         <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between">
@@ -957,6 +957,7 @@ export const DanniDashboard = ({
                             parentTeam={job.team}
                             dmCategoryId={dmCategoryId}
                             dmTeams={dmTeams}
+                            existingChildCount={(childJobsMap[job.id] || []).length}
                             onJobCreated={handleRefresh}
                           />
                         </div>

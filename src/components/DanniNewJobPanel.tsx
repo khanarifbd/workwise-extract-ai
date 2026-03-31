@@ -29,6 +29,7 @@ interface DanniNewJobPanelProps {
   parentTeam: string | null;
   dmCategoryId: string;
   dmTeams: TeamSetting[];
+  existingChildCount?: number;
   onJobCreated: () => void;
 }
 
@@ -41,11 +42,14 @@ export const DanniNewJobPanel = ({
   parentTeam,
   dmCategoryId,
   dmTeams,
+  existingChildCount = 0,
   onJobCreated,
 }: DanniNewJobPanelProps) => {
+  const nextNumber = existingChildCount + 1;
+  const autoJobNumber = `${parentJobNumber}-NEW-${nextNumber}`;
   const [isOpen, setIsOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [jobNumber, setJobNumber] = useState('');
+  const [jobNumber, setJobNumber] = useState(autoJobNumber);
   const [description, setDescription] = useState('');
   const [team, setTeam] = useState<string>(parentTeam || 'none');
   const [team2, setTeam2] = useState<string>('none');
@@ -94,7 +98,7 @@ export const DanniNewJobPanel = ({
       });
 
       // Reset form
-      setJobNumber('');
+      setJobNumber(`${parentJobNumber}-NEW-${nextNumber + 1}`);
       setDescription('');
       setTeam(parentTeam || 'none');
       setTeam2('none');
@@ -116,14 +120,14 @@ export const DanniNewJobPanel = ({
           className={cn(
             "w-full flex items-center gap-1.5 p-2 rounded-md border transition-all text-left",
             isOpen
-              ? "border-primary/40 bg-primary/5"
-              : "border-dashed border-muted-foreground/30 hover:border-primary/40 hover:bg-accent/30"
+              ? "border-amber-500/40 bg-amber-500/10"
+              : "border-dashed border-muted-foreground/30 hover:border-amber-500/40 hover:bg-amber-500/5"
           )}
           onClick={(e) => e.stopPropagation()}
         >
-          <FilePlus2 className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-          <span className="text-[11px] font-semibold text-primary">New Linked Job</span>
-          <Badge variant="outline" className="text-[9px] px-1 py-0 ml-1 border-primary/30 text-primary">
+          <FilePlus2 className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+          <span className="text-[11px] font-semibold text-amber-500">New Linked Job</span>
+          <Badge variant="outline" className="text-[9px] px-1 py-0 ml-1 border-amber-500/30 text-amber-500">
             <Link2 className="w-2.5 h-2.5 mr-0.5" />
             #{parentJobNumber}
           </Badge>
@@ -135,7 +139,7 @@ export const DanniNewJobPanel = ({
       </CollapsibleTrigger>
       <CollapsibleContent>
         <div
-          className="mt-1 p-3 rounded-md border border-primary/20 bg-primary/5 space-y-3"
+          className="mt-1 p-3 rounded-md border-2 border-amber-500/50 bg-amber-500/10 dark:bg-amber-900/20 space-y-3 ring-1 ring-amber-400/30"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Inherited context */}
