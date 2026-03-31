@@ -29,6 +29,7 @@ interface DanniNewJobPanelProps {
   parentTeam: string | null;
   dmCategoryId: string;
   dmTeams: TeamSetting[];
+  existingChildCount?: number;
   onJobCreated: () => void;
 }
 
