@@ -719,24 +719,56 @@ export const DanniDashboard = ({
             </Button>
           </div>
 
-          {/* Summary cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-2.5 text-center">
-              <p className="text-2xl font-bold text-red-600 dark:text-red-400">{readinessJobs.length}</p>
-              <p className="text-[11px] text-muted-foreground">Total Overdue</p>
-            </div>
-            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-2.5 text-center">
-              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{missingPhotos}</p>
-              <p className="text-[11px] text-muted-foreground">Missing Photos</p>
-            </div>
-            <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-lg p-2.5 text-center">
-              <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{missingDescription}</p>
-              <p className="text-[11px] text-muted-foreground">Missing Description</p>
-            </div>
-            <div className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-2.5 text-center">
-              <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{awaitingTrade}</p>
-              <p className="text-[11px] text-muted-foreground">Awaiting Trade</p>
-            </div>
+          {/* Collapsible Summary cards */}
+          <Collapsible open={showAnalytics} onOpenChange={setShowAnalytics}>
+            <CollapsibleTrigger asChild>
+              <button className="w-full flex items-center gap-2 p-1.5 rounded-md hover:bg-accent/50 transition-colors text-left">
+                <BarChart3 className="w-4 h-4 text-muted-foreground" />
+                <span className="text-xs font-semibold text-foreground">Analytics Overview</span>
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{readinessJobs.length} jobs</Badge>
+                {showAnalytics ? <ChevronUp className="w-3.5 h-3.5 ml-auto text-muted-foreground" /> : <ChevronDown className="w-3.5 h-3.5 ml-auto text-muted-foreground" />}
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-1">
+                <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-2.5 text-center">
+                  <p className="text-2xl font-bold text-red-600 dark:text-red-400">{readinessJobs.length}</p>
+                  <p className="text-[11px] text-muted-foreground">Total Overdue</p>
+                </div>
+                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-2.5 text-center">
+                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{missingPhotos}</p>
+                  <p className="text-[11px] text-muted-foreground">Missing Photos</p>
+                </div>
+                <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-lg p-2.5 text-center">
+                  <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{missingDescription}</p>
+                  <p className="text-[11px] text-muted-foreground">Missing Description</p>
+                </div>
+                <div className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-2.5 text-center">
+                  <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{awaitingTrade}</p>
+                  <p className="text-[11px] text-muted-foreground">Awaiting Trade</p>
+                </div>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+
+          {/* Search bar */}
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              ref={searchInputRef}
+              placeholder="Search jobs, names, addresses, teams..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="h-9 pl-9 pr-8 text-sm"
+            />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
 
           {/* Filters */}
@@ -771,7 +803,7 @@ export const DanniDashboard = ({
               </Select>
             </div>
             <Badge variant="secondary" className="text-xs">
-              Showing {filteredJobs.length} of {readinessJobs.length}
+              {filteredJobs.length} of {readinessJobs.length}
             </Badge>
             <div className="flex-1" />
             {activeAlerts.length > 0 && (
@@ -801,7 +833,7 @@ export const DanniDashboard = ({
               onClick={onShowMetrics}
             >
               <BarChart3 className="w-3 h-3" />
-              Team Report
+              Report
             </Button>
           </div>
         </div>
@@ -810,11 +842,21 @@ export const DanniDashboard = ({
       <CardContent className="flex-1 overflow-hidden pt-0">
         {filteredJobs.length === 0 ? (
           <div className="text-center py-12">
-            <Clock className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-40" />
-            <p className="text-muted-foreground">No matching overdue DM jobs</p>
+            {searchTerm.trim().length >= 2 ? (
+              <>
+                <Search className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-40" />
+                <p className="text-muted-foreground">No jobs match "{searchTerm}"</p>
+                <Button variant="ghost" size="sm" className="mt-2 text-xs" onClick={() => setSearchTerm('')}>Clear search</Button>
+              </>
+            ) : (
+              <>
+                <Clock className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-40" />
+                <p className="text-muted-foreground">No matching overdue DM jobs</p>
+              </>
+            )}
           </div>
         ) : (
-          <ScrollArea className="h-[calc(90vh-340px)]">
+          <ScrollArea className="h-[calc(95vh-280px)]">
             <div className="space-y-2 pr-3">
               {filteredJobs.map((job) => {
                 const blockerInfo = getBlockerInfo(job);
