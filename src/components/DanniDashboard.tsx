@@ -4,20 +4,22 @@ import { DanniNewJobPanel } from '@/components/DanniNewJobPanel';
 import { Job, Attachment, WorkItem } from '@/types/job';
 import { ContactCell } from '@/components/ContactCell';
 import { useAllContactHistory } from '@/hooks/useContactHistory';
+import { HighlightText } from '@/components/HighlightText';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import {
-  Clock, MapPin, Users, X, ExternalLink,
+  Clock, MapPin, Users, X, ExternalLink, Search,
   Camera, FileText, Wrench, ShieldAlert, DoorOpen, PenLine,
   CalendarDays, Tag, Save, RotateCcw, BarChart3, Loader2,
   CalendarPlus, SendHorizonal, UserPlus, StickyNote, Bell, BellRing,
-  Plus, Trash2, ChevronDown, CheckCircle2, Link2, CircleDot
+  Plus, Trash2, ChevronDown, ChevronUp, CheckCircle2, Link2, CircleDot
 } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { format, isPast, isToday } from 'date-fns';
@@ -81,6 +83,8 @@ export const DanniDashboard = ({
 }: DanniDashboardProps) => {
   const [selectedTeam, setSelectedTeam] = useState<string>('all');
   const [filterBlocker, setFilterBlocker] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showAnalytics, setShowAnalytics] = useState(true);
   const [editingBlocker, setEditingBlocker] = useState<string | null>(null);
   const [rebookingJob, setRebookingJob] = useState<string | null>(null);
   const [rebookDate, setRebookDate] = useState<Date | undefined>(undefined);
@@ -111,6 +115,7 @@ export const DanniDashboard = ({
   const [activeAlerts, setActiveAlerts] = useState<any[]>([]);
   const [expandedNotes, setExpandedNotes] = useState<Record<string, boolean>>({});
   const alertAudioRef = useRef<HTMLAudioElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
   
   const { toast } = useToast();
   const { settings: teamSettings } = useTeamSettings();
@@ -394,6 +399,21 @@ export const DanniDashboard = ({
 
   const filteredJobs = useMemo(() => {
     let result = readinessJobs;
+    
+    // Search filter - case insensitive across key fields
+    if (searchTerm.trim().length >= 2) {
+      const lower = searchTerm.trim().toLowerCase();
+      result = result.filter(j =>
+        j.jobNumber.toLowerCase().includes(lower) ||
+        j.name.toLowerCase().includes(lower) ||
+        j.address.toLowerCase().includes(lower) ||
+        j.phoneNumber.toLowerCase().includes(lower) ||
+        j.description.toLowerCase().includes(lower) ||
+        (j.team || '').toLowerCase().includes(lower) ||
+        (j.team2 || '').toLowerCase().includes(lower)
+      );
+    }
+    
     if (selectedTeam !== 'all') {
       result = result.filter(j => j.team === selectedTeam || j.team2 === selectedTeam);
     }
@@ -405,7 +425,7 @@ export const DanniDashboard = ({
       }
     }
     return result;
-  }, [readinessJobs, selectedTeam, filterBlocker]);
+  }, [readinessJobs, selectedTeam, filterBlocker, searchTerm]);
 
   // Build notes-per-job lookup for displaying on cards
   const notesByJobId = useMemo(() => {
@@ -699,24 +719,56 @@ export const DanniDashboard = ({
             </Button>
           </div>
 
-          {/* Summary cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-2.5 text-center">
-              <p className="text-2xl font-bold text-red-600 dark:text-red-400">{readinessJobs.length}</p>
-              <p className="text-[11px] text-muted-foreground">Total Overdue</p>
-            </div>
-            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-2.5 text-center">
-              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{missingPhotos}</p>
-              <p className="text-[11px] text-muted-foreground">Missing Photos</p>
-            </div>
-            <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-lg p-2.5 text-center">
-              <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{missingDescription}</p>
-              <p className="text-[11px] text-muted-foreground">Missing Description</p>
-            </div>
-            <div className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-2.5 text-center">
-              <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{awaitingTrade}</p>
-              <p className="text-[11px] text-muted-foreground">Awaiting Trade</p>
-            </div>
+          {/* Collapsible Summary cards */}
+          <Collapsible open={showAnalytics} onOpenChange={setShowAnalytics}>
+            <CollapsibleTrigger asChild>
+              <button className="w-full flex items-center gap-2 p-1.5 rounded-md hover:bg-accent/50 transition-colors text-left">
+                <BarChart3 className="w-4 h-4 text-muted-foreground" />
+                <span className="text-xs font-semibold text-foreground">Analytics Overview</span>
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{readinessJobs.length} jobs</Badge>
+                {showAnalytics ? <ChevronUp className="w-3.5 h-3.5 ml-auto text-muted-foreground" /> : <ChevronDown className="w-3.5 h-3.5 ml-auto text-muted-foreground" />}
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-1">
+                <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-2.5 text-center">
+                  <p className="text-2xl font-bold text-red-600 dark:text-red-400">{readinessJobs.length}</p>
+                  <p className="text-[11px] text-muted-foreground">Total Overdue</p>
+                </div>
+                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-2.5 text-center">
+                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{missingPhotos}</p>
+                  <p className="text-[11px] text-muted-foreground">Missing Photos</p>
+                </div>
+                <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-lg p-2.5 text-center">
+                  <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{missingDescription}</p>
+                  <p className="text-[11px] text-muted-foreground">Missing Description</p>
+                </div>
+                <div className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-2.5 text-center">
+                  <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{awaitingTrade}</p>
+                  <p className="text-[11px] text-muted-foreground">Awaiting Trade</p>
+                </div>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+
+          {/* Search bar */}
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              ref={searchInputRef}
+              placeholder="Search jobs, names, addresses, teams..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="h-9 pl-9 pr-8 text-sm"
+            />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
 
           {/* Filters */}
@@ -751,7 +803,7 @@ export const DanniDashboard = ({
               </Select>
             </div>
             <Badge variant="secondary" className="text-xs">
-              Showing {filteredJobs.length} of {readinessJobs.length}
+              {filteredJobs.length} of {readinessJobs.length}
             </Badge>
             <div className="flex-1" />
             {activeAlerts.length > 0 && (
@@ -781,7 +833,7 @@ export const DanniDashboard = ({
               onClick={onShowMetrics}
             >
               <BarChart3 className="w-3 h-3" />
-              Team Report
+              Report
             </Button>
           </div>
         </div>
@@ -790,11 +842,21 @@ export const DanniDashboard = ({
       <CardContent className="flex-1 overflow-hidden pt-0">
         {filteredJobs.length === 0 ? (
           <div className="text-center py-12">
-            <Clock className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-40" />
-            <p className="text-muted-foreground">No matching overdue DM jobs</p>
+            {searchTerm.trim().length >= 2 ? (
+              <>
+                <Search className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-40" />
+                <p className="text-muted-foreground">No jobs match "{searchTerm}"</p>
+                <Button variant="ghost" size="sm" className="mt-2 text-xs" onClick={() => setSearchTerm('')}>Clear search</Button>
+              </>
+            ) : (
+              <>
+                <Clock className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-40" />
+                <p className="text-muted-foreground">No matching overdue DM jobs</p>
+              </>
+            )}
           </div>
         ) : (
-          <ScrollArea className="h-[calc(90vh-340px)]">
+          <ScrollArea className="h-[calc(95vh-280px)]">
             <div className="space-y-2 pr-3">
               {filteredJobs.map((job) => {
                 const blockerInfo = getBlockerInfo(job);
@@ -815,9 +877,7 @@ export const DanniDashboard = ({
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-mono text-sm font-bold text-primary">
-                            #{job.jobNumber}
-                          </span>
+                          <HighlightText text={`#${job.jobNumber}`} highlight={searchTerm} className="font-mono text-sm font-bold text-primary" />
                           <Badge className="bg-red-600 text-white text-[10px] px-1.5 py-0 font-bold">
                             {job.hoursOverdue > 48
                               ? `${Math.floor(job.hoursOverdue / 24)}d overdue`
@@ -846,13 +906,13 @@ export const DanniDashboard = ({
                         </div>
 
                         <h3 className="font-semibold text-foreground mt-1 truncate text-sm">
-                          {job.name}
+                          <HighlightText text={job.name} highlight={searchTerm} />
                         </h3>
 
                         <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1 text-xs text-muted-foreground">
                           {job.address && (
                             <span className="flex items-center gap-1 truncate max-w-[200px]">
-                              <MapPin className="w-3 h-3" />{job.address}
+                              <MapPin className="w-3 h-3" /><HighlightText text={job.address} highlight={searchTerm} />
                             </span>
                           )}
                           {job.team && (
