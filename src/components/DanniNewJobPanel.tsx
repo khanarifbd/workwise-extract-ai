@@ -125,8 +125,8 @@ export const DanniNewJobPanel = ({
           )}
           onClick={(e) => e.stopPropagation()}
         >
-          <FilePlus2 className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-          <span className="text-[11px] font-semibold text-primary">New Linked Job</span>
+          <FilePlus2 className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+          <span className="text-[11px] font-semibold text-amber-500">New Linked Job</span>
           <Badge variant="outline" className="text-[9px] px-1 py-0 ml-1 border-primary/30 text-primary">
             <Link2 className="w-2.5 h-2.5 mr-0.5" />
             #{parentJobNumber}
