@@ -669,7 +669,7 @@ export const DanniDashboard = ({
 
   if (loading) {
     return (
-      <Card className="w-full max-w-5xl mx-auto max-h-[90vh] flex flex-col">
+      <Card className="w-full max-w-7xl mx-auto max-h-[95vh] flex flex-col">
         <CardContent className="flex items-center justify-center py-12">
           <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
           <span className="ml-2 text-muted-foreground">Loading DM jobs...</span>
