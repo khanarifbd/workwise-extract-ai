@@ -83,6 +83,8 @@ export const DanniDashboard = ({
 }: DanniDashboardProps) => {
   const [selectedTeam, setSelectedTeam] = useState<string>('all');
   const [filterBlocker, setFilterBlocker] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showAnalytics, setShowAnalytics] = useState(true);
   const [editingBlocker, setEditingBlocker] = useState<string | null>(null);
   const [rebookingJob, setRebookingJob] = useState<string | null>(null);
   const [rebookDate, setRebookDate] = useState<Date | undefined>(undefined);
@@ -113,6 +115,7 @@ export const DanniDashboard = ({
   const [activeAlerts, setActiveAlerts] = useState<any[]>([]);
   const [expandedNotes, setExpandedNotes] = useState<Record<string, boolean>>({});
   const alertAudioRef = useRef<HTMLAudioElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
   
   const { toast } = useToast();
   const { settings: teamSettings } = useTeamSettings();
