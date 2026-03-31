@@ -98,7 +98,7 @@ export const DanniNewJobPanel = ({
       });
 
       // Reset form
-      setJobNumber('');
+      setJobNumber(`${parentJobNumber}-NEW-${nextNumber + 1}`);
       setDescription('');
       setTeam(parentTeam || 'none');
       setTeam2('none');

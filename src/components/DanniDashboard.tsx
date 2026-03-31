@@ -957,6 +957,7 @@ export const DanniDashboard = ({
                             parentTeam={job.team}
                             dmCategoryId={dmCategoryId}
                             dmTeams={dmTeams}
+                            existingChildCount={(childJobsMap[job.id] || []).length}
                             onJobCreated={handleRefresh}
                           />
                         </div>
