@@ -623,6 +623,68 @@ export const DanniDashboard = ({
     }
   }, [onJobClick, toast]);
 
+  // Open a linked child job by fetching full data from DB
+  const handleChildJobClick = useCallback(async (childId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('jobs')
+        .select('*')
+        .eq('id', childId)
+        .single();
+      
+      if (error || !data) {
+        toast({ title: 'Error', description: 'Failed to load linked job details', variant: 'destructive' });
+        return;
+      }
+
+      const jobForModal: Job = {
+        id: data.id,
+        jobNumber: data.job_number,
+        name: data.name,
+        address: data.address || '',
+        phoneNumber: data.phone_number || '',
+        summaryOfWorks: data.summary_of_works || '',
+        description: data.description || '',
+        workItems: Array.isArray(data.work_items) ? (data.work_items as any[]) : [],
+        additionalWorks: Array.isArray(data.additional_works) ? (data.additional_works as any[]) : [],
+        team: data.team,
+        team2: data.team2,
+        progress: data.progress || 0,
+        progressNotes: data.progress_notes || '',
+        isCompleted: data.is_completed || false,
+        isOngoing: data.is_ongoing || false,
+        ongoingReason: data.ongoing_reason || '',
+        scheduledTrades: Array.isArray(data.scheduled_trades) ? (data.scheduled_trades as any[]) : [],
+        createdAt: new Date(data.created_at),
+        dateIssued: data.date_issued ? new Date(data.date_issued) : new Date(),
+        bookedDate: data.booked_date ? new Date(data.booked_date) : null,
+        isFlexibleBooking: data.is_flexible_booking || false,
+        bookingNotes: data.booking_notes || '',
+        completionDate: data.completion_date ? new Date(data.completion_date) : null,
+        attachments: Array.isArray(data.attachments) ? (data.attachments as any[]) : [],
+        status: (data.status || 'pending') as any,
+        fanInfo: Array.isArray(data.fan_info) ? (data.fan_info as any[]) : null,
+        linkedFanJobId: data.linked_fan_job_id,
+        insulationInfo: Array.isArray(data.insulation_info) ? (data.insulation_info as any[]) : null,
+        linkedInsulationJobId: data.linked_insulation_job_id,
+        costs: data.costs as any,
+        privateNotes: data.private_notes || '',
+        referBack: data.refer_back || false,
+        referBackReason: data.refer_back_reason || '',
+        referBackDate: data.refer_back_date ? new Date(data.refer_back_date) : null,
+        expectedCompletionDate: data.expected_completion_date ? new Date(data.expected_completion_date) : null,
+        blockerType: data.blocker_type,
+        blockerNotes: data.blocker_notes || '',
+        blockerSetAt: data.blocker_set_at ? new Date(data.blocker_set_at) : null,
+        blockerChaseDate: data.blocker_chase_date ? new Date(data.blocker_chase_date) : null,
+      };
+      onJobClick(jobForModal);
+    } catch (err) {
+      console.error('Failed to open child job:', err);
+      toast({ title: 'Error', description: 'Failed to open linked job', variant: 'destructive' });
+    }
+  }, [onJobClick, toast]);
+
   // Sign off a job - marks complete and creates sign-off record
   const handleSignOff = useCallback(async (job: ReadinessJob) => {
     setSigningOffJob(job.id);
@@ -1051,15 +1113,20 @@ export const DanniDashboard = ({
                                       const childPhotos = Array.isArray(child.attachments) ? child.attachments.filter((a: any) => a.type === 'image').length : 0;
                                       const childHasDesc = !!(child.description && child.description.trim().length > 10);
                                       return (
-                                        <div key={child.id} className={cn(
-                                          "flex items-center gap-2 p-1.5 rounded border text-xs",
-                                          isChildComplete ? "bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800" : "bg-background border-border"
-                                        )}>
+                                        <button
+                                          key={child.id}
+                                          onClick={(e) => { e.stopPropagation(); handleChildJobClick(child.id); }}
+                                          className={cn(
+                                            "w-full flex items-center gap-2 p-1.5 rounded border text-xs cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all",
+                                            isChildComplete ? "bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800" : "bg-background border-border"
+                                          )}
+                                        >
                                           <CircleDot className={cn("w-3 h-3 flex-shrink-0", isChildComplete ? "text-emerald-500" : "text-amber-500")} />
-                                          <div className="flex-1 min-w-0">
+                                          <div className="flex-1 min-w-0 text-left">
                                             <span className="font-mono text-[10px] font-bold">#{child.job_number}</span>
-                                            <span className="text-muted-foreground text-[10px] ml-1.5">{child.team || 'Unassigned'}</span>
+                                            <span className="text-muted-foreground text-[10px] ml-1.5">{child.name || child.team || 'Unassigned'}</span>
                                           </div>
+                                          <ExternalLink className="w-3 h-3 text-muted-foreground flex-shrink-0" />
                                           <div className="flex items-center gap-1 flex-shrink-0">
                                             <span className={cn("w-4 h-4 rounded-full flex items-center justify-center text-white", childPhotos > 0 ? "bg-emerald-500" : "bg-red-500")} title={`${childPhotos} photos`}>
                                               <Camera className="w-2.5 h-2.5" />
@@ -1071,7 +1138,7 @@ export const DanniDashboard = ({
                                           <Badge variant={isChildComplete ? "default" : "secondary"} className={cn("text-[9px] px-1.5 py-0", isChildComplete && "bg-emerald-600")}>
                                             {isChildComplete ? 'Complete' : (child.status || 'Pending')}
                                           </Badge>
-                                        </div>
+                                        </button>
                                       );
                                     })}
                                   </div>
