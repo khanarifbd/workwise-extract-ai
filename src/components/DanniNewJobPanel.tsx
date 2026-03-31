@@ -127,7 +127,7 @@ export const DanniNewJobPanel = ({
         >
           <FilePlus2 className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
           <span className="text-[11px] font-semibold text-amber-500">New Linked Job</span>
-          <Badge variant="outline" className="text-[9px] px-1 py-0 ml-1 border-primary/30 text-primary">
+          <Badge variant="outline" className="text-[9px] px-1 py-0 ml-1 border-amber-500/30 text-amber-500">
             <Link2 className="w-2.5 h-2.5 mr-0.5" />
             #{parentJobNumber}
           </Badge>
