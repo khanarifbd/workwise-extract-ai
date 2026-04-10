@@ -320,6 +320,17 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
     return !wasScannedNoRoofing(roofingInfo);
   };
 
+  // Flooring scan helpers
+  const wasScannedNoFlooring = (flooringInfo: FlooringInfo[] | null): boolean => {
+    if (!flooringInfo || flooringInfo.length === 0) return false;
+    return flooringInfo.length === 1 && flooringInfo[0].type === '__SCANNED_NO_FLOORING__';
+  };
+
+  const hasActualFlooring = (flooringInfo: FlooringInfo[] | null): boolean => {
+    if (!flooringInfo || flooringInfo.length === 0) return false;
+    return !wasScannedNoFlooring(flooringInfo);
+  };
+
   const handleStatusChange = (jobId: string, status: JobStatus, isComplete: boolean) => {
     const job = jobs.find(j => j.id === jobId);
     if (job) {
