@@ -77,3 +77,6 @@ verify_jwt = false
 
 [functions.transcribe-description]
 verify_jwt = false
+
+[functions.extract-flooring]
+verify_jwt = true
