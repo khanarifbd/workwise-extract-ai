@@ -1276,6 +1276,64 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                       )}
                     </div>
                   </td>
+                  {/* Flooring Column */}
+                  <td onClick={(e) => e.stopPropagation()}>
+                    <div className="flex flex-col gap-1">
+                      <FlooringEditor
+                        flooringInfo={job.flooringInfo}
+                        onUpdate={(flooringInfo) => onUpdateJob({ ...job, flooringInfo })}
+                        job={job}
+                        flooringCategoryId={flooringCategoryId}
+                        onJobUpdated={(updates) => {
+                          onUpdateJob({ ...job, ...updates });
+                          if (updates.linkedFlooringJobId) {
+                            onFlooringJobCreated?.();
+                          }
+                        }}
+                      />
+                      {job.linkedFlooringJobId && (
+                        <Badge variant="outline" className="text-xs bg-green-500/10 text-green-700 dark:text-green-400">
+                          Linked
+                        </Badge>
+                      )}
+                      {!hasActualFlooring(job.flooringInfo) && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-5 px-1.5 text-xs text-muted-foreground hover:text-primary"
+                          onClick={() => handleScanForFlooring(job.id)}
+                          disabled={scanningFlooringJobId === job.id}
+                        >
+                          {scanningFlooringJobId === job.id ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <>
+                              <Wand2 className="w-3 h-3 mr-0.5" />
+                              AI Scan
+                            </>
+                          )}
+                        </Button>
+                      )}
+                      {hasActualFlooring(job.flooringInfo) && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-5 px-1.5 text-xs text-muted-foreground hover:text-primary"
+                          onClick={() => handleScanForFlooring(job.id)}
+                          disabled={scanningFlooringJobId === job.id}
+                        >
+                          {scanningFlooringJobId === job.id ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <>
+                              <Wand2 className="w-3 h-3 mr-0.5" />
+                              Re-scan
+                            </>
+                          )}
+                        </Button>
+                      )}
+                    </div>
+                  </td>
                   {/* Ongoing Notes Column - illuminated when job is ongoing */}
                   <td 
                     onClick={(e) => e.stopPropagation()} 
