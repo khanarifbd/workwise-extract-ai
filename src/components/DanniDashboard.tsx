@@ -1,7 +1,7 @@
 import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { NotepadPanel } from '@/components/DanniNotepadPanel';
 import { DanniNewJobPanel } from '@/components/DanniNewJobPanel';
-import { Job, Attachment, WorkItem } from '@/types/job';
+import { Job, Attachment, WorkItem, FanInfo, RoofingInfo, FlooringInfo } from '@/types/job';
 import { ContactCell } from '@/components/ContactCell';
 import { useAllContactHistory } from '@/hooks/useContactHistory';
 import { HighlightText } from '@/components/HighlightText';
@@ -19,7 +19,8 @@ import {
   Camera, FileText, Wrench, ShieldAlert, DoorOpen, PenLine,
   CalendarDays, Tag, Save, RotateCcw, BarChart3, Loader2,
   CalendarPlus, SendHorizonal, UserPlus, StickyNote, Bell, BellRing,
-  Plus, Trash2, ChevronDown, ChevronUp, CheckCircle2, Link2, CircleDot
+  Plus, Trash2, ChevronDown, ChevronUp, CheckCircle2, Link2, CircleDot,
+  Fan, Wand2,
 } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { format, isPast, isToday } from 'date-fns';
@@ -28,6 +29,13 @@ import { getGMTNow, getHoursDifferenceGMT } from '@/lib/dateUtils';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useTeamSettings } from '@/hooks/useTeamSettings';
+import { FanEditor } from '@/components/FanEditor';
+import { FanBookingDateDialog } from '@/components/FanBookingDateDialog';
+import { RoofingEditor } from '@/components/RoofingEditor';
+import { RoofingBookingDateDialog } from '@/components/RoofingBookingDateDialog';
+import { FlooringEditor } from '@/components/FlooringEditor';
+import { FlooringBookingDateDialog } from '@/components/FlooringBookingDateDialog';
+import { extractFansWithAI, createLinkedFanJob, syncLinkedFanJob, extractRoofingWithAI, createLinkedRoofingJob, syncLinkedRoofingJob, extractFlooringWithAI, createLinkedFlooringJob, syncLinkedFlooringJob } from '@/lib/api';
 
 // Blocker types with metadata
 const BLOCKER_TYPES = [
@@ -58,6 +66,8 @@ interface ReadinessJob {
   team: string | null;
   team2: string | null;
   description: string;
+  summaryOfWorks: string;
+  workItems: WorkItem[];
   attachments: Attachment[];
   bookedDate: Date | null;
   status: string;
@@ -73,6 +83,12 @@ interface ReadinessJob {
   hasSignOff: boolean;
   hasTradePending: boolean;
   autoBlocker: string | null;
+  fanInfo: FanInfo[] | null;
+  linkedFanJobId: string | null;
+  roofingInfo: RoofingInfo[] | null;
+  linkedRoofingJobId: string | null;
+  flooringInfo: FlooringInfo[] | null;
+  linkedFlooringJobId: string | null;
 }
 
 export const DanniDashboard = ({
@@ -105,6 +121,23 @@ export const DanniDashboard = ({
   const [expandedChildren, setExpandedChildren] = useState<Record<string, boolean>>({});
   const [signingOffJob, setSigningOffJob] = useState<string | null>(null);
   
+  // Scan/book state for Fan, Roofing, Flooring
+  const [fanCategoryId, setFanCategoryId] = useState<string>('');
+  const [roofingCategoryId, setRoofingCategoryId] = useState<string>('');
+  const [flooringCategoryId, setFlooringCategoryId] = useState<string>('');
+  const [scanningFanJobId, setScanningFanJobId] = useState<string | null>(null);
+  const [scanningRoofingJobId, setScanningRoofingJobId] = useState<string | null>(null);
+  const [scanningFlooringJobId, setScanningFlooringJobId] = useState<string | null>(null);
+  const [fanBookingDialogData, setFanBookingDialogData] = useState<{
+    job: ReadinessJob; fanInfo: FanInfo[]; totalFanCount: number; isUpdate: boolean;
+  } | null>(null);
+  const [roofingBookingDialogData, setRoofingBookingDialogData] = useState<{
+    job: ReadinessJob; roofingInfo: RoofingInfo[]; totalRoofingCount: number; isUpdate: boolean;
+  } | null>(null);
+  const [flooringBookingDialogData, setFlooringBookingDialogData] = useState<{
+    job: ReadinessJob; flooringInfo: FlooringInfo[]; totalFlooringCount: number; isUpdate: boolean;
+  } | null>(null);
+  
   // Notepad state
   const [showNotepad, setShowNotepad] = useState(false);
   const [notepadJobId, setNotepadJobId] = useState<string | null>(null);
@@ -132,22 +165,31 @@ export const DanniDashboard = ({
   // Fetch DM jobs directly from database
   const fetchDmJobs = useCallback(async () => {
     try {
-      // Get DM category ID
-      const { data: catData } = await supabase
-        .from('categories')
-        .select('id')
-        .eq('slug', 'dm-jobs')
-        .single();
+      // Get DM category ID + other category IDs in parallel
+      const [dmCatRes, allCatsRes] = await Promise.all([
+        supabase.from('categories').select('id').eq('slug', 'dm-jobs').single(),
+        supabase.from('categories').select('id, name, slug'),
+      ]);
 
-      if (!catData) return;
-      const dmCatId = catData.id;
+      if (!dmCatRes.data) return;
+      const dmCatId = dmCatRes.data.id;
       setDmCategoryId(dmCatId);
+
+      // Set category IDs for Fan, Roofing, Flooring
+      if (allCatsRes.data) {
+        const fanCat = allCatsRes.data.find((c: any) => c.name.toLowerCase().includes('fan'));
+        const roofCat = allCatsRes.data.find((c: any) => c.slug === 'roofing' || c.name.toLowerCase().includes('roofing'));
+        const floorCat = allCatsRes.data.find((c: any) => c.name.toLowerCase().includes('flooring'));
+        if (fanCat) setFanCategoryId(fanCat.id);
+        if (roofCat) setRoofingCategoryId(roofCat.id);
+        if (floorCat) setFlooringCategoryId(floorCat.id);
+      }
 
       // Fetch DM jobs and sign-offs in parallel
       const [jobsRes, signOffRes] = await Promise.all([
         supabase
           .from('jobs')
-          .select('id, job_number, name, address, phone_number, team, team2, description, attachments, booked_date, status, is_completed, is_ongoing, blocker_type, blocker_notes, blocker_chase_date, refer_back, ongoing_reason')
+          .select('id, job_number, name, address, phone_number, team, team2, description, summary_of_works, work_items, attachments, booked_date, status, is_completed, is_ongoing, blocker_type, blocker_notes, blocker_chase_date, refer_back, ongoing_reason, fan_info, linked_fan_job_id, roofing_info, linked_roofing_job_id, flooring_info, linked_flooring_job_id')
           .eq('category_id', dmCatId)
           .is('deleted_at', null),
         supabase
@@ -361,6 +403,8 @@ export const DanniDashboard = ({
         team: raw.team,
         team2: raw.team2,
         description: raw.description || '',
+        summaryOfWorks: raw.summary_of_works || '',
+        workItems: Array.isArray(raw.work_items) ? (raw.work_items as any[]) : [],
         attachments,
         bookedDate: bookedDate || new Date(),
         status: raw.status || 'pending',
@@ -376,6 +420,12 @@ export const DanniDashboard = ({
         hasSignOff: false,
         hasTradePending,
         autoBlocker,
+        fanInfo: Array.isArray(raw.fan_info) ? (raw.fan_info as any[]) : null,
+        linkedFanJobId: raw.linked_fan_job_id,
+        roofingInfo: Array.isArray(raw.roofing_info) ? (raw.roofing_info as any[]) : null,
+        linkedRoofingJobId: raw.linked_roofing_job_id,
+        flooringInfo: Array.isArray(raw.flooring_info) ? (raw.flooring_info as any[]) : null,
+        linkedFlooringJobId: raw.linked_flooring_job_id,
       });
     }
 
@@ -442,6 +492,116 @@ export const DanniDashboard = ({
   const missingPhotos = readinessJobs.filter(j => !j.hasPhotos).length;
   const missingDescription = readinessJobs.filter(j => !j.hasDescription).length;
   const awaitingTrade = readinessJobs.filter(j => j.hasTradePending).length;
+
+  // Helper to convert ReadinessJob to a partial Job for API calls
+  const toJobForApi = useCallback((rj: ReadinessJob): Job => ({
+    id: rj.id, jobNumber: rj.jobNumber, name: rj.name, address: rj.address, phoneNumber: rj.phoneNumber,
+    summaryOfWorks: rj.summaryOfWorks, description: rj.description, workItems: rj.workItems,
+    additionalWorks: [], team: rj.team, team2: rj.team2, progress: 0, progressNotes: '',
+    isCompleted: rj.isCompleted, isOngoing: rj.isOngoing, ongoingReason: '', scheduledTrades: [],
+    createdAt: new Date(), dateIssued: new Date(), bookedDate: rj.bookedDate,
+    isFlexibleBooking: false, bookingNotes: '', completionDate: null, attachments: rj.attachments,
+    status: rj.status as any, fanInfo: rj.fanInfo, linkedFanJobId: rj.linkedFanJobId,
+    insulationInfo: null, linkedInsulationJobId: null, roofingInfo: rj.roofingInfo,
+    linkedRoofingJobId: rj.linkedRoofingJobId, flooringInfo: rj.flooringInfo,
+    linkedFlooringJobId: rj.linkedFlooringJobId, costs: null, privateNotes: '',
+    referBack: rj.referBack, referBackReason: '', referBackDate: null,
+    expectedCompletionDate: null, blockerType: rj.blockerType, blockerNotes: rj.blockerNotes,
+    blockerSetAt: null, blockerChaseDate: rj.blockerChaseDate,
+  }), []);
+
+  const updateJobField = useCallback(async (jobId: string, updates: Record<string, any>) => {
+    await supabase.from('jobs').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', jobId);
+  }, []);
+
+  // Fan scan
+  const handleScanForFans = useCallback(async (rj: ReadinessJob) => {
+    if (rj.fanInfo?.some(f => f.manualOverride)) { toast({ title: "Manual Override Active" }); return; }
+    setScanningFanJobId(rj.id);
+    try {
+      const result = await extractFansWithAI(rj.description || rj.summaryOfWorks || '', rj.workItems);
+      if (result) {
+        const info: FanInfo[] = result.hasFans && result.fans.length > 0 ? result.fans : [{ type: '__SCANNED_NO_FANS__', quantity: 0, location: '' }];
+        await updateJobField(rj.id, { fan_info: info });
+        if (result.hasFans && result.fans.length > 0 && fanCategoryId) {
+          setFanBookingDialogData({ job: { ...rj, fanInfo: info }, fanInfo: result.fans, totalFanCount: result.totalFanCount, isUpdate: !!rj.linkedFanJobId });
+        } else { toast({ title: result.hasFans ? "Fans Found!" : "No Fans Found" }); }
+      }
+      handleRefresh();
+    } catch { toast({ title: "Scan Failed", variant: "destructive" }); } finally { setScanningFanJobId(null); }
+  }, [fanCategoryId, toast, handleRefresh, updateJobField]);
+
+  const handleFanBookingConfirm = useCallback(async (bookedDate: Date | null) => {
+    if (!fanBookingDialogData || !fanCategoryId) return;
+    const { job, fanInfo, totalFanCount, isUpdate } = fanBookingDialogData;
+    const j = toJobForApi(job);
+    if (isUpdate && job.linkedFanJobId) await syncLinkedFanJob(j, fanInfo, fanCategoryId, bookedDate);
+    else await createLinkedFanJob(j, fanInfo, fanCategoryId, bookedDate);
+    toast({ title: isUpdate ? "Fan Job Updated!" : "Fan Job Created!" }); handleRefresh();
+  }, [fanBookingDialogData, fanCategoryId, toast, handleRefresh, toJobForApi]);
+
+  // Roofing scan
+  const handleScanForRoofing = useCallback(async (rj: ReadinessJob) => {
+    if (rj.roofingInfo?.some(r => r.manualOverride)) { toast({ title: "Manual Override Active" }); return; }
+    setScanningRoofingJobId(rj.id);
+    try {
+      const result = await extractRoofingWithAI(rj.description || rj.summaryOfWorks || '', rj.workItems);
+      if (result) {
+        const info: RoofingInfo[] = result.hasRoofing && result.roofing.length > 0 ? result.roofing : [{ type: '__SCANNED_NO_ROOFING__', quantity: 0, location: '' }];
+        await updateJobField(rj.id, { roofing_info: info });
+        if (result.hasRoofing && result.roofing.length > 0 && roofingCategoryId) {
+          setRoofingBookingDialogData({ job: { ...rj, roofingInfo: info }, roofingInfo: result.roofing, totalRoofingCount: result.totalRoofingCount, isUpdate: !!rj.linkedRoofingJobId });
+        } else { toast({ title: result.hasRoofing ? "Roofing Found!" : "No Roofing Found" }); }
+      }
+      handleRefresh();
+    } catch { toast({ title: "Scan Failed", variant: "destructive" }); } finally { setScanningRoofingJobId(null); }
+  }, [roofingCategoryId, toast, handleRefresh, updateJobField]);
+
+  const handleRoofingBookingConfirm = useCallback(async (bookedDate: Date | null) => {
+    if (!roofingBookingDialogData || !roofingCategoryId) return;
+    const { job, roofingInfo, totalRoofingCount, isUpdate } = roofingBookingDialogData;
+    const j = toJobForApi(job);
+    if (isUpdate && job.linkedRoofingJobId) await syncLinkedRoofingJob(j, roofingInfo, roofingCategoryId, bookedDate);
+    else await createLinkedRoofingJob(j, roofingInfo, roofingCategoryId, bookedDate);
+    toast({ title: isUpdate ? "Roofing Job Updated!" : "Roofing Job Created!" }); handleRefresh();
+  }, [roofingBookingDialogData, roofingCategoryId, toast, handleRefresh, toJobForApi]);
+
+  // Flooring scan
+  const handleScanForFlooring = useCallback(async (rj: ReadinessJob) => {
+    if (rj.flooringInfo?.some(f => f.manualOverride)) { toast({ title: "Manual Override Active" }); return; }
+    setScanningFlooringJobId(rj.id);
+    try {
+      const result = await extractFlooringWithAI(rj.description || rj.summaryOfWorks || '', rj.workItems);
+      if (result) {
+        const info: FlooringInfo[] = result.hasFlooring && result.flooring.length > 0 ? result.flooring : [{ type: '__SCANNED_NO_FLOORING__', quantity: 0, location: '' }];
+        await updateJobField(rj.id, { flooring_info: info });
+        if (result.hasFlooring && result.flooring.length > 0 && flooringCategoryId) {
+          setFlooringBookingDialogData({ job: { ...rj, flooringInfo: info }, flooringInfo: result.flooring, totalFlooringCount: result.totalFlooringCount, isUpdate: !!rj.linkedFlooringJobId });
+        } else { toast({ title: result.hasFlooring ? "Flooring Found!" : "No Flooring Found" }); }
+      }
+      handleRefresh();
+    } catch { toast({ title: "Scan Failed", variant: "destructive" }); } finally { setScanningFlooringJobId(null); }
+  }, [flooringCategoryId, toast, handleRefresh, updateJobField]);
+
+  const handleFlooringBookingConfirm = useCallback(async (bookedDate: Date | null) => {
+    if (!flooringBookingDialogData || !flooringCategoryId) return;
+    const { job, flooringInfo, totalFlooringCount, isUpdate } = flooringBookingDialogData;
+    const j = toJobForApi(job);
+    if (isUpdate && job.linkedFlooringJobId) await syncLinkedFlooringJob(j, flooringInfo, flooringCategoryId, bookedDate);
+    else await createLinkedFlooringJob(j, flooringInfo, flooringCategoryId, bookedDate);
+    toast({ title: isUpdate ? "Flooring Job Updated!" : "Flooring Job Created!" }); handleRefresh();
+  }, [flooringBookingDialogData, flooringCategoryId, toast, handleRefresh, toJobForApi]);
+
+  // Editor update handlers
+  const handleUpdateFanInfo = useCallback(async (jobId: string, fanInfo: FanInfo[]) => {
+    await updateJobField(jobId, { fan_info: fanInfo }); handleRefresh();
+  }, [updateJobField, handleRefresh]);
+  const handleUpdateRoofingInfo = useCallback(async (jobId: string, roofingInfo: RoofingInfo[]) => {
+    await updateJobField(jobId, { roofing_info: roofingInfo }); handleRefresh();
+  }, [updateJobField, handleRefresh]);
+  const handleUpdateFlooringInfo = useCallback(async (jobId: string, flooringInfo: FlooringInfo[]) => {
+    await updateJobField(jobId, { flooring_info: flooringInfo }); handleRefresh();
+  }, [updateJobField, handleRefresh]);
 
   const handleSaveBlocker = useCallback(async (jobId: string) => {
     if (!blockerForm.type) return;
@@ -999,6 +1159,87 @@ export const DanniDashboard = ({
                               <Wrench className="w-3 h-3" />
                             </span>
                           </div>
+                          {/* Fan/Roofing/Flooring scan badges */}
+                          <div className="flex items-center gap-1 ml-1" onClick={(e) => e.stopPropagation()}>
+                            {/* Fan */}
+                            {(() => {
+                              const hasFanData = job.fanInfo && job.fanInfo.length > 0 && !job.fanInfo.some(f => f.type === '__SCANNED_NO_FANS__');
+                              const wasScanned = job.fanInfo && job.fanInfo.length > 0;
+                              return hasFanData ? (
+                                <FanEditor
+                                  fanInfo={job.fanInfo}
+                                  onUpdate={(fi) => handleUpdateFanInfo(job.id, fi)}
+                                  job={toJobForApi(job)}
+                                  fanCategoryId={fanCategoryId}
+                                  onJobUpdated={() => handleRefresh()}
+                                />
+                              ) : (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-5 px-1.5 text-[10px] gap-0.5"
+                                  onClick={() => handleScanForFans(job)}
+                                  disabled={scanningFanJobId === job.id}
+                                  title={wasScanned ? "Re-scan for fans" : "Scan for fans"}
+                                >
+                                  {scanningFanJobId === job.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <><Fan className="w-3 h-3" /><Wand2 className="w-2.5 h-2.5" /></>}
+                                  {wasScanned ? '🔄' : '🪭'}
+                                </Button>
+                              );
+                            })()}
+                            {/* Roofing */}
+                            {(() => {
+                              const hasRoofData = job.roofingInfo && job.roofingInfo.length > 0 && !job.roofingInfo.some(r => r.type === '__SCANNED_NO_ROOFING__');
+                              const wasScanned = job.roofingInfo && job.roofingInfo.length > 0;
+                              return hasRoofData ? (
+                                <RoofingEditor
+                                  roofingInfo={job.roofingInfo}
+                                  onUpdate={(ri) => handleUpdateRoofingInfo(job.id, ri)}
+                                  job={toJobForApi(job)}
+                                  roofingCategoryId={roofingCategoryId}
+                                  onJobUpdated={() => handleRefresh()}
+                                />
+                              ) : (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-5 px-1.5 text-[10px] gap-0.5"
+                                  onClick={() => handleScanForRoofing(job)}
+                                  disabled={scanningRoofingJobId === job.id}
+                                  title={wasScanned ? "Re-scan for roofing" : "Scan for roofing"}
+                                >
+                                  {scanningRoofingJobId === job.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-2.5 h-2.5" />}
+                                  {wasScanned ? '🔄' : '🏠'}
+                                </Button>
+                              );
+                            })()}
+                            {/* Flooring */}
+                            {(() => {
+                              const hasFloorData = job.flooringInfo && job.flooringInfo.length > 0 && !job.flooringInfo.some(f => f.type === '__SCANNED_NO_FLOORING__');
+                              const wasScanned = job.flooringInfo && job.flooringInfo.length > 0;
+                              return hasFloorData ? (
+                                <FlooringEditor
+                                  flooringInfo={job.flooringInfo}
+                                  onUpdate={(fi) => handleUpdateFlooringInfo(job.id, fi)}
+                                  job={toJobForApi(job)}
+                                  flooringCategoryId={flooringCategoryId}
+                                  onJobUpdated={() => handleRefresh()}
+                                />
+                              ) : (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-5 px-1.5 text-[10px] gap-0.5"
+                                  onClick={() => handleScanForFlooring(job)}
+                                  disabled={scanningFlooringJobId === job.id}
+                                  title={wasScanned ? "Re-scan for flooring" : "Scan for flooring"}
+                                >
+                                  {scanningFlooringJobId === job.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-2.5 h-2.5" />}
+                                  {wasScanned ? '🔄' : '🪵'}
+                                </Button>
+                              );
+                            })()}
+                          </div>
                         </div>
 
                         <h3 className="font-semibold text-foreground mt-1 truncate text-sm">
@@ -1478,6 +1719,38 @@ export const DanniDashboard = ({
           newNoteAlertDate={newNoteAlertDate}
           setNewNoteAlertDate={setNewNoteAlertDate}
           savingNote={savingNote}
+        />
+      )}
+
+      {/* Booking Date Dialogs */}
+      {fanBookingDialogData && (
+        <FanBookingDateDialog
+          open={!!fanBookingDialogData}
+          onOpenChange={(open) => !open && setFanBookingDialogData(null)}
+          job={toJobForApi(fanBookingDialogData.job)}
+          fanInfo={fanBookingDialogData.fanInfo}
+          totalFanCount={fanBookingDialogData.totalFanCount}
+          onConfirm={handleFanBookingConfirm}
+        />
+      )}
+      {roofingBookingDialogData && (
+        <RoofingBookingDateDialog
+          open={!!roofingBookingDialogData}
+          onOpenChange={(open) => !open && setRoofingBookingDialogData(null)}
+          job={toJobForApi(roofingBookingDialogData.job)}
+          roofingInfo={roofingBookingDialogData.roofingInfo}
+          totalRoofingCount={roofingBookingDialogData.totalRoofingCount}
+          onConfirm={handleRoofingBookingConfirm}
+        />
+      )}
+      {flooringBookingDialogData && (
+        <FlooringBookingDateDialog
+          open={!!flooringBookingDialogData}
+          onOpenChange={(open) => !open && setFlooringBookingDialogData(null)}
+          job={toJobForApi(flooringBookingDialogData.job)}
+          flooringInfo={flooringBookingDialogData.flooringInfo}
+          totalFlooringCount={flooringBookingDialogData.totalFlooringCount}
+          onConfirm={handleFlooringBookingConfirm}
         />
       )}
     </Card>
