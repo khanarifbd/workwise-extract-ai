@@ -449,6 +449,103 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
     }
   };
 
+  // Handle roofing scan for a single job
+  const handleScanForRoofing = async (jobId: string, forceOverride: boolean = false) => {
+    const job = jobs.find(j => j.id === jobId);
+    if (!job) return;
+
+    const hasManualOverride = job.roofingInfo?.some(r => r.manualOverride);
+    if (hasManualOverride && !forceOverride) {
+      toast({
+        title: "Manual Override Active",
+        description: "This job has a manually set roofing count. Use the editor to change it.",
+      });
+      return;
+    }
+
+    setScanningRoofingJobId(jobId);
+    try {
+      const result = await extractRoofingWithAI(job.description || job.summaryOfWorks || '', job.workItems);
+      
+      if (result) {
+        const roofingInfoToSave: RoofingInfo[] = result.hasRoofing && result.roofing.length > 0 
+          ? result.roofing 
+          : [{ type: '__SCANNED_NO_ROOFING__', quantity: 0, location: '' }];
+        
+        onUpdateJob({ ...job, roofingInfo: roofingInfoToSave });
+        
+        if (result.hasRoofing && result.roofing.length > 0) {
+          if (roofingCategoryId) {
+            setRoofingBookingDialogData({
+              job: { ...job, roofingInfo: roofingInfoToSave },
+              roofingInfo: result.roofing,
+              totalRoofingCount: result.totalRoofingCount,
+              isUpdate: !!job.linkedRoofingJobId,
+            });
+          } else {
+            toast({
+              title: "Roofing Found!",
+              description: `Found ${result.totalRoofingCount} roofing item(s) in ${result.roofing.length} type(s).`,
+            });
+          }
+        } else {
+          toast({
+            title: "No Roofing Found",
+            description: "Scan complete - no roofing work detected in this job.",
+          });
+        }
+      } else {
+        onUpdateJob({ ...job, roofingInfo: [{ type: '__SCANNED_NO_ROOFING__', quantity: 0, location: '' }] });
+        toast({
+          title: "No Roofing Found",
+          description: "Scan complete - no roofing work detected in this job.",
+        });
+      }
+    } catch (error) {
+      console.error('Error scanning for roofing:', error);
+      toast({
+        title: "Scan Failed",
+        description: "Could not scan for roofing.",
+        variant: "destructive",
+      });
+    } finally {
+      setScanningRoofingJobId(null);
+    }
+  };
+
+  // Handle roofing booking date confirmation from dialog
+  const handleRoofingBookingConfirm = async (bookedDate: Date | null) => {
+    if (!roofingBookingDialogData || !roofingCategoryId) return;
+
+    const { job, roofingInfo, totalRoofingCount, isUpdate } = roofingBookingDialogData;
+
+    try {
+      if (isUpdate && job.linkedRoofingJobId) {
+        await syncLinkedRoofingJob(job, roofingInfo, roofingCategoryId, bookedDate);
+        onRoofingJobCreated?.();
+        toast({
+          title: "Roofing Job Updated!",
+          description: `${totalRoofingCount} roofing item(s) updated${bookedDate ? ` - booked for ${bookedDate.toLocaleDateString()}` : ''}.`,
+        });
+      } else {
+        await createLinkedRoofingJob(job, roofingInfo, roofingCategoryId, bookedDate);
+        onRoofingJobCreated?.();
+        toast({
+          title: "Roofing Job Created!",
+          description: `${totalRoofingCount} roofing item(s) linked${bookedDate ? ` - booked for ${bookedDate.toLocaleDateString()}` : ''}.`,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to create/update linked roofing job:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create/update roofing job. Please try again.",
+        variant: "destructive",
+      });
+      throw error;
+    }
+  };
+
   // Bulk fan scanning for selected jobs (includes re-scanning jobs with NONE)
   const handleBulkFanScan = async (forceRescan: boolean = false) => {
     if (selectedJobs.size === 0) return;
