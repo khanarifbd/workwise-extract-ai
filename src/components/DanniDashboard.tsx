@@ -1727,9 +1727,9 @@ export const DanniDashboard = ({
         <FanBookingDateDialog
           open={!!fanBookingDialogData}
           onOpenChange={(open) => !open && setFanBookingDialogData(null)}
-          fanCount={fanBookingDialogData.totalFanCount}
-          fanTypes={fanBookingDialogData.fanInfo}
-          isUpdate={fanBookingDialogData.isUpdate}
+          job={toJobForApi(fanBookingDialogData.job)}
+          fanInfo={fanBookingDialogData.fanInfo}
+          totalFanCount={fanBookingDialogData.totalFanCount}
           onConfirm={handleFanBookingConfirm}
         />
       )}
@@ -1737,9 +1737,9 @@ export const DanniDashboard = ({
         <RoofingBookingDateDialog
           open={!!roofingBookingDialogData}
           onOpenChange={(open) => !open && setRoofingBookingDialogData(null)}
-          roofingCount={roofingBookingDialogData.totalRoofingCount}
-          roofingTypes={roofingBookingDialogData.roofingInfo}
-          isUpdate={roofingBookingDialogData.isUpdate}
+          job={toJobForApi(roofingBookingDialogData.job)}
+          roofingInfo={roofingBookingDialogData.roofingInfo}
+          totalRoofingCount={roofingBookingDialogData.totalRoofingCount}
           onConfirm={handleRoofingBookingConfirm}
         />
       )}
@@ -1747,9 +1747,9 @@ export const DanniDashboard = ({
         <FlooringBookingDateDialog
           open={!!flooringBookingDialogData}
           onOpenChange={(open) => !open && setFlooringBookingDialogData(null)}
-          flooringCount={flooringBookingDialogData.totalFlooringCount}
-          flooringTypes={flooringBookingDialogData.flooringInfo}
-          isUpdate={flooringBookingDialogData.isUpdate}
+          job={toJobForApi(flooringBookingDialogData.job)}
+          flooringInfo={flooringBookingDialogData.flooringInfo}
+          totalFlooringCount={flooringBookingDialogData.totalFlooringCount}
           onConfirm={handleFlooringBookingConfirm}
         />
       )}
