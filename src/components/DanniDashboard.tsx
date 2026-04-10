@@ -121,6 +121,23 @@ export const DanniDashboard = ({
   const [expandedChildren, setExpandedChildren] = useState<Record<string, boolean>>({});
   const [signingOffJob, setSigningOffJob] = useState<string | null>(null);
   
+  // Scan/book state for Fan, Roofing, Flooring
+  const [fanCategoryId, setFanCategoryId] = useState<string>('');
+  const [roofingCategoryId, setRoofingCategoryId] = useState<string>('');
+  const [flooringCategoryId, setFlooringCategoryId] = useState<string>('');
+  const [scanningFanJobId, setScanningFanJobId] = useState<string | null>(null);
+  const [scanningRoofingJobId, setScanningRoofingJobId] = useState<string | null>(null);
+  const [scanningFlooringJobId, setScanningFlooringJobId] = useState<string | null>(null);
+  const [fanBookingDialogData, setFanBookingDialogData] = useState<{
+    job: ReadinessJob; fanInfo: FanInfo[]; totalFanCount: number; isUpdate: boolean;
+  } | null>(null);
+  const [roofingBookingDialogData, setRoofingBookingDialogData] = useState<{
+    job: ReadinessJob; roofingInfo: RoofingInfo[]; totalRoofingCount: number; isUpdate: boolean;
+  } | null>(null);
+  const [flooringBookingDialogData, setFlooringBookingDialogData] = useState<{
+    job: ReadinessJob; flooringInfo: FlooringInfo[]; totalFlooringCount: number; isUpdate: boolean;
+  } | null>(null);
+  
   // Notepad state
   const [showNotepad, setShowNotepad] = useState(false);
   const [notepadJobId, setNotepadJobId] = useState<string | null>(null);
