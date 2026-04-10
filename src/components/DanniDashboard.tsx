@@ -1721,6 +1721,38 @@ export const DanniDashboard = ({
           savingNote={savingNote}
         />
       )}
+
+      {/* Booking Date Dialogs */}
+      {fanBookingDialogData && (
+        <FanBookingDateDialog
+          open={!!fanBookingDialogData}
+          onOpenChange={(open) => !open && setFanBookingDialogData(null)}
+          fanCount={fanBookingDialogData.totalFanCount}
+          fanTypes={fanBookingDialogData.fanInfo}
+          isUpdate={fanBookingDialogData.isUpdate}
+          onConfirm={handleFanBookingConfirm}
+        />
+      )}
+      {roofingBookingDialogData && (
+        <RoofingBookingDateDialog
+          open={!!roofingBookingDialogData}
+          onOpenChange={(open) => !open && setRoofingBookingDialogData(null)}
+          roofingCount={roofingBookingDialogData.totalRoofingCount}
+          roofingTypes={roofingBookingDialogData.roofingInfo}
+          isUpdate={roofingBookingDialogData.isUpdate}
+          onConfirm={handleRoofingBookingConfirm}
+        />
+      )}
+      {flooringBookingDialogData && (
+        <FlooringBookingDateDialog
+          open={!!flooringBookingDialogData}
+          onOpenChange={(open) => !open && setFlooringBookingDialogData(null)}
+          flooringCount={flooringBookingDialogData.totalFlooringCount}
+          flooringTypes={flooringBookingDialogData.flooringInfo}
+          isUpdate={flooringBookingDialogData.isUpdate}
+          onConfirm={handleFlooringBookingConfirm}
+        />
+      )}
     </Card>
   );
 };
