@@ -66,6 +66,8 @@ interface ReadinessJob {
   team: string | null;
   team2: string | null;
   description: string;
+  summaryOfWorks: string;
+  workItems: WorkItem[];
   attachments: Attachment[];
   bookedDate: Date | null;
   status: string;
@@ -81,6 +83,12 @@ interface ReadinessJob {
   hasSignOff: boolean;
   hasTradePending: boolean;
   autoBlocker: string | null;
+  fanInfo: FanInfo[] | null;
+  linkedFanJobId: string | null;
+  roofingInfo: RoofingInfo[] | null;
+  linkedRoofingJobId: string | null;
+  flooringInfo: FlooringInfo[] | null;
+  linkedFlooringJobId: string | null;
 }
 
 export const DanniDashboard = ({
