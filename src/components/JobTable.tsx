@@ -569,6 +569,103 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
     }
   };
 
+  // Handle flooring scan for a single job
+  const handleScanForFlooring = async (jobId: string, forceOverride: boolean = false) => {
+    const job = jobs.find(j => j.id === jobId);
+    if (!job) return;
+
+    const hasManualOverride = job.flooringInfo?.some(f => f.manualOverride);
+    if (hasManualOverride && !forceOverride) {
+      toast({
+        title: "Manual Override Active",
+        description: "This job has a manually set flooring count. Use the editor to change it.",
+      });
+      return;
+    }
+
+    setScanningFlooringJobId(jobId);
+    try {
+      const result = await extractFlooringWithAI(job.description || job.summaryOfWorks || '', job.workItems);
+      
+      if (result) {
+        const flooringInfoToSave: FlooringInfo[] = result.hasFlooring && result.flooring.length > 0 
+          ? result.flooring 
+          : [{ type: '__SCANNED_NO_FLOORING__', quantity: 0, location: '' }];
+        
+        onUpdateJob({ ...job, flooringInfo: flooringInfoToSave });
+        
+        if (result.hasFlooring && result.flooring.length > 0) {
+          if (flooringCategoryId) {
+            setFlooringBookingDialogData({
+              job: { ...job, flooringInfo: flooringInfoToSave },
+              flooringInfo: result.flooring,
+              totalFlooringCount: result.totalFlooringCount,
+              isUpdate: !!job.linkedFlooringJobId,
+            });
+          } else {
+            toast({
+              title: "Flooring Found!",
+              description: `Found ${result.totalFlooringCount} flooring item(s).`,
+            });
+          }
+        } else {
+          toast({
+            title: "No Flooring Found",
+            description: "Scan complete - no flooring work detected in this job.",
+          });
+        }
+      } else {
+        onUpdateJob({ ...job, flooringInfo: [{ type: '__SCANNED_NO_FLOORING__', quantity: 0, location: '' }] });
+        toast({
+          title: "No Flooring Found",
+          description: "Scan complete - no flooring work detected in this job.",
+        });
+      }
+    } catch (error) {
+      console.error('Error scanning for flooring:', error);
+      toast({
+        title: "Scan Failed",
+        description: "Could not scan for flooring.",
+        variant: "destructive",
+      });
+    } finally {
+      setScanningFlooringJobId(null);
+    }
+  };
+
+  // Handle flooring booking date confirmation from dialog
+  const handleFlooringBookingConfirm = async (bookedDate: Date | null) => {
+    if (!flooringBookingDialogData || !flooringCategoryId) return;
+
+    const { job, flooringInfo, totalFlooringCount, isUpdate } = flooringBookingDialogData;
+
+    try {
+      if (isUpdate && job.linkedFlooringJobId) {
+        await syncLinkedFlooringJob(job, flooringInfo, flooringCategoryId, bookedDate);
+        onFlooringJobCreated?.();
+        toast({
+          title: "Flooring Job Updated!",
+          description: `${totalFlooringCount} flooring item(s) updated${bookedDate ? ` - booked for ${bookedDate.toLocaleDateString()}` : ''}.`,
+        });
+      } else {
+        await createLinkedFlooringJob(job, flooringInfo, flooringCategoryId, bookedDate);
+        onFlooringJobCreated?.();
+        toast({
+          title: "Flooring Job Created!",
+          description: `${totalFlooringCount} flooring item(s) linked${bookedDate ? ` - booked for ${bookedDate.toLocaleDateString()}` : ''}.`,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to create/update linked flooring job:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create/update flooring job. Please try again.",
+        variant: "destructive",
+      });
+      throw error;
+    }
+  };
+
   // Bulk fan scanning for selected jobs (includes re-scanning jobs with NONE)
   const handleBulkFanScan = async (forceRescan: boolean = false) => {
     if (selectedJobs.size === 0) return;
