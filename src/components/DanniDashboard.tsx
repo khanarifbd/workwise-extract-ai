@@ -20,7 +20,7 @@ import {
   CalendarDays, Tag, Save, RotateCcw, BarChart3, Loader2,
   CalendarPlus, SendHorizonal, UserPlus, StickyNote, Bell, BellRing,
   Plus, Trash2, ChevronDown, ChevronUp, CheckCircle2, Link2, CircleDot,
-  Fan, Wand2,
+  Wand2,
 } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { format, isPast, isToday } from 'date-fns';
@@ -1177,13 +1177,13 @@ export const DanniDashboard = ({
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="h-5 px-1.5 text-[10px] gap-0.5"
+                                  className="h-5 px-1.5 text-[10px] gap-0.5 font-semibold"
                                   onClick={() => handleScanForFans(job)}
                                   disabled={scanningFanJobId === job.id}
                                   title={wasScanned ? "Re-scan for fans" : "Scan for fans"}
                                 >
-                                  {scanningFanJobId === job.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <><Fan className="w-3 h-3" /><Wand2 className="w-2.5 h-2.5" /></>}
-                                  {wasScanned ? '🔄' : '🪭'}
+                                  {scanningFanJobId === job.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-2.5 h-2.5" />}
+                                  {wasScanned ? 'FAN ↻' : 'FAN'}
                                 </Button>
                               );
                             })()}
@@ -1203,13 +1203,13 @@ export const DanniDashboard = ({
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="h-5 px-1.5 text-[10px] gap-0.5"
+                                  className="h-5 px-1.5 text-[10px] gap-0.5 font-semibold"
                                   onClick={() => handleScanForRoofing(job)}
                                   disabled={scanningRoofingJobId === job.id}
                                   title={wasScanned ? "Re-scan for roofing" : "Scan for roofing"}
                                 >
                                   {scanningRoofingJobId === job.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-2.5 h-2.5" />}
-                                  {wasScanned ? '🔄' : '🏠'}
+                                  {wasScanned ? 'ROOF ↻' : 'ROOF'}
                                 </Button>
                               );
                             })()}
@@ -1229,13 +1229,13 @@ export const DanniDashboard = ({
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="h-5 px-1.5 text-[10px] gap-0.5"
+                                  className="h-5 px-1.5 text-[10px] gap-0.5 font-semibold"
                                   onClick={() => handleScanForFlooring(job)}
                                   disabled={scanningFlooringJobId === job.id}
                                   title={wasScanned ? "Re-scan for flooring" : "Scan for flooring"}
                                 >
                                   {scanningFlooringJobId === job.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-2.5 h-2.5" />}
-                                  {wasScanned ? '🔄' : '🪵'}
+                                  {wasScanned ? 'FLOOR ↻' : 'FLOOR'}
                                 </Button>
                               );
                             })()}
