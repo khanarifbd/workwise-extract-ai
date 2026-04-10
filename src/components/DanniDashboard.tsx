@@ -493,6 +493,116 @@ export const DanniDashboard = ({
   const missingDescription = readinessJobs.filter(j => !j.hasDescription).length;
   const awaitingTrade = readinessJobs.filter(j => j.hasTradePending).length;
 
+  // Helper to convert ReadinessJob to a partial Job for API calls
+  const toJobForApi = useCallback((rj: ReadinessJob): Job => ({
+    id: rj.id, jobNumber: rj.jobNumber, name: rj.name, address: rj.address, phoneNumber: rj.phoneNumber,
+    summaryOfWorks: rj.summaryOfWorks, description: rj.description, workItems: rj.workItems,
+    additionalWorks: [], team: rj.team, team2: rj.team2, progress: 0, progressNotes: '',
+    isCompleted: rj.isCompleted, isOngoing: rj.isOngoing, ongoingReason: '', scheduledTrades: [],
+    createdAt: new Date(), dateIssued: new Date(), bookedDate: rj.bookedDate,
+    isFlexibleBooking: false, bookingNotes: '', completionDate: null, attachments: rj.attachments,
+    status: rj.status as any, fanInfo: rj.fanInfo, linkedFanJobId: rj.linkedFanJobId,
+    insulationInfo: null, linkedInsulationJobId: null, roofingInfo: rj.roofingInfo,
+    linkedRoofingJobId: rj.linkedRoofingJobId, flooringInfo: rj.flooringInfo,
+    linkedFlooringJobId: rj.linkedFlooringJobId, costs: null, privateNotes: '',
+    referBack: rj.referBack, referBackReason: '', referBackDate: null,
+    expectedCompletionDate: null, blockerType: rj.blockerType, blockerNotes: rj.blockerNotes,
+    blockerSetAt: null, blockerChaseDate: rj.blockerChaseDate,
+  }), []);
+
+  const updateJobField = useCallback(async (jobId: string, updates: Record<string, any>) => {
+    await supabase.from('jobs').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', jobId);
+  }, []);
+
+  // Fan scan
+  const handleScanForFans = useCallback(async (rj: ReadinessJob) => {
+    if (rj.fanInfo?.some(f => f.manualOverride)) { toast({ title: "Manual Override Active" }); return; }
+    setScanningFanJobId(rj.id);
+    try {
+      const result = await extractFansWithAI(rj.description || rj.summaryOfWorks || '', rj.workItems);
+      if (result) {
+        const info: FanInfo[] = result.hasFans && result.fans.length > 0 ? result.fans : [{ type: '__SCANNED_NO_FANS__', quantity: 0, location: '' }];
+        await updateJobField(rj.id, { fan_info: info });
+        if (result.hasFans && result.fans.length > 0 && fanCategoryId) {
+          setFanBookingDialogData({ job: { ...rj, fanInfo: info }, fanInfo: result.fans, totalFanCount: result.totalFanCount, isUpdate: !!rj.linkedFanJobId });
+        } else { toast({ title: result.hasFans ? "Fans Found!" : "No Fans Found" }); }
+      }
+      handleRefresh();
+    } catch { toast({ title: "Scan Failed", variant: "destructive" }); } finally { setScanningFanJobId(null); }
+  }, [fanCategoryId, toast, handleRefresh, updateJobField]);
+
+  const handleFanBookingConfirm = useCallback(async (bookedDate: Date | null) => {
+    if (!fanBookingDialogData || !fanCategoryId) return;
+    const { job, fanInfo, totalFanCount, isUpdate } = fanBookingDialogData;
+    const j = toJobForApi(job);
+    if (isUpdate && job.linkedFanJobId) await syncLinkedFanJob(j, fanInfo, fanCategoryId, bookedDate);
+    else await createLinkedFanJob(j, fanInfo, fanCategoryId, bookedDate);
+    toast({ title: isUpdate ? "Fan Job Updated!" : "Fan Job Created!" }); handleRefresh();
+  }, [fanBookingDialogData, fanCategoryId, toast, handleRefresh, toJobForApi]);
+
+  // Roofing scan
+  const handleScanForRoofing = useCallback(async (rj: ReadinessJob) => {
+    if (rj.roofingInfo?.some(r => r.manualOverride)) { toast({ title: "Manual Override Active" }); return; }
+    setScanningRoofingJobId(rj.id);
+    try {
+      const result = await extractRoofingWithAI(rj.description || rj.summaryOfWorks || '', rj.workItems);
+      if (result) {
+        const info: RoofingInfo[] = result.hasRoofing && result.roofing.length > 0 ? result.roofing : [{ type: '__SCANNED_NO_ROOFING__', quantity: 0, location: '' }];
+        await updateJobField(rj.id, { roofing_info: info });
+        if (result.hasRoofing && result.roofing.length > 0 && roofingCategoryId) {
+          setRoofingBookingDialogData({ job: { ...rj, roofingInfo: info }, roofingInfo: result.roofing, totalRoofingCount: result.totalRoofingCount, isUpdate: !!rj.linkedRoofingJobId });
+        } else { toast({ title: result.hasRoofing ? "Roofing Found!" : "No Roofing Found" }); }
+      }
+      handleRefresh();
+    } catch { toast({ title: "Scan Failed", variant: "destructive" }); } finally { setScanningRoofingJobId(null); }
+  }, [roofingCategoryId, toast, handleRefresh, updateJobField]);
+
+  const handleRoofingBookingConfirm = useCallback(async (bookedDate: Date | null) => {
+    if (!roofingBookingDialogData || !roofingCategoryId) return;
+    const { job, roofingInfo, totalRoofingCount, isUpdate } = roofingBookingDialogData;
+    const j = toJobForApi(job);
+    if (isUpdate && job.linkedRoofingJobId) await syncLinkedRoofingJob(j, roofingInfo, roofingCategoryId, bookedDate);
+    else await createLinkedRoofingJob(j, roofingInfo, roofingCategoryId, bookedDate);
+    toast({ title: isUpdate ? "Roofing Job Updated!" : "Roofing Job Created!" }); handleRefresh();
+  }, [roofingBookingDialogData, roofingCategoryId, toast, handleRefresh, toJobForApi]);
+
+  // Flooring scan
+  const handleScanForFlooring = useCallback(async (rj: ReadinessJob) => {
+    if (rj.flooringInfo?.some(f => f.manualOverride)) { toast({ title: "Manual Override Active" }); return; }
+    setScanningFlooringJobId(rj.id);
+    try {
+      const result = await extractFlooringWithAI(rj.description || rj.summaryOfWorks || '', rj.workItems);
+      if (result) {
+        const info: FlooringInfo[] = result.hasFlooring && result.flooring.length > 0 ? result.flooring : [{ type: '__SCANNED_NO_FLOORING__', quantity: 0, location: '' }];
+        await updateJobField(rj.id, { flooring_info: info });
+        if (result.hasFlooring && result.flooring.length > 0 && flooringCategoryId) {
+          setFlooringBookingDialogData({ job: { ...rj, flooringInfo: info }, flooringInfo: result.flooring, totalFlooringCount: result.totalFlooringCount, isUpdate: !!rj.linkedFlooringJobId });
+        } else { toast({ title: result.hasFlooring ? "Flooring Found!" : "No Flooring Found" }); }
+      }
+      handleRefresh();
+    } catch { toast({ title: "Scan Failed", variant: "destructive" }); } finally { setScanningFlooringJobId(null); }
+  }, [flooringCategoryId, toast, handleRefresh, updateJobField]);
+
+  const handleFlooringBookingConfirm = useCallback(async (bookedDate: Date | null) => {
+    if (!flooringBookingDialogData || !flooringCategoryId) return;
+    const { job, flooringInfo, totalFlooringCount, isUpdate } = flooringBookingDialogData;
+    const j = toJobForApi(job);
+    if (isUpdate && job.linkedFlooringJobId) await syncLinkedFlooringJob(j, flooringInfo, flooringCategoryId, bookedDate);
+    else await createLinkedFlooringJob(j, flooringInfo, flooringCategoryId, bookedDate);
+    toast({ title: isUpdate ? "Flooring Job Updated!" : "Flooring Job Created!" }); handleRefresh();
+  }, [flooringBookingDialogData, flooringCategoryId, toast, handleRefresh, toJobForApi]);
+
+  // Editor update handlers
+  const handleUpdateFanInfo = useCallback(async (jobId: string, fanInfo: FanInfo[]) => {
+    await updateJobField(jobId, { fan_info: fanInfo }); handleRefresh();
+  }, [updateJobField, handleRefresh]);
+  const handleUpdateRoofingInfo = useCallback(async (jobId: string, roofingInfo: RoofingInfo[]) => {
+    await updateJobField(jobId, { roofing_info: roofingInfo }); handleRefresh();
+  }, [updateJobField, handleRefresh]);
+  const handleUpdateFlooringInfo = useCallback(async (jobId: string, flooringInfo: FlooringInfo[]) => {
+    await updateJobField(jobId, { flooring_info: flooringInfo }); handleRefresh();
+  }, [updateJobField, handleRefresh]);
+
   const handleSaveBlocker = useCallback(async (jobId: string) => {
     if (!blockerForm.type) return;
     setSavingBlocker(true);
