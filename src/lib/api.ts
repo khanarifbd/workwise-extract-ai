@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { Job, WorkItem, FanInfo, RoofingInfo, InsulationInfo } from "@/types/job";
+import { Job, WorkItem, FanInfo, RoofingInfo, InsulationInfo, FlooringInfo } from "@/types/job";
 import { SOR_CODES_DATABASE } from "@/data/sorCodes";
 import { Json } from "@/integrations/supabase/types";
 
