@@ -179,6 +179,8 @@ export const OverdueJobsDashboard = ({
         linkedFanJobId: data.linked_fan_job_id,
         insulationInfo: data.insulation_info as any,
         linkedInsulationJobId: data.linked_insulation_job_id,
+        roofingInfo: data.roofing_info as any,
+        linkedRoofingJobId: data.linked_roofing_job_id,
         costs: data.costs as any,
         privateNotes: data.private_notes || '',
         referBack: data.refer_back || false,
