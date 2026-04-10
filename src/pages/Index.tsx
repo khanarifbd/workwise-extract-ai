@@ -206,6 +206,8 @@ const Index = () => {
             linkedInsulationJobId: null,
             roofingInfo: null,
             linkedRoofingJobId: null,
+            flooringInfo: null,
+            linkedFlooringJobId: null,
             costs: null,
             privateNotes: extractedJob.privateNotes || '', // EPC bookings and sensitive data
           };
@@ -296,6 +298,8 @@ const Index = () => {
         linkedInsulationJobId: null,
         roofingInfo: null,
         linkedRoofingJobId: null,
+            flooringInfo: null,
+            linkedFlooringJobId: null,
         costs: null,
         privateNotes: '',
         referBack: false,
@@ -445,6 +449,8 @@ const Index = () => {
               linkedInsulationJobId: null,
               roofingInfo: null,
               linkedRoofingJobId: null,
+            flooringInfo: null,
+            linkedFlooringJobId: null,
               costs: null,
               privateNotes: extractedJob.privateNotes || '', // EPC bookings
             };
