@@ -306,6 +306,7 @@ export type Database = {
           job_number: string
           linked_fan_job_id: string | null
           linked_insulation_job_id: string | null
+          linked_roofing_job_id: string | null
           name: string
           ongoing_reason: string | null
           phone_number: string | null
@@ -315,6 +316,7 @@ export type Database = {
           refer_back: boolean
           refer_back_date: string | null
           refer_back_reason: string | null
+          roofing_info: Json | null
           scheduled_trades: Json | null
           start_date: string | null
           status: string | null
@@ -351,6 +353,7 @@ export type Database = {
           job_number: string
           linked_fan_job_id?: string | null
           linked_insulation_job_id?: string | null
+          linked_roofing_job_id?: string | null
           name: string
           ongoing_reason?: string | null
           phone_number?: string | null
@@ -360,6 +363,7 @@ export type Database = {
           refer_back?: boolean
           refer_back_date?: string | null
           refer_back_reason?: string | null
+          roofing_info?: Json | null
           scheduled_trades?: Json | null
           start_date?: string | null
           status?: string | null
@@ -396,6 +400,7 @@ export type Database = {
           job_number?: string
           linked_fan_job_id?: string | null
           linked_insulation_job_id?: string | null
+          linked_roofing_job_id?: string | null
           name?: string
           ongoing_reason?: string | null
           phone_number?: string | null
@@ -405,6 +410,7 @@ export type Database = {
           refer_back?: boolean
           refer_back_date?: string | null
           refer_back_reason?: string | null
+          roofing_info?: Json | null
           scheduled_trades?: Json | null
           start_date?: string | null
           status?: string | null
