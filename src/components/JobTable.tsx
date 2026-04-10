@@ -297,6 +297,17 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
     return !wasScannedNoFans(fanInfo);
   };
 
+  // Roofing scan helpers
+  const wasScannedNoRoofing = (roofingInfo: RoofingInfo[] | null): boolean => {
+    if (!roofingInfo || roofingInfo.length === 0) return false;
+    return roofingInfo.length === 1 && roofingInfo[0].type === '__SCANNED_NO_ROOFING__';
+  };
+
+  const hasActualRoofing = (roofingInfo: RoofingInfo[] | null): boolean => {
+    if (!roofingInfo || roofingInfo.length === 0) return false;
+    return !wasScannedNoRoofing(roofingInfo);
+  };
+
   const handleStatusChange = (jobId: string, status: JobStatus, isComplete: boolean) => {
     const job = jobs.find(j => j.id === jobId);
     if (job) {
