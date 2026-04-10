@@ -20,7 +20,7 @@ import {
   CalendarDays, Tag, Save, RotateCcw, BarChart3, Loader2,
   CalendarPlus, SendHorizonal, UserPlus, StickyNote, Bell, BellRing,
   Plus, Trash2, ChevronDown, ChevronUp, CheckCircle2, Link2, CircleDot,
-  Fan, Wand2,
+  Wand2,
 } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { format, isPast, isToday } from 'date-fns';
