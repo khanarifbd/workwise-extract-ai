@@ -103,12 +103,19 @@ const withRetry = async <T>(
 
 // Extract fans from job description
 export const extractFansWithAI = async (description: string, workItems: WorkItem[]): Promise<{ hasFans: boolean; fans: FanInfo[]; totalFanCount: number } | null> => {
+  const hasDescription = description && description.trim().length > 0;
+  const hasWorkItems = workItems && workItems.length > 0;
+  
+  if (!hasDescription && !hasWorkItems) {
+    return { hasFans: false, fans: [], totalFanCount: 0 };
+  }
+
   return withRetry(async () => {
     const headers = await getAuthHeaders();
     const { data, error } = await supabase.functions.invoke('extract-fans', {
       body: { 
-        description,
-        workItems
+        ...(hasDescription ? { description } : {}),
+        ...(hasWorkItems ? { workItems } : {})
       },
       headers
     });
