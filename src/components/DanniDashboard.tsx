@@ -1,7 +1,7 @@
 import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { NotepadPanel } from '@/components/DanniNotepadPanel';
 import { DanniNewJobPanel } from '@/components/DanniNewJobPanel';
-import { Job, Attachment, WorkItem } from '@/types/job';
+import { Job, Attachment, WorkItem, FanInfo, RoofingInfo, FlooringInfo } from '@/types/job';
 import { ContactCell } from '@/components/ContactCell';
 import { useAllContactHistory } from '@/hooks/useContactHistory';
 import { HighlightText } from '@/components/HighlightText';
@@ -19,7 +19,8 @@ import {
   Camera, FileText, Wrench, ShieldAlert, DoorOpen, PenLine,
   CalendarDays, Tag, Save, RotateCcw, BarChart3, Loader2,
   CalendarPlus, SendHorizonal, UserPlus, StickyNote, Bell, BellRing,
-  Plus, Trash2, ChevronDown, ChevronUp, CheckCircle2, Link2, CircleDot
+  Plus, Trash2, ChevronDown, ChevronUp, CheckCircle2, Link2, CircleDot,
+  Fan, Wand2,
 } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { format, isPast, isToday } from 'date-fns';
@@ -28,6 +29,13 @@ import { getGMTNow, getHoursDifferenceGMT } from '@/lib/dateUtils';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useTeamSettings } from '@/hooks/useTeamSettings';
+import { FanEditor } from '@/components/FanEditor';
+import { FanBookingDateDialog } from '@/components/FanBookingDateDialog';
+import { RoofingEditor } from '@/components/RoofingEditor';
+import { RoofingBookingDateDialog } from '@/components/RoofingBookingDateDialog';
+import { FlooringEditor } from '@/components/FlooringEditor';
+import { FlooringBookingDateDialog } from '@/components/FlooringBookingDateDialog';
+import { extractFansWithAI, createLinkedFanJob, syncLinkedFanJob, extractRoofingWithAI, createLinkedRoofingJob, syncLinkedRoofingJob, extractFlooringWithAI, createLinkedFlooringJob, syncLinkedFlooringJob } from '@/lib/api';
 
 // Blocker types with metadata
 const BLOCKER_TYPES = [
