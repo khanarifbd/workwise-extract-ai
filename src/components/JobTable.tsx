@@ -113,7 +113,7 @@ const findDuplicates = (jobs: Job[]): Set<string> => {
   return duplicates;
 };
 
-export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onBatchUpdateTeam, onTransferJob, onDuplicateToCategory, onReferBack, fanCategoryId, onFanJobCreated, isFanCategory = false, currentCategoryId, categories = [], readOnly = false, searchTerm, tradeBookings = new Map(), getSignOffStatus: getSignOffStatusProp }, ref) => {
+export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onBatchUpdateTeam, onTransferJob, onDuplicateToCategory, onReferBack, fanCategoryId, onFanJobCreated, roofingCategoryId, onRoofingJobCreated, isFanCategory = false, currentCategoryId, categories = [], readOnly = false, searchTerm, tradeBookings = new Map(), getSignOffStatus: getSignOffStatusProp }, ref) => {
   const [showTeamSelector, setShowTeamSelector] = useState<string | null>(null);
   const [showTransferModal, setShowTransferModal] = useState<Job | null>(null);
   const [showJobDetails, setShowJobDetails] = useState<Job | null>(null);
@@ -121,6 +121,7 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
   const [selectedJobs, setSelectedJobs] = useState<Set<string>>(new Set());
   const [showBatchTeamSelector, setShowBatchTeamSelector] = useState(false);
   const [scanningFanJobId, setScanningFanJobId] = useState<string | null>(null);
+  const [scanningRoofingJobId, setScanningRoofingJobId] = useState<string | null>(null);
   const [isBulkScanning, setIsBulkScanning] = useState(false);
   const [duplicateActionJob, setDuplicateActionJob] = useState<Job | null>(null);
   const [signOffHistoryJob, setSignOffHistoryJob] = useState<Job | null>(null);
@@ -129,6 +130,13 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
     job: Job;
     fanInfo: FanInfo[];
     totalFanCount: number;
+    isUpdate: boolean;
+  } | null>(null);
+  // Roofing booking date dialog state
+  const [roofingBookingDialogData, setRoofingBookingDialogData] = useState<{
+    job: Job;
+    roofingInfo: RoofingInfo[];
+    totalRoofingCount: number;
     isUpdate: boolean;
   } | null>(null);
   const { toast } = useToast();
