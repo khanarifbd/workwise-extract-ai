@@ -1729,6 +1729,7 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
         />
       )}
     </>
+  );
 });
 
 JobTable.displayName = 'JobTable';
