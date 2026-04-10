@@ -748,6 +748,7 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
               <th className="w-28">Status</th>
               <th className="min-w-[200px]">Description</th>
               <th className="w-24">Fan</th>
+              <th className="w-24">Roof</th>
               <th className="w-40">Ongoing Notes</th>
               <th className="w-36">Booked/End</th>
               <th className="w-20">Files</th>
