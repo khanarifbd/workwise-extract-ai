@@ -1520,6 +1520,20 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
           onConfirm={handleFanBookingConfirm}
         />
       )}
+
+      {/* Roofing Booking Date Dialog */}
+      {roofingBookingDialogData && (
+        <RoofingBookingDateDialog
+          open={!!roofingBookingDialogData}
+          onOpenChange={(open) => {
+            if (!open) setRoofingBookingDialogData(null);
+          }}
+          job={roofingBookingDialogData.job}
+          roofingInfo={roofingBookingDialogData.roofingInfo}
+          totalRoofingCount={roofingBookingDialogData.totalRoofingCount}
+          onConfirm={handleRoofingBookingConfirm}
+        />
+      )}
     </>
   );
 });
