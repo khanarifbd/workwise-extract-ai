@@ -1159,6 +1159,87 @@ export const DanniDashboard = ({
                               <Wrench className="w-3 h-3" />
                             </span>
                           </div>
+                          {/* Fan/Roofing/Flooring scan badges */}
+                          <div className="flex items-center gap-1 ml-1" onClick={(e) => e.stopPropagation()}>
+                            {/* Fan */}
+                            {(() => {
+                              const hasFanData = job.fanInfo && job.fanInfo.length > 0 && !job.fanInfo.some(f => f.type === '__SCANNED_NO_FANS__');
+                              const wasScanned = job.fanInfo && job.fanInfo.length > 0;
+                              return hasFanData ? (
+                                <FanEditor
+                                  fanInfo={job.fanInfo}
+                                  onUpdate={(fi) => handleUpdateFanInfo(job.id, fi)}
+                                  job={toJobForApi(job)}
+                                  fanCategoryId={fanCategoryId}
+                                  onJobUpdated={() => handleRefresh()}
+                                />
+                              ) : (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-5 px-1.5 text-[10px] gap-0.5"
+                                  onClick={() => handleScanForFans(job)}
+                                  disabled={scanningFanJobId === job.id}
+                                  title={wasScanned ? "Re-scan for fans" : "Scan for fans"}
+                                >
+                                  {scanningFanJobId === job.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <><Fan className="w-3 h-3" /><Wand2 className="w-2.5 h-2.5" /></>}
+                                  {wasScanned ? '🔄' : '🪭'}
+                                </Button>
+                              );
+                            })()}
+                            {/* Roofing */}
+                            {(() => {
+                              const hasRoofData = job.roofingInfo && job.roofingInfo.length > 0 && !job.roofingInfo.some(r => r.type === '__SCANNED_NO_ROOFING__');
+                              const wasScanned = job.roofingInfo && job.roofingInfo.length > 0;
+                              return hasRoofData ? (
+                                <RoofingEditor
+                                  roofingInfo={job.roofingInfo}
+                                  onUpdate={(ri) => handleUpdateRoofingInfo(job.id, ri)}
+                                  job={toJobForApi(job)}
+                                  roofingCategoryId={roofingCategoryId}
+                                  onJobUpdated={() => handleRefresh()}
+                                />
+                              ) : (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-5 px-1.5 text-[10px] gap-0.5"
+                                  onClick={() => handleScanForRoofing(job)}
+                                  disabled={scanningRoofingJobId === job.id}
+                                  title={wasScanned ? "Re-scan for roofing" : "Scan for roofing"}
+                                >
+                                  {scanningRoofingJobId === job.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-2.5 h-2.5" />}
+                                  {wasScanned ? '🔄' : '🏠'}
+                                </Button>
+                              );
+                            })()}
+                            {/* Flooring */}
+                            {(() => {
+                              const hasFloorData = job.flooringInfo && job.flooringInfo.length > 0 && !job.flooringInfo.some(f => f.type === '__SCANNED_NO_FLOORING__');
+                              const wasScanned = job.flooringInfo && job.flooringInfo.length > 0;
+                              return hasFloorData ? (
+                                <FlooringEditor
+                                  flooringInfo={job.flooringInfo}
+                                  onUpdate={(fi) => handleUpdateFlooringInfo(job.id, fi)}
+                                  job={toJobForApi(job)}
+                                  flooringCategoryId={flooringCategoryId}
+                                  onJobUpdated={() => handleRefresh()}
+                                />
+                              ) : (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-5 px-1.5 text-[10px] gap-0.5"
+                                  onClick={() => handleScanForFlooring(job)}
+                                  disabled={scanningFlooringJobId === job.id}
+                                  title={wasScanned ? "Re-scan for flooring" : "Scan for flooring"}
+                                >
+                                  {scanningFlooringJobId === job.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-2.5 h-2.5" />}
+                                  {wasScanned ? '🔄' : '🪵'}
+                                </Button>
+                              );
+                            })()}
+                          </div>
                         </div>
 
                         <h3 className="font-semibold text-foreground mt-1 truncate text-sm">
