@@ -1714,8 +1714,21 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
           onConfirm={handleRoofingBookingConfirm}
         />
       )}
+
+      {/* Flooring Booking Date Dialog */}
+      {flooringBookingDialogData && (
+        <FlooringBookingDateDialog
+          open={!!flooringBookingDialogData}
+          onOpenChange={(open) => {
+            if (!open) setFlooringBookingDialogData(null);
+          }}
+          job={flooringBookingDialogData.job}
+          flooringInfo={flooringBookingDialogData.flooringInfo}
+          totalFlooringCount={flooringBookingDialogData.totalFlooringCount}
+          onConfirm={handleFlooringBookingConfirm}
+        />
+      )}
     </>
-  );
 });
 
 JobTable.displayName = 'JobTable';
