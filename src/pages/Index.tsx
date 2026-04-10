@@ -1747,6 +1747,8 @@ const Index = () => {
                   onReferBack={canEdit ? handleReferBack : undefined}
                   fanCategoryId={categories.find(c => c.name.toLowerCase().includes('fan'))?.id}
                   onFanJobCreated={canEdit ? refreshJobs : undefined}
+                  roofingCategoryId={categories.find(c => c.slug === 'roofing')?.id}
+                  onRoofingJobCreated={canEdit ? refreshJobs : undefined}
                   isFanCategory={isFanCategory}
                   currentCategoryId={activeCategory || undefined}
                   categories={categories.map(c => ({ id: c.id, name: c.name, color: c.color }))}
