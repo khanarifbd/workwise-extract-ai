@@ -497,6 +497,8 @@ export function mapDatabaseJobToJob(dbJob: any): Job {
     linkedInsulationJobId: dbJob.linked_insulation_job_id || null,
     roofingInfo: dbJob.roofing_info || null,
     linkedRoofingJobId: dbJob.linked_roofing_job_id || null,
+    flooringInfo: dbJob.flooring_info || null,
+    linkedFlooringJobId: dbJob.linked_flooring_job_id || null,
     costs: dbJob.costs || null,
     privateNotes: dbJob.private_notes || '',
     referBack: dbJob.refer_back || false,
@@ -871,6 +873,8 @@ export const mapJobToDatabase = (job: Partial<Job>): any => {
   if ((job as any).linkedInsulationJobId !== undefined) dbJob.linked_insulation_job_id = (job as any).linkedInsulationJobId;
   if (job.roofingInfo !== undefined) dbJob.roofing_info = job.roofingInfo;
   if (job.linkedRoofingJobId !== undefined) dbJob.linked_roofing_job_id = job.linkedRoofingJobId;
+  if ((job as any).flooringInfo !== undefined) dbJob.flooring_info = (job as any).flooringInfo;
+  if ((job as any).linkedFlooringJobId !== undefined) dbJob.linked_flooring_job_id = (job as any).linkedFlooringJobId;
   if (job.costs !== undefined) dbJob.costs = job.costs;
   if (job.privateNotes !== undefined) dbJob.private_notes = job.privateNotes;
   if (job.referBack !== undefined) dbJob.refer_back = job.referBack;
