@@ -78,6 +78,8 @@ interface JobTableProps {
   onReferBack?: (job: Job, reason?: string) => void;
   fanCategoryId?: string;
   onFanJobCreated?: () => void;
+  roofingCategoryId?: string;
+  onRoofingJobCreated?: () => void;
   isFanCategory?: boolean;
   currentCategoryId?: string;
   categories?: { id: string; name: string; color: string }[];
