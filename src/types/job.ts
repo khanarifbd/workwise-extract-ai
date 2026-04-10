@@ -61,6 +61,13 @@ export interface InsulationInfo {
   manualOverride?: boolean;
 }
 
+export interface FlooringInfo {
+  type: string;
+  quantity: number;
+  location: string;
+  manualOverride?: boolean;
+}
+
 export interface JobCosts {
   materials: number;
   labour: number;
