@@ -82,6 +82,8 @@ interface JobTableProps {
   onFanJobCreated?: () => void;
   roofingCategoryId?: string;
   onRoofingJobCreated?: () => void;
+  flooringCategoryId?: string;
+  onFlooringJobCreated?: () => void;
   isFanCategory?: boolean;
   currentCategoryId?: string;
   categories?: { id: string; name: string; color: string }[];
