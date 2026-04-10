@@ -488,6 +488,8 @@ export function mapDatabaseJobToJob(dbJob: any): Job {
     linkedFanJobId: dbJob.linked_fan_job_id || null,
     insulationInfo: dbJob.insulation_info || null,
     linkedInsulationJobId: dbJob.linked_insulation_job_id || null,
+    roofingInfo: dbJob.roofing_info || null,
+    linkedRoofingJobId: dbJob.linked_roofing_job_id || null,
     costs: dbJob.costs || null,
     privateNotes: dbJob.private_notes || '',
     referBack: dbJob.refer_back || false,
