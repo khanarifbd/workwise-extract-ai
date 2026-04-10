@@ -165,22 +165,31 @@ export const DanniDashboard = ({
   // Fetch DM jobs directly from database
   const fetchDmJobs = useCallback(async () => {
     try {
-      // Get DM category ID
-      const { data: catData } = await supabase
-        .from('categories')
-        .select('id')
-        .eq('slug', 'dm-jobs')
-        .single();
+      // Get DM category ID + other category IDs in parallel
+      const [dmCatRes, allCatsRes] = await Promise.all([
+        supabase.from('categories').select('id').eq('slug', 'dm-jobs').single(),
+        supabase.from('categories').select('id, name, slug'),
+      ]);
 
-      if (!catData) return;
-      const dmCatId = catData.id;
+      if (!dmCatRes.data) return;
+      const dmCatId = dmCatRes.data.id;
       setDmCategoryId(dmCatId);
+
+      // Set category IDs for Fan, Roofing, Flooring
+      if (allCatsRes.data) {
+        const fanCat = allCatsRes.data.find((c: any) => c.name.toLowerCase().includes('fan'));
+        const roofCat = allCatsRes.data.find((c: any) => c.slug === 'roofing' || c.name.toLowerCase().includes('roofing'));
+        const floorCat = allCatsRes.data.find((c: any) => c.name.toLowerCase().includes('flooring'));
+        if (fanCat) setFanCategoryId(fanCat.id);
+        if (roofCat) setRoofingCategoryId(roofCat.id);
+        if (floorCat) setFlooringCategoryId(floorCat.id);
+      }
 
       // Fetch DM jobs and sign-offs in parallel
       const [jobsRes, signOffRes] = await Promise.all([
         supabase
           .from('jobs')
-          .select('id, job_number, name, address, phone_number, team, team2, description, attachments, booked_date, status, is_completed, is_ongoing, blocker_type, blocker_notes, blocker_chase_date, refer_back, ongoing_reason')
+          .select('id, job_number, name, address, phone_number, team, team2, description, summary_of_works, work_items, attachments, booked_date, status, is_completed, is_ongoing, blocker_type, blocker_notes, blocker_chase_date, refer_back, ongoing_reason, fan_info, linked_fan_job_id, roofing_info, linked_roofing_job_id, flooring_info, linked_flooring_job_id')
           .eq('category_id', dmCatId)
           .is('deleted_at', null),
         supabase
