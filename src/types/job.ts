@@ -45,6 +45,13 @@ export interface FanInfo {
   manualOverride?: boolean; // When true, auto-scan should not overwrite this
 }
 
+export interface RoofingInfo {
+  type: string;
+  quantity: number;
+  location: string;
+  manualOverride?: boolean;
+}
+
 export interface InsulationInfo {
   type: string;
   quantity: number;
@@ -103,6 +110,8 @@ export interface Job {
   linkedFanJobId: string | null;
   insulationInfo: InsulationInfo[] | null;
   linkedInsulationJobId: string | null;
+  roofingInfo: RoofingInfo[] | null;
+  linkedRoofingJobId: string | null;
   costs: JobCosts | null;
   privateNotes: string; // Admin-only notes, not visible in team portal
   referBack: boolean; // Job referred back to NPH as uncompletable
