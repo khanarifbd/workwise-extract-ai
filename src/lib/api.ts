@@ -862,6 +862,8 @@ export const mapJobToDatabase = (job: Partial<Job>): any => {
   if (job.linkedFanJobId !== undefined) dbJob.linked_fan_job_id = job.linkedFanJobId;
   if ((job as any).insulationInfo !== undefined) dbJob.insulation_info = (job as any).insulationInfo;
   if ((job as any).linkedInsulationJobId !== undefined) dbJob.linked_insulation_job_id = (job as any).linkedInsulationJobId;
+  if (job.roofingInfo !== undefined) dbJob.roofing_info = job.roofingInfo;
+  if (job.linkedRoofingJobId !== undefined) dbJob.linked_roofing_job_id = job.linkedRoofingJobId;
   if (job.costs !== undefined) dbJob.costs = job.costs;
   if (job.privateNotes !== undefined) dbJob.private_notes = job.privateNotes;
   if (job.referBack !== undefined) dbJob.refer_back = job.referBack;
