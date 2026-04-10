@@ -403,6 +403,8 @@ export const DanniDashboard = ({
         team: raw.team,
         team2: raw.team2,
         description: raw.description || '',
+        summaryOfWorks: raw.summary_of_works || '',
+        workItems: Array.isArray(raw.work_items) ? (raw.work_items as any[]) : [],
         attachments,
         bookedDate: bookedDate || new Date(),
         status: raw.status || 'pending',
@@ -418,6 +420,12 @@ export const DanniDashboard = ({
         hasSignOff: false,
         hasTradePending,
         autoBlocker,
+        fanInfo: Array.isArray(raw.fan_info) ? (raw.fan_info as any[]) : null,
+        linkedFanJobId: raw.linked_fan_job_id,
+        roofingInfo: Array.isArray(raw.roofing_info) ? (raw.roofing_info as any[]) : null,
+        linkedRoofingJobId: raw.linked_roofing_job_id,
+        flooringInfo: Array.isArray(raw.flooring_info) ? (raw.flooring_info as any[]) : null,
+        linkedFlooringJobId: raw.linked_flooring_job_id,
       });
     }
 
