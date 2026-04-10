@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { Job, WorkItem, FanInfo, InsulationInfo } from "@/types/job";
+import { Job, WorkItem, FanInfo, RoofingInfo, InsulationInfo } from "@/types/job";
 import { SOR_CODES_DATABASE } from "@/data/sorCodes";
 import { Json } from "@/integrations/supabase/types";
 
@@ -1171,6 +1171,211 @@ export const syncLinkedInsulationJob = async (
     .eq('id', sourceJob.id);
 
   return { linkedInsulationJobId: data.id, created: true };
+};
+
+// Extract roofing from job description using AI
+export const extractRoofingWithAI = async (description: string, workItems: WorkItem[]): Promise<{ hasRoofing: boolean; roofing: RoofingInfo[]; totalRoofingCount: number } | null> => {
+  return withRetry(async () => {
+    const headers = await getAuthHeaders();
+    const { data, error } = await supabase.functions.invoke('extract-roofing', {
+      body: { description, workItems },
+      headers
+    });
+
+    if (error) {
+      console.error('Error calling extract-roofing function:', error);
+      throw error;
+    }
+
+    if (!data?.success) {
+      throw new Error(data?.error || 'Failed to extract roofing');
+    }
+
+    return data.data;
+  });
+};
+
+// Create a linked roofing job from an existing job
+export const createLinkedRoofingJob = async (
+  sourceJob: Job,
+  roofingInfo: RoofingInfo[],
+  roofingCategoryId: string,
+  bookedDate?: Date | null
+): Promise<Job> => {
+  const roofingDescription = roofingInfo.map(item =>
+    `${item.type} x${item.quantity}${item.location ? ` - ${item.location}` : ''}`
+  ).join('\n');
+
+  const roofingJob: Omit<Job, 'id'> = {
+    jobNumber: `${sourceJob.jobNumber}-ROOF`,
+    name: sourceJob.name,
+    address: sourceJob.address,
+    phoneNumber: sourceJob.phoneNumber,
+    summaryOfWorks: `Roofing from ${sourceJob.jobNumber}`,
+    description: roofingDescription,
+    workItems: [],
+    additionalWorks: [],
+    team: null,
+    team2: null,
+    progress: 0,
+    progressNotes: '',
+    isCompleted: false,
+    isOngoing: false,
+    ongoingReason: '',
+    scheduledTrades: [],
+    createdAt: new Date(),
+    dateIssued: new Date(),
+    bookedDate: bookedDate || null,
+    isFlexibleBooking: false,
+    bookingNotes: '',
+    completionDate: null,
+    attachments: [],
+    status: 'pending',
+    fanInfo: null,
+    linkedFanJobId: null,
+    insulationInfo: null,
+    linkedInsulationJobId: null,
+    roofingInfo: roofingInfo,
+    linkedRoofingJobId: null,
+    costs: null,
+    privateNotes: '',
+    referBack: false,
+    referBackReason: '',
+    referBackDate: null,
+    expectedCompletionDate: null,
+    blockerType: null,
+    blockerNotes: '',
+    blockerSetAt: null,
+    blockerChaseDate: null,
+  };
+
+  const dbJob = mapJobToDatabase(roofingJob);
+  dbJob.category_id = roofingCategoryId;
+
+  const { data, error } = await supabase
+    .from('jobs')
+    .insert(dbJob)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating linked roofing job:', error);
+    throw error;
+  }
+
+  await supabase
+    .from('jobs')
+    .update({ linked_roofing_job_id: data.id })
+    .eq('id', sourceJob.id);
+
+  return mapDatabaseJobToJob(data);
+};
+
+// Sync (create or update) a linked roofing job
+export const syncLinkedRoofingJob = async (
+  sourceJob: Job,
+  roofingInfo: RoofingInfo[],
+  roofingCategoryId: string,
+  bookedDate?: Date | null
+): Promise<{ linkedRoofingJobId: string; created: boolean }> => {
+  const roofingDescription = roofingInfo.map(item =>
+    `${item.type} x${item.quantity}${item.location ? ` - ${item.location}` : ''}`
+  ).join('\n');
+
+  if (sourceJob.linkedRoofingJobId) {
+    const updateData: any = {
+      roofing_info: roofingInfo as unknown as Json,
+      description: roofingDescription,
+    };
+    
+    if (bookedDate !== undefined) {
+      updateData.booked_date = bookedDate ? formatDateOnly(bookedDate) : null;
+    }
+
+    const { error } = await supabase
+      .from('jobs')
+      .update(updateData)
+      .eq('id', sourceJob.linkedRoofingJobId);
+
+    if (error) {
+      console.error('Error updating linked roofing job:', error);
+      throw error;
+    }
+
+    await supabase
+      .from('jobs')
+      .update({ roofing_info: roofingInfo as unknown as Json })
+      .eq('id', sourceJob.id);
+
+    return { linkedRoofingJobId: sourceJob.linkedRoofingJobId, created: false };
+  }
+
+  const roofingJob: Omit<Job, 'id'> = {
+    jobNumber: `${sourceJob.jobNumber}-ROOF`,
+    name: sourceJob.name,
+    address: sourceJob.address,
+    phoneNumber: sourceJob.phoneNumber,
+    summaryOfWorks: `Roofing from ${sourceJob.jobNumber}`,
+    description: roofingDescription,
+    workItems: [],
+    additionalWorks: [],
+    team: null,
+    team2: null,
+    progress: 0,
+    progressNotes: '',
+    isCompleted: false,
+    isOngoing: false,
+    ongoingReason: '',
+    scheduledTrades: [],
+    createdAt: new Date(),
+    dateIssued: new Date(),
+    bookedDate: bookedDate || null,
+    isFlexibleBooking: false,
+    bookingNotes: '',
+    completionDate: null,
+    attachments: [],
+    status: 'pending',
+    fanInfo: null,
+    linkedFanJobId: null,
+    insulationInfo: null,
+    linkedInsulationJobId: null,
+    roofingInfo: roofingInfo,
+    linkedRoofingJobId: null,
+    costs: null,
+    privateNotes: '',
+    referBack: false,
+    referBackReason: '',
+    referBackDate: null,
+    expectedCompletionDate: null,
+    blockerType: null,
+    blockerNotes: '',
+    blockerSetAt: null,
+    blockerChaseDate: null,
+  };
+
+  const dbJob = mapJobToDatabase(roofingJob);
+  dbJob.category_id = roofingCategoryId;
+
+  const { data, error } = await supabase
+    .from('jobs')
+    .insert(dbJob)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating linked roofing job:', error);
+    throw error;
+  }
+
+  await supabase
+    .from('jobs')
+    .update({
+      linked_roofing_job_id: data.id,
+      roofing_info: roofingInfo as unknown as Json
+    })
+    .eq('id', sourceJob.id);
+
+  return { linkedRoofingJobId: data.id, created: true };
 };
 
 // Notification history functions
