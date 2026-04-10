@@ -1182,10 +1182,20 @@ export const syncLinkedInsulationJob = async (
 
 // Extract roofing from job description using AI
 export const extractRoofingWithAI = async (description: string, workItems: WorkItem[]): Promise<{ hasRoofing: boolean; roofing: RoofingInfo[]; totalRoofingCount: number } | null> => {
+  const hasDescription = description && description.trim().length > 0;
+  const hasWorkItems = workItems && workItems.length > 0;
+  
+  if (!hasDescription && !hasWorkItems) {
+    return { hasRoofing: false, roofing: [], totalRoofingCount: 0 };
+  }
+
   return withRetry(async () => {
     const headers = await getAuthHeaders();
     const { data, error } = await supabase.functions.invoke('extract-roofing', {
-      body: { description, workItems },
+      body: { 
+        ...(hasDescription ? { description } : {}),
+        ...(hasWorkItems ? { workItems } : {})
+      },
       headers
     });
 
