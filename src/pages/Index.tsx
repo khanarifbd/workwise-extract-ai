@@ -204,6 +204,8 @@ const Index = () => {
             linkedFanJobId: null,
             insulationInfo: extractedJob.insulationInfo || null,
             linkedInsulationJobId: null,
+            roofingInfo: null,
+            linkedRoofingJobId: null,
             costs: null,
             privateNotes: extractedJob.privateNotes || '', // EPC bookings and sensitive data
           };
@@ -292,6 +294,8 @@ const Index = () => {
         linkedFanJobId: null,
         insulationInfo: null,
         linkedInsulationJobId: null,
+        roofingInfo: null,
+        linkedRoofingJobId: null,
         costs: null,
         privateNotes: '',
         referBack: false,
@@ -439,6 +443,8 @@ const Index = () => {
               linkedFanJobId: null,
               insulationInfo: extractedJob.insulationInfo || null,
               linkedInsulationJobId: null,
+              roofingInfo: null,
+              linkedRoofingJobId: null,
               costs: null,
               privateNotes: extractedJob.privateNotes || '', // EPC bookings
             };
@@ -1741,6 +1747,8 @@ const Index = () => {
                   onReferBack={canEdit ? handleReferBack : undefined}
                   fanCategoryId={categories.find(c => c.name.toLowerCase().includes('fan'))?.id}
                   onFanJobCreated={canEdit ? refreshJobs : undefined}
+                  roofingCategoryId={categories.find(c => c.slug === 'roofing')?.id}
+                  onRoofingJobCreated={canEdit ? refreshJobs : undefined}
                   isFanCategory={isFanCategory}
                   currentCategoryId={activeCategory || undefined}
                   categories={categories.map(c => ({ id: c.id, name: c.name, color: c.color }))}

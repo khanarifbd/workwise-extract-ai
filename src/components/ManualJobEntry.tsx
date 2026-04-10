@@ -163,6 +163,8 @@ export const ManualJobEntry = forwardRef<HTMLDivElement, ManualJobEntryProps>(({
         linkedFanJobId: null,
         insulationInfo: null,
         linkedInsulationJobId: null,
+        roofingInfo: null,
+        linkedRoofingJobId: null,
         costs: null,
         privateNotes: '',
         referBack: false,

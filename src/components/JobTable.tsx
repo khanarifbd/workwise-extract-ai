@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, forwardRef, useCallback } from 'react';
 import { BulkTeamAssignModal } from './BulkTeamAssignModal';
-import { Job, JobStatus, FanInfo, Team } from '@/types/job';
+import { Job, JobStatus, FanInfo, RoofingInfo, Team } from '@/types/job';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -33,12 +33,14 @@ import { JobDetailsModal } from './JobDetailsModal';
 import { InlineDescriptionEditor } from './InlineDescriptionEditor';
 import { FanEditor } from './FanEditor';
 import { FanBookingDateDialog } from './FanBookingDateDialog';
+import { RoofingEditor } from './RoofingEditor';
+import { RoofingBookingDateDialog } from './RoofingBookingDateDialog';
 import { OngoingNotesEditor } from './OngoingNotesEditor';
 import { ContactCell } from './ContactCell';
 import { BookedDateCell } from './BookedDateCell';
 import { SignOffStatusIndicator } from './SignOffStatusIndicator';
 import { SignOffHistoryModal } from './SignOffHistoryModal';
-import { extractFansWithAI, createLinkedFanJob, syncLinkedFanJob } from '@/lib/api';
+import { extractFansWithAI, createLinkedFanJob, syncLinkedFanJob, extractRoofingWithAI, createLinkedRoofingJob, syncLinkedRoofingJob } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { useTeamSettings } from '@/hooks/useTeamSettings';
 import { useTeamAvailability } from '@/hooks/useTeamAvailability';
@@ -76,6 +78,8 @@ interface JobTableProps {
   onReferBack?: (job: Job, reason?: string) => void;
   fanCategoryId?: string;
   onFanJobCreated?: () => void;
+  roofingCategoryId?: string;
+  onRoofingJobCreated?: () => void;
   isFanCategory?: boolean;
   currentCategoryId?: string;
   categories?: { id: string; name: string; color: string }[];
@@ -109,7 +113,7 @@ const findDuplicates = (jobs: Job[]): Set<string> => {
   return duplicates;
 };
 
-export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onBatchUpdateTeam, onTransferJob, onDuplicateToCategory, onReferBack, fanCategoryId, onFanJobCreated, isFanCategory = false, currentCategoryId, categories = [], readOnly = false, searchTerm, tradeBookings = new Map(), getSignOffStatus: getSignOffStatusProp }, ref) => {
+export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onBatchUpdateTeam, onTransferJob, onDuplicateToCategory, onReferBack, fanCategoryId, onFanJobCreated, roofingCategoryId, onRoofingJobCreated, isFanCategory = false, currentCategoryId, categories = [], readOnly = false, searchTerm, tradeBookings = new Map(), getSignOffStatus: getSignOffStatusProp }, ref) => {
   const [showTeamSelector, setShowTeamSelector] = useState<string | null>(null);
   const [showTransferModal, setShowTransferModal] = useState<Job | null>(null);
   const [showJobDetails, setShowJobDetails] = useState<Job | null>(null);
@@ -117,6 +121,7 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
   const [selectedJobs, setSelectedJobs] = useState<Set<string>>(new Set());
   const [showBatchTeamSelector, setShowBatchTeamSelector] = useState(false);
   const [scanningFanJobId, setScanningFanJobId] = useState<string | null>(null);
+  const [scanningRoofingJobId, setScanningRoofingJobId] = useState<string | null>(null);
   const [isBulkScanning, setIsBulkScanning] = useState(false);
   const [duplicateActionJob, setDuplicateActionJob] = useState<Job | null>(null);
   const [signOffHistoryJob, setSignOffHistoryJob] = useState<Job | null>(null);
@@ -125,6 +130,13 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
     job: Job;
     fanInfo: FanInfo[];
     totalFanCount: number;
+    isUpdate: boolean;
+  } | null>(null);
+  // Roofing booking date dialog state
+  const [roofingBookingDialogData, setRoofingBookingDialogData] = useState<{
+    job: Job;
+    roofingInfo: RoofingInfo[];
+    totalRoofingCount: number;
     isUpdate: boolean;
   } | null>(null);
   const { toast } = useToast();
@@ -285,6 +297,17 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
     return !wasScannedNoFans(fanInfo);
   };
 
+  // Roofing scan helpers
+  const wasScannedNoRoofing = (roofingInfo: RoofingInfo[] | null): boolean => {
+    if (!roofingInfo || roofingInfo.length === 0) return false;
+    return roofingInfo.length === 1 && roofingInfo[0].type === '__SCANNED_NO_ROOFING__';
+  };
+
+  const hasActualRoofing = (roofingInfo: RoofingInfo[] | null): boolean => {
+    if (!roofingInfo || roofingInfo.length === 0) return false;
+    return !wasScannedNoRoofing(roofingInfo);
+  };
+
   const handleStatusChange = (jobId: string, status: JobStatus, isComplete: boolean) => {
     const job = jobs.find(j => j.id === jobId);
     if (job) {
@@ -420,6 +443,103 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
       toast({
         title: "Error",
         description: "Failed to create/update fan job. Please try again.",
+        variant: "destructive",
+      });
+      throw error;
+    }
+  };
+
+  // Handle roofing scan for a single job
+  const handleScanForRoofing = async (jobId: string, forceOverride: boolean = false) => {
+    const job = jobs.find(j => j.id === jobId);
+    if (!job) return;
+
+    const hasManualOverride = job.roofingInfo?.some(r => r.manualOverride);
+    if (hasManualOverride && !forceOverride) {
+      toast({
+        title: "Manual Override Active",
+        description: "This job has a manually set roofing count. Use the editor to change it.",
+      });
+      return;
+    }
+
+    setScanningRoofingJobId(jobId);
+    try {
+      const result = await extractRoofingWithAI(job.description || job.summaryOfWorks || '', job.workItems);
+      
+      if (result) {
+        const roofingInfoToSave: RoofingInfo[] = result.hasRoofing && result.roofing.length > 0 
+          ? result.roofing 
+          : [{ type: '__SCANNED_NO_ROOFING__', quantity: 0, location: '' }];
+        
+        onUpdateJob({ ...job, roofingInfo: roofingInfoToSave });
+        
+        if (result.hasRoofing && result.roofing.length > 0) {
+          if (roofingCategoryId) {
+            setRoofingBookingDialogData({
+              job: { ...job, roofingInfo: roofingInfoToSave },
+              roofingInfo: result.roofing,
+              totalRoofingCount: result.totalRoofingCount,
+              isUpdate: !!job.linkedRoofingJobId,
+            });
+          } else {
+            toast({
+              title: "Roofing Found!",
+              description: `Found ${result.totalRoofingCount} roofing item(s) in ${result.roofing.length} type(s).`,
+            });
+          }
+        } else {
+          toast({
+            title: "No Roofing Found",
+            description: "Scan complete - no roofing work detected in this job.",
+          });
+        }
+      } else {
+        onUpdateJob({ ...job, roofingInfo: [{ type: '__SCANNED_NO_ROOFING__', quantity: 0, location: '' }] });
+        toast({
+          title: "No Roofing Found",
+          description: "Scan complete - no roofing work detected in this job.",
+        });
+      }
+    } catch (error) {
+      console.error('Error scanning for roofing:', error);
+      toast({
+        title: "Scan Failed",
+        description: "Could not scan for roofing.",
+        variant: "destructive",
+      });
+    } finally {
+      setScanningRoofingJobId(null);
+    }
+  };
+
+  // Handle roofing booking date confirmation from dialog
+  const handleRoofingBookingConfirm = async (bookedDate: Date | null) => {
+    if (!roofingBookingDialogData || !roofingCategoryId) return;
+
+    const { job, roofingInfo, totalRoofingCount, isUpdate } = roofingBookingDialogData;
+
+    try {
+      if (isUpdate && job.linkedRoofingJobId) {
+        await syncLinkedRoofingJob(job, roofingInfo, roofingCategoryId, bookedDate);
+        onRoofingJobCreated?.();
+        toast({
+          title: "Roofing Job Updated!",
+          description: `${totalRoofingCount} roofing item(s) updated${bookedDate ? ` - booked for ${bookedDate.toLocaleDateString()}` : ''}.`,
+        });
+      } else {
+        await createLinkedRoofingJob(job, roofingInfo, roofingCategoryId, bookedDate);
+        onRoofingJobCreated?.();
+        toast({
+          title: "Roofing Job Created!",
+          description: `${totalRoofingCount} roofing item(s) linked${bookedDate ? ` - booked for ${bookedDate.toLocaleDateString()}` : ''}.`,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to create/update linked roofing job:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create/update roofing job. Please try again.",
         variant: "destructive",
       });
       throw error;
@@ -628,6 +748,7 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
               <th className="w-28">Status</th>
               <th className="min-w-[200px]">Description</th>
               <th className="w-24">Fan</th>
+              <th className="w-24">Roof</th>
               <th className="w-40">Ongoing Notes</th>
               <th className="w-36">Booked/End</th>
               <th className="w-20">Files</th>
@@ -965,6 +1086,64 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                           disabled={scanningFanJobId === job.id}
                         >
                           {scanningFanJobId === job.id ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <>
+                              <Wand2 className="w-3 h-3 mr-0.5" />
+                              Re-scan
+                            </>
+                          )}
+                        </Button>
+                      )}
+                    </div>
+                  </td>
+                  {/* Roofing Column */}
+                  <td onClick={(e) => e.stopPropagation()}>
+                    <div className="flex flex-col gap-1">
+                      <RoofingEditor
+                        roofingInfo={job.roofingInfo}
+                        onUpdate={(roofingInfo) => onUpdateJob({ ...job, roofingInfo })}
+                        job={job}
+                        roofingCategoryId={roofingCategoryId}
+                        onJobUpdated={(updates) => {
+                          onUpdateJob({ ...job, ...updates });
+                          if (updates.linkedRoofingJobId) {
+                            onRoofingJobCreated?.();
+                          }
+                        }}
+                      />
+                      {job.linkedRoofingJobId && (
+                        <Badge variant="outline" className="text-xs bg-green-500/10 text-green-700 dark:text-green-400">
+                          Linked
+                        </Badge>
+                      )}
+                      {!hasActualRoofing(job.roofingInfo) && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-5 px-1.5 text-xs text-muted-foreground hover:text-primary"
+                          onClick={() => handleScanForRoofing(job.id)}
+                          disabled={scanningRoofingJobId === job.id}
+                        >
+                          {scanningRoofingJobId === job.id ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <>
+                              <Wand2 className="w-3 h-3 mr-0.5" />
+                              AI Scan
+                            </>
+                          )}
+                        </Button>
+                      )}
+                      {hasActualRoofing(job.roofingInfo) && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-5 px-1.5 text-xs text-muted-foreground hover:text-primary"
+                          onClick={() => handleScanForRoofing(job.id)}
+                          disabled={scanningRoofingJobId === job.id}
+                        >
+                          {scanningRoofingJobId === job.id ? (
                             <Loader2 className="w-3 h-3 animate-spin" />
                           ) : (
                             <>
@@ -1340,6 +1519,20 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
           fanInfo={fanBookingDialogData.fanInfo}
           totalFanCount={fanBookingDialogData.totalFanCount}
           onConfirm={handleFanBookingConfirm}
+        />
+      )}
+
+      {/* Roofing Booking Date Dialog */}
+      {roofingBookingDialogData && (
+        <RoofingBookingDateDialog
+          open={!!roofingBookingDialogData}
+          onOpenChange={(open) => {
+            if (!open) setRoofingBookingDialogData(null);
+          }}
+          job={roofingBookingDialogData.job}
+          roofingInfo={roofingBookingDialogData.roofingInfo}
+          totalRoofingCount={roofingBookingDialogData.totalRoofingCount}
+          onConfirm={handleRoofingBookingConfirm}
         />
       )}
     </>
