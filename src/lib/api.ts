@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { Job, WorkItem, FanInfo, RoofingInfo, InsulationInfo } from "@/types/job";
+import { Job, WorkItem, FanInfo, RoofingInfo, InsulationInfo, FlooringInfo } from "@/types/job";
 import { SOR_CODES_DATABASE } from "@/data/sorCodes";
 import { Json } from "@/integrations/supabase/types";
 
@@ -497,6 +497,8 @@ export function mapDatabaseJobToJob(dbJob: any): Job {
     linkedInsulationJobId: dbJob.linked_insulation_job_id || null,
     roofingInfo: dbJob.roofing_info || null,
     linkedRoofingJobId: dbJob.linked_roofing_job_id || null,
+    flooringInfo: dbJob.flooring_info || null,
+    linkedFlooringJobId: dbJob.linked_flooring_job_id || null,
     costs: dbJob.costs || null,
     privateNotes: dbJob.private_notes || '',
     referBack: dbJob.refer_back || false,
@@ -871,6 +873,8 @@ export const mapJobToDatabase = (job: Partial<Job>): any => {
   if ((job as any).linkedInsulationJobId !== undefined) dbJob.linked_insulation_job_id = (job as any).linkedInsulationJobId;
   if (job.roofingInfo !== undefined) dbJob.roofing_info = job.roofingInfo;
   if (job.linkedRoofingJobId !== undefined) dbJob.linked_roofing_job_id = job.linkedRoofingJobId;
+  if ((job as any).flooringInfo !== undefined) dbJob.flooring_info = (job as any).flooringInfo;
+  if ((job as any).linkedFlooringJobId !== undefined) dbJob.linked_flooring_job_id = (job as any).linkedFlooringJobId;
   if (job.costs !== undefined) dbJob.costs = job.costs;
   if (job.privateNotes !== undefined) dbJob.private_notes = job.privateNotes;
   if (job.referBack !== undefined) dbJob.refer_back = job.referBack;
@@ -927,6 +931,8 @@ export const createLinkedFanJob = async (
     linkedInsulationJobId: null,
     roofingInfo: null,
     linkedRoofingJobId: null,
+    flooringInfo: null,
+    linkedFlooringJobId: null,
     costs: null,
     privateNotes: '',
     referBack: false,
@@ -1037,6 +1043,8 @@ export const syncLinkedFanJob = async (
     linkedInsulationJobId: null,
     roofingInfo: null,
     linkedRoofingJobId: null,
+    flooringInfo: null,
+    linkedFlooringJobId: null,
     costs: null,
     privateNotes: '',
     referBack: false,
@@ -1142,6 +1150,8 @@ export const syncLinkedInsulationJob = async (
     linkedInsulationJobId: null,
     roofingInfo: null,
     linkedRoofingJobId: null,
+    flooringInfo: null,
+    linkedFlooringJobId: null,
     costs: null,
     privateNotes: '',
     referBack: false,
@@ -1254,6 +1264,8 @@ export const createLinkedRoofingJob = async (
     linkedInsulationJobId: null,
     roofingInfo: roofingInfo,
     linkedRoofingJobId: null,
+    flooringInfo: null,
+    linkedFlooringJobId: null,
     costs: null,
     privateNotes: '',
     referBack: false,
@@ -1358,6 +1370,8 @@ export const syncLinkedRoofingJob = async (
     linkedInsulationJobId: null,
     roofingInfo: roofingInfo,
     linkedRoofingJobId: null,
+    flooringInfo: null,
+    linkedFlooringJobId: null,
     costs: null,
     privateNotes: '',
     referBack: false,
@@ -1393,6 +1407,224 @@ export const syncLinkedRoofingJob = async (
     .eq('id', sourceJob.id);
 
   return { linkedRoofingJobId: data.id, created: true };
+};
+
+// Extract flooring from job description using AI
+export const extractFlooringWithAI = async (description: string, workItems: WorkItem[]): Promise<{ hasFlooring: boolean; flooring: FlooringInfo[]; totalFlooringCount: number } | null> => {
+  const hasDescription = description && description.trim().length > 0;
+  const hasWorkItems = workItems && workItems.length > 0;
+  
+  if (!hasDescription && !hasWorkItems) {
+    return { hasFlooring: false, flooring: [], totalFlooringCount: 0 };
+  }
+
+  return withRetry(async () => {
+    const headers = await getAuthHeaders();
+    const { data, error } = await supabase.functions.invoke('extract-flooring', {
+      body: { 
+        ...(hasDescription ? { description } : {}),
+        ...(hasWorkItems ? { workItems } : {})
+      },
+      headers
+    });
+
+    if (error) {
+      console.error('Error calling extract-flooring function:', error);
+      throw error;
+    }
+
+    if (!data?.success) {
+      throw new Error(data?.error || 'Failed to extract flooring');
+    }
+
+    return data.data;
+  });
+};
+
+// Create a linked flooring job from an existing job
+export const createLinkedFlooringJob = async (
+  sourceJob: Job,
+  flooringInfo: FlooringInfo[],
+  flooringCategoryId: string,
+  bookedDate?: Date | null
+): Promise<Job> => {
+  const flooringDescription = flooringInfo.map(item =>
+    `${item.type} x${item.quantity}${item.location ? ` - ${item.location}` : ''}`
+  ).join('\n');
+
+  const flooringJob: Omit<Job, 'id'> = {
+    jobNumber: `${sourceJob.jobNumber}-FLOOR`,
+    name: sourceJob.name,
+    address: sourceJob.address,
+    phoneNumber: sourceJob.phoneNumber,
+    summaryOfWorks: `Flooring from ${sourceJob.jobNumber}`,
+    description: flooringDescription,
+    workItems: [],
+    additionalWorks: [],
+    team: null,
+    team2: null,
+    progress: 0,
+    progressNotes: '',
+    isCompleted: false,
+    isOngoing: false,
+    ongoingReason: '',
+    scheduledTrades: [],
+    createdAt: new Date(),
+    dateIssued: new Date(),
+    bookedDate: bookedDate || null,
+    isFlexibleBooking: false,
+    bookingNotes: '',
+    completionDate: null,
+    attachments: [],
+    status: 'pending',
+    fanInfo: null,
+    linkedFanJobId: null,
+    insulationInfo: null,
+    linkedInsulationJobId: null,
+    roofingInfo: null,
+    linkedRoofingJobId: null,
+    flooringInfo: flooringInfo,
+    linkedFlooringJobId: null,
+    costs: null,
+    privateNotes: '',
+    referBack: false,
+    referBackReason: '',
+    referBackDate: null,
+    expectedCompletionDate: null,
+    blockerType: null,
+    blockerNotes: '',
+    blockerSetAt: null,
+    blockerChaseDate: null,
+  };
+
+  const dbJob = mapJobToDatabase(flooringJob);
+  dbJob.category_id = flooringCategoryId;
+
+  const { data, error } = await supabase
+    .from('jobs')
+    .insert(dbJob)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating linked flooring job:', error);
+    throw error;
+  }
+
+  await supabase
+    .from('jobs')
+    .update({ linked_flooring_job_id: data.id })
+    .eq('id', sourceJob.id);
+
+  return mapDatabaseJobToJob(data);
+};
+
+// Sync (create or update) a linked flooring job
+export const syncLinkedFlooringJob = async (
+  sourceJob: Job,
+  flooringInfo: FlooringInfo[],
+  flooringCategoryId: string,
+  bookedDate?: Date | null
+): Promise<{ linkedFlooringJobId: string; created: boolean }> => {
+  const flooringDescription = flooringInfo.map(item =>
+    `${item.type} x${item.quantity}${item.location ? ` - ${item.location}` : ''}`
+  ).join('\n');
+
+  if (sourceJob.linkedFlooringJobId) {
+    const updateData: any = {
+      flooring_info: flooringInfo as unknown as Json,
+      description: flooringDescription,
+    };
+    if (bookedDate !== undefined) {
+      updateData.booked_date = bookedDate ? formatDateOnly(bookedDate) : null;
+    }
+
+    const { error } = await supabase
+      .from('jobs')
+      .update(updateData)
+      .eq('id', sourceJob.linkedFlooringJobId);
+
+    if (error) {
+      console.error('Error updating linked flooring job:', error);
+      throw error;
+    }
+
+    await supabase
+      .from('jobs')
+      .update({ flooring_info: flooringInfo as unknown as Json })
+      .eq('id', sourceJob.id);
+
+    return { linkedFlooringJobId: sourceJob.linkedFlooringJobId, created: false };
+  }
+
+  const flooringJob: Omit<Job, 'id'> = {
+    jobNumber: `${sourceJob.jobNumber}-FLOOR`,
+    name: sourceJob.name,
+    address: sourceJob.address,
+    phoneNumber: sourceJob.phoneNumber,
+    summaryOfWorks: `Flooring from ${sourceJob.jobNumber}`,
+    description: flooringDescription,
+    workItems: [],
+    additionalWorks: [],
+    team: null,
+    team2: null,
+    progress: 0,
+    progressNotes: '',
+    isCompleted: false,
+    isOngoing: false,
+    ongoingReason: '',
+    scheduledTrades: [],
+    createdAt: new Date(),
+    dateIssued: new Date(),
+    bookedDate: bookedDate || null,
+    isFlexibleBooking: false,
+    bookingNotes: '',
+    completionDate: null,
+    attachments: [],
+    status: 'pending',
+    fanInfo: null,
+    linkedFanJobId: null,
+    insulationInfo: null,
+    linkedInsulationJobId: null,
+    roofingInfo: null,
+    linkedRoofingJobId: null,
+    flooringInfo: flooringInfo,
+    linkedFlooringJobId: null,
+    costs: null,
+    privateNotes: '',
+    referBack: false,
+    referBackReason: '',
+    referBackDate: null,
+    expectedCompletionDate: null,
+    blockerType: null,
+    blockerNotes: '',
+    blockerSetAt: null,
+    blockerChaseDate: null,
+  };
+
+  const dbJob = mapJobToDatabase(flooringJob);
+  dbJob.category_id = flooringCategoryId;
+
+  const { data, error } = await supabase
+    .from('jobs')
+    .insert(dbJob)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating linked flooring job:', error);
+    throw error;
+  }
+
+  await supabase
+    .from('jobs')
+    .update({
+      linked_flooring_job_id: data.id,
+      flooring_info: flooringInfo as unknown as Json
+    })
+    .eq('id', sourceJob.id);
+
+  return { linkedFlooringJobId: data.id, created: true };
 };
 
 // Notification history functions

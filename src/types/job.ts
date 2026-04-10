@@ -61,6 +61,13 @@ export interface InsulationInfo {
   manualOverride?: boolean;
 }
 
+export interface FlooringInfo {
+  type: string;
+  quantity: number;
+  location: string;
+  manualOverride?: boolean;
+}
+
 export interface JobCosts {
   materials: number;
   labour: number;
@@ -112,6 +119,8 @@ export interface Job {
   linkedInsulationJobId: string | null;
   roofingInfo: RoofingInfo[] | null;
   linkedRoofingJobId: string | null;
+  flooringInfo: FlooringInfo[] | null;
+  linkedFlooringJobId: string | null;
   costs: JobCosts | null;
   privateNotes: string; // Admin-only notes, not visible in team portal
   referBack: boolean; // Job referred back to NPH as uncompletable

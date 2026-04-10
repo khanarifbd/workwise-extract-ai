@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, forwardRef, useCallback } from 'react';
 import { BulkTeamAssignModal } from './BulkTeamAssignModal';
-import { Job, JobStatus, FanInfo, RoofingInfo, Team } from '@/types/job';
+import { Job, JobStatus, FanInfo, RoofingInfo, FlooringInfo, Team } from '@/types/job';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -35,12 +35,14 @@ import { FanEditor } from './FanEditor';
 import { FanBookingDateDialog } from './FanBookingDateDialog';
 import { RoofingEditor } from './RoofingEditor';
 import { RoofingBookingDateDialog } from './RoofingBookingDateDialog';
+import { FlooringEditor } from './FlooringEditor';
+import { FlooringBookingDateDialog } from './FlooringBookingDateDialog';
 import { OngoingNotesEditor } from './OngoingNotesEditor';
 import { ContactCell } from './ContactCell';
 import { BookedDateCell } from './BookedDateCell';
 import { SignOffStatusIndicator } from './SignOffStatusIndicator';
 import { SignOffHistoryModal } from './SignOffHistoryModal';
-import { extractFansWithAI, createLinkedFanJob, syncLinkedFanJob, extractRoofingWithAI, createLinkedRoofingJob, syncLinkedRoofingJob } from '@/lib/api';
+import { extractFansWithAI, createLinkedFanJob, syncLinkedFanJob, extractRoofingWithAI, createLinkedRoofingJob, syncLinkedRoofingJob, extractFlooringWithAI, createLinkedFlooringJob, syncLinkedFlooringJob } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { useTeamSettings } from '@/hooks/useTeamSettings';
 import { useTeamAvailability } from '@/hooks/useTeamAvailability';
@@ -80,6 +82,8 @@ interface JobTableProps {
   onFanJobCreated?: () => void;
   roofingCategoryId?: string;
   onRoofingJobCreated?: () => void;
+  flooringCategoryId?: string;
+  onFlooringJobCreated?: () => void;
   isFanCategory?: boolean;
   currentCategoryId?: string;
   categories?: { id: string; name: string; color: string }[];
@@ -113,7 +117,7 @@ const findDuplicates = (jobs: Job[]): Set<string> => {
   return duplicates;
 };
 
-export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onBatchUpdateTeam, onTransferJob, onDuplicateToCategory, onReferBack, fanCategoryId, onFanJobCreated, roofingCategoryId, onRoofingJobCreated, isFanCategory = false, currentCategoryId, categories = [], readOnly = false, searchTerm, tradeBookings = new Map(), getSignOffStatus: getSignOffStatusProp }, ref) => {
+export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onBatchUpdateTeam, onTransferJob, onDuplicateToCategory, onReferBack, fanCategoryId, onFanJobCreated, roofingCategoryId, onRoofingJobCreated, flooringCategoryId, onFlooringJobCreated, isFanCategory = false, currentCategoryId, categories = [], readOnly = false, searchTerm, tradeBookings = new Map(), getSignOffStatus: getSignOffStatusProp }, ref) => {
   const [showTeamSelector, setShowTeamSelector] = useState<string | null>(null);
   const [showTransferModal, setShowTransferModal] = useState<Job | null>(null);
   const [showJobDetails, setShowJobDetails] = useState<Job | null>(null);
@@ -122,6 +126,7 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
   const [showBatchTeamSelector, setShowBatchTeamSelector] = useState(false);
   const [scanningFanJobId, setScanningFanJobId] = useState<string | null>(null);
   const [scanningRoofingJobId, setScanningRoofingJobId] = useState<string | null>(null);
+  const [scanningFlooringJobId, setScanningFlooringJobId] = useState<string | null>(null);
   const [isBulkScanning, setIsBulkScanning] = useState(false);
   const [duplicateActionJob, setDuplicateActionJob] = useState<Job | null>(null);
   const [signOffHistoryJob, setSignOffHistoryJob] = useState<Job | null>(null);
@@ -137,6 +142,13 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
     job: Job;
     roofingInfo: RoofingInfo[];
     totalRoofingCount: number;
+    isUpdate: boolean;
+  } | null>(null);
+  // Flooring booking date dialog state
+  const [flooringBookingDialogData, setFlooringBookingDialogData] = useState<{
+    job: Job;
+    flooringInfo: FlooringInfo[];
+    totalFlooringCount: number;
     isUpdate: boolean;
   } | null>(null);
   const { toast } = useToast();
@@ -306,6 +318,17 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
   const hasActualRoofing = (roofingInfo: RoofingInfo[] | null): boolean => {
     if (!roofingInfo || roofingInfo.length === 0) return false;
     return !wasScannedNoRoofing(roofingInfo);
+  };
+
+  // Flooring scan helpers
+  const wasScannedNoFlooring = (flooringInfo: FlooringInfo[] | null): boolean => {
+    if (!flooringInfo || flooringInfo.length === 0) return false;
+    return flooringInfo.length === 1 && flooringInfo[0].type === '__SCANNED_NO_FLOORING__';
+  };
+
+  const hasActualFlooring = (flooringInfo: FlooringInfo[] | null): boolean => {
+    if (!flooringInfo || flooringInfo.length === 0) return false;
+    return !wasScannedNoFlooring(flooringInfo);
   };
 
   const handleStatusChange = (jobId: string, status: JobStatus, isComplete: boolean) => {
@@ -546,6 +569,103 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
     }
   };
 
+  // Handle flooring scan for a single job
+  const handleScanForFlooring = async (jobId: string, forceOverride: boolean = false) => {
+    const job = jobs.find(j => j.id === jobId);
+    if (!job) return;
+
+    const hasManualOverride = job.flooringInfo?.some(f => f.manualOverride);
+    if (hasManualOverride && !forceOverride) {
+      toast({
+        title: "Manual Override Active",
+        description: "This job has a manually set flooring count. Use the editor to change it.",
+      });
+      return;
+    }
+
+    setScanningFlooringJobId(jobId);
+    try {
+      const result = await extractFlooringWithAI(job.description || job.summaryOfWorks || '', job.workItems);
+      
+      if (result) {
+        const flooringInfoToSave: FlooringInfo[] = result.hasFlooring && result.flooring.length > 0 
+          ? result.flooring 
+          : [{ type: '__SCANNED_NO_FLOORING__', quantity: 0, location: '' }];
+        
+        onUpdateJob({ ...job, flooringInfo: flooringInfoToSave });
+        
+        if (result.hasFlooring && result.flooring.length > 0) {
+          if (flooringCategoryId) {
+            setFlooringBookingDialogData({
+              job: { ...job, flooringInfo: flooringInfoToSave },
+              flooringInfo: result.flooring,
+              totalFlooringCount: result.totalFlooringCount,
+              isUpdate: !!job.linkedFlooringJobId,
+            });
+          } else {
+            toast({
+              title: "Flooring Found!",
+              description: `Found ${result.totalFlooringCount} flooring item(s).`,
+            });
+          }
+        } else {
+          toast({
+            title: "No Flooring Found",
+            description: "Scan complete - no flooring work detected in this job.",
+          });
+        }
+      } else {
+        onUpdateJob({ ...job, flooringInfo: [{ type: '__SCANNED_NO_FLOORING__', quantity: 0, location: '' }] });
+        toast({
+          title: "No Flooring Found",
+          description: "Scan complete - no flooring work detected in this job.",
+        });
+      }
+    } catch (error) {
+      console.error('Error scanning for flooring:', error);
+      toast({
+        title: "Scan Failed",
+        description: "Could not scan for flooring.",
+        variant: "destructive",
+      });
+    } finally {
+      setScanningFlooringJobId(null);
+    }
+  };
+
+  // Handle flooring booking date confirmation from dialog
+  const handleFlooringBookingConfirm = async (bookedDate: Date | null) => {
+    if (!flooringBookingDialogData || !flooringCategoryId) return;
+
+    const { job, flooringInfo, totalFlooringCount, isUpdate } = flooringBookingDialogData;
+
+    try {
+      if (isUpdate && job.linkedFlooringJobId) {
+        await syncLinkedFlooringJob(job, flooringInfo, flooringCategoryId, bookedDate);
+        onFlooringJobCreated?.();
+        toast({
+          title: "Flooring Job Updated!",
+          description: `${totalFlooringCount} flooring item(s) updated${bookedDate ? ` - booked for ${bookedDate.toLocaleDateString()}` : ''}.`,
+        });
+      } else {
+        await createLinkedFlooringJob(job, flooringInfo, flooringCategoryId, bookedDate);
+        onFlooringJobCreated?.();
+        toast({
+          title: "Flooring Job Created!",
+          description: `${totalFlooringCount} flooring item(s) linked${bookedDate ? ` - booked for ${bookedDate.toLocaleDateString()}` : ''}.`,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to create/update linked flooring job:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create/update flooring job. Please try again.",
+        variant: "destructive",
+      });
+      throw error;
+    }
+  };
+
   // Bulk fan scanning for selected jobs (includes re-scanning jobs with NONE)
   const handleBulkFanScan = async (forceRescan: boolean = false) => {
     if (selectedJobs.size === 0) return;
@@ -749,6 +869,7 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
               <th className="min-w-[200px]">Description</th>
               <th className="w-24">Fan</th>
               <th className="w-24">Roof</th>
+              <th className="w-24">Floor</th>
               <th className="w-40">Ongoing Notes</th>
               <th className="w-36">Booked/End</th>
               <th className="w-20">Files</th>
@@ -1155,6 +1276,64 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                       )}
                     </div>
                   </td>
+                  {/* Flooring Column */}
+                  <td onClick={(e) => e.stopPropagation()}>
+                    <div className="flex flex-col gap-1">
+                      <FlooringEditor
+                        flooringInfo={job.flooringInfo}
+                        onUpdate={(flooringInfo) => onUpdateJob({ ...job, flooringInfo })}
+                        job={job}
+                        flooringCategoryId={flooringCategoryId}
+                        onJobUpdated={(updates) => {
+                          onUpdateJob({ ...job, ...updates });
+                          if (updates.linkedFlooringJobId) {
+                            onFlooringJobCreated?.();
+                          }
+                        }}
+                      />
+                      {job.linkedFlooringJobId && (
+                        <Badge variant="outline" className="text-xs bg-green-500/10 text-green-700 dark:text-green-400">
+                          Linked
+                        </Badge>
+                      )}
+                      {!hasActualFlooring(job.flooringInfo) && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-5 px-1.5 text-xs text-muted-foreground hover:text-primary"
+                          onClick={() => handleScanForFlooring(job.id)}
+                          disabled={scanningFlooringJobId === job.id}
+                        >
+                          {scanningFlooringJobId === job.id ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <>
+                              <Wand2 className="w-3 h-3 mr-0.5" />
+                              AI Scan
+                            </>
+                          )}
+                        </Button>
+                      )}
+                      {hasActualFlooring(job.flooringInfo) && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-5 px-1.5 text-xs text-muted-foreground hover:text-primary"
+                          onClick={() => handleScanForFlooring(job.id)}
+                          disabled={scanningFlooringJobId === job.id}
+                        >
+                          {scanningFlooringJobId === job.id ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <>
+                              <Wand2 className="w-3 h-3 mr-0.5" />
+                              Re-scan
+                            </>
+                          )}
+                        </Button>
+                      )}
+                    </div>
+                  </td>
                   {/* Ongoing Notes Column - illuminated when job is ongoing */}
                   <td 
                     onClick={(e) => e.stopPropagation()} 
@@ -1533,6 +1712,20 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
           roofingInfo={roofingBookingDialogData.roofingInfo}
           totalRoofingCount={roofingBookingDialogData.totalRoofingCount}
           onConfirm={handleRoofingBookingConfirm}
+        />
+      )}
+
+      {/* Flooring Booking Date Dialog */}
+      {flooringBookingDialogData && (
+        <FlooringBookingDateDialog
+          open={!!flooringBookingDialogData}
+          onOpenChange={(open) => {
+            if (!open) setFlooringBookingDialogData(null);
+          }}
+          job={flooringBookingDialogData.job}
+          flooringInfo={flooringBookingDialogData.flooringInfo}
+          totalFlooringCount={flooringBookingDialogData.totalFlooringCount}
+          onConfirm={handleFlooringBookingConfirm}
         />
       )}
     </>

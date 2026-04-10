@@ -298,6 +298,7 @@ export type Database = {
           description: string | null
           expected_completion_date: string | null
           fan_info: Json | null
+          flooring_info: Json | null
           id: string
           insulation_info: Json | null
           is_completed: boolean | null
@@ -305,6 +306,7 @@ export type Database = {
           is_ongoing: boolean
           job_number: string
           linked_fan_job_id: string | null
+          linked_flooring_job_id: string | null
           linked_insulation_job_id: string | null
           linked_roofing_job_id: string | null
           name: string
@@ -345,6 +347,7 @@ export type Database = {
           description?: string | null
           expected_completion_date?: string | null
           fan_info?: Json | null
+          flooring_info?: Json | null
           id?: string
           insulation_info?: Json | null
           is_completed?: boolean | null
@@ -352,6 +355,7 @@ export type Database = {
           is_ongoing?: boolean
           job_number: string
           linked_fan_job_id?: string | null
+          linked_flooring_job_id?: string | null
           linked_insulation_job_id?: string | null
           linked_roofing_job_id?: string | null
           name: string
@@ -392,6 +396,7 @@ export type Database = {
           description?: string | null
           expected_completion_date?: string | null
           fan_info?: Json | null
+          flooring_info?: Json | null
           id?: string
           insulation_info?: Json | null
           is_completed?: boolean | null
@@ -399,6 +404,7 @@ export type Database = {
           is_ongoing?: boolean
           job_number?: string
           linked_fan_job_id?: string | null
+          linked_flooring_job_id?: string | null
           linked_insulation_job_id?: string | null
           linked_roofing_job_id?: string | null
           name?: string
