@@ -122,7 +122,25 @@ export const FireDoorEditor = ({
                 </Button>
               )}
               {isLinked && (
-                <Badge variant="outline" className="text-xs bg-green-500/10 text-green-700">Linked ✓</Badge>
+                <div className="flex items-center justify-between">
+                  <Badge variant="outline" className="text-xs bg-green-500/10 text-green-700">Linked ✓</Badge>
+                  {onDeleteLinkedJob && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 px-2 text-xs text-destructive hover:bg-destructive/10"
+                      onClick={() => {
+                        if (window.confirm('Delete this fire door job from all databases?')) {
+                          onDeleteLinkedJob();
+                          setPopoverOpen(false);
+                        }
+                      }}
+                    >
+                      <Trash2 className="w-3 h-3 mr-1" />
+                      Delete
+                    </Button>
+                  )}
+                </div>
               )}
             </div>
           </PopoverContent>
