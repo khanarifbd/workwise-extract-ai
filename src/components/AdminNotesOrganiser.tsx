@@ -6,7 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Calendar } from '@/components/ui/calendar';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
 import {
   X, StickyNote, Bell, BellRing, Plus, Trash2, Loader2,
   Search, MapPin, Hash, Shield, Heart, Edit2, Check, Star,
