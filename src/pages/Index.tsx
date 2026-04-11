@@ -1508,7 +1508,8 @@ const Index = () => {
       {showAdminNotes && (
         <AdminNotesOrganiser
           jobs={jobs}
-          onClose={() => setShowAdminNotes(false)}
+          onClose={() => { setShowAdminNotes(false); setAdminNotesJobId(null); }}
+          initialJobId={adminNotesJobId}
           onJobClick={(job) => {
             setSelectedJobForModal(job);
           }}
