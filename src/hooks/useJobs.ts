@@ -454,13 +454,12 @@ export const useJobs = (categoryId?: string) => {
         }
 
         // If this IS a linked child, unlink from parent
-        // Check if any parent references this job
+        const unlinkUpdates: Record<string, any> = { updated_at: new Date().toISOString() };
         const linkFields = ['linked_fan_job_id', 'linked_roofing_job_id', 'linked_flooring_job_id', 'linked_fire_door_job_id'];
         for (const field of linkFields) {
           try {
-            await supabase.from('jobs')
-              .update({ [field]: null, updated_at: new Date().toISOString() })
-              .eq(field as any, id);
+            unlinkUpdates[field] = null;
+            await (supabase.from('jobs').update(unlinkUpdates) as any).eq(field, id);
           } catch { /* silent */ }
         }
       }
