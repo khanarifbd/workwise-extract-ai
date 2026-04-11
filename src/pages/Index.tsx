@@ -27,6 +27,7 @@ import { ManualJobEntry } from '@/components/ManualJobEntry';
 import { OverdueJobsDashboard } from '@/components/OverdueJobsDashboard';
 import { DanniDashboard } from '@/components/DanniDashboard';
 import { TeamAccountabilityMetrics } from '@/components/TeamAccountabilityMetrics';
+import { AdminNotesOrganiser } from '@/components/AdminNotesOrganiser';
 import { ReferBackPDFButton } from '@/components/ReferBackPDFButton';
 import { downloadReferBackJobPDF } from '@/components/ReferBackJobPDF';
 import { useJobAlerts } from '@/hooks/useJobAlerts';
@@ -101,6 +102,7 @@ const Index = () => {
     return sessionStorage.getItem('danniDashboardOpen') === 'true';
   });
   const [showTeamMetrics, setShowTeamMetrics] = useState(false);
+  const [showAdminNotes, setShowAdminNotes] = useState(false);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [bulkUploadInitialFiles, setBulkUploadInitialFiles] = useState<Array<{ file: File; type: FileType }>>([]);
   const [showManualEntry, setShowManualEntry] = useState(false);
@@ -1336,6 +1338,7 @@ const Index = () => {
         onShowOverdue={() => setShowOverdueDashboard(true)}
         danniCount={danniCount}
         onShowDanni={() => setShowDanniDashboard(true)}
+        onShowNotes={() => setShowAdminNotes(true)}
       />
       
       {/* Danni Sign-Off Readiness Dashboard */}
@@ -1500,6 +1503,16 @@ const Index = () => {
           </section>
         )}
 
+      {/* Admin Notes Organiser */}
+      {showAdminNotes && (
+        <AdminNotesOrganiser
+          jobs={jobs}
+          onClose={() => setShowAdminNotes(false)}
+          onJobClick={(job) => {
+            setSelectedJobForModal(job);
+          }}
+        />
+      )}
 
         {/* Monthly Folder Tabs */}
         <MonthlyFolderTabs
