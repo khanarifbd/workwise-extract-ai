@@ -47,12 +47,14 @@ export const FireDoorEditor = ({
       if (isUpdate && job.linkedFireDoorJobId) {
         await syncLinkedFireDoorJob(job, doorInfo, fireDoorCategoryId, bookedDate);
         toast({ title: "Fire Door Job Updated!" });
+        onUpdate(doorInfo);
+        onJobUpdated?.();
       } else {
-        await createLinkedFireDoorJob(job, doorInfo, fireDoorCategoryId, bookedDate);
+        const createdJob = await createLinkedFireDoorJob(job, doorInfo, fireDoorCategoryId, bookedDate);
         toast({ title: "Fire Door Job Created!" });
+        onUpdate(doorInfo);
+        onJobUpdated?.({ linkedFireDoorJobId: createdJob.id, fireDoorInfo: doorInfo });
       }
-      onUpdate(doorInfo);
-      onJobUpdated?.();
     } catch (error) {
       toast({ title: "Error", description: "Failed to create fire door job.", variant: "destructive" });
       throw error;
