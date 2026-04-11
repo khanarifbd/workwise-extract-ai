@@ -1383,30 +1383,36 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                     )}
                   >
                     <div className="flex flex-col gap-1">
-                      <OngoingNotesEditor
-                        notes={job.privateNotes || ''}
-                        progressNotes={job.progressNotes || ''}
-                        ongoingReason={job.ongoingReason || ''}
-                        scheduledTrades={job.scheduledTrades || []}
-                        isOngoing={job.isOngoing || false}
-                        onUpdate={(updates) => {
-                          onUpdateJob({
-                            ...job,
-                            privateNotes: updates.privateNotes ?? job.privateNotes,
-                            scheduledTrades: updates.scheduledTrades ?? job.scheduledTrades,
-                          });
-                        }}
-                      />
-                      {onOpenAdminNotes && (
+                      {onOpenAdminNotes ? (
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-5 px-1.5 text-[10px] gap-0.5 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/30"
+                          className={cn(
+                            "h-7 px-2 text-xs gap-1",
+                            (job.privateNotes || job.progressNotes || job.isOngoing)
+                              ? "text-amber-600 dark:text-amber-400"
+                              : "text-muted-foreground"
+                          )}
                           onClick={() => onOpenAdminNotes(job.id)}
                         >
-                          <StickyNote className="w-3 h-3" />
-                          Admin Note
+                          <StickyNote className="w-3.5 h-3.5" />
+                          {(job.privateNotes || job.progressNotes) ? 'Notes' : 'Add Note'}
                         </Button>
+                      ) : (
+                        <OngoingNotesEditor
+                          notes={job.privateNotes || ''}
+                          progressNotes={job.progressNotes || ''}
+                          ongoingReason={job.ongoingReason || ''}
+                          scheduledTrades={job.scheduledTrades || []}
+                          isOngoing={job.isOngoing || false}
+                          onUpdate={(updates) => {
+                            onUpdateJob({
+                              ...job,
+                              privateNotes: updates.privateNotes ?? job.privateNotes,
+                              scheduledTrades: updates.scheduledTrades ?? job.scheduledTrades,
+                            });
+                          }}
+                        />
                       )}
                     </div>
                   </td>
