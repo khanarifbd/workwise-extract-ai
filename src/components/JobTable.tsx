@@ -870,6 +870,7 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
               <th className="w-24">Fan</th>
               <th className="w-24">Roof</th>
               <th className="w-24">Floor</th>
+              <th className="w-24">Door</th>
               <th className="w-40">Ongoing Notes</th>
               <th className="w-36">Booked/End</th>
               <th className="w-20">Files</th>
@@ -1331,6 +1332,28 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                             </>
                           )}
                         </Button>
+                      )}
+                    </div>
+                  </td>
+                  {/* Fire Door Column */}
+                  <td onClick={(e) => e.stopPropagation()}>
+                    <div className="flex flex-col gap-1">
+                      <FireDoorEditor
+                        fireDoorInfo={job.fireDoorInfo}
+                        onUpdate={(info) => onUpdateJob({ ...job, fireDoorInfo: info })}
+                        job={job}
+                        fireDoorCategoryId={fireDoorCategoryId}
+                        onJobUpdated={(updates) => {
+                          onUpdateJob({ ...job, ...updates });
+                          if (updates?.linkedFireDoorJobId) {
+                            onFireDoorJobCreated?.();
+                          }
+                        }}
+                      />
+                      {job.linkedFireDoorJobId && (
+                        <Badge variant="outline" className="text-xs bg-green-500/10 text-green-700 dark:text-green-400">
+                          Linked
+                        </Badge>
                       )}
                     </div>
                   </td>
