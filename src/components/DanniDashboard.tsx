@@ -610,6 +610,9 @@ export const DanniDashboard = ({
   const handleUpdateFlooringInfo = useCallback(async (jobId: string, flooringInfo: FlooringInfo[]) => {
     await updateJobField(jobId, { flooring_info: flooringInfo }); handleRefresh();
   }, [updateJobField, handleRefresh]);
+  const handleUpdateFireDoorInfo = useCallback(async (jobId: string, fireDoorInfo: FireDoorInfo[]) => {
+    await updateJobField(jobId, { fire_door_info: fireDoorInfo }); handleRefresh();
+  }, [updateJobField, handleRefresh]);
 
   const handleSaveBlocker = useCallback(async (jobId: string) => {
     if (!blockerForm.type) return;
