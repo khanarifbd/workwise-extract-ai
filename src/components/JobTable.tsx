@@ -1353,11 +1353,6 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                           }
                         }}
                       />
-                      {job.linkedFireDoorJobId && (
-                        <Badge variant="outline" className="text-xs bg-green-500/10 text-green-700 dark:text-green-400">
-                          Linked
-                        </Badge>
-                      )}
                     </div>
                   </td>
                   {/* Ongoing Notes Column - illuminated when job is ongoing */}
