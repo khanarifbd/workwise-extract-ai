@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { Job, WorkItem, FanInfo, RoofingInfo, InsulationInfo, FlooringInfo } from "@/types/job";
+import { Job, WorkItem, FanInfo, RoofingInfo, InsulationInfo, FlooringInfo, FireDoorInfo } from "@/types/job";
 import { SOR_CODES_DATABASE } from "@/data/sorCodes";
 import { Json } from "@/integrations/supabase/types";
 
@@ -1696,6 +1696,200 @@ export const syncLinkedFlooringJob = async (
     .eq('id', sourceJob.id);
 
   return { linkedFlooringJobId: data.id, created: true };
+};
+
+// Create a linked fire door job from an existing job
+export const createLinkedFireDoorJob = async (
+  sourceJob: Job,
+  fireDoorInfo: FireDoorInfo[],
+  fireDoorCategoryId: string,
+  bookedDate?: Date | null
+): Promise<Job> => {
+  const doorDescription = fireDoorInfo.map(item =>
+    `${item.type} x${item.quantity}${item.location ? ` - ${item.location}` : ''}`
+  ).join('\n');
+
+  const doorJob: Omit<Job, 'id'> = {
+    jobNumber: `${sourceJob.jobNumber}-DOOR`,
+    name: sourceJob.name,
+    address: sourceJob.address,
+    phoneNumber: sourceJob.phoneNumber,
+    summaryOfWorks: `Fire Door from ${sourceJob.jobNumber}`,
+    description: doorDescription,
+    workItems: [],
+    additionalWorks: [],
+    team: null,
+    team2: null,
+    progress: 0,
+    progressNotes: '',
+    isCompleted: false,
+    isOngoing: false,
+    ongoingReason: '',
+    scheduledTrades: [],
+    createdAt: new Date(),
+    dateIssued: bookedDate || new Date(),
+    bookedDate: bookedDate || null,
+    isFlexibleBooking: false,
+    bookingNotes: '',
+    completionDate: null,
+    attachments: [],
+    status: 'pending',
+    fanInfo: null,
+    linkedFanJobId: null,
+    insulationInfo: null,
+    linkedInsulationJobId: null,
+    roofingInfo: null,
+    linkedRoofingJobId: null,
+    flooringInfo: null,
+    linkedFlooringJobId: null,
+    fireDoorInfo: fireDoorInfo,
+    linkedFireDoorJobId: null,
+    costs: null,
+    privateNotes: '',
+    referBack: false,
+    referBackReason: '',
+    referBackDate: null,
+    expectedCompletionDate: null,
+    blockerType: null,
+    blockerNotes: '',
+    blockerSetAt: null,
+    blockerChaseDate: null,
+  };
+
+  const dbJob = mapJobToDatabase(doorJob);
+  dbJob.category_id = fireDoorCategoryId;
+
+  const { data, error } = await supabase
+    .from('jobs')
+    .insert(dbJob)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating linked fire door job:', error);
+    throw error;
+  }
+
+  await supabase
+    .from('jobs')
+    .update({
+      linked_fire_door_job_id: data.id,
+      fire_door_info: fireDoorInfo as unknown as Json
+    })
+    .eq('id', sourceJob.id);
+
+  return mapDatabaseJobToJob(data);
+};
+
+// Sync (create or update) a linked fire door job
+export const syncLinkedFireDoorJob = async (
+  sourceJob: Job,
+  fireDoorInfo: FireDoorInfo[],
+  fireDoorCategoryId: string,
+  bookedDate?: Date | null
+): Promise<{ linkedFireDoorJobId: string; created: boolean }> => {
+  const doorDescription = fireDoorInfo.map(item =>
+    `${item.type} x${item.quantity}${item.location ? ` - ${item.location}` : ''}`
+  ).join('\n');
+
+  if (sourceJob.linkedFireDoorJobId) {
+    const updateData: any = {
+      fire_door_info: fireDoorInfo as unknown as Json,
+      description: doorDescription,
+    };
+    if (bookedDate !== undefined) {
+      updateData.booked_date = bookedDate ? formatDateOnly(bookedDate) : null;
+      if (bookedDate) updateData.date_issued = formatDateOnly(bookedDate);
+    }
+
+    const { error } = await supabase
+      .from('jobs')
+      .update(updateData)
+      .eq('id', sourceJob.linkedFireDoorJobId);
+
+    if (error) {
+      console.error('Error updating linked fire door job:', error);
+      throw error;
+    }
+
+    await supabase
+      .from('jobs')
+      .update({ fire_door_info: fireDoorInfo as unknown as Json })
+      .eq('id', sourceJob.id);
+
+    return { linkedFireDoorJobId: sourceJob.linkedFireDoorJobId, created: false };
+  }
+
+  const doorJob: Omit<Job, 'id'> = {
+    jobNumber: `${sourceJob.jobNumber}-DOOR`,
+    name: sourceJob.name,
+    address: sourceJob.address,
+    phoneNumber: sourceJob.phoneNumber,
+    summaryOfWorks: `Fire Door from ${sourceJob.jobNumber}`,
+    description: doorDescription,
+    workItems: [],
+    additionalWorks: [],
+    team: null,
+    team2: null,
+    progress: 0,
+    progressNotes: '',
+    isCompleted: false,
+    isOngoing: false,
+    ongoingReason: '',
+    scheduledTrades: [],
+    createdAt: new Date(),
+    dateIssued: bookedDate || new Date(),
+    bookedDate: bookedDate || null,
+    isFlexibleBooking: false,
+    bookingNotes: '',
+    completionDate: null,
+    attachments: [],
+    status: 'pending',
+    fanInfo: null,
+    linkedFanJobId: null,
+    insulationInfo: null,
+    linkedInsulationJobId: null,
+    roofingInfo: null,
+    linkedRoofingJobId: null,
+    flooringInfo: null,
+    linkedFlooringJobId: null,
+    fireDoorInfo: fireDoorInfo,
+    linkedFireDoorJobId: null,
+    costs: null,
+    privateNotes: '',
+    referBack: false,
+    referBackReason: '',
+    referBackDate: null,
+    expectedCompletionDate: null,
+    blockerType: null,
+    blockerNotes: '',
+    blockerSetAt: null,
+    blockerChaseDate: null,
+  };
+
+  const dbJob = mapJobToDatabase(doorJob);
+  dbJob.category_id = fireDoorCategoryId;
+
+  const { data, error } = await supabase
+    .from('jobs')
+    .insert(dbJob)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating linked fire door job:', error);
+    throw error;
+  }
+
+  await supabase
+    .from('jobs')
+    .update({
+      linked_fire_door_job_id: data.id,
+      fire_door_info: fireDoorInfo as unknown as Json
+    })
+    .eq('id', sourceJob.id);
+
+  return { linkedFireDoorJobId: data.id, created: true };
 };
 
 // Notification history functions
