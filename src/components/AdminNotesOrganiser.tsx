@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -6,50 +6,61 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Calendar } from '@/components/ui/calendar';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   X, StickyNote, Bell, BellRing, Plus, Trash2, Loader2,
-  Search, Filter, MapPin, Hash, ChevronDown, ChevronUp,
-  Crown, Shield, Heart, Edit2, Check,
+  Search, MapPin, Hash, Shield, Heart, Edit2, Check, Star,
+  Mic, Clock, CheckCircle, AlertCircle,
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, parseISO, isToday, isYesterday } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Job } from '@/types/job';
 import { useAdminNotes, AdminNote } from '@/hooks/useAdminNotes';
+import { supabase } from '@/integrations/supabase/client';
 
-// Admin user definitions
+// Admin user definitions — Cecil uses Star (same authority level as Suki)
 const ADMIN_USERS = [
   {
     name: 'Cecil',
     title: 'Strategic Director',
-    icon: Crown,
+    icon: Star,
     color: 'bg-amber-500',
-    borderColor: 'border-amber-400',
-    textColor: 'text-amber-600 dark:text-amber-400',
-    bgTint: 'bg-amber-500/5',
-    badgeBg: 'bg-amber-500/10',
+    lightBg: 'bg-amber-50 dark:bg-amber-950/30',
+    textColor: 'text-amber-700 dark:text-amber-300',
+    ring: 'ring-amber-300 dark:ring-amber-700',
   },
   {
     name: 'Suki',
     title: 'Operations Director',
     icon: Shield,
     color: 'bg-blue-500',
-    borderColor: 'border-blue-400',
-    textColor: 'text-blue-600 dark:text-blue-400',
-    bgTint: 'bg-blue-500/5',
-    badgeBg: 'bg-blue-500/10',
+    lightBg: 'bg-blue-50 dark:bg-blue-950/30',
+    textColor: 'text-blue-700 dark:text-blue-300',
+    ring: 'ring-blue-300 dark:ring-blue-700',
   },
   {
     name: 'Helen',
     title: 'Head Admin',
     icon: Heart,
     color: 'bg-rose-500',
-    borderColor: 'border-rose-400',
-    textColor: 'text-rose-600 dark:text-rose-400',
-    bgTint: 'bg-rose-500/5',
-    badgeBg: 'bg-rose-500/10',
+    lightBg: 'bg-rose-50 dark:bg-rose-950/30',
+    textColor: 'text-rose-700 dark:text-rose-300',
+    ring: 'ring-rose-300 dark:ring-rose-700',
   },
 ] as const;
+
+interface OpsNote {
+  id: string;
+  title: string;
+  enhanced_text: string;
+  urgency: string;
+  category: string;
+  team_association: string | null;
+  job_number: string | null;
+  is_resolved: boolean;
+  created_at: string;
+  created_by_name: string;
+}
 
 interface AdminNotesOrganiserProps {
   jobs: Job[];
@@ -60,10 +71,41 @@ interface AdminNotesOrganiserProps {
 
 export const AdminNotesOrganiser = ({ jobs, onClose, onJobClick, initialJobId }: AdminNotesOrganiserProps) => {
   const [activeAdmin, setActiveAdmin] = useState<string>(ADMIN_USERS[0].name);
+  const [activeSection, setActiveSection] = useState<'notes' | 'ops'>('notes');
   const adminConfig = ADMIN_USERS.find(u => u.name === activeAdmin)!;
   const AdminIcon = adminConfig.icon;
 
   const { notes, loading, addNote, deleteNote, dismissAlert, activeAlerts, updateNote } = useAdminNotes(activeAdmin);
+
+  // Ops notes state
+  const [opsNotes, setOpsNotes] = useState<OpsNote[]>([]);
+  const [opsLoading, setOpsLoading] = useState(false);
+
+  const fetchOpsNotes = useCallback(async () => {
+    setOpsLoading(true);
+    const { data } = await supabase
+      .from('ops_manager_notes')
+      .select('id,title,enhanced_text,urgency,category,team_association,job_number,is_resolved,created_at,created_by_name')
+      .order('created_at', { ascending: false })
+      .limit(30);
+    setOpsNotes((data || []) as OpsNote[]);
+    setOpsLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (activeSection === 'ops') fetchOpsNotes();
+  }, [activeSection, fetchOpsNotes]);
+
+  // Realtime ops subscription
+  useEffect(() => {
+    const ch = supabase
+      .channel('notes-ops-rt')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ops_manager_notes' }, () => {
+        if (activeSection === 'ops') fetchOpsNotes();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [activeSection, fetchOpsNotes]);
 
   const [jobSearch, setJobSearch] = useState('');
   const [noteFilter, setNoteFilter] = useState<'all' | 'alerts' | 'general' | 'job'>(initialJobId ? 'job' : 'all');
@@ -73,65 +115,39 @@ export const AdminNotesOrganiser = ({ jobs, onClose, onJobClick, initialJobId }:
   const [saving, setSaving] = useState(false);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
+  const [showNewForm, setShowNewForm] = useState(!!initialJobId);
 
-  // All jobs sorted for dropdown
   const allJobsSorted = useMemo(() => {
     return [...jobs]
       .filter(j => !(j as any).deleted_at)
-      .sort((a, b) => {
-        const aNum = parseInt(a.jobNumber) || 0;
-        const bNum = parseInt(b.jobNumber) || 0;
-        return bNum - aNum;
-      });
+      .sort((a, b) => (parseInt(b.jobNumber) || 0) - (parseInt(a.jobNumber) || 0));
   }, [jobs]);
 
   const filteredDropdownJobs = useMemo(() => {
-    if (!jobSearch.trim()) return allJobsSorted.slice(0, 50);
-    const search = jobSearch.toLowerCase();
+    if (!jobSearch.trim()) return allJobsSorted.slice(0, 40);
+    const s = jobSearch.toLowerCase();
     return allJobsSorted.filter(j =>
-      j.jobNumber?.toLowerCase().includes(search) ||
-      j.name?.toLowerCase().includes(search) ||
-      j.address?.toLowerCase().includes(search) ||
-      j.team?.toLowerCase().includes(search)
-    ).slice(0, 50);
+      j.jobNumber?.toLowerCase().includes(s) || j.name?.toLowerCase().includes(s) ||
+      j.address?.toLowerCase().includes(s) || j.team?.toLowerCase().includes(s)
+    ).slice(0, 40);
   }, [allJobsSorted, jobSearch]);
 
-  const selectedJob = useMemo(() => {
-    if (!newNoteJobId) return null;
-    return jobs.find(j => j.id === newNoteJobId) || null;
-  }, [newNoteJobId, jobs]);
+  const selectedJob = useMemo(() => newNoteJobId ? jobs.find(j => j.id === newNoteJobId) || null : null, [newNoteJobId, jobs]);
 
-  // Filter notes
   const filteredNotes = useMemo(() => {
     switch (noteFilter) {
-      case 'alerts':
-        return notes.filter(n => n.alert_date && !n.alert_dismissed);
-      case 'general':
-        return notes.filter(n => !n.job_id);
-      case 'job':
-        return notes.filter(n => n.job_id);
-      default:
-        return notes;
+      case 'alerts': return notes.filter(n => n.alert_date && !n.alert_dismissed);
+      case 'general': return notes.filter(n => !n.job_id);
+      case 'job': return notes.filter(n => n.job_id);
+      default: return notes;
     }
   }, [notes, noteFilter]);
-
-  const alertCount = notes.filter(n => n.alert_date && !n.alert_dismissed).length;
-  const jobNoteCount = notes.filter(n => n.job_id).length;
-  const generalCount = notes.filter(n => !n.job_id).length;
 
   const handleSave = async () => {
     if (!newNoteText.trim()) return;
     setSaving(true);
-    const ok = await addNote({
-      jobId: newNoteJobId,
-      noteText: newNoteText.trim(),
-      alertDate: newNoteAlertDate,
-    });
-    if (ok) {
-      setNewNoteText('');
-      setNewNoteJobId(null);
-      setNewNoteAlertDate(undefined);
-    }
+    const ok = await addNote({ jobId: newNoteJobId, noteText: newNoteText.trim(), alertDate: newNoteAlertDate });
+    if (ok) { setNewNoteText(''); setNewNoteJobId(null); setNewNoteAlertDate(undefined); setShowNewForm(false); }
     setSaving(false);
   };
 
@@ -142,343 +158,400 @@ export const AdminNotesOrganiser = ({ jobs, onClose, onJobClick, initialJobId }:
     setEditText('');
   };
 
+  const formatDate = (d: string) => {
+    const date = parseISO(d);
+    if (isToday(date)) return `Today ${format(date, 'HH:mm')}`;
+    if (isYesterday(date)) return `Yesterday ${format(date, 'HH:mm')}`;
+    return format(date, 'dd MMM HH:mm');
+  };
+
+  const unresolvedOps = opsNotes.filter(n => !n.is_resolved).length;
+
   return (
-    <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className={cn(
-        "w-full max-w-3xl h-[85vh] bg-background rounded-xl border-2 shadow-2xl flex flex-col overflow-hidden",
-        adminConfig.borderColor
-      )}>
-        {/* Header with admin tabs */}
-        <div className="flex items-center justify-between px-4 pt-4 pb-2 border-b">
-          <div className="flex items-center gap-3">
-            <div className={cn("p-2 rounded-lg", adminConfig.color)}>
-              <StickyNote className="w-5 h-5 text-white" />
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4">
+      <div className="w-full max-w-2xl h-[90vh] bg-background rounded-2xl shadow-2xl flex flex-col overflow-hidden border">
+
+        {/* ─── Header ─── */}
+        <div className="flex items-center justify-between px-5 py-3 border-b bg-muted/20">
+          <div className="flex items-center gap-2.5">
+            <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center", adminConfig.color)}>
+              <StickyNote className="w-4.5 h-4.5 text-white" />
             </div>
             <div>
-              <h3 className="font-semibold text-foreground">Personal Notes</h3>
-              <p className="text-[11px] text-muted-foreground">Admin Organiser</p>
+              <h2 className="text-sm font-bold tracking-tight">Notes & Alerts</h2>
+              <p className="text-[10px] text-muted-foreground">Personal organiser</p>
             </div>
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose}>
+          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={onClose}>
             <X className="h-4 w-4" />
           </Button>
         </div>
 
-        {/* Admin user tabs */}
-        <div className="px-4 py-2 flex gap-2 border-b bg-muted/30">
-          {ADMIN_USERS.map(admin => {
-            const Icon = admin.icon;
-            const isActive = activeAdmin === admin.name;
-            return (
-              <button
-                key={admin.name}
-                onClick={() => {
-                  setActiveAdmin(admin.name);
-                  setNoteFilter('all');
-                }}
-                className={cn(
-                  "flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all",
-                  isActive
-                    ? cn(admin.bgTint, admin.textColor, "ring-1", admin.borderColor)
-                    : "text-muted-foreground hover:bg-muted"
-                )}
-              >
-                <Icon className="w-4 h-4" />
-                <div className="text-left">
-                  <div className="font-semibold">{admin.name}</div>
-                  <div className="text-[9px] opacity-70">{admin.title}</div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Active alerts */}
-        {activeAlerts.length > 0 && (
-          <div className="px-4 pt-3 space-y-2">
-            {activeAlerts.map(alert => {
-              const job = jobs.find(j => j.id === alert.job_id);
+        {/* ─── Admin selector (pill style) ─── */}
+        <div className="px-5 py-2.5 border-b flex items-center gap-4">
+          <div className="flex gap-1.5 flex-1">
+            {ADMIN_USERS.map(admin => {
+              const Icon = admin.icon;
+              const isActive = activeAdmin === admin.name;
+              const userAlerts = notes.filter(n => n.alert_date && !n.alert_dismissed).length;
               return (
-                <div key={alert.id} className="bg-destructive/10 border border-destructive/30 rounded-lg p-2.5 flex items-start gap-2">
-                  <BellRing className="w-4 h-4 text-destructive mt-0.5 flex-shrink-0 animate-bounce" />
-                  <div className="flex-1 min-w-0">
-                    {job && (
-                      <p className="text-[11px] font-bold text-destructive">
-                        #{job.jobNumber} — {job.name}
-                      </p>
-                    )}
-                    <p className="text-xs text-foreground">{alert.note_text}</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">
-                      Due: {format(new Date(alert.alert_date!), 'dd MMM HH:mm')}
-                    </p>
-                  </div>
-                  <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2" onClick={() => dismissAlert(alert.id)}>
-                    Dismiss
-                  </Button>
-                </div>
+                <button
+                  key={admin.name}
+                  onClick={() => { setActiveAdmin(admin.name); setActiveSection('notes'); setNoteFilter('all'); }}
+                  className={cn(
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all",
+                    isActive
+                      ? cn(admin.lightBg, admin.textColor, "ring-2", admin.ring)
+                      : "text-muted-foreground hover:bg-muted"
+                  )}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  <span>{admin.name}</span>
+                  {isActive && userAlerts > 0 && (
+                    <span className="ml-0.5 bg-destructive text-destructive-foreground text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                      {userAlerts}
+                    </span>
+                  )}
+                </button>
               );
             })}
           </div>
-        )}
 
-        {/* New note form */}
-        <div className="px-4 pt-3 space-y-2 border-b pb-3">
-          {/* Job selector */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={cn(
-                  "w-full justify-start text-xs h-9 font-normal",
-                  newNoteJobId ? "text-foreground" : "text-muted-foreground"
-                )}
-              >
-                <Hash className="w-3.5 h-3.5 mr-1.5 flex-shrink-0" />
-                {selectedJob ? (
-                  <span className="truncate">
-                    <span className="font-mono font-bold">#{selectedJob.jobNumber}</span>
-                    {' — '}{selectedJob.name}
-                    {selectedJob.team && <span className="text-muted-foreground"> ({selectedJob.team})</span>}
-                  </span>
-                ) : (
-                  'Select a job (or leave for general note)'
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[400px] p-0" align="start">
-              <div className="p-2 border-b">
-                <div className="relative">
-                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                  <Input
-                    placeholder="Search by job number, name, address or team..."
-                    value={jobSearch}
-                    onChange={e => setJobSearch(e.target.value)}
-                    className="h-8 text-xs pl-7"
-                    autoFocus
-                  />
-                </div>
-              </div>
-              <ScrollArea className="max-h-[300px]">
-                <div className="p-1">
-                  <button
-                    onClick={() => { setNewNoteJobId(null); setJobSearch(''); }}
-                    className={cn(
-                      "w-full text-left px-3 py-2 rounded text-xs hover:bg-accent transition-colors",
-                      !newNoteJobId && "bg-accent font-medium"
-                    )}
-                  >
-                    📋 General Note (no job attached)
-                  </button>
-                  {filteredDropdownJobs.map(j => (
-                    <button
-                      key={j.id}
-                      onClick={() => { setNewNoteJobId(j.id); setJobSearch(''); }}
-                      className={cn(
-                        "w-full text-left px-3 py-1.5 rounded text-xs hover:bg-accent transition-colors",
-                        newNoteJobId === j.id && "bg-accent font-medium"
-                      )}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono font-bold text-primary">#{j.jobNumber}</span>
-                        <span className="truncate flex-1">{j.name}</span>
-                        {j.team && <span className="text-muted-foreground text-[10px] flex-shrink-0">{j.team}</span>}
-                      </div>
-                      {j.address && (
-                        <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-0.5 pl-1">
-                          <MapPin className="w-2.5 h-2.5" />
-                          <span className="truncate">{j.address}</span>
-                        </div>
-                      )}
-                    </button>
-                  ))}
-                  {filteredDropdownJobs.length === 0 && jobSearch.trim() && (
-                    <p className="text-center text-muted-foreground text-xs py-4">No jobs match "{jobSearch}"</p>
-                  )}
-                </div>
-              </ScrollArea>
-            </PopoverContent>
-          </Popover>
-
-          <Textarea
-            placeholder={`${activeAdmin}'s note... (chase reminder, booking, action item)`}
-            value={newNoteText}
-            onChange={e => setNewNoteText(e.target.value)}
-            className="h-20 text-xs"
-          />
-          <div className="flex items-center gap-2">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="h-7 text-xs gap-1">
-                  <Bell className="w-3 h-3" />
-                  {newNoteAlertDate ? format(newNoteAlertDate, 'dd MMM HH:mm') : 'Set reminder'}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={newNoteAlertDate}
-                  onSelect={d => {
-                    if (d) { d.setHours(9, 0, 0, 0); setNewNoteAlertDate(d); }
-                  }}
-                />
-                {newNoteAlertDate && (
-                  <div className="px-3 pb-3 flex gap-1 flex-wrap">
-                    {[9, 12, 14, 16].map(h => (
-                      <Button
-                        key={h}
-                        variant={newNoteAlertDate.getHours() === h ? 'default' : 'outline'}
-                        size="sm"
-                        className="h-6 text-[10px] px-2"
-                        onClick={() => {
-                          const d = new Date(newNoteAlertDate);
-                          d.setHours(h, 0, 0, 0);
-                          setNewNoteAlertDate(d);
-                        }}
-                      >
-                        {h}:00
-                      </Button>
-                    ))}
-                  </div>
-                )}
-              </PopoverContent>
-            </Popover>
-            {newNoteAlertDate && (
-              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setNewNoteAlertDate(undefined)}>
-                Clear
-              </Button>
-            )}
-            <div className="flex-1" />
-            <Button
-              size="sm"
-              className={cn("h-7 text-xs gap-1", adminConfig.color, "text-white hover:opacity-90")}
-              disabled={!newNoteText.trim() || saving}
-              onClick={handleSave}
+          {/* Notes / Ops toggle */}
+          <div className="flex bg-muted rounded-lg p-0.5">
+            <button
+              onClick={() => setActiveSection('notes')}
+              className={cn("px-3 py-1 rounded-md text-[11px] font-medium transition-all",
+                activeSection === 'notes' ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"
+              )}
             >
-              {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
-              Add Note
-            </Button>
+              My Notes
+            </button>
+            <button
+              onClick={() => setActiveSection('ops')}
+              className={cn("px-3 py-1 rounded-md text-[11px] font-medium transition-all flex items-center gap-1",
+                activeSection === 'ops' ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"
+              )}
+            >
+              <Mic className="w-3 h-3" />
+              Ops Notes
+              {unresolvedOps > 0 && (
+                <span className="bg-orange-500 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                  {unresolvedOps}
+                </span>
+              )}
+            </button>
           </div>
         </div>
 
-        {/* Filter tabs */}
-        <div className="px-4 pt-2 pb-1 flex items-center gap-1.5">
-          <Filter className="w-3 h-3 text-muted-foreground mr-1" />
-          {[
-            { key: 'all' as const, label: 'All', count: notes.length },
-            { key: 'alerts' as const, label: 'Reminders', count: alertCount },
-            { key: 'job' as const, label: 'Job Notes', count: jobNoteCount },
-            { key: 'general' as const, label: 'General', count: generalCount },
-          ].map(tab => (
-            <Button
-              key={tab.key}
-              variant={noteFilter === tab.key ? 'default' : 'ghost'}
-              size="sm"
-              className={cn("h-6 text-[10px] px-2 gap-1", noteFilter === tab.key && adminConfig.color + " text-white")}
-              onClick={() => setNoteFilter(tab.key)}
-            >
-              {tab.label}
-              <span className="opacity-60">({tab.count})</span>
-            </Button>
-          ))}
-        </div>
-
-        {/* Notes list */}
-        <ScrollArea className="flex-1 px-4 py-2">
-          <div className="space-y-2">
-            {loading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+        {activeSection === 'notes' ? (
+          <>
+            {/* ─── Active alerts banner ─── */}
+            {activeAlerts.length > 0 && (
+              <div className="px-5 py-2 bg-destructive/5 border-b space-y-1.5">
+                {activeAlerts.slice(0, 3).map(alert => {
+                  const job = jobs.find(j => j.id === alert.job_id);
+                  return (
+                    <div key={alert.id} className="flex items-center gap-2 text-xs">
+                      <BellRing className="w-3.5 h-3.5 text-destructive animate-pulse flex-shrink-0" />
+                      <span className="flex-1 truncate">
+                        {job ? <span className="font-bold">#{job.jobNumber}</span> : <span className="font-medium">General</span>}
+                        {' — '}{alert.note_text}
+                      </span>
+                      <Button variant="ghost" size="sm" className="h-5 text-[9px] px-1.5" onClick={() => dismissAlert(alert.id)}>
+                        Dismiss
+                      </Button>
+                    </div>
+                  );
+                })}
+                {activeAlerts.length > 3 && (
+                  <p className="text-[10px] text-muted-foreground">+{activeAlerts.length - 3} more alerts</p>
+                )}
               </div>
-            ) : filteredNotes.map(note => {
-              const job = jobs.find(j => j.id === note.job_id);
-              const hasAlert = note.alert_date && !note.alert_dismissed;
-              const alertDue = hasAlert && new Date(note.alert_date!) <= new Date();
-              const isEditing = editingNoteId === note.id;
+            )}
 
-              return (
-                <div
-                  key={note.id}
+            {/* ─── Quick actions ─── */}
+            <div className="px-5 py-2 border-b flex items-center gap-2">
+              {!showNewForm && (
+                <Button
+                  size="sm"
+                  className={cn("h-7 text-xs gap-1 rounded-full", adminConfig.color, "text-white hover:opacity-90")}
+                  onClick={() => setShowNewForm(true)}
+                >
+                  <Plus className="w-3 h-3" /> New Note
+                </Button>
+              )}
+
+              <div className="flex-1" />
+
+              {/* Filter pills */}
+              {[
+                { key: 'all' as const, label: 'All', count: notes.length },
+                { key: 'alerts' as const, label: '🔔', count: notes.filter(n => n.alert_date && !n.alert_dismissed).length },
+                { key: 'job' as const, label: 'Jobs', count: notes.filter(n => n.job_id).length },
+                { key: 'general' as const, label: 'General', count: notes.filter(n => !n.job_id).length },
+              ].map(tab => (
+                <button
+                  key={tab.key}
+                  onClick={() => setNoteFilter(tab.key)}
                   className={cn(
-                    "border rounded-lg p-2.5 text-xs",
-                    alertDue ? "border-destructive/50 bg-destructive/5" : "border-border"
+                    "px-2 py-0.5 rounded-full text-[10px] font-medium transition-all",
+                    noteFilter === tab.key
+                      ? cn(adminConfig.lightBg, adminConfig.textColor, "ring-1", adminConfig.ring)
+                      : "text-muted-foreground hover:bg-muted"
                   )}
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      {job && (
-                        <button
-                          onClick={() => onJobClick?.(job)}
-                          className="text-[10px] font-bold text-primary hover:underline"
-                        >
-                          #{job.jobNumber} — {job.name}
-                          {job.team && <span className="text-muted-foreground font-normal"> ({job.team})</span>}
+                  {tab.label} <span className="opacity-60">{tab.count}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* ─── New note form (collapsible) ─── */}
+            {showNewForm && (
+              <div className="px-5 py-3 border-b bg-muted/10 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-foreground">New Note</span>
+                  <Button variant="ghost" size="sm" className="h-5 text-[10px] px-1" onClick={() => setShowNewForm(false)}>
+                    Cancel
+                  </Button>
+                </div>
+
+                {/* Job picker */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-start text-xs h-8 font-normal rounded-lg">
+                      <Hash className="w-3 h-3 mr-1.5 flex-shrink-0 text-muted-foreground" />
+                      {selectedJob ? (
+                        <span className="truncate">
+                          <span className="font-mono font-bold">#{selectedJob.jobNumber}</span> — {selectedJob.name}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">Link to a job (optional)</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[380px] p-0" align="start">
+                    <div className="p-2 border-b">
+                      <div className="relative">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+                        <Input placeholder="Search jobs..." value={jobSearch} onChange={e => setJobSearch(e.target.value)}
+                          className="h-7 text-xs pl-7 rounded-lg" autoFocus />
+                      </div>
+                    </div>
+                    <ScrollArea className="max-h-[250px]">
+                      <div className="p-1">
+                        <button onClick={() => { setNewNoteJobId(null); setJobSearch(''); }}
+                          className={cn("w-full text-left px-3 py-1.5 rounded-md text-xs hover:bg-accent", !newNoteJobId && "bg-accent")}>
+                          📋 General (no job)
                         </button>
-                      )}
-                      {!job && !note.job_id && (
-                        <span className="text-[10px] font-medium text-muted-foreground">📋 General</span>
-                      )}
-                      {isEditing ? (
-                        <div className="mt-1 flex gap-1">
-                          <Textarea
-                            value={editText}
-                            onChange={e => setEditText(e.target.value)}
-                            className="h-16 text-xs flex-1"
-                          />
-                          <div className="flex flex-col gap-1">
-                            <Button size="icon" className="h-6 w-6" onClick={() => handleEditSave(note.id)}>
-                              <Check className="w-3 h-3" />
+                        {filteredDropdownJobs.map(j => (
+                          <button key={j.id} onClick={() => { setNewNoteJobId(j.id); setJobSearch(''); }}
+                            className={cn("w-full text-left px-3 py-1 rounded-md text-xs hover:bg-accent", newNoteJobId === j.id && "bg-accent")}>
+                            <span className="font-mono font-bold text-primary">#{j.jobNumber}</span>
+                            {' '}<span className="truncate">{j.name}</span>
+                            {j.address && <div className="text-[10px] text-muted-foreground truncate flex items-center gap-1 mt-0.5"><MapPin className="w-2.5 h-2.5" />{j.address}</div>}
+                          </button>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </PopoverContent>
+                </Popover>
+
+                <Textarea placeholder="Write your note..." value={newNoteText} onChange={e => setNewNoteText(e.target.value)}
+                  className="h-16 text-xs rounded-lg resize-none" />
+
+                <div className="flex items-center gap-2">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1 rounded-full">
+                        <Bell className="w-3 h-3" />
+                        {newNoteAlertDate ? format(newNoteAlertDate, 'dd MMM HH:mm') : 'Reminder'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar mode="single" selected={newNoteAlertDate}
+                        onSelect={d => { if (d) { d.setHours(9, 0, 0, 0); setNewNoteAlertDate(d); } }} />
+                      {newNoteAlertDate && (
+                        <div className="px-3 pb-3 flex gap-1">
+                          {[9, 12, 14, 16].map(h => (
+                            <Button key={h} variant={newNoteAlertDate.getHours() === h ? 'default' : 'outline'}
+                              size="sm" className="h-5 text-[10px] px-1.5"
+                              onClick={() => { const d = new Date(newNoteAlertDate); d.setHours(h, 0); setNewNoteAlertDate(d); }}>
+                              {h}:00
                             </Button>
-                            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setEditingNoteId(null)}>
-                              <X className="w-3 h-3" />
+                          ))}
+                        </div>
+                      )}
+                    </PopoverContent>
+                  </Popover>
+                  {newNoteAlertDate && (
+                    <Button variant="ghost" size="sm" className="h-6 text-[10px]" onClick={() => setNewNoteAlertDate(undefined)}>✕</Button>
+                  )}
+                  <div className="flex-1" />
+                  <Button size="sm" className={cn("h-7 text-xs rounded-full gap-1", adminConfig.color, "text-white")}
+                    disabled={!newNoteText.trim() || saving} onClick={handleSave}>
+                    {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+                    Save
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* ─── Notes list ─── */}
+            <ScrollArea className="flex-1">
+              <div className="px-5 py-2 space-y-1.5">
+                {loading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : filteredNotes.length === 0 ? (
+                  <div className="text-center py-12">
+                    <StickyNote className="w-8 h-8 mx-auto mb-2 text-muted-foreground/30" />
+                    <p className="text-sm text-muted-foreground">
+                      {noteFilter === 'all' ? `No notes yet for ${activeAdmin}` : `No ${noteFilter} notes`}
+                    </p>
+                  </div>
+                ) : filteredNotes.map(note => {
+                  const job = jobs.find(j => j.id === note.job_id);
+                  const hasAlert = note.alert_date && !note.alert_dismissed;
+                  const alertDue = hasAlert && new Date(note.alert_date!) <= new Date();
+                  const isEditing = editingNoteId === note.id;
+
+                  return (
+                    <div key={note.id} className={cn(
+                      "group rounded-xl px-3 py-2.5 text-xs border transition-all hover:shadow-sm",
+                      alertDue ? "border-destructive/40 bg-destructive/5" : "border-transparent hover:border-border bg-muted/30 hover:bg-muted/50"
+                    )}>
+                      <div className="flex items-start gap-2">
+                        <div className="flex-1 min-w-0">
+                          {/* Job reference or General tag */}
+                          <div className="flex items-center gap-1.5 mb-1">
+                            {job ? (
+                              <button onClick={() => onJobClick?.(job)} className="text-[10px] font-bold text-primary hover:underline truncate">
+                                #{job.jobNumber} — {job.name}
+                              </button>
+                            ) : (
+                              <span className="text-[10px] font-medium text-muted-foreground">📋 General</span>
+                            )}
+                            {hasAlert && (
+                              <span className={cn("inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-full",
+                                alertDue ? "bg-destructive/15 text-destructive font-bold" : "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
+                              )}>
+                                <Bell className="w-2.5 h-2.5" />
+                                {format(new Date(note.alert_date!), 'dd MMM HH:mm')}
+                              </span>
+                            )}
+                          </div>
+
+                          {isEditing ? (
+                            <div className="flex gap-1 mt-1">
+                              <Textarea value={editText} onChange={e => setEditText(e.target.value)} className="h-14 text-xs flex-1 rounded-lg" />
+                              <div className="flex flex-col gap-0.5">
+                                <Button size="icon" className="h-6 w-6 rounded-md" onClick={() => handleEditSave(note.id)}>
+                                  <Check className="w-3 h-3" />
+                                </Button>
+                                <Button size="icon" variant="ghost" className="h-6 w-6 rounded-md" onClick={() => setEditingNoteId(null)}>
+                                  <X className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="text-foreground whitespace-pre-wrap leading-relaxed">{note.note_text}</p>
+                          )}
+
+                          <span className="text-[10px] text-muted-foreground mt-1 block">
+                            {formatDate(note.created_at)}
+                          </span>
+                        </div>
+
+                        {!isEditing && (
+                          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button variant="ghost" size="icon" className="h-6 w-6 rounded-md"
+                              onClick={() => { setEditingNoteId(note.id); setEditText(note.note_text); }}>
+                              <Edit2 className="w-3 h-3 text-muted-foreground" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 rounded-md"
+                              onClick={() => deleteNote(note.id)}>
+                              <Trash2 className="w-3 h-3 text-muted-foreground hover:text-destructive" />
                             </Button>
                           </div>
-                        </div>
-                      ) : (
-                        <p className="text-foreground mt-0.5 whitespace-pre-wrap">{note.note_text}</p>
-                      )}
-                      <div className="flex items-center gap-2 mt-1 text-[10px] text-muted-foreground">
-                        <span>{format(new Date(note.created_at), 'dd MMM HH:mm')}</span>
-                        {hasAlert && (
-                          <span className={cn("flex items-center gap-0.5", alertDue ? "text-destructive font-bold" : "text-amber-600")}>
-                            <Bell className="w-2.5 h-2.5" />
-                            {format(new Date(note.alert_date!), 'dd MMM HH:mm')}
-                          </span>
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-0.5">
-                      {!isEditing && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 text-muted-foreground hover:text-foreground"
-                          onClick={() => { setEditingNoteId(note.id); setEditText(note.note_text); }}
-                        >
-                          <Edit2 className="w-3 h-3" />
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                        onClick={() => deleteNote(note.id)}
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </Button>
+                  );
+                })}
+              </div>
+            </ScrollArea>
+          </>
+        ) : (
+          /* ─── Ops Notes Section ─── */
+          <ScrollArea className="flex-1">
+            <div className="px-5 py-3 space-y-2">
+              <div className="flex items-center gap-2 mb-2">
+                <Mic className="w-4 h-4 text-orange-500" />
+                <span className="text-xs font-semibold">Operations Manager Voice Notes</span>
+                <Badge variant="secondary" className="text-[9px] h-4">{opsNotes.length}</Badge>
+              </div>
+
+              {opsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : opsNotes.length === 0 ? (
+                <div className="text-center py-12">
+                  <Mic className="w-8 h-8 mx-auto mb-2 text-muted-foreground/30" />
+                  <p className="text-sm text-muted-foreground">No ops notes yet</p>
+                </div>
+              ) : opsNotes.map(note => {
+                const urgencyColors: Record<string, string> = {
+                  immediate: 'border-l-red-500 bg-red-50/50 dark:bg-red-950/20',
+                  high: 'border-l-orange-500 bg-orange-50/50 dark:bg-orange-950/20',
+                  normal: 'border-l-blue-500',
+                  low: 'border-l-gray-400',
+                };
+                const urgencyLabels: Record<string, string> = {
+                  immediate: '🚨 URGENT',
+                  high: '⚠️ High',
+                  normal: 'Normal',
+                  low: 'Low',
+                };
+                return (
+                  <div key={note.id} className={cn(
+                    "border-l-4 rounded-lg p-3 text-xs border bg-muted/20",
+                    urgencyColors[note.urgency] || 'border-l-gray-400',
+                    note.is_resolved && "opacity-50"
+                  )}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                          <Badge variant="outline" className="text-[9px] h-4 px-1.5">
+                            {urgencyLabels[note.urgency] || note.urgency}
+                          </Badge>
+                          {note.team_association && (
+                            <Badge variant="secondary" className="text-[9px] h-4 px-1.5">{note.team_association}</Badge>
+                          )}
+                          {note.job_number && (
+                            <span className="font-mono text-[10px] font-bold text-primary">#{note.job_number}</span>
+                          )}
+                          {note.is_resolved && (
+                            <CheckCircle className="w-3 h-3 text-green-600" />
+                          )}
+                        </div>
+                        <h4 className={cn("font-medium text-foreground", note.is_resolved && "line-through")}>{note.title}</h4>
+                        <p className="text-muted-foreground mt-1 whitespace-pre-wrap">{note.enhanced_text}</p>
+                        <div className="flex items-center gap-2 mt-1.5 text-[10px] text-muted-foreground">
+                          <Clock className="w-2.5 h-2.5" />
+                          {formatDate(note.created_at)}
+                          <span>by {note.created_by_name}</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-            {!loading && filteredNotes.length === 0 && (
-              <p className="text-center text-muted-foreground py-8 text-sm">
-                {noteFilter === 'all'
-                  ? `No notes yet for ${activeAdmin}. Start tracking jobs above.`
-                  : `No ${noteFilter} notes.`}
-              </p>
-            )}
-          </div>
-        </ScrollArea>
+                );
+              })}
+            </div>
+          </ScrollArea>
+        )}
       </div>
     </div>
   );
