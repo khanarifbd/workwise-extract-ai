@@ -93,6 +93,7 @@ interface JobTableProps {
   readOnly?: boolean;
   searchTerm?: string;
   tradeBookings?: Map<string, TradeBookingInfo>;
+  onOpenAdminNotes?: (jobId: string) => void;
   getSignOffStatus?: (jobId: string, team1?: string | null, team2?: string | null) => {
     signedOffTeams: string[];
     totalAssigned: number;
