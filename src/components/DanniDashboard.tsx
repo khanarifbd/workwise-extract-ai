@@ -428,7 +428,7 @@ export const DanniDashboard = ({
         linkedRoofingJobId: raw.linked_roofing_job_id,
         flooringInfo: Array.isArray(raw.flooring_info) ? (raw.flooring_info as any[]) : null,
         linkedFlooringJobId: raw.linked_flooring_job_id,
-        fireDoorInfo: raw.fire_door_info as FireDoorInfo[] | null,
+        fireDoorInfo: raw.fire_door_info as unknown as FireDoorInfo[] | null,
         linkedFireDoorJobId: raw.linked_fire_door_job_id,
       });
     }
@@ -773,7 +773,7 @@ export const DanniDashboard = ({
         linkedRoofingJobId: data.linked_roofing_job_id,
         flooringInfo: Array.isArray(data.flooring_info) ? (data.flooring_info as any[]) : null,
         linkedFlooringJobId: data.linked_flooring_job_id,
-        fireDoorInfo: data.fire_door_info as FireDoorInfo[] | null,
+        fireDoorInfo: data.fire_door_info as unknown as FireDoorInfo[] | null,
         linkedFireDoorJobId: data.linked_fire_door_job_id,
         costs: data.costs as any,
         privateNotes: data.private_notes || '',
@@ -841,7 +841,7 @@ export const DanniDashboard = ({
         linkedRoofingJobId: data.linked_roofing_job_id,
         flooringInfo: Array.isArray(data.flooring_info) ? (data.flooring_info as any[]) : null,
         linkedFlooringJobId: data.linked_flooring_job_id,
-        fireDoorInfo: data.fire_door_info as FireDoorInfo[] | null,
+        fireDoorInfo: data.fire_door_info as unknown as FireDoorInfo[] | null,
         linkedFireDoorJobId: data.linked_fire_door_job_id,
         costs: data.costs as any,
         privateNotes: data.private_notes || '',
