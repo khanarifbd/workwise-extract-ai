@@ -1,7 +1,7 @@
 import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { NotepadPanel } from '@/components/DanniNotepadPanel';
 import { DanniNewJobPanel } from '@/components/DanniNewJobPanel';
-import { Job, Attachment, WorkItem, FanInfo, RoofingInfo, FlooringInfo } from '@/types/job';
+import { Job, Attachment, WorkItem, FanInfo, RoofingInfo, FlooringInfo, FireDoorInfo } from '@/types/job';
 import { ContactCell } from '@/components/ContactCell';
 import { useAllContactHistory } from '@/hooks/useContactHistory';
 import { HighlightText } from '@/components/HighlightText';
