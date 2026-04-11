@@ -43,7 +43,7 @@ import { ContactCell } from './ContactCell';
 import { BookedDateCell } from './BookedDateCell';
 import { SignOffStatusIndicator } from './SignOffStatusIndicator';
 import { SignOffHistoryModal } from './SignOffHistoryModal';
-import { extractFansWithAI, createLinkedFanJob, syncLinkedFanJob, extractRoofingWithAI, createLinkedRoofingJob, syncLinkedRoofingJob, extractFlooringWithAI, createLinkedFlooringJob, syncLinkedFlooringJob } from '@/lib/api';
+import { extractFansWithAI, createLinkedFanJob, syncLinkedFanJob, extractRoofingWithAI, createLinkedRoofingJob, syncLinkedRoofingJob, extractFlooringWithAI, createLinkedFlooringJob, syncLinkedFlooringJob, deleteLinkedJob } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { useTeamSettings } from '@/hooks/useTeamSettings';
 import { useTeamAvailability } from '@/hooks/useTeamAvailability';

@@ -8,12 +8,6 @@ import { createLinkedFireDoorJob, syncLinkedFireDoorJob } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { FireDoorBookingDateDialog } from './FireDoorBookingDateDialog';
 import { Trash2 } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { FireDoorInfo, Job } from '@/types/job';
-import { createLinkedFireDoorJob, syncLinkedFireDoorJob } from '@/lib/api';
-import { useToast } from '@/hooks/use-toast';
-import { FireDoorBookingDateDialog } from './FireDoorBookingDateDialog';
 
 interface FireDoorEditorProps {
   fireDoorInfo: FireDoorInfo[] | null;
