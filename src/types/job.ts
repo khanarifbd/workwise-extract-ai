@@ -128,6 +128,8 @@ export interface Job {
   linkedRoofingJobId: string | null;
   flooringInfo: FlooringInfo[] | null;
   linkedFlooringJobId: string | null;
+  fireDoorInfo: FireDoorInfo[] | null;
+  linkedFireDoorJobId: string | null;
   costs: JobCosts | null;
   privateNotes: string; // Admin-only notes, not visible in team portal
   referBack: boolean; // Job referred back to NPH as uncompletable

@@ -453,6 +453,7 @@ const syncLinkedChildJobs = async (parentDbJob: any) => {
   if (parentDbJob.linked_fan_job_id) linkedIds.push(parentDbJob.linked_fan_job_id);
   if (parentDbJob.linked_roofing_job_id) linkedIds.push(parentDbJob.linked_roofing_job_id);
   if (parentDbJob.linked_flooring_job_id) linkedIds.push(parentDbJob.linked_flooring_job_id);
+  if (parentDbJob.linked_fire_door_job_id) linkedIds.push(parentDbJob.linked_fire_door_job_id);
 
   if (linkedIds.length === 0) return;
 
@@ -545,6 +546,8 @@ export function mapDatabaseJobToJob(dbJob: any): Job {
     linkedRoofingJobId: dbJob.linked_roofing_job_id || null,
     flooringInfo: dbJob.flooring_info || null,
     linkedFlooringJobId: dbJob.linked_flooring_job_id || null,
+    fireDoorInfo: dbJob.fire_door_info || null,
+    linkedFireDoorJobId: dbJob.linked_fire_door_job_id || null,
     costs: dbJob.costs || null,
     privateNotes: dbJob.private_notes || '',
     referBack: dbJob.refer_back || false,
@@ -921,6 +924,8 @@ export const mapJobToDatabase = (job: Partial<Job>): any => {
   if (job.linkedRoofingJobId !== undefined) dbJob.linked_roofing_job_id = job.linkedRoofingJobId;
   if ((job as any).flooringInfo !== undefined) dbJob.flooring_info = (job as any).flooringInfo;
   if ((job as any).linkedFlooringJobId !== undefined) dbJob.linked_flooring_job_id = (job as any).linkedFlooringJobId;
+  if ((job as any).fireDoorInfo !== undefined) dbJob.fire_door_info = (job as any).fireDoorInfo;
+  if ((job as any).linkedFireDoorJobId !== undefined) dbJob.linked_fire_door_job_id = (job as any).linkedFireDoorJobId;
   if (job.costs !== undefined) dbJob.costs = job.costs;
   if (job.privateNotes !== undefined) dbJob.private_notes = job.privateNotes;
   if (job.referBack !== undefined) dbJob.refer_back = job.referBack;
