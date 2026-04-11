@@ -11,6 +11,7 @@ import { GlobalSignOffHistoryModal } from './GlobalSignOffHistoryModal';
 import { AdminTeamJobsModal } from './AdminTeamJobsModal';
 import { SendTeamMessageModal } from './SendTeamMessageModal';
 import { OpsNotesModal } from './OpsNotesModal';
+import { ADMIN_USERS } from './AdminNotesOrganiser';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { supabase } from '@/integrations/supabase/client';
 import logo from '@/assets/logo.png';
@@ -31,8 +32,7 @@ interface HeaderProps {
   onShowOverdue?: () => void;
   danniCount?: number;
   onShowDanni?: () => void;
-  onShowNotes?: () => void;
-  notesAlertCount?: number;
+  onShowAdminNotes?: (adminName: string) => void;
 }
 
 export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount = 0, onShowOverdue, danniCount = 0, onShowDanni, onShowNotes, notesAlertCount = 0 }: HeaderProps) => {
