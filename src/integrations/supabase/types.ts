@@ -14,6 +14,50 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_personal_notes: {
+        Row: {
+          admin_name: string
+          alert_date: string | null
+          alert_dismissed: boolean
+          category: string
+          created_at: string
+          id: string
+          job_id: string | null
+          note_text: string
+          updated_at: string
+        }
+        Insert: {
+          admin_name: string
+          alert_date?: string | null
+          alert_dismissed?: boolean
+          category?: string
+          created_at?: string
+          id?: string
+          job_id?: string | null
+          note_text: string
+          updated_at?: string
+        }
+        Update: {
+          admin_name?: string
+          alert_date?: string | null
+          alert_dismissed?: boolean
+          category?: string
+          created_at?: string
+          id?: string
+          job_id?: string | null
+          note_text?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_personal_notes_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_log: {
         Row: {
           action: string
