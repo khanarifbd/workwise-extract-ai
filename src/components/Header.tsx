@@ -202,6 +202,24 @@ export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount
                 </span>
               </Button>
             )}
+            {/* NOTES Button */}
+            {onShowNotes && (
+              <Button
+                variant="outline"
+                size="icon"
+                className="relative md:w-auto md:px-4 border-purple-300 text-purple-600 hover:bg-purple-50 dark:border-purple-700 dark:text-purple-400 dark:hover:bg-purple-950"
+                onClick={onShowNotes}
+                title="Personal Notes Organiser"
+              >
+                <StickyNote className="w-4 h-4 md:mr-2" />
+                <span className="hidden md:inline">Notes</span>
+                {notesAlertCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-purple-500 text-white text-[10px] font-bold rounded-full h-4 min-w-4 flex items-center justify-center px-1">
+                    {notesAlertCount > 9 ? '9+' : notesAlertCount}
+                  </span>
+                )}
+              </Button>
+            )}
             {/* OP NOTES Button */}
             <Button 
               variant="outline" 
