@@ -57,7 +57,12 @@ export const FlooringBookingDateDialog = ({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            🪵 Flooring Detected!
+            <svg className="w-5 h-5 text-teal-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="6" width="20" height="12" rx="2" />
+              <line x1="2" y1="12" x2="22" y2="12" />
+              <line x1="12" y1="6" x2="12" y2="18" />
+            </svg>
+            Flooring Detected!
           </DialogTitle>
           <DialogDescription>
             Found <span className="font-semibold text-foreground">{totalFlooringCount} flooring item(s)</span> in job{' '}
@@ -95,7 +100,11 @@ export const FlooringBookingDateDialog = ({
         <DialogFooter className="flex gap-2 sm:gap-0">
           <Button variant="outline" onClick={handleSkip} disabled={isSubmitting}>Skip (No Date)</Button>
           <Button onClick={handleConfirm} disabled={isSubmitting} className="bg-teal-600 hover:bg-teal-700">
-            {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creating...</> : <>🪵 {selectedDate ? 'Create & Book' : 'Create Flooring Job'}</>}
+            {isSubmitting ? (
+              <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creating...</>
+            ) : (
+              <>{selectedDate ? 'Create & Book' : 'Create Flooring Job'}</>
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

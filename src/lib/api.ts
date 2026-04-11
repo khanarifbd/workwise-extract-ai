@@ -1513,7 +1513,10 @@ export const createLinkedFlooringJob = async (
 
   await supabase
     .from('jobs')
-    .update({ linked_flooring_job_id: data.id })
+    .update({
+      linked_flooring_job_id: data.id,
+      flooring_info: flooringInfo as unknown as Json
+    })
     .eq('id', sourceJob.id);
 
   return mapDatabaseJobToJob(data);
