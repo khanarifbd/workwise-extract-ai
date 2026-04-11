@@ -1787,6 +1787,7 @@ const Index = () => {
                   searchTerm={debouncedSearch}
                   getSignOffStatus={getSignOffStatus}
                   tradeBookings={tradeBookings}
+                  onOpenAdminNotes={(jobId) => { setAdminNotesJobId(jobId); setShowAdminNotes(true); }}
                 />
               ) : viewType === 'kanban' ? (
                 <KanbanBoard
