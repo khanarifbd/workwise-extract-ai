@@ -101,6 +101,7 @@ const Index = () => {
     return sessionStorage.getItem('danniDashboardOpen') === 'true';
   });
   const [showTeamMetrics, setShowTeamMetrics] = useState(false);
+  const [showAdminNotes, setShowAdminNotes] = useState(false);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [bulkUploadInitialFiles, setBulkUploadInitialFiles] = useState<Array<{ file: File; type: FileType }>>([]);
   const [showManualEntry, setShowManualEntry] = useState(false);
@@ -1336,6 +1337,7 @@ const Index = () => {
         onShowOverdue={() => setShowOverdueDashboard(true)}
         danniCount={danniCount}
         onShowDanni={() => setShowDanniDashboard(true)}
+        onShowNotes={() => setShowAdminNotes(true)}
       />
       
       {/* Danni Sign-Off Readiness Dashboard */}
