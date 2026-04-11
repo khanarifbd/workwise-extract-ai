@@ -103,6 +103,7 @@ const Index = () => {
   });
   const [showTeamMetrics, setShowTeamMetrics] = useState(false);
   const [showAdminNotes, setShowAdminNotes] = useState(false);
+  const [adminNotesAdmin, setAdminNotesAdmin] = useState<string>('Cecil');
   const [adminNotesJobId, setAdminNotesJobId] = useState<string | null>(null);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [bulkUploadInitialFiles, setBulkUploadInitialFiles] = useState<Array<{ file: File; type: FileType }>>([]);
