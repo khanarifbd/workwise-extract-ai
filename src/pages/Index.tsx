@@ -103,6 +103,7 @@ const Index = () => {
   });
   const [showTeamMetrics, setShowTeamMetrics] = useState(false);
   const [showAdminNotes, setShowAdminNotes] = useState(false);
+  const [adminNotesJobId, setAdminNotesJobId] = useState<string | null>(null);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [bulkUploadInitialFiles, setBulkUploadInitialFiles] = useState<Array<{ file: File; type: FileType }>>([]);
   const [showManualEntry, setShowManualEntry] = useState(false);
@@ -1507,7 +1508,8 @@ const Index = () => {
       {showAdminNotes && (
         <AdminNotesOrganiser
           jobs={jobs}
-          onClose={() => setShowAdminNotes(false)}
+          onClose={() => { setShowAdminNotes(false); setAdminNotesJobId(null); }}
+          initialJobId={adminNotesJobId}
           onJobClick={(job) => {
             setSelectedJobForModal(job);
           }}
@@ -1785,6 +1787,7 @@ const Index = () => {
                   searchTerm={debouncedSearch}
                   getSignOffStatus={getSignOffStatus}
                   tradeBookings={tradeBookings}
+                  onOpenAdminNotes={(jobId) => { setAdminNotesJobId(jobId); setShowAdminNotes(true); }}
                 />
               ) : viewType === 'kanban' ? (
                 <KanbanBoard

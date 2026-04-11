@@ -7,6 +7,7 @@ import { FireDoorInfo, Job } from '@/types/job';
 import { createLinkedFireDoorJob, syncLinkedFireDoorJob } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { FireDoorBookingDateDialog } from './FireDoorBookingDateDialog';
+import { Trash2 } from 'lucide-react';
 
 interface FireDoorEditorProps {
   fireDoorInfo: FireDoorInfo[] | null;
@@ -14,6 +15,7 @@ interface FireDoorEditorProps {
   job: Job;
   fireDoorCategoryId?: string;
   onJobUpdated?: (updates?: Partial<Job>) => void;
+  onDeleteLinkedJob?: () => void;
 }
 
 export const FireDoorEditor = ({
@@ -22,6 +24,7 @@ export const FireDoorEditor = ({
   job,
   fireDoorCategoryId,
   onJobUpdated,
+  onDeleteLinkedJob,
 }: FireDoorEditorProps) => {
   const [showBookingDialog, setShowBookingDialog] = useState(false);
   const [popoverOpen, setPopoverOpen] = useState(false);
@@ -119,7 +122,25 @@ export const FireDoorEditor = ({
                 </Button>
               )}
               {isLinked && (
-                <Badge variant="outline" className="text-xs bg-green-500/10 text-green-700">Linked ✓</Badge>
+                <div className="flex items-center justify-between">
+                  <Badge variant="outline" className="text-xs bg-green-500/10 text-green-700">Linked ✓</Badge>
+                  {onDeleteLinkedJob && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 px-2 text-xs text-destructive hover:bg-destructive/10"
+                      onClick={() => {
+                        if (window.confirm('Delete this fire door job from all databases?')) {
+                          onDeleteLinkedJob();
+                          setPopoverOpen(false);
+                        }
+                      }}
+                    >
+                      <Trash2 className="w-3 h-3 mr-1" />
+                      Delete
+                    </Button>
+                  )}
+                </div>
               )}
             </div>
           </PopoverContent>

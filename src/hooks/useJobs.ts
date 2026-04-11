@@ -438,6 +438,32 @@ export const useJobs = (categoryId?: string) => {
       
       await deleteJob(id);
 
+      // Cascade: delete linked child jobs and unlink from parent
+      if (deletedJob) {
+        const linkedIds = [
+          deletedJob.linkedFanJobId,
+          deletedJob.linkedRoofingJobId,
+          deletedJob.linkedFlooringJobId,
+          deletedJob.linkedFireDoorJobId,
+        ].filter(Boolean) as string[];
+
+        for (const linkedId of linkedIds) {
+          try {
+            await supabase.from('jobs').update({ deleted_at: new Date().toISOString() }).eq('id', linkedId);
+          } catch { /* silent */ }
+        }
+
+        // If this IS a linked child, unlink from parent
+        const unlinkUpdates: Record<string, any> = { updated_at: new Date().toISOString() };
+        const linkFields = ['linked_fan_job_id', 'linked_roofing_job_id', 'linked_flooring_job_id', 'linked_fire_door_job_id'];
+        for (const field of linkFields) {
+          try {
+            unlinkUpdates[field] = null;
+            await (supabase.from('jobs').update(unlinkUpdates) as any).eq(field, id);
+          } catch { /* silent */ }
+        }
+      }
+
       // Show undo toast
       if (deletedJob) {
         toast({

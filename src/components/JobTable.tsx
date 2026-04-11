@@ -25,6 +25,7 @@ import {
   RotateCcw,
   FileDown,
   Wrench,
+  StickyNote,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { downloadReferBackJobPDF } from './ReferBackJobPDF';
@@ -43,7 +44,7 @@ import { ContactCell } from './ContactCell';
 import { BookedDateCell } from './BookedDateCell';
 import { SignOffStatusIndicator } from './SignOffStatusIndicator';
 import { SignOffHistoryModal } from './SignOffHistoryModal';
-import { extractFansWithAI, createLinkedFanJob, syncLinkedFanJob, extractRoofingWithAI, createLinkedRoofingJob, syncLinkedRoofingJob, extractFlooringWithAI, createLinkedFlooringJob, syncLinkedFlooringJob } from '@/lib/api';
+import { extractFansWithAI, createLinkedFanJob, syncLinkedFanJob, extractRoofingWithAI, createLinkedRoofingJob, syncLinkedRoofingJob, extractFlooringWithAI, createLinkedFlooringJob, syncLinkedFlooringJob, deleteLinkedJob } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { useTeamSettings } from '@/hooks/useTeamSettings';
 import { useTeamAvailability } from '@/hooks/useTeamAvailability';
@@ -93,6 +94,7 @@ interface JobTableProps {
   readOnly?: boolean;
   searchTerm?: string;
   tradeBookings?: Map<string, TradeBookingInfo>;
+  onOpenAdminNotes?: (jobId: string) => void;
   getSignOffStatus?: (jobId: string, team1?: string | null, team2?: string | null) => {
     signedOffTeams: string[];
     totalAssigned: number;
@@ -120,7 +122,7 @@ const findDuplicates = (jobs: Job[]): Set<string> => {
   return duplicates;
 };
 
-export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onBatchUpdateTeam, onTransferJob, onDuplicateToCategory, onReferBack, fanCategoryId, onFanJobCreated, roofingCategoryId, onRoofingJobCreated, flooringCategoryId, onFlooringJobCreated, fireDoorCategoryId, onFireDoorJobCreated, isFanCategory = false, currentCategoryId, categories = [], readOnly = false, searchTerm, tradeBookings = new Map(), getSignOffStatus: getSignOffStatusProp }, ref) => {
+export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onBatchUpdateTeam, onTransferJob, onDuplicateToCategory, onReferBack, fanCategoryId, onFanJobCreated, roofingCategoryId, onRoofingJobCreated, flooringCategoryId, onFlooringJobCreated, fireDoorCategoryId, onFireDoorJobCreated, isFanCategory = false, currentCategoryId, categories = [], readOnly = false, searchTerm, tradeBookings = new Map(), onOpenAdminNotes, getSignOffStatus: getSignOffStatusProp }, ref) => {
   const [showTeamSelector, setShowTeamSelector] = useState<string | null>(null);
   const [showTransferModal, setShowTransferModal] = useState<Job | null>(null);
   const [showJobDetails, setShowJobDetails] = useState<Job | null>(null);
@@ -1352,7 +1354,24 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                             onFireDoorJobCreated?.();
                           }
                         }}
+                        onDeleteLinkedJob={async () => {
+                          if (job.linkedFireDoorJobId) {
+                            try {
+                              await deleteLinkedJob(job.linkedFireDoorJobId, job.id, 'fire_door');
+                              onUpdateJob({ ...job, linkedFireDoorJobId: null, fireDoorInfo: null });
+                              onFireDoorJobCreated?.();
+                              toast({ title: 'Fire Door job deleted' });
+                            } catch (e) {
+                              toast({ title: 'Error', description: 'Failed to delete fire door job', variant: 'destructive' });
+                            }
+                          }
+                        }}
                       />
+                      {job.linkedFireDoorJobId && (
+                        <Badge variant="outline" className="text-xs bg-green-500/10 text-green-700 dark:text-green-400">
+                          Linked
+                        </Badge>
+                      )}
                     </div>
                   </td>
                   {/* Ongoing Notes Column - illuminated when job is ongoing */}
@@ -1363,20 +1382,33 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                       job.isOngoing && "bg-amber-100/50 dark:bg-amber-900/30"
                     )}
                   >
-                    <OngoingNotesEditor
-                      notes={job.privateNotes || ''}
-                      progressNotes={job.progressNotes || ''}
-                      ongoingReason={job.ongoingReason || ''}
-                      scheduledTrades={job.scheduledTrades || []}
-                      isOngoing={job.isOngoing || false}
-                      onUpdate={(updates) => {
-                        onUpdateJob({
-                          ...job,
-                          privateNotes: updates.privateNotes ?? job.privateNotes,
-                          scheduledTrades: updates.scheduledTrades ?? job.scheduledTrades,
-                        });
-                      }}
-                    />
+                    <div className="flex flex-col gap-1">
+                      <OngoingNotesEditor
+                        notes={job.privateNotes || ''}
+                        progressNotes={job.progressNotes || ''}
+                        ongoingReason={job.ongoingReason || ''}
+                        scheduledTrades={job.scheduledTrades || []}
+                        isOngoing={job.isOngoing || false}
+                        onUpdate={(updates) => {
+                          onUpdateJob({
+                            ...job,
+                            privateNotes: updates.privateNotes ?? job.privateNotes,
+                            scheduledTrades: updates.scheduledTrades ?? job.scheduledTrades,
+                          });
+                        }}
+                      />
+                      {onOpenAdminNotes && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-5 px-1.5 text-[10px] gap-0.5 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/30"
+                          onClick={() => onOpenAdminNotes(job.id)}
+                        >
+                          <StickyNote className="w-3 h-3" />
+                          Admin Note
+                        </Button>
+                      )}
+                    </div>
                   </td>
                   <td>
                     <div className="text-xs text-muted-foreground space-y-0.5">
