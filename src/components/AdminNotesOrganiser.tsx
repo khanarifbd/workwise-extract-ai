@@ -11,7 +11,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import {
   X, StickyNote, Bell, BellRing, Plus, Trash2, Loader2,
   Search, MapPin, Hash, Edit2, Check,
-  Mic, Clock, CheckCircle, ChevronDown, ChevronRight,
+  Mic, Clock, CheckCircle, ChevronDown, ChevronRight, Camera,
 } from 'lucide-react';
 import { format, parseISO, isToday, isYesterday, startOfWeek, endOfWeek, isWithinInterval, isBefore, subWeeks } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -75,6 +75,42 @@ export const AdminNotesOrganiser = ({ jobs, onClose, onJobClick, initialJobId }:
   const adminConfig = ADMIN_USERS.find(u => u.name === activeAdmin)!;
 
   const { notes, loading, addNote, deleteNote, dismissAlert, activeAlerts, updateNote } = useAdminNotes(activeAdmin);
+
+  // Avatar state per admin
+  const [avatars, setAvatars] = useState<Record<string, string>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('admin_avatars') || '{}');
+    } catch { return {}; }
+  });
+  const avatarInputRef = useState<HTMLInputElement | null>(null);
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    // Resize and convert to base64 for localStorage (small file)
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const size = 128;
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d')!;
+        const scale = Math.max(size / img.width, size / img.height);
+        const x = (size - img.width * scale) / 2;
+        const y = (size - img.height * scale) / 2;
+        ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+        const updated = { ...avatars, [activeAdmin]: dataUrl };
+        setAvatars(updated);
+        localStorage.setItem('admin_avatars', JSON.stringify(updated));
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
 
   // Ops notes state
   const [opsNotes, setOpsNotes] = useState<OpsNote[]>([]);
@@ -246,8 +282,18 @@ export const AdminNotesOrganiser = ({ jobs, onClose, onJobClick, initialJobId }:
         {/* ─── Header ─── */}
         <div className="flex items-center justify-between px-5 py-3 border-b bg-muted/20">
           <div className="flex items-center gap-2.5">
-            <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center", adminConfig.color)}>
-              <StickyNote className="w-4.5 h-4.5 text-white" />
+            <div className="relative group cursor-pointer" onClick={() => document.getElementById('avatar-upload')?.click()}>
+              {avatars[activeAdmin] ? (
+                <img src={avatars[activeAdmin]} alt={activeAdmin} className={cn("w-10 h-10 rounded-xl object-cover ring-2", adminConfig.ring)} />
+              ) : (
+                <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-sm", adminConfig.color)}>
+                  {activeAdmin.charAt(0)}
+                </div>
+              )}
+              <div className="absolute inset-0 rounded-xl bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <Camera className="w-4 h-4 text-white" />
+              </div>
+              <input id="avatar-upload" type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleAvatarUpload} />
             </div>
             <div>
               <h2 className="text-sm font-bold tracking-tight">Notes & Alerts</h2>
