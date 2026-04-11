@@ -459,8 +459,8 @@ export const useJobs = (categoryId?: string) => {
         for (const field of linkFields) {
           try {
             await supabase.from('jobs')
-              .update({ [field]: null, updated_at: new Date().toISOString() } as any)
-              .eq(field, id);
+              .update({ [field]: null, updated_at: new Date().toISOString() })
+              .eq(field as any, id);
           } catch { /* silent */ }
         }
       }
