@@ -1251,6 +1251,14 @@ export const DanniDashboard = ({
                                 </Button>
                               );
                             })()}
+                            {/* Fire Door */}
+                            <FireDoorEditor
+                              fireDoorInfo={job.fireDoorInfo}
+                              onUpdate={(info) => handleUpdateFireDoorInfo(job.id, info)}
+                              job={toJobForApi(job)}
+                              fireDoorCategoryId={fireDoorCategoryId}
+                              onJobUpdated={() => handleRefresh()}
+                            />
                           </div>
                         </div>
 
