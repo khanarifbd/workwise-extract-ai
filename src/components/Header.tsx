@@ -1,4 +1,4 @@
-import { FileDown, Moon, Sun, Settings, History, KeyRound, Users, LogOut, ChevronDown, CalendarDays, CheckCircle2, Briefcase, AlertTriangle, Mic, MessageSquare, Clock } from 'lucide-react';
+import { FileDown, Moon, Sun, Settings, History, KeyRound, Users, LogOut, ChevronDown, CalendarDays, CheckCircle2, Briefcase, AlertTriangle, Mic, MessageSquare, Clock, StickyNote } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
@@ -31,9 +31,11 @@ interface HeaderProps {
   onShowOverdue?: () => void;
   danniCount?: number;
   onShowDanni?: () => void;
+  onShowNotes?: () => void;
+  notesAlertCount?: number;
 }
 
-export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount = 0, onShowOverdue, danniCount = 0, onShowDanni }: HeaderProps) => {
+export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount = 0, onShowOverdue, danniCount = 0, onShowDanni, onShowNotes, notesAlertCount = 0 }: HeaderProps) => {
   const [isDark, setIsDark] = useState(() => {
     // Initialize from localStorage or system preference
     const stored = localStorage.getItem('theme');
