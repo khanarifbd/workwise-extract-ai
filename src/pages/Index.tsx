@@ -1502,6 +1502,16 @@ const Index = () => {
           </section>
         )}
 
+      {/* Admin Notes Organiser */}
+      {showAdminNotes && (
+        <AdminNotesOrganiser
+          jobs={jobs}
+          onClose={() => setShowAdminNotes(false)}
+          onJobClick={(job) => {
+            setSelectedJobForModal(job);
+          }}
+        />
+      )}
 
         {/* Monthly Folder Tabs */}
         <MonthlyFolderTabs
