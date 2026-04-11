@@ -1340,7 +1340,7 @@ const Index = () => {
         onShowOverdue={() => setShowOverdueDashboard(true)}
         danniCount={danniCount}
         onShowDanni={() => setShowDanniDashboard(true)}
-        onShowNotes={() => setShowAdminNotes(true)}
+        onShowAdminNotes={(adminName) => { setAdminNotesAdmin(adminName); setShowAdminNotes(true); }}
       />
       
       {/* Danni Sign-Off Readiness Dashboard */}
