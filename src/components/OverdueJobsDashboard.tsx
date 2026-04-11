@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
-import { Job } from '@/types/job';
+import { Job, FireDoorInfo } from '@/types/job';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
