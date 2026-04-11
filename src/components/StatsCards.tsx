@@ -1,6 +1,7 @@
 import { forwardRef, useMemo, useState } from 'react';
 import { Job } from '@/types/job';
 import { MonthlyJobBreakdown } from './MonthlyJobBreakdown';
+import { WeeklyTeamLeaderboard } from './WeeklyTeamLeaderboard';
 import { 
   Briefcase, 
   CheckCircle2, 
@@ -19,7 +20,8 @@ import {
   Zap,
   BookOpen,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  BarChart3
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getGMTNow, getHoursDifferenceGMT } from '@/lib/dateUtils';
@@ -58,8 +60,7 @@ function isCompleted(j: Job): boolean {
 
 export const StatsCards = forwardRef<HTMLDivElement, StatsCardsProps>(({ jobs, allJobs, tradeBookings }, ref) => {
   const now = useMemo(() => getGMTNow(), []);
-  const [activeOpen, setActiveOpen] = useState(false);
-  const [monthlyOpen, setMonthlyOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   const counts = useMemo(() => {
     const total = jobs.length;
@@ -67,7 +68,6 @@ export const StatsCards = forwardRef<HTMLDivElement, StatsCardsProps>(({ jobs, a
     const active = total - complete;
     const assigned = jobs.filter(j => !isCompleted(j) && j.team != null && j.team !== '').length;
 
-    // Overdue: 24h+ past booked date, incomplete
     const overdue = jobs.filter(j => {
       if (isCompleted(j)) return false;
       if (!j.bookedDate) return false;
@@ -76,12 +76,10 @@ export const StatsCards = forwardRef<HTMLDivElement, StatsCardsProps>(({ jobs, a
       return bd.getTime() < now.getTime() && getHoursDifferenceGMT(now, bd) > 24;
     }).length;
 
-    // Emergency/Urgent from descriptions (incomplete only)
     const incompleteJobs = jobs.filter(j => !isCompleted(j));
     const emergency = incompleteJobs.filter(j => isEmergencyOrCritical(j.description)).length;
     const urgent = incompleteJobs.filter(j => isUrgent(j.description)).length;
 
-    // Unbooked breakdown (incomplete, no booked date)
     const unbookedJobs = incompleteJobs.filter(j => !j.bookedDate);
     const noAnswer = unbookedJobs.filter(j => j.status === 'no_answer').length;
     const voiceMessage = unbookedJobs.filter(j => j.status === 'voice_message').length;
@@ -89,7 +87,6 @@ export const StatsCards = forwardRef<HTMLDivElement, StatsCardsProps>(({ jobs, a
     const noShow = unbookedJobs.filter(j => j.status === 'no_show').length;
     const totalUnbooked = unbookedJobs.length;
 
-    // Booked (incomplete, has booked date or trade booking, NOT refer back)
     const sourceJobs = allJobs || jobs;
     const booked = sourceJobs.filter(j => {
       if (isCompleted(j)) return false;
@@ -97,12 +94,10 @@ export const StatsCards = forwardRef<HTMLDivElement, StatsCardsProps>(({ jobs, a
       return !!j.bookedDate || (tradeBookings ? tradeBookings.has(j.id) : false);
     }).length;
 
-    // Other active statuses
     const awaitingTrade = incompleteJobs.filter(j => j.status === 'awaiting_trade').length;
     const ongoing = incompleteJobs.filter(j => j.isOngoing).length;
     const paused = incompleteJobs.filter(j => j.status === 'pause').length;
 
-    // Active breakdown by status (mutually exclusive - every active job has exactly one status)
     const activeByStatus = {
       pending: incompleteJobs.filter(j => j.status === 'pending' || !j.status).length,
       started: incompleteJobs.filter(j => j.status === 'started').length,
@@ -131,7 +126,6 @@ export const StatsCards = forwardRef<HTMLDivElement, StatsCardsProps>(({ jobs, a
     };
   }, [jobs, allJobs, now]);
 
-  // Primary stats row
   const primaryStats = [
     { label: 'Total', value: counts.total, icon: Briefcase, color: 'text-primary', bg: 'bg-primary/10' },
     { label: 'Complete', value: counts.complete, icon: CheckCircle2, color: 'text-success', bg: 'bg-success/10' },
@@ -142,14 +136,12 @@ export const StatsCards = forwardRef<HTMLDivElement, StatsCardsProps>(({ jobs, a
     { label: 'Avg %', value: `${counts.avgProgress}%`, icon: TrendingUp, color: 'text-success', bg: 'bg-success/10' },
   ];
 
-  // Breakdown categories (alerts - not mutually exclusive, cross-cutting)
   const breakdownStats = [
     { label: 'Emergency', value: counts.emergency, icon: Flame, color: 'text-red-600', bg: 'bg-red-500/10', show: counts.emergency > 0 },
     { label: 'Urgent', value: counts.urgent, icon: Zap, color: 'text-orange-600', bg: 'bg-orange-500/10', show: counts.urgent > 0 },
     { label: 'Ongoing', value: counts.ongoing, icon: Wrench, color: 'text-amber-600', bg: 'bg-amber-500/10', show: counts.ongoing > 0 },
   ];
 
-  // Active breakdown - mutually exclusive by status (these sum to Active)
   const activeBreakdownStats = [
     { label: 'Pending', value: counts.activeByStatus.pending, icon: Clock, color: 'text-muted-foreground', bg: 'bg-muted/50', show: counts.activeByStatus.pending > 0 },
     { label: 'Started', value: counts.activeByStatus.started, icon: Wrench, color: 'text-blue-600', bg: 'bg-blue-500/10', show: counts.activeByStatus.started > 0 },
@@ -204,66 +196,80 @@ export const StatsCards = forwardRef<HTMLDivElement, StatsCardsProps>(({ jobs, a
         ))}
       </div>
 
-      {/* Active Breakdown by Status - Collapsible */}
-      {counts.active > 0 && visibleActiveBreakdown.length > 0 && (
-        <Collapsible open={activeOpen} onOpenChange={setActiveOpen}>
-          <CollapsibleTrigger className="w-full flex items-center gap-2 py-1 hover:bg-muted/30 rounded-md px-1 transition-colors">
-            {activeOpen ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />}
-            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Active Breakdown</span>
-            <span className={cn(
-              "text-[10px]",
-              counts.activeStatusSum === counts.active ? "text-success/70" : "text-destructive/70"
-            )}>
-              ({counts.activeStatusSum}/{counts.active}{counts.activeStatusSum === counts.active ? ' ✓' : ' ⚠️'})
-            </span>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <div className="flex flex-wrap gap-1.5 pt-1">
-              {visibleActiveBreakdown.map((stat) => (
-                <div 
-                  key={stat.label}
-                  className={cn(
-                    "flex items-center gap-1.5 border rounded-md px-2 py-1 text-xs",
-                    stat.bg, "border-transparent"
-                  )}
-                >
-                  <stat.icon className={cn("w-3.5 h-3.5", stat.color)} />
-                  <span className={cn("font-semibold", stat.color)}>{stat.value}</span>
-                  <span className="text-muted-foreground">{stat.label}</span>
-                </div>
-              ))}
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
-      )}
-
-      {/* Priority & Ongoing alerts */}
-      {visibleBreakdown.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {visibleBreakdown.map((stat) => (
-            <div 
-              key={stat.label}
-              className={cn(
-                "flex items-center gap-1.5 border rounded-md px-2 py-1 text-xs",
-                stat.bg, "border-transparent"
-              )}
-            >
-              <stat.icon className={cn("w-3.5 h-3.5", stat.color)} />
-              <span className={cn("font-semibold", stat.color)}>{stat.value}</span>
-              <span className="text-muted-foreground">{stat.label}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Monthly Breakdown - Collapsible */}
-      <Collapsible open={monthlyOpen} onOpenChange={setMonthlyOpen}>
+      {/* Collapsible Details Section - Active Breakdown + Alerts + Leaderboard + Monthly */}
+      <Collapsible open={detailsOpen} onOpenChange={setDetailsOpen}>
         <CollapsibleTrigger className="w-full flex items-center gap-2 py-1 hover:bg-muted/30 rounded-md px-1 transition-colors">
-          {monthlyOpen ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />}
-          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Monthly Breakdown</span>
+          {detailsOpen ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />}
+          <BarChart3 className="w-3.5 h-3.5 text-muted-foreground" />
+          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Analytics & Leaderboard</span>
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <MonthlyJobBreakdown jobs={jobs} />
+          <div className="flex flex-col gap-2 pt-1">
+            {/* Active Breakdown by Status */}
+            {counts.active > 0 && visibleActiveBreakdown.length > 0 && (
+              <div>
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-1 mb-1">
+                  Active Breakdown
+                  <span className={cn(
+                    "ml-1",
+                    counts.activeStatusSum === counts.active ? "text-success/70" : "text-destructive/70"
+                  )}>
+                    ({counts.activeStatusSum}/{counts.active}{counts.activeStatusSum === counts.active ? ' ✓' : ' ⚠️'})
+                  </span>
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {visibleActiveBreakdown.map((stat) => (
+                    <div 
+                      key={stat.label}
+                      className={cn(
+                        "flex items-center gap-1.5 border rounded-md px-2 py-1 text-xs",
+                        stat.bg, "border-transparent"
+                      )}
+                    >
+                      <stat.icon className={cn("w-3.5 h-3.5", stat.color)} />
+                      <span className={cn("font-semibold", stat.color)}>{stat.value}</span>
+                      <span className="text-muted-foreground">{stat.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Priority & Ongoing alerts */}
+            {visibleBreakdown.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {visibleBreakdown.map((stat) => (
+                  <div 
+                    key={stat.label}
+                    className={cn(
+                      "flex items-center gap-1.5 border rounded-md px-2 py-1 text-xs",
+                      stat.bg, "border-transparent"
+                    )}
+                  >
+                    <stat.icon className={cn("w-3.5 h-3.5", stat.color)} />
+                    <span className={cn("font-semibold", stat.color)}>{stat.value}</span>
+                    <span className="text-muted-foreground">{stat.label}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Weekly Team Leaderboard */}
+            <div>
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-1 mb-1">
+                🏆 Weekly Team Leaderboard (Mon–Sun)
+              </p>
+              <WeeklyTeamLeaderboard jobs={jobs} />
+            </div>
+
+            {/* Monthly Breakdown */}
+            <div>
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-1 mb-1">
+                Monthly Breakdown
+              </p>
+              <MonthlyJobBreakdown jobs={jobs} />
+            </div>
+          </div>
         </CollapsibleContent>
       </Collapsible>
     </div>
