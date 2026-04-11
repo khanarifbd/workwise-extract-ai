@@ -426,6 +426,8 @@ export const DanniDashboard = ({
         linkedRoofingJobId: raw.linked_roofing_job_id,
         flooringInfo: Array.isArray(raw.flooring_info) ? (raw.flooring_info as any[]) : null,
         linkedFlooringJobId: raw.linked_flooring_job_id,
+        fireDoorInfo: raw.fire_door_info,
+        linkedFireDoorJobId: raw.linked_fire_door_job_id,
       });
     }
 
@@ -504,7 +506,7 @@ export const DanniDashboard = ({
     status: rj.status as any, fanInfo: rj.fanInfo, linkedFanJobId: rj.linkedFanJobId,
     insulationInfo: null, linkedInsulationJobId: null, roofingInfo: rj.roofingInfo,
     linkedRoofingJobId: rj.linkedRoofingJobId, flooringInfo: rj.flooringInfo,
-    linkedFlooringJobId: rj.linkedFlooringJobId, costs: null, privateNotes: '',
+    linkedFlooringJobId: rj.linkedFlooringJobId, fireDoorInfo: rj.fireDoorInfo, linkedFireDoorJobId: rj.linkedFireDoorJobId, costs: null, privateNotes: '',
     referBack: rj.referBack, referBackReason: '', referBackDate: null,
     expectedCompletionDate: null, blockerType: rj.blockerType, blockerNotes: rj.blockerNotes,
     blockerSetAt: null, blockerChaseDate: rj.blockerChaseDate,
@@ -769,6 +771,8 @@ export const DanniDashboard = ({
         linkedRoofingJobId: data.linked_roofing_job_id,
         flooringInfo: Array.isArray(data.flooring_info) ? (data.flooring_info as any[]) : null,
         linkedFlooringJobId: data.linked_flooring_job_id,
+        fireDoorInfo: data.fire_door_info,
+        linkedFireDoorJobId: data.linked_fire_door_job_id,
         costs: data.costs as any,
         privateNotes: data.private_notes || '',
         referBack: data.refer_back || false,
@@ -835,6 +839,8 @@ export const DanniDashboard = ({
         linkedRoofingJobId: data.linked_roofing_job_id,
         flooringInfo: Array.isArray(data.flooring_info) ? (data.flooring_info as any[]) : null,
         linkedFlooringJobId: data.linked_flooring_job_id,
+        fireDoorInfo: data.fire_door_info,
+        linkedFireDoorJobId: data.linked_fire_door_job_id,
         costs: data.costs as any,
         privateNotes: data.private_notes || '',
         referBack: data.refer_back || false,
