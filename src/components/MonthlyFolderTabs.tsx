@@ -1,10 +1,10 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { format, parseISO, isValid } from 'date-fns';
 import { Job } from '@/types/job';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { FolderOpen, Calendar } from 'lucide-react';
+import { FolderOpen, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface MonthlyFolderTabsProps {

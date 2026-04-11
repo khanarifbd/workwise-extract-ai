@@ -76,7 +76,7 @@ export const AdminNotesOrganiser = ({ jobs, onClose, onJobClick }: AdminNotesOrg
   // All jobs sorted for dropdown
   const allJobsSorted = useMemo(() => {
     return [...jobs]
-      .filter(j => !j.deletedAt)
+      .filter(j => !(j as any).deleted_at)
       .sort((a, b) => {
         const aNum = parseInt(a.jobNumber) || 0;
         const bNum = parseInt(b.jobNumber) || 0;
