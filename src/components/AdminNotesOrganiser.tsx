@@ -6,46 +6,46 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Calendar } from '@/components/ui/calendar';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 import {
   X, StickyNote, Bell, BellRing, Plus, Trash2, Loader2,
-  Search, MapPin, Hash, Shield, Heart, Edit2, Check, Star,
-  Mic, Clock, CheckCircle, AlertCircle,
+  Search, MapPin, Hash, Edit2, Check,
+  Mic, Clock, CheckCircle, ChevronDown, ChevronRight,
 } from 'lucide-react';
-import { format, parseISO, isToday, isYesterday } from 'date-fns';
+import { format, parseISO, isToday, isYesterday, startOfWeek, endOfWeek, isWithinInterval, isBefore, subWeeks } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Job } from '@/types/job';
 import { useAdminNotes, AdminNote } from '@/hooks/useAdminNotes';
 import { supabase } from '@/integrations/supabase/client';
 
-// Admin user definitions — Cecil uses Star (same authority level as Suki)
 const ADMIN_USERS = [
   {
     name: 'Cecil',
     title: 'Strategic Director',
-    icon: Star,
     color: 'bg-amber-500',
     lightBg: 'bg-amber-50 dark:bg-amber-950/30',
     textColor: 'text-amber-700 dark:text-amber-300',
     ring: 'ring-amber-300 dark:ring-amber-700',
+    accent: 'text-amber-500',
   },
   {
     name: 'Suki',
     title: 'Operations Director',
-    icon: Shield,
     color: 'bg-blue-500',
     lightBg: 'bg-blue-50 dark:bg-blue-950/30',
     textColor: 'text-blue-700 dark:text-blue-300',
     ring: 'ring-blue-300 dark:ring-blue-700',
+    accent: 'text-blue-500',
   },
   {
     name: 'Helen',
     title: 'Head Admin',
-    icon: Heart,
     color: 'bg-rose-500',
     lightBg: 'bg-rose-50 dark:bg-rose-950/30',
     textColor: 'text-rose-700 dark:text-rose-300',
     ring: 'ring-rose-300 dark:ring-rose-700',
+    accent: 'text-rose-500',
   },
 ] as const;
 
@@ -73,13 +73,13 @@ export const AdminNotesOrganiser = ({ jobs, onClose, onJobClick, initialJobId }:
   const [activeAdmin, setActiveAdmin] = useState<string>(ADMIN_USERS[0].name);
   const [activeSection, setActiveSection] = useState<'notes' | 'ops'>('notes');
   const adminConfig = ADMIN_USERS.find(u => u.name === activeAdmin)!;
-  const AdminIcon = adminConfig.icon;
 
   const { notes, loading, addNote, deleteNote, dismissAlert, activeAlerts, updateNote } = useAdminNotes(activeAdmin);
 
   // Ops notes state
   const [opsNotes, setOpsNotes] = useState<OpsNote[]>([]);
   const [opsLoading, setOpsLoading] = useState(false);
+  const [expandedOpsWeeks, setExpandedOpsWeeks] = useState<Set<string>>(new Set());
 
   const fetchOpsNotes = useCallback(async () => {
     setOpsLoading(true);
@@ -87,7 +87,7 @@ export const AdminNotesOrganiser = ({ jobs, onClose, onJobClick, initialJobId }:
       .from('ops_manager_notes')
       .select('id,title,enhanced_text,urgency,category,team_association,job_number,is_resolved,created_at,created_by_name')
       .order('created_at', { ascending: false })
-      .limit(30);
+      .limit(100);
     setOpsNotes((data || []) as OpsNote[]);
     setOpsLoading(false);
   }, []);
@@ -96,7 +96,6 @@ export const AdminNotesOrganiser = ({ jobs, onClose, onJobClick, initialJobId }:
     if (activeSection === 'ops') fetchOpsNotes();
   }, [activeSection, fetchOpsNotes]);
 
-  // Realtime ops subscription
   useEffect(() => {
     const ch = supabase
       .channel('notes-ops-rt')
@@ -167,6 +166,79 @@ export const AdminNotesOrganiser = ({ jobs, onClose, onJobClick, initialJobId }:
 
   const unresolvedOps = opsNotes.filter(n => !n.is_resolved).length;
 
+  // Group ops notes by week
+  const opsWeekGroups = useMemo(() => {
+    const now = new Date();
+    const currentWeekStart = startOfWeek(now, { weekStartsOn: 1 });
+    const currentWeekEnd = endOfWeek(now, { weekStartsOn: 1 });
+
+    const groups: { label: string; key: string; notes: OpsNote[]; isCurrent: boolean }[] = [];
+    const weekMap = new Map<string, { label: string; notes: OpsNote[]; isCurrent: boolean; weekStart: Date }>();
+
+    for (const note of opsNotes) {
+      const noteDate = parseISO(note.created_at);
+      const ws = startOfWeek(noteDate, { weekStartsOn: 1 });
+      const we = endOfWeek(noteDate, { weekStartsOn: 1 });
+      const key = format(ws, 'yyyy-MM-dd');
+      const isCurrent = isWithinInterval(now, { start: ws, end: we });
+      const label = isCurrent
+        ? 'This Week'
+        : `${format(ws, 'dd MMM')} – ${format(we, 'dd MMM yyyy')}`;
+
+      if (!weekMap.has(key)) {
+        weekMap.set(key, { label, notes: [], isCurrent, weekStart: ws });
+      }
+      weekMap.get(key)!.notes.push(note);
+    }
+
+    // Sort weeks: current first, then reverse chronological
+    const sorted = Array.from(weekMap.entries())
+      .sort(([, a], [, b]) => {
+        if (a.isCurrent) return -1;
+        if (b.isCurrent) return 1;
+        return b.weekStart.getTime() - a.weekStart.getTime();
+      });
+
+    for (const [key, val] of sorted) {
+      groups.push({ label: val.label, key, notes: val.notes, isCurrent: val.isCurrent });
+    }
+
+    return groups;
+  }, [opsNotes]);
+
+  // Group ops notes within a week by day
+  const groupByDay = (weekNotes: OpsNote[]) => {
+    const dayMap = new Map<string, OpsNote[]>();
+    for (const note of weekNotes) {
+      const d = parseISO(note.created_at);
+      const dayKey = format(d, 'EEEE, dd MMM');
+      if (!dayMap.has(dayKey)) dayMap.set(dayKey, []);
+      dayMap.get(dayKey)!.push(note);
+    }
+    return Array.from(dayMap.entries());
+  };
+
+  const toggleOpsWeek = (key: string) => {
+    setExpandedOpsWeeks(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
+  const urgencyColors: Record<string, string> = {
+    immediate: 'border-l-red-500 bg-red-50/80 dark:bg-red-950/30',
+    high: 'border-l-orange-500 bg-orange-50/60 dark:bg-orange-950/20',
+    normal: 'border-l-blue-400',
+    low: 'border-l-gray-400',
+  };
+  const urgencyLabels: Record<string, string> = {
+    immediate: '🚨 URGENT',
+    high: '⚠️ High',
+    normal: 'Normal',
+    low: 'Low',
+  };
+
   return (
     <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4">
       <div className="w-full max-w-2xl h-[90vh] bg-background rounded-2xl shadow-2xl flex flex-col overflow-hidden border">
@@ -187,28 +259,32 @@ export const AdminNotesOrganiser = ({ jobs, onClose, onJobClick, initialJobId }:
           </Button>
         </div>
 
-        {/* ─── Admin selector (pill style) ─── */}
-        <div className="px-5 py-2.5 border-b flex items-center gap-4">
-          <div className="flex gap-1.5 flex-1">
+        {/* ─── Admin selector: Bold capitals, no icons, blur unselected ─── */}
+        <div className="px-5 py-3 border-b flex items-center gap-4">
+          <div className="flex gap-4 flex-1 items-baseline">
             {ADMIN_USERS.map(admin => {
-              const Icon = admin.icon;
               const isActive = activeAdmin === admin.name;
-              const userAlerts = notes.filter(n => n.alert_date && !n.alert_dismissed).length;
+              const userNotes = notes;
+              const userAlerts = isActive ? activeAlerts.length : 0;
               return (
                 <button
                   key={admin.name}
                   onClick={() => { setActiveAdmin(admin.name); setActiveSection('notes'); setNoteFilter('all'); }}
                   className={cn(
-                    "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all",
+                    "relative transition-all duration-200 select-none",
                     isActive
-                      ? cn(admin.lightBg, admin.textColor, "ring-2", admin.ring)
-                      : "text-muted-foreground hover:bg-muted"
+                      ? cn("opacity-100 scale-100", admin.accent)
+                      : "opacity-30 blur-[0.5px] hover:opacity-60 hover:blur-0 text-muted-foreground"
                   )}
                 >
-                  <Icon className="w-3.5 h-3.5" />
-                  <span>{admin.name}</span>
+                  <span className={cn(
+                    "text-lg font-black uppercase tracking-wider",
+                    isActive && "underline underline-offset-4 decoration-2"
+                  )}>
+                    {admin.name}
+                  </span>
                   {isActive && userAlerts > 0 && (
-                    <span className="ml-0.5 bg-destructive text-destructive-foreground text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                    <span className="absolute -top-1.5 -right-3 bg-destructive text-destructive-foreground text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
                       {userAlerts}
                     </span>
                   )}
@@ -284,7 +360,6 @@ export const AdminNotesOrganiser = ({ jobs, onClose, onJobClick, initialJobId }:
 
               <div className="flex-1" />
 
-              {/* Filter pills */}
               {[
                 { key: 'all' as const, label: 'All', count: notes.length },
                 { key: 'alerts' as const, label: '🔔', count: notes.filter(n => n.alert_date && !n.alert_dismissed).length },
@@ -316,7 +391,6 @@ export const AdminNotesOrganiser = ({ jobs, onClose, onJobClick, initialJobId }:
                   </Button>
                 </div>
 
-                {/* Job picker */}
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button variant="outline" className="w-full justify-start text-xs h-8 font-normal rounded-lg">
@@ -424,7 +498,6 @@ export const AdminNotesOrganiser = ({ jobs, onClose, onJobClick, initialJobId }:
                     )}>
                       <div className="flex items-start gap-2">
                         <div className="flex-1 min-w-0">
-                          {/* Job reference or General tag */}
                           <div className="flex items-center gap-1.5 mb-1">
                             {job ? (
                               <button onClick={() => onJobClick?.(job)} className="text-[10px] font-bold text-primary hover:underline truncate">
@@ -484,7 +557,7 @@ export const AdminNotesOrganiser = ({ jobs, onClose, onJobClick, initialJobId }:
             </ScrollArea>
           </>
         ) : (
-          /* ─── Ops Notes Section ─── */
+          /* ─── Ops Notes Section: Grouped by week ─── */
           <ScrollArea className="flex-1">
             <div className="px-5 py-3 space-y-2">
               <div className="flex items-center gap-2 mb-2">
@@ -497,56 +570,73 @@ export const AdminNotesOrganiser = ({ jobs, onClose, onJobClick, initialJobId }:
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
                 </div>
-              ) : opsNotes.length === 0 ? (
+              ) : opsWeekGroups.length === 0 ? (
                 <div className="text-center py-12">
                   <Mic className="w-8 h-8 mx-auto mb-2 text-muted-foreground/30" />
                   <p className="text-sm text-muted-foreground">No ops notes yet</p>
                 </div>
-              ) : opsNotes.map(note => {
-                const urgencyColors: Record<string, string> = {
-                  immediate: 'border-l-red-500 bg-red-50/50 dark:bg-red-950/20',
-                  high: 'border-l-orange-500 bg-orange-50/50 dark:bg-orange-950/20',
-                  normal: 'border-l-blue-500',
-                  low: 'border-l-gray-400',
-                };
-                const urgencyLabels: Record<string, string> = {
-                  immediate: '🚨 URGENT',
-                  high: '⚠️ High',
-                  normal: 'Normal',
-                  low: 'Low',
-                };
+              ) : opsWeekGroups.map(week => {
+                const isOpen = week.isCurrent || expandedOpsWeeks.has(week.key);
+                const days = groupByDay(week.notes);
+
                 return (
-                  <div key={note.id} className={cn(
-                    "border-l-4 rounded-lg p-3 text-xs border bg-muted/20",
-                    urgencyColors[note.urgency] || 'border-l-gray-400',
-                    note.is_resolved && "opacity-50"
-                  )}>
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 flex-wrap mb-1">
-                          <Badge variant="outline" className="text-[9px] h-4 px-1.5">
-                            {urgencyLabels[note.urgency] || note.urgency}
-                          </Badge>
-                          {note.team_association && (
-                            <Badge variant="secondary" className="text-[9px] h-4 px-1.5">{note.team_association}</Badge>
-                          )}
-                          {note.job_number && (
-                            <span className="font-mono text-[10px] font-bold text-primary">#{note.job_number}</span>
-                          )}
-                          {note.is_resolved && (
-                            <CheckCircle className="w-3 h-3 text-green-600" />
-                          )}
-                        </div>
-                        <h4 className={cn("font-medium text-foreground", note.is_resolved && "line-through")}>{note.title}</h4>
-                        <p className="text-muted-foreground mt-1 whitespace-pre-wrap">{note.enhanced_text}</p>
-                        <div className="flex items-center gap-2 mt-1.5 text-[10px] text-muted-foreground">
-                          <Clock className="w-2.5 h-2.5" />
-                          {formatDate(note.created_at)}
-                          <span>by {note.created_by_name}</span>
-                        </div>
+                  <Collapsible key={week.key} open={isOpen} onOpenChange={() => !week.isCurrent && toggleOpsWeek(week.key)}>
+                    <CollapsibleTrigger className="w-full flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-muted/50 transition-colors">
+                      {isOpen ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />}
+                      <span className={cn("text-xs font-bold", week.isCurrent ? "text-orange-600 dark:text-orange-400" : "text-muted-foreground")}>
+                        {week.label}
+                      </span>
+                      <Badge variant="outline" className="text-[9px] h-4 ml-auto">{week.notes.length}</Badge>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <div className="ml-2 space-y-2 mt-1">
+                        {days.map(([dayLabel, dayNotes]) => (
+                          <div key={dayLabel}>
+                            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1 pl-1">{dayLabel}</p>
+                            <div className="space-y-1.5">
+                              {dayNotes.map(note => (
+                                <div key={note.id} className={cn(
+                                  "border-l-4 rounded-lg p-3 text-xs border bg-muted/20",
+                                  urgencyColors[note.urgency] || 'border-l-gray-400',
+                                  note.is_resolved && "opacity-50"
+                                )}>
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                                        <Badge variant={note.urgency === 'immediate' || note.urgency === 'high' ? 'destructive' : 'outline'}
+                                          className={cn("text-[9px] h-4 px-1.5",
+                                            note.urgency === 'immediate' && "bg-red-600 text-white animate-pulse",
+                                            note.urgency === 'high' && "bg-orange-500 text-white"
+                                          )}>
+                                          {urgencyLabels[note.urgency] || note.urgency}
+                                        </Badge>
+                                        {note.team_association && (
+                                          <Badge variant="secondary" className="text-[9px] h-4 px-1.5">{note.team_association}</Badge>
+                                        )}
+                                        {note.job_number && (
+                                          <span className="font-mono text-[10px] font-bold text-primary">#{note.job_number}</span>
+                                        )}
+                                        {note.is_resolved && (
+                                          <CheckCircle className="w-3 h-3 text-green-600" />
+                                        )}
+                                      </div>
+                                      <h4 className={cn("font-medium text-foreground", note.is_resolved && "line-through")}>{note.title}</h4>
+                                      <p className="text-muted-foreground mt-1 whitespace-pre-wrap">{note.enhanced_text}</p>
+                                      <div className="flex items-center gap-2 mt-1.5 text-[10px] text-muted-foreground">
+                                        <Clock className="w-2.5 h-2.5" />
+                                        {formatDate(note.created_at)}
+                                        <span>by {note.created_by_name}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    </div>
-                  </div>
+                    </CollapsibleContent>
+                  </Collapsible>
                 );
               })}
             </div>
