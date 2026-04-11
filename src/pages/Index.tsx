@@ -1763,6 +1763,8 @@ const Index = () => {
                   onRoofingJobCreated={canEdit ? refreshJobs : undefined}
                   flooringCategoryId={categories.find(c => c.name.toLowerCase().includes('flooring'))?.id}
                   onFlooringJobCreated={canEdit ? refreshJobs : undefined}
+                  fireDoorCategoryId={categories.find(c => c.slug === 'firedoor')?.id}
+                  onFireDoorJobCreated={canEdit ? refreshJobs : undefined}
                   isFanCategory={isFanCategory}
                   currentCategoryId={activeCategory || undefined}
                   categories={categories.map(c => ({ id: c.id, name: c.name, color: c.color }))}
