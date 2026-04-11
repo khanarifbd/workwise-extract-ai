@@ -71,6 +71,12 @@ export const MonthlyFolderTabs = ({
 
   const totalJobs = jobs.length;
 
+  // Current month key
+  const currentMonthKey = format(new Date(), 'yyyy-MM');
+  const currentMonthFolder = folders.find(f => f.id === currentMonthKey);
+  const otherFolders = folders.filter(f => f.id !== currentMonthKey);
+  const [showOlderMonths, setShowOlderMonths] = useState(false);
+
   return (
     <div className="bg-muted/30 rounded-lg p-2">
       <ScrollArea className="w-full">
@@ -98,30 +104,69 @@ export const MonthlyFolderTabs = ({
           {/* Divider */}
           <div className="h-6 w-px bg-border flex-shrink-0" />
           
-          {/* Monthly Folders */}
-          {folders.map(folder => (
+          {/* Current month (always visible) */}
+          {currentMonthFolder && (
             <Button
-              key={folder.id}
-              variant={activeFolder === folder.id ? 'default' : 'ghost'}
+              key={currentMonthFolder.id}
+              variant={activeFolder === currentMonthFolder.id ? 'default' : 'ghost'}
               size="sm"
               className={cn(
                 "h-8 px-3 gap-1.5 flex-shrink-0 text-xs",
-                activeFolder === folder.id && "shadow-sm"
+                activeFolder === currentMonthFolder.id && "shadow-sm"
               )}
-              onClick={() => onFolderChange(folder.id)}
-              title={folder.label}
+              onClick={() => onFolderChange(currentMonthFolder.id)}
+              title={currentMonthFolder.label}
             >
               <Calendar className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">{folder.label}</span>
-              <span className="sm:hidden">{folder.shortLabel}</span>
+              <span className="hidden sm:inline">{currentMonthFolder.label}</span>
+              <span className="sm:hidden">{currentMonthFolder.shortLabel}</span>
               <Badge 
-                variant={activeFolder === folder.id ? 'secondary' : 'outline'}
+                variant={activeFolder === currentMonthFolder.id ? 'secondary' : 'outline'}
                 className="ml-1 h-5 text-[10px] px-1.5"
               >
-                {folder.jobCount}
+                {currentMonthFolder.jobCount}
               </Badge>
             </Button>
-          ))}
+          )}
+
+          {/* Toggle for older months */}
+          {otherFolders.length > 0 && (
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 px-2 text-xs text-muted-foreground gap-1"
+                onClick={() => setShowOlderMonths(!showOlderMonths)}
+              >
+                {showOlderMonths ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                {showOlderMonths ? 'Hide' : `${otherFolders.length} more`}
+              </Button>
+
+              {showOlderMonths && otherFolders.map(folder => (
+                <Button
+                  key={folder.id}
+                  variant={activeFolder === folder.id ? 'default' : 'ghost'}
+                  size="sm"
+                  className={cn(
+                    "h-8 px-3 gap-1.5 flex-shrink-0 text-xs",
+                    activeFolder === folder.id && "shadow-sm"
+                  )}
+                  onClick={() => onFolderChange(folder.id)}
+                  title={folder.label}
+                >
+                  <Calendar className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">{folder.label}</span>
+                  <span className="sm:hidden">{folder.shortLabel}</span>
+                  <Badge 
+                    variant={activeFolder === folder.id ? 'secondary' : 'outline'}
+                    className="ml-1 h-5 text-[10px] px-1.5"
+                  >
+                    {folder.jobCount}
+                  </Badge>
+                </Button>
+              ))}
+            </>
+          )}
           
           {folders.length === 0 && (
             <p className="text-xs text-muted-foreground px-2">No jobs uploaded yet</p>
