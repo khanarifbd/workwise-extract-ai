@@ -208,6 +208,8 @@ const Index = () => {
             linkedRoofingJobId: null,
             flooringInfo: null,
             linkedFlooringJobId: null,
+    fireDoorInfo: null,
+    linkedFireDoorJobId: null,
             costs: null,
             privateNotes: extractedJob.privateNotes || '', // EPC bookings and sensitive data
           };
@@ -300,6 +302,8 @@ const Index = () => {
         linkedRoofingJobId: null,
             flooringInfo: null,
             linkedFlooringJobId: null,
+    fireDoorInfo: null,
+    linkedFireDoorJobId: null,
         costs: null,
         privateNotes: '',
         referBack: false,
@@ -451,6 +455,8 @@ const Index = () => {
               linkedRoofingJobId: null,
             flooringInfo: null,
             linkedFlooringJobId: null,
+    fireDoorInfo: null,
+    linkedFireDoorJobId: null,
               costs: null,
               privateNotes: extractedJob.privateNotes || '', // EPC bookings
             };

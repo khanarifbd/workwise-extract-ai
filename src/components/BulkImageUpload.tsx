@@ -220,6 +220,8 @@ export const BulkImageUpload = ({ onJobsExtracted, onClose, initialFiles }: Bulk
           linkedRoofingJobId: null,
           flooringInfo: null,
           linkedFlooringJobId: null,
+    fireDoorInfo: null,
+    linkedFireDoorJobId: null,
           costs: null,
           privateNotes: '',
           referBack: false,
