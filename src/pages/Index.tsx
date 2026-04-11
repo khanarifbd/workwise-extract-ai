@@ -103,6 +103,7 @@ const Index = () => {
   });
   const [showTeamMetrics, setShowTeamMetrics] = useState(false);
   const [showAdminNotes, setShowAdminNotes] = useState(false);
+  const [adminNotesAdmin, setAdminNotesAdmin] = useState<string>('Cecil');
   const [adminNotesJobId, setAdminNotesJobId] = useState<string | null>(null);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [bulkUploadInitialFiles, setBulkUploadInitialFiles] = useState<Array<{ file: File; type: FileType }>>([]);
@@ -1339,7 +1340,7 @@ const Index = () => {
         onShowOverdue={() => setShowOverdueDashboard(true)}
         danniCount={danniCount}
         onShowDanni={() => setShowDanniDashboard(true)}
-        onShowNotes={() => setShowAdminNotes(true)}
+        onShowAdminNotes={(adminName) => { setAdminNotesAdmin(adminName); setShowAdminNotes(true); }}
       />
       
       {/* Danni Sign-Off Readiness Dashboard */}
@@ -1508,6 +1509,7 @@ const Index = () => {
       {showAdminNotes && (
         <AdminNotesOrganiser
           jobs={jobs}
+          adminName={adminNotesAdmin}
           onClose={() => { setShowAdminNotes(false); setAdminNotesJobId(null); }}
           initialJobId={adminNotesJobId}
           onJobClick={(job) => {
@@ -1787,7 +1789,7 @@ const Index = () => {
                   searchTerm={debouncedSearch}
                   getSignOffStatus={getSignOffStatus}
                   tradeBookings={tradeBookings}
-                  onOpenAdminNotes={(jobId) => { setAdminNotesJobId(jobId); setShowAdminNotes(true); }}
+                  onOpenAdminNotes={(jobId) => { setAdminNotesJobId(jobId); setAdminNotesAdmin('Helen'); setShowAdminNotes(true); }}
                 />
               ) : viewType === 'kanban' ? (
                 <KanbanBoard
