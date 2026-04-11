@@ -436,7 +436,53 @@ export const updateJob = async (id: string, updates: Partial<Job>): Promise<Job>
     throw new Error('Job update returned no data - job may not exist');
   }
 
-  return mapDatabaseJobToJob(data);
+  const updatedJob = mapDatabaseJobToJob(data);
+
+  // Sync key fields to linked child jobs (fan, roof, floor) in their category folders
+  // This runs in background - don't block the main update
+  syncLinkedChildJobs(data).catch(err => 
+    console.error('Background sync to linked jobs failed:', err)
+  );
+
+  return updatedJob;
+};
+
+// Sync parent job fields → linked child jobs so category folders stay up-to-date
+const syncLinkedChildJobs = async (parentDbJob: any) => {
+  const linkedIds: string[] = [];
+  if (parentDbJob.linked_fan_job_id) linkedIds.push(parentDbJob.linked_fan_job_id);
+  if (parentDbJob.linked_roofing_job_id) linkedIds.push(parentDbJob.linked_roofing_job_id);
+  if (parentDbJob.linked_flooring_job_id) linkedIds.push(parentDbJob.linked_flooring_job_id);
+
+  if (linkedIds.length === 0) return;
+
+  // Fields that should always mirror the parent
+  const syncFields: Record<string, any> = {
+    name: parentDbJob.name,
+    address: parentDbJob.address,
+    phone_number: parentDbJob.phone_number,
+    updated_at: new Date().toISOString(),
+  };
+
+  // Sync booked_date + date_issued when parent is rebooked
+  if (parentDbJob.booked_date !== undefined) {
+    syncFields.booked_date = parentDbJob.booked_date;
+    if (parentDbJob.booked_date) {
+      syncFields.date_issued = parentDbJob.booked_date;
+    }
+  }
+
+  for (const childId of linkedIds) {
+    const { error } = await supabase
+      .from('jobs')
+      .update(syncFields)
+      .eq('id', childId)
+      .is('deleted_at', null);
+
+    if (error) {
+      console.error(`Failed to sync linked job ${childId}:`, error);
+    }
+  }
 };
 
 export const deleteJob = async (id: string): Promise<void> => {
