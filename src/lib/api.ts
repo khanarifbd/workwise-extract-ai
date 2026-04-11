@@ -987,9 +987,10 @@ export const syncLinkedFanJob = async (
       description: fanDescription,
     };
     
-    // Only update booked_date if it was explicitly provided
+    // Update booked_date and date_issued (for monthly folder) if explicitly provided
     if (bookedDate !== undefined) {
       updateData.booked_date = bookedDate ? formatDateOnly(bookedDate) : null;
+      if (bookedDate) updateData.date_issued = formatDateOnly(bookedDate);
     }
 
     const { error } = await supabase
@@ -1319,6 +1320,7 @@ export const syncLinkedRoofingJob = async (
     
     if (bookedDate !== undefined) {
       updateData.booked_date = bookedDate ? formatDateOnly(bookedDate) : null;
+      if (bookedDate) updateData.date_issued = formatDateOnly(bookedDate);
     }
 
     const { error } = await supabase
@@ -1540,6 +1542,7 @@ export const syncLinkedFlooringJob = async (
     };
     if (bookedDate !== undefined) {
       updateData.booked_date = bookedDate ? formatDateOnly(bookedDate) : null;
+      if (bookedDate) updateData.date_issued = formatDateOnly(bookedDate);
     }
 
     const { error } = await supabase
