@@ -89,6 +89,8 @@ interface ReadinessJob {
   linkedRoofingJobId: string | null;
   flooringInfo: FlooringInfo[] | null;
   linkedFlooringJobId: string | null;
+  fireDoorInfo: FireDoorInfo[] | null;
+  linkedFireDoorJobId: string | null;
 }
 
 export const DanniDashboard = ({
@@ -189,7 +191,7 @@ export const DanniDashboard = ({
       const [jobsRes, signOffRes] = await Promise.all([
         supabase
           .from('jobs')
-          .select('id, job_number, name, address, phone_number, team, team2, description, summary_of_works, work_items, attachments, booked_date, status, is_completed, is_ongoing, blocker_type, blocker_notes, blocker_chase_date, refer_back, ongoing_reason, fan_info, linked_fan_job_id, roofing_info, linked_roofing_job_id, flooring_info, linked_flooring_job_id')
+          .select('id, job_number, name, address, phone_number, team, team2, description, summary_of_works, work_items, attachments, booked_date, status, is_completed, is_ongoing, blocker_type, blocker_notes, blocker_chase_date, refer_back, ongoing_reason, fan_info, linked_fan_job_id, roofing_info, linked_roofing_job_id, flooring_info, linked_flooring_job_id, fire_door_info, linked_fire_door_job_id')
           .eq('category_id', dmCatId)
           .is('deleted_at', null),
         supabase
