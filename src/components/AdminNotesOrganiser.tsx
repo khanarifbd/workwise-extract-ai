@@ -282,8 +282,18 @@ export const AdminNotesOrganiser = ({ jobs, onClose, onJobClick, initialJobId }:
         {/* ─── Header ─── */}
         <div className="flex items-center justify-between px-5 py-3 border-b bg-muted/20">
           <div className="flex items-center gap-2.5">
-            <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center", adminConfig.color)}>
-              <StickyNote className="w-4.5 h-4.5 text-white" />
+            <div className="relative group cursor-pointer" onClick={() => document.getElementById('avatar-upload')?.click()}>
+              {avatars[activeAdmin] ? (
+                <img src={avatars[activeAdmin]} alt={activeAdmin} className={cn("w-10 h-10 rounded-xl object-cover ring-2", adminConfig.ring)} />
+              ) : (
+                <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-sm", adminConfig.color)}>
+                  {activeAdmin.charAt(0)}
+                </div>
+              )}
+              <div className="absolute inset-0 rounded-xl bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <Camera className="w-4 h-4 text-white" />
+              </div>
+              <input id="avatar-upload" type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleAvatarUpload} />
             </div>
             <div>
               <h2 className="text-sm font-bold tracking-tight">Notes & Alerts</h2>
