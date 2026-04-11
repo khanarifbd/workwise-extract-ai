@@ -55,9 +55,10 @@ interface AdminNotesOrganiserProps {
   jobs: Job[];
   onClose: () => void;
   onJobClick?: (job: Job) => void;
+  initialJobId?: string | null;
 }
 
-export const AdminNotesOrganiser = ({ jobs, onClose, onJobClick }: AdminNotesOrganiserProps) => {
+export const AdminNotesOrganiser = ({ jobs, onClose, onJobClick, initialJobId }: AdminNotesOrganiserProps) => {
   const [activeAdmin, setActiveAdmin] = useState<string>(ADMIN_USERS[0].name);
   const adminConfig = ADMIN_USERS.find(u => u.name === activeAdmin)!;
   const AdminIcon = adminConfig.icon;
@@ -65,9 +66,9 @@ export const AdminNotesOrganiser = ({ jobs, onClose, onJobClick }: AdminNotesOrg
   const { notes, loading, addNote, deleteNote, dismissAlert, activeAlerts, updateNote } = useAdminNotes(activeAdmin);
 
   const [jobSearch, setJobSearch] = useState('');
-  const [noteFilter, setNoteFilter] = useState<'all' | 'alerts' | 'general' | 'job'>('all');
+  const [noteFilter, setNoteFilter] = useState<'all' | 'alerts' | 'general' | 'job'>(initialJobId ? 'job' : 'all');
   const [newNoteText, setNewNoteText] = useState('');
-  const [newNoteJobId, setNewNoteJobId] = useState<string | null>(null);
+  const [newNoteJobId, setNewNoteJobId] = useState<string | null>(initialJobId || null);
   const [newNoteAlertDate, setNewNoteAlertDate] = useState<Date | undefined>();
   const [saving, setSaving] = useState(false);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
