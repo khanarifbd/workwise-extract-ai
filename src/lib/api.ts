@@ -918,7 +918,7 @@ export const createLinkedFanJob = async (
     ongoingReason: '',
     scheduledTrades: [],
     createdAt: new Date(),
-    dateIssued: new Date(),
+    dateIssued: bookedDate || new Date(),
     bookedDate: bookedDate || null,
     isFlexibleBooking: false,
     bookingNotes: '',
@@ -987,9 +987,10 @@ export const syncLinkedFanJob = async (
       description: fanDescription,
     };
     
-    // Only update booked_date if it was explicitly provided
+    // Update booked_date and date_issued (for monthly folder) if explicitly provided
     if (bookedDate !== undefined) {
       updateData.booked_date = bookedDate ? formatDateOnly(bookedDate) : null;
+      if (bookedDate) updateData.date_issued = formatDateOnly(bookedDate);
     }
 
     const { error } = await supabase
@@ -1030,7 +1031,7 @@ export const syncLinkedFanJob = async (
     ongoingReason: '',
     scheduledTrades: [],
     createdAt: new Date(),
-    dateIssued: new Date(),
+    dateIssued: bookedDate || new Date(),
     bookedDate: bookedDate || null,
     isFlexibleBooking: false,
     bookingNotes: '',
@@ -1251,7 +1252,7 @@ export const createLinkedRoofingJob = async (
     ongoingReason: '',
     scheduledTrades: [],
     createdAt: new Date(),
-    dateIssued: new Date(),
+    dateIssued: bookedDate || new Date(),
     bookedDate: bookedDate || null,
     isFlexibleBooking: false,
     bookingNotes: '',
@@ -1319,6 +1320,7 @@ export const syncLinkedRoofingJob = async (
     
     if (bookedDate !== undefined) {
       updateData.booked_date = bookedDate ? formatDateOnly(bookedDate) : null;
+      if (bookedDate) updateData.date_issued = formatDateOnly(bookedDate);
     }
 
     const { error } = await supabase
@@ -1357,7 +1359,7 @@ export const syncLinkedRoofingJob = async (
     ongoingReason: '',
     scheduledTrades: [],
     createdAt: new Date(),
-    dateIssued: new Date(),
+    dateIssued: bookedDate || new Date(),
     bookedDate: bookedDate || null,
     isFlexibleBooking: false,
     bookingNotes: '',
@@ -1470,7 +1472,7 @@ export const createLinkedFlooringJob = async (
     ongoingReason: '',
     scheduledTrades: [],
     createdAt: new Date(),
-    dateIssued: new Date(),
+    dateIssued: bookedDate || new Date(),
     bookedDate: bookedDate || null,
     isFlexibleBooking: false,
     bookingNotes: '',
@@ -1540,6 +1542,7 @@ export const syncLinkedFlooringJob = async (
     };
     if (bookedDate !== undefined) {
       updateData.booked_date = bookedDate ? formatDateOnly(bookedDate) : null;
+      if (bookedDate) updateData.date_issued = formatDateOnly(bookedDate);
     }
 
     const { error } = await supabase
@@ -1578,7 +1581,7 @@ export const syncLinkedFlooringJob = async (
     ongoingReason: '',
     scheduledTrades: [],
     createdAt: new Date(),
-    dateIssued: new Date(),
+    dateIssued: bookedDate || new Date(),
     bookedDate: bookedDate || null,
     isFlexibleBooking: false,
     bookingNotes: '',
