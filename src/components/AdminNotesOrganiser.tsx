@@ -13,13 +13,13 @@ import {
   Search, MapPin, Hash, Edit2, Check,
   Mic, Clock, CheckCircle, ChevronDown, ChevronRight, Camera,
 } from 'lucide-react';
-import { format, parseISO, isToday, isYesterday, startOfWeek, endOfWeek, isWithinInterval, isBefore, subWeeks } from 'date-fns';
+import { format, parseISO, isToday, isYesterday, startOfWeek, endOfWeek, isWithinInterval } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Job } from '@/types/job';
 import { useAdminNotes, AdminNote } from '@/hooks/useAdminNotes';
 import { supabase } from '@/integrations/supabase/client';
 
-const ADMIN_USERS = [
+export const ADMIN_USERS = [
   {
     name: 'Cecil',
     title: 'Strategic Director',
@@ -28,6 +28,9 @@ const ADMIN_USERS = [
     textColor: 'text-amber-700 dark:text-amber-300',
     ring: 'ring-amber-300 dark:ring-amber-700',
     accent: 'text-amber-500',
+    headerBorder: 'border-amber-300 dark:border-amber-700',
+    headerText: 'text-amber-600 dark:text-amber-400',
+    headerHover: 'hover:bg-amber-50 dark:hover:bg-amber-950',
   },
   {
     name: 'Suki',
@@ -37,6 +40,9 @@ const ADMIN_USERS = [
     textColor: 'text-blue-700 dark:text-blue-300',
     ring: 'ring-blue-300 dark:ring-blue-700',
     accent: 'text-blue-500',
+    headerBorder: 'border-blue-300 dark:border-blue-700',
+    headerText: 'text-blue-600 dark:text-blue-400',
+    headerHover: 'hover:bg-blue-50 dark:hover:bg-blue-950',
   },
   {
     name: 'Helen',
@@ -46,6 +52,9 @@ const ADMIN_USERS = [
     textColor: 'text-rose-700 dark:text-rose-300',
     ring: 'ring-rose-300 dark:ring-rose-700',
     accent: 'text-rose-500',
+    headerBorder: 'border-rose-300 dark:border-rose-700',
+    headerText: 'text-rose-600 dark:text-rose-400',
+    headerHover: 'hover:bg-rose-50 dark:hover:bg-rose-950',
   },
 ] as const;
 
@@ -67,33 +76,40 @@ interface AdminNotesOrganiserProps {
   onClose: () => void;
   onJobClick?: (job: Job) => void;
   initialJobId?: string | null;
+  adminName: string; // Which admin's dashboard to show
 }
 
-export const AdminNotesOrganiser = ({ jobs, onClose, onJobClick, initialJobId }: AdminNotesOrganiserProps) => {
-  const [activeAdmin, setActiveAdmin] = useState<string>(ADMIN_USERS[0].name);
+export const AdminNotesOrganiser = ({ jobs, onClose, onJobClick, initialJobId, adminName }: AdminNotesOrganiserProps) => {
+  const adminConfig = ADMIN_USERS.find(u => u.name === adminName) || ADMIN_USERS[0];
   const [activeSection, setActiveSection] = useState<'notes' | 'ops'>('notes');
-  const adminConfig = ADMIN_USERS.find(u => u.name === activeAdmin)!;
 
-  const { notes, loading, addNote, deleteNote, dismissAlert, activeAlerts, updateNote } = useAdminNotes(activeAdmin);
+  const { notes, loading, addNote, deleteNote, dismissAlert, activeAlerts, updateNote } = useAdminNotes(adminName);
 
-  // Avatar state per admin
-  const [avatars, setAvatars] = useState<Record<string, string>>(() => {
-    try {
-      return JSON.parse(localStorage.getItem('admin_avatars') || '{}');
-    } catch { return {}; }
-  });
-  const avatarInputRef = useState<HTMLInputElement | null>(null);
+  // Avatar from Supabase storage
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  useEffect(() => {
+    // Try to load avatar URL from storage
+    const { data } = supabase.storage.from('admin-avatars').getPublicUrl(`${adminName.toLowerCase()}.jpg`);
+    // Check if the file actually exists by fetching with cache-bust
+    fetch(`${data.publicUrl}?t=${Date.now()}`, { method: 'HEAD' })
+      .then(res => { if (res.ok) setAvatarUrl(`${data.publicUrl}?t=${Date.now()}`); })
+      .catch(() => {});
+  }, [adminName]);
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    // Resize and convert to base64 for localStorage (small file)
+    setUploadingAvatar(true);
+
+    // Resize to 256px
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       const img = new Image();
-      img.onload = () => {
+      img.onload = async () => {
         const canvas = document.createElement('canvas');
-        const size = 128;
+        const size = 256;
         canvas.width = size;
         canvas.height = size;
         const ctx = canvas.getContext('2d')!;
@@ -101,10 +117,14 @@ export const AdminNotesOrganiser = ({ jobs, onClose, onJobClick, initialJobId }:
         const x = (size - img.width * scale) / 2;
         const y = (size - img.height * scale) / 2;
         ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-        const updated = { ...avatars, [activeAdmin]: dataUrl };
-        setAvatars(updated);
-        localStorage.setItem('admin_avatars', JSON.stringify(updated));
+        canvas.toBlob(async (blob) => {
+          if (!blob) { setUploadingAvatar(false); return; }
+          const path = `${adminName.toLowerCase()}.jpg`;
+          await supabase.storage.from('admin-avatars').upload(path, blob, { upsert: true, contentType: 'image/jpeg' });
+          const { data } = supabase.storage.from('admin-avatars').getPublicUrl(path);
+          setAvatarUrl(`${data.publicUrl}?t=${Date.now()}`);
+          setUploadingAvatar(false);
+        }, 'image/jpeg', 0.85);
       };
       img.src = reader.result as string;
     };
@@ -202,12 +222,8 @@ export const AdminNotesOrganiser = ({ jobs, onClose, onJobClick, initialJobId }:
 
   const unresolvedOps = opsNotes.filter(n => !n.is_resolved).length;
 
-  // Group ops notes by week
   const opsWeekGroups = useMemo(() => {
     const now = new Date();
-    const currentWeekStart = startOfWeek(now, { weekStartsOn: 1 });
-    const currentWeekEnd = endOfWeek(now, { weekStartsOn: 1 });
-
     const groups: { label: string; key: string; notes: OpsNote[]; isCurrent: boolean }[] = [];
     const weekMap = new Map<string, { label: string; notes: OpsNote[]; isCurrent: boolean; weekStart: Date }>();
 
@@ -227,7 +243,6 @@ export const AdminNotesOrganiser = ({ jobs, onClose, onJobClick, initialJobId }:
       weekMap.get(key)!.notes.push(note);
     }
 
-    // Sort weeks: current first, then reverse chronological
     const sorted = Array.from(weekMap.entries())
       .sort(([, a], [, b]) => {
         if (a.isCurrent) return -1;
@@ -238,11 +253,9 @@ export const AdminNotesOrganiser = ({ jobs, onClose, onJobClick, initialJobId }:
     for (const [key, val] of sorted) {
       groups.push({ label: val.label, key, notes: val.notes, isCurrent: val.isCurrent });
     }
-
     return groups;
   }, [opsNotes]);
 
-  // Group ops notes within a week by day
   const groupByDay = (weekNotes: OpsNote[]) => {
     const dayMap = new Map<string, OpsNote[]>();
     for (const note of weekNotes) {
@@ -279,90 +292,57 @@ export const AdminNotesOrganiser = ({ jobs, onClose, onJobClick, initialJobId }:
     <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4">
       <div className="w-full max-w-2xl h-[90vh] bg-background rounded-2xl shadow-2xl flex flex-col overflow-hidden border">
 
-        {/* ─── Header ─── */}
-        <div className="flex items-center justify-between px-5 py-3 border-b bg-muted/20">
-          <div className="flex items-center gap-2.5">
+        {/* ─── Header: Single admin, personalized ─── */}
+        <div className={cn("flex items-center justify-between px-5 py-3 border-b", adminConfig.lightBg)}>
+          <div className="flex items-center gap-3">
             <div className="relative group cursor-pointer" onClick={() => document.getElementById('avatar-upload')?.click()}>
-              {avatars[activeAdmin] ? (
-                <img src={avatars[activeAdmin]} alt={activeAdmin} className={cn("w-10 h-10 rounded-xl object-cover ring-2", adminConfig.ring)} />
+              {avatarUrl ? (
+                <img src={avatarUrl} alt={adminName} className={cn("w-12 h-12 rounded-xl object-cover ring-2", adminConfig.ring)} />
               ) : (
-                <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-sm", adminConfig.color)}>
-                  {activeAdmin.charAt(0)}
+                <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center text-white font-black text-lg", adminConfig.color)}>
+                  {adminName.charAt(0)}
                 </div>
               )}
               <div className="absolute inset-0 rounded-xl bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                <Camera className="w-4 h-4 text-white" />
+                {uploadingAvatar ? <Loader2 className="w-4 h-4 text-white animate-spin" /> : <Camera className="w-4 h-4 text-white" />}
               </div>
               <input id="avatar-upload" type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleAvatarUpload} />
             </div>
             <div>
-              <h2 className="text-sm font-bold tracking-tight">Notes & Alerts</h2>
-              <p className="text-[10px] text-muted-foreground">Personal organiser</p>
+              <h2 className={cn("text-lg font-black uppercase tracking-wider", adminConfig.accent)}>{adminName}</h2>
+              <p className="text-[10px] text-muted-foreground">{adminConfig.title} — Personal Organiser</p>
             </div>
           </div>
-          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
 
-        {/* ─── Admin selector: Bold capitals, no icons, blur unselected ─── */}
-        <div className="px-5 py-3 border-b flex items-center gap-4">
-          <div className="flex gap-4 flex-1 items-baseline">
-            {ADMIN_USERS.map(admin => {
-              const isActive = activeAdmin === admin.name;
-              const userNotes = notes;
-              const userAlerts = isActive ? activeAlerts.length : 0;
-              return (
-                <button
-                  key={admin.name}
-                  onClick={() => { setActiveAdmin(admin.name); setActiveSection('notes'); setNoteFilter('all'); }}
-                  className={cn(
-                    "relative transition-all duration-200 select-none",
-                    isActive
-                      ? cn("opacity-100 scale-100", admin.accent)
-                      : "opacity-30 blur-[0.5px] hover:opacity-60 hover:blur-0 text-muted-foreground"
-                  )}
-                >
-                  <span className={cn(
-                    "text-lg font-black uppercase tracking-wider",
-                    isActive && "underline underline-offset-4 decoration-2"
-                  )}>
-                    {admin.name}
+          <div className="flex items-center gap-2">
+            {/* Notes / Ops toggle */}
+            <div className="flex bg-muted rounded-lg p-0.5">
+              <button
+                onClick={() => setActiveSection('notes')}
+                className={cn("px-3 py-1 rounded-md text-[11px] font-medium transition-all",
+                  activeSection === 'notes' ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"
+                )}
+              >
+                My Notes
+              </button>
+              <button
+                onClick={() => setActiveSection('ops')}
+                className={cn("px-3 py-1 rounded-md text-[11px] font-medium transition-all flex items-center gap-1",
+                  activeSection === 'ops' ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"
+                )}
+              >
+                <Mic className="w-3 h-3" />
+                Ops
+                {unresolvedOps > 0 && (
+                  <span className="bg-orange-500 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                    {unresolvedOps}
                   </span>
-                  {isActive && userAlerts > 0 && (
-                    <span className="absolute -top-1.5 -right-3 bg-destructive text-destructive-foreground text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
-                      {userAlerts}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Notes / Ops toggle */}
-          <div className="flex bg-muted rounded-lg p-0.5">
-            <button
-              onClick={() => setActiveSection('notes')}
-              className={cn("px-3 py-1 rounded-md text-[11px] font-medium transition-all",
-                activeSection === 'notes' ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"
-              )}
-            >
-              My Notes
-            </button>
-            <button
-              onClick={() => setActiveSection('ops')}
-              className={cn("px-3 py-1 rounded-md text-[11px] font-medium transition-all flex items-center gap-1",
-                activeSection === 'ops' ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"
-              )}
-            >
-              <Mic className="w-3 h-3" />
-              Ops Notes
-              {unresolvedOps > 0 && (
-                <span className="bg-orange-500 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
-                  {unresolvedOps}
-                </span>
-              )}
-            </button>
+                )}
+              </button>
+            </div>
+            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={onClose}>
+              <X className="h-4 w-4" />
+            </Button>
           </div>
         </div>
 
@@ -403,9 +383,7 @@ export const AdminNotesOrganiser = ({ jobs, onClose, onJobClick, initialJobId }:
                   <Plus className="w-3 h-3" /> New Note
                 </Button>
               )}
-
               <div className="flex-1" />
-
               {[
                 { key: 'all' as const, label: 'All', count: notes.length },
                 { key: 'alerts' as const, label: '🔔', count: notes.filter(n => n.alert_date && !n.alert_dismissed).length },
@@ -427,14 +405,12 @@ export const AdminNotesOrganiser = ({ jobs, onClose, onJobClick, initialJobId }:
               ))}
             </div>
 
-            {/* ─── New note form (collapsible) ─── */}
+            {/* ─── New note form ─── */}
             {showNewForm && (
               <div className="px-5 py-3 border-b bg-muted/10 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-foreground">New Note</span>
-                  <Button variant="ghost" size="sm" className="h-5 text-[10px] px-1" onClick={() => setShowNewForm(false)}>
-                    Cancel
-                  </Button>
+                  <Button variant="ghost" size="sm" className="h-5 text-[10px] px-1" onClick={() => setShowNewForm(false)}>Cancel</Button>
                 </div>
 
                 <Popover>
@@ -528,7 +504,7 @@ export const AdminNotesOrganiser = ({ jobs, onClose, onJobClick, initialJobId }:
                   <div className="text-center py-12">
                     <StickyNote className="w-8 h-8 mx-auto mb-2 text-muted-foreground/30" />
                     <p className="text-sm text-muted-foreground">
-                      {noteFilter === 'all' ? `No notes yet for ${activeAdmin}` : `No ${noteFilter} notes`}
+                      {noteFilter === 'all' ? `No notes yet` : `No ${noteFilter} notes`}
                     </p>
                   </div>
                 ) : filteredNotes.map(note => {
@@ -603,7 +579,7 @@ export const AdminNotesOrganiser = ({ jobs, onClose, onJobClick, initialJobId }:
             </ScrollArea>
           </>
         ) : (
-          /* ─── Ops Notes Section: Grouped by week ─── */
+          /* ─── Ops Notes Section ─── */
           <ScrollArea className="flex-1">
             <div className="px-5 py-3 space-y-2">
               <div className="flex items-center gap-2 mb-2">
