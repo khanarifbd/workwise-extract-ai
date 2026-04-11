@@ -1352,7 +1352,24 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                             onFireDoorJobCreated?.();
                           }
                         }}
+                        onDeleteLinkedJob={async () => {
+                          if (job.linkedFireDoorJobId) {
+                            try {
+                              await deleteLinkedJob(job.linkedFireDoorJobId, job.id, 'fire_door');
+                              onUpdateJob({ ...job, linkedFireDoorJobId: null, fireDoorInfo: null });
+                              onFireDoorJobCreated?.();
+                              toast({ title: 'Fire Door job deleted' });
+                            } catch (e) {
+                              toast({ title: 'Error', description: 'Failed to delete fire door job', variant: 'destructive' });
+                            }
+                          }
+                        }}
                       />
+                      {job.linkedFireDoorJobId && (
+                        <Badge variant="outline" className="text-xs bg-green-500/10 text-green-700 dark:text-green-400">
+                          Linked
+                        </Badge>
+                      )}
                     </div>
                   </td>
                   {/* Ongoing Notes Column - illuminated when job is ongoing */}
