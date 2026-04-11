@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, forwardRef, useCallback } from 'react';
 import { BulkTeamAssignModal } from './BulkTeamAssignModal';
-import { Job, JobStatus, FanInfo, RoofingInfo, FlooringInfo, Team } from '@/types/job';
+import { Job, JobStatus, FanInfo, RoofingInfo, FlooringInfo, FireDoorInfo, Team } from '@/types/job';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -37,6 +37,7 @@ import { RoofingEditor } from './RoofingEditor';
 import { RoofingBookingDateDialog } from './RoofingBookingDateDialog';
 import { FlooringEditor } from './FlooringEditor';
 import { FlooringBookingDateDialog } from './FlooringBookingDateDialog';
+import { FireDoorEditor } from './FireDoorEditor';
 import { OngoingNotesEditor } from './OngoingNotesEditor';
 import { ContactCell } from './ContactCell';
 import { BookedDateCell } from './BookedDateCell';
@@ -84,6 +85,8 @@ interface JobTableProps {
   onRoofingJobCreated?: () => void;
   flooringCategoryId?: string;
   onFlooringJobCreated?: () => void;
+  fireDoorCategoryId?: string;
+  onFireDoorJobCreated?: () => void;
   isFanCategory?: boolean;
   currentCategoryId?: string;
   categories?: { id: string; name: string; color: string }[];
