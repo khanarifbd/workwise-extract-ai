@@ -11,7 +11,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import {
   X, StickyNote, Bell, BellRing, Plus, Trash2, Loader2,
   Search, MapPin, Hash, Edit2, Check,
-  Mic, Clock, CheckCircle, ChevronDown, ChevronRight,
+  Mic, Clock, CheckCircle, ChevronDown, ChevronRight, Camera,
 } from 'lucide-react';
 import { format, parseISO, isToday, isYesterday, startOfWeek, endOfWeek, isWithinInterval, isBefore, subWeeks } from 'date-fns';
 import { cn } from '@/lib/utils';
