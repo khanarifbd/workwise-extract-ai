@@ -1933,3 +1933,31 @@ export const saveNotificationToHistory = async (notification: {
     throw error;
   }
 };
+
+// Delete a linked job (fan/roof/floor/door) and unlink from parent
+export const deleteLinkedJob = async (
+  linkedJobId: string,
+  parentJobId: string,
+  linkType: 'fan' | 'roofing' | 'flooring' | 'fire_door'
+): Promise<void> => {
+  // Soft-delete the linked job
+  const { error: deleteError } = await supabase
+    .from('jobs')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', linkedJobId);
+
+  if (deleteError) throw deleteError;
+
+  // Unlink from parent
+  const unlinkField = linkType === 'fan' ? 'linked_fan_job_id'
+    : linkType === 'roofing' ? 'linked_roofing_job_id'
+    : linkType === 'flooring' ? 'linked_flooring_job_id'
+    : 'linked_fire_door_job_id';
+
+  const { error: unlinkError } = await supabase
+    .from('jobs')
+    .update({ [unlinkField]: null, updated_at: new Date().toISOString() } as any)
+    .eq('id', parentJobId);
+
+  if (unlinkError) throw unlinkError;
+};

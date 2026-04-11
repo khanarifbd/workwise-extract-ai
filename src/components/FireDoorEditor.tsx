@@ -14,6 +14,7 @@ interface FireDoorEditorProps {
   job: Job;
   fireDoorCategoryId?: string;
   onJobUpdated?: (updates?: Partial<Job>) => void;
+  onDeleteLinkedJob?: () => void;
 }
 
 export const FireDoorEditor = ({
