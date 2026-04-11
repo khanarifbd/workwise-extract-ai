@@ -35,7 +35,8 @@ import { RoofingEditor } from '@/components/RoofingEditor';
 import { RoofingBookingDateDialog } from '@/components/RoofingBookingDateDialog';
 import { FlooringEditor } from '@/components/FlooringEditor';
 import { FlooringBookingDateDialog } from '@/components/FlooringBookingDateDialog';
-import { extractFansWithAI, createLinkedFanJob, syncLinkedFanJob, extractRoofingWithAI, createLinkedRoofingJob, syncLinkedRoofingJob, extractFlooringWithAI, createLinkedFlooringJob, syncLinkedFlooringJob } from '@/lib/api';
+import { FireDoorEditor } from '@/components/FireDoorEditor';
+import { extractFansWithAI, createLinkedFanJob, syncLinkedFanJob, extractRoofingWithAI, createLinkedRoofingJob, syncLinkedRoofingJob, extractFlooringWithAI, createLinkedFlooringJob, syncLinkedFlooringJob, createLinkedFireDoorJob, syncLinkedFireDoorJob } from '@/lib/api';
 
 // Blocker types with metadata
 const BLOCKER_TYPES = [
@@ -127,6 +128,7 @@ export const DanniDashboard = ({
   const [fanCategoryId, setFanCategoryId] = useState<string>('');
   const [roofingCategoryId, setRoofingCategoryId] = useState<string>('');
   const [flooringCategoryId, setFlooringCategoryId] = useState<string>('');
+  const [fireDoorCategoryId, setFireDoorCategoryId] = useState<string>('');
   const [scanningFanJobId, setScanningFanJobId] = useState<string | null>(null);
   const [scanningRoofingJobId, setScanningRoofingJobId] = useState<string | null>(null);
   const [scanningFlooringJobId, setScanningFlooringJobId] = useState<string | null>(null);
@@ -182,9 +184,11 @@ export const DanniDashboard = ({
         const fanCat = allCatsRes.data.find((c: any) => c.name.toLowerCase().includes('fan'));
         const roofCat = allCatsRes.data.find((c: any) => c.slug === 'roofing' || c.name.toLowerCase().includes('roofing'));
         const floorCat = allCatsRes.data.find((c: any) => c.name.toLowerCase().includes('flooring'));
+        const doorCat = allCatsRes.data.find((c: any) => c.slug === 'firedoor');
         if (fanCat) setFanCategoryId(fanCat.id);
         if (roofCat) setRoofingCategoryId(roofCat.id);
         if (floorCat) setFlooringCategoryId(floorCat.id);
+        if (doorCat) setFireDoorCategoryId(doorCat.id);
       }
 
       // Fetch DM jobs and sign-offs in parallel
