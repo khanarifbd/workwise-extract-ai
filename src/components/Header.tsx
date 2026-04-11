@@ -35,7 +35,7 @@ interface HeaderProps {
   onShowAdminNotes?: (adminName: string) => void;
 }
 
-export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount = 0, onShowOverdue, danniCount = 0, onShowDanni, onShowNotes, notesAlertCount = 0 }: HeaderProps) => {
+export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount = 0, onShowOverdue, danniCount = 0, onShowDanni, onShowAdminNotes }: HeaderProps) => {
   const [isDark, setIsDark] = useState(() => {
     // Initialize from localStorage or system preference
     const stored = localStorage.getItem('theme');
