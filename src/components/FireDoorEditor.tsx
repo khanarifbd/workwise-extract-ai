@@ -29,6 +29,7 @@ export const FireDoorEditor = ({
 
   const hasData = fireDoorInfo && fireDoorInfo.length > 0 && !fireDoorInfo.some(f => f.type === '__NO_FIRE_DOORS__');
   const totalCount = hasData ? fireDoorInfo!.reduce((sum, d) => sum + d.quantity, 0) : 0;
+  const isLinked = !!job.linkedFireDoorJobId;
 
   const handleCreateJob = () => {
     setPopoverOpen(false);
@@ -62,9 +63,13 @@ export const FireDoorEditor = ({
           <PopoverTrigger asChild>
             <Badge
               variant="outline"
-              className="cursor-pointer text-xs bg-red-500/10 text-red-700 dark:text-red-400 border-red-300 hover:bg-red-500/20 font-semibold"
+              className={`cursor-pointer text-xs font-semibold ${
+                isLinked
+                  ? 'bg-green-500/10 text-green-700 dark:text-green-400 border-green-300'
+                  : 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-300'
+              } hover:bg-red-500/20`}
             >
-              DOOR ×{totalCount}
+              DOOR ×{totalCount} {isLinked ? '✓' : ''}
             </Badge>
           </PopoverTrigger>
           <PopoverContent className="w-72 p-3" align="start">
@@ -110,10 +115,10 @@ export const FireDoorEditor = ({
                   className="w-full mt-2 bg-red-600 hover:bg-red-700 text-white text-xs"
                   onClick={handleCreateJob}
                 >
-                  {job.linkedFireDoorJobId ? 'Update Fire Door Job' : 'Create Fire Door Job'}
+                  {isLinked ? 'Update Fire Door Job' : 'Create Fire Door Job'}
                 </Button>
               )}
-              {job.linkedFireDoorJobId && (
+              {isLinked && (
                 <Badge variant="outline" className="text-xs bg-green-500/10 text-green-700">Linked ✓</Badge>
               )}
             </div>
