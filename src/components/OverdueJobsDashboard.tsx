@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
-import { Job } from '@/types/job';
+import { Job, FireDoorInfo } from '@/types/job';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -183,6 +183,8 @@ export const OverdueJobsDashboard = ({
         linkedRoofingJobId: data.linked_roofing_job_id,
         flooringInfo: data.flooring_info as any,
         linkedFlooringJobId: data.linked_flooring_job_id,
+        fireDoorInfo: data.fire_door_info as any,
+        linkedFireDoorJobId: data.linked_fire_door_job_id,
         costs: data.costs as any,
         privateNotes: data.private_notes || '',
         referBack: data.refer_back || false,

@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, forwardRef, useCallback } from 'react';
 import { BulkTeamAssignModal } from './BulkTeamAssignModal';
-import { Job, JobStatus, FanInfo, RoofingInfo, FlooringInfo, Team } from '@/types/job';
+import { Job, JobStatus, FanInfo, RoofingInfo, FlooringInfo, FireDoorInfo, Team } from '@/types/job';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -37,6 +37,7 @@ import { RoofingEditor } from './RoofingEditor';
 import { RoofingBookingDateDialog } from './RoofingBookingDateDialog';
 import { FlooringEditor } from './FlooringEditor';
 import { FlooringBookingDateDialog } from './FlooringBookingDateDialog';
+import { FireDoorEditor } from './FireDoorEditor';
 import { OngoingNotesEditor } from './OngoingNotesEditor';
 import { ContactCell } from './ContactCell';
 import { BookedDateCell } from './BookedDateCell';
@@ -84,6 +85,8 @@ interface JobTableProps {
   onRoofingJobCreated?: () => void;
   flooringCategoryId?: string;
   onFlooringJobCreated?: () => void;
+  fireDoorCategoryId?: string;
+  onFireDoorJobCreated?: () => void;
   isFanCategory?: boolean;
   currentCategoryId?: string;
   categories?: { id: string; name: string; color: string }[];
@@ -117,7 +120,7 @@ const findDuplicates = (jobs: Job[]): Set<string> => {
   return duplicates;
 };
 
-export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onBatchUpdateTeam, onTransferJob, onDuplicateToCategory, onReferBack, fanCategoryId, onFanJobCreated, roofingCategoryId, onRoofingJobCreated, flooringCategoryId, onFlooringJobCreated, isFanCategory = false, currentCategoryId, categories = [], readOnly = false, searchTerm, tradeBookings = new Map(), getSignOffStatus: getSignOffStatusProp }, ref) => {
+export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onBatchUpdateTeam, onTransferJob, onDuplicateToCategory, onReferBack, fanCategoryId, onFanJobCreated, roofingCategoryId, onRoofingJobCreated, flooringCategoryId, onFlooringJobCreated, fireDoorCategoryId, onFireDoorJobCreated, isFanCategory = false, currentCategoryId, categories = [], readOnly = false, searchTerm, tradeBookings = new Map(), getSignOffStatus: getSignOffStatusProp }, ref) => {
   const [showTeamSelector, setShowTeamSelector] = useState<string | null>(null);
   const [showTransferModal, setShowTransferModal] = useState<Job | null>(null);
   const [showJobDetails, setShowJobDetails] = useState<Job | null>(null);
@@ -870,6 +873,7 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
               <th className="w-24">Fan</th>
               <th className="w-24">Roof</th>
               <th className="w-24">Floor</th>
+              <th className="w-24">Door</th>
               <th className="w-40">Ongoing Notes</th>
               <th className="w-36">Booked/End</th>
               <th className="w-20">Files</th>
@@ -1331,6 +1335,28 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                             </>
                           )}
                         </Button>
+                      )}
+                    </div>
+                  </td>
+                  {/* Fire Door Column */}
+                  <td onClick={(e) => e.stopPropagation()}>
+                    <div className="flex flex-col gap-1">
+                      <FireDoorEditor
+                        fireDoorInfo={job.fireDoorInfo}
+                        onUpdate={(info) => onUpdateJob({ ...job, fireDoorInfo: info })}
+                        job={job}
+                        fireDoorCategoryId={fireDoorCategoryId}
+                        onJobUpdated={(updates) => {
+                          onUpdateJob({ ...job, ...updates });
+                          if (updates?.linkedFireDoorJobId) {
+                            onFireDoorJobCreated?.();
+                          }
+                        }}
+                      />
+                      {job.linkedFireDoorJobId && (
+                        <Badge variant="outline" className="text-xs bg-green-500/10 text-green-700 dark:text-green-400">
+                          Linked
+                        </Badge>
                       )}
                     </div>
                   </td>

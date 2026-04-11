@@ -1,7 +1,7 @@
 import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { NotepadPanel } from '@/components/DanniNotepadPanel';
 import { DanniNewJobPanel } from '@/components/DanniNewJobPanel';
-import { Job, Attachment, WorkItem, FanInfo, RoofingInfo, FlooringInfo } from '@/types/job';
+import { Job, Attachment, WorkItem, FanInfo, RoofingInfo, FlooringInfo, FireDoorInfo } from '@/types/job';
 import { ContactCell } from '@/components/ContactCell';
 import { useAllContactHistory } from '@/hooks/useContactHistory';
 import { HighlightText } from '@/components/HighlightText';
@@ -35,7 +35,8 @@ import { RoofingEditor } from '@/components/RoofingEditor';
 import { RoofingBookingDateDialog } from '@/components/RoofingBookingDateDialog';
 import { FlooringEditor } from '@/components/FlooringEditor';
 import { FlooringBookingDateDialog } from '@/components/FlooringBookingDateDialog';
-import { extractFansWithAI, createLinkedFanJob, syncLinkedFanJob, extractRoofingWithAI, createLinkedRoofingJob, syncLinkedRoofingJob, extractFlooringWithAI, createLinkedFlooringJob, syncLinkedFlooringJob } from '@/lib/api';
+import { FireDoorEditor } from '@/components/FireDoorEditor';
+import { extractFansWithAI, createLinkedFanJob, syncLinkedFanJob, extractRoofingWithAI, createLinkedRoofingJob, syncLinkedRoofingJob, extractFlooringWithAI, createLinkedFlooringJob, syncLinkedFlooringJob, createLinkedFireDoorJob, syncLinkedFireDoorJob } from '@/lib/api';
 
 // Blocker types with metadata
 const BLOCKER_TYPES = [
@@ -89,6 +90,8 @@ interface ReadinessJob {
   linkedRoofingJobId: string | null;
   flooringInfo: FlooringInfo[] | null;
   linkedFlooringJobId: string | null;
+  fireDoorInfo: FireDoorInfo[] | null;
+  linkedFireDoorJobId: string | null;
 }
 
 export const DanniDashboard = ({
@@ -125,6 +128,7 @@ export const DanniDashboard = ({
   const [fanCategoryId, setFanCategoryId] = useState<string>('');
   const [roofingCategoryId, setRoofingCategoryId] = useState<string>('');
   const [flooringCategoryId, setFlooringCategoryId] = useState<string>('');
+  const [fireDoorCategoryId, setFireDoorCategoryId] = useState<string>('');
   const [scanningFanJobId, setScanningFanJobId] = useState<string | null>(null);
   const [scanningRoofingJobId, setScanningRoofingJobId] = useState<string | null>(null);
   const [scanningFlooringJobId, setScanningFlooringJobId] = useState<string | null>(null);
@@ -180,16 +184,18 @@ export const DanniDashboard = ({
         const fanCat = allCatsRes.data.find((c: any) => c.name.toLowerCase().includes('fan'));
         const roofCat = allCatsRes.data.find((c: any) => c.slug === 'roofing' || c.name.toLowerCase().includes('roofing'));
         const floorCat = allCatsRes.data.find((c: any) => c.name.toLowerCase().includes('flooring'));
+        const doorCat = allCatsRes.data.find((c: any) => c.slug === 'firedoor');
         if (fanCat) setFanCategoryId(fanCat.id);
         if (roofCat) setRoofingCategoryId(roofCat.id);
         if (floorCat) setFlooringCategoryId(floorCat.id);
+        if (doorCat) setFireDoorCategoryId(doorCat.id);
       }
 
       // Fetch DM jobs and sign-offs in parallel
       const [jobsRes, signOffRes] = await Promise.all([
         supabase
           .from('jobs')
-          .select('id, job_number, name, address, phone_number, team, team2, description, summary_of_works, work_items, attachments, booked_date, status, is_completed, is_ongoing, blocker_type, blocker_notes, blocker_chase_date, refer_back, ongoing_reason, fan_info, linked_fan_job_id, roofing_info, linked_roofing_job_id, flooring_info, linked_flooring_job_id')
+          .select('id, job_number, name, address, phone_number, team, team2, description, summary_of_works, work_items, attachments, booked_date, status, is_completed, is_ongoing, blocker_type, blocker_notes, blocker_chase_date, refer_back, ongoing_reason, fan_info, linked_fan_job_id, roofing_info, linked_roofing_job_id, flooring_info, linked_flooring_job_id, fire_door_info, linked_fire_door_job_id')
           .eq('category_id', dmCatId)
           .is('deleted_at', null),
         supabase
@@ -426,6 +432,8 @@ export const DanniDashboard = ({
         linkedRoofingJobId: raw.linked_roofing_job_id,
         flooringInfo: Array.isArray(raw.flooring_info) ? (raw.flooring_info as any[]) : null,
         linkedFlooringJobId: raw.linked_flooring_job_id,
+        fireDoorInfo: raw.fire_door_info as unknown as FireDoorInfo[] | null,
+        linkedFireDoorJobId: raw.linked_fire_door_job_id,
       });
     }
 
@@ -504,7 +512,7 @@ export const DanniDashboard = ({
     status: rj.status as any, fanInfo: rj.fanInfo, linkedFanJobId: rj.linkedFanJobId,
     insulationInfo: null, linkedInsulationJobId: null, roofingInfo: rj.roofingInfo,
     linkedRoofingJobId: rj.linkedRoofingJobId, flooringInfo: rj.flooringInfo,
-    linkedFlooringJobId: rj.linkedFlooringJobId, costs: null, privateNotes: '',
+    linkedFlooringJobId: rj.linkedFlooringJobId, fireDoorInfo: rj.fireDoorInfo, linkedFireDoorJobId: rj.linkedFireDoorJobId, costs: null, privateNotes: '',
     referBack: rj.referBack, referBackReason: '', referBackDate: null,
     expectedCompletionDate: null, blockerType: rj.blockerType, blockerNotes: rj.blockerNotes,
     blockerSetAt: null, blockerChaseDate: rj.blockerChaseDate,
@@ -601,6 +609,9 @@ export const DanniDashboard = ({
   }, [updateJobField, handleRefresh]);
   const handleUpdateFlooringInfo = useCallback(async (jobId: string, flooringInfo: FlooringInfo[]) => {
     await updateJobField(jobId, { flooring_info: flooringInfo }); handleRefresh();
+  }, [updateJobField, handleRefresh]);
+  const handleUpdateFireDoorInfo = useCallback(async (jobId: string, fireDoorInfo: FireDoorInfo[]) => {
+    await updateJobField(jobId, { fire_door_info: fireDoorInfo }); handleRefresh();
   }, [updateJobField, handleRefresh]);
 
   const handleSaveBlocker = useCallback(async (jobId: string) => {
@@ -769,6 +780,8 @@ export const DanniDashboard = ({
         linkedRoofingJobId: data.linked_roofing_job_id,
         flooringInfo: Array.isArray(data.flooring_info) ? (data.flooring_info as any[]) : null,
         linkedFlooringJobId: data.linked_flooring_job_id,
+        fireDoorInfo: data.fire_door_info as unknown as FireDoorInfo[] | null,
+        linkedFireDoorJobId: data.linked_fire_door_job_id,
         costs: data.costs as any,
         privateNotes: data.private_notes || '',
         referBack: data.refer_back || false,
@@ -835,6 +848,8 @@ export const DanniDashboard = ({
         linkedRoofingJobId: data.linked_roofing_job_id,
         flooringInfo: Array.isArray(data.flooring_info) ? (data.flooring_info as any[]) : null,
         linkedFlooringJobId: data.linked_flooring_job_id,
+        fireDoorInfo: data.fire_door_info as unknown as FireDoorInfo[] | null,
+        linkedFireDoorJobId: data.linked_fire_door_job_id,
         costs: data.costs as any,
         privateNotes: data.private_notes || '',
         referBack: data.refer_back || false,
@@ -1239,6 +1254,14 @@ export const DanniDashboard = ({
                                 </Button>
                               );
                             })()}
+                            {/* Fire Door */}
+                            <FireDoorEditor
+                              fireDoorInfo={job.fireDoorInfo}
+                              onUpdate={(info) => handleUpdateFireDoorInfo(job.id, info)}
+                              job={toJobForApi(job)}
+                              fireDoorCategoryId={fireDoorCategoryId}
+                              onJobUpdated={() => handleRefresh()}
+                            />
                           </div>
                         </div>
 
