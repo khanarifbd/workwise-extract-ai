@@ -387,36 +387,53 @@ export const AdminNotesOrganiser = ({ jobs, onClose, onJobClick, initialJobId, a
             )}
 
             {/* ─── Quick actions ─── */}
-            <div className="px-5 py-2 border-b flex items-center gap-2">
-              {!showNewForm && (
-                <Button
-                  size="sm"
-                  className={cn("h-7 text-xs gap-1 rounded-full", adminConfig.color, "text-white hover:opacity-90")}
-                  onClick={() => setShowNewForm(true)}
-                >
-                  <Plus className="w-3 h-3" /> New Note
-                </Button>
-              )}
-              <div className="flex-1" />
-              {[
-                { key: 'all' as const, label: 'All', count: notes.length },
-                { key: 'alerts' as const, label: '🔔', count: notes.filter(n => n.alert_date && !n.alert_dismissed).length },
-                { key: 'job' as const, label: 'Jobs', count: notes.filter(n => n.job_id).length },
-                { key: 'general' as const, label: 'General', count: notes.filter(n => !n.job_id).length },
-              ].map(tab => (
-                <button
-                  key={tab.key}
-                  onClick={() => setNoteFilter(tab.key)}
-                  className={cn(
-                    "px-2 py-0.5 rounded-full text-[10px] font-medium transition-all",
-                    noteFilter === tab.key
-                      ? cn(adminConfig.lightBg, adminConfig.textColor, "ring-1", adminConfig.ring)
-                      : "text-muted-foreground hover:bg-muted"
-                  )}
-                >
-                  {tab.label} <span className="opacity-60">{tab.count}</span>
-                </button>
-              ))}
+            <div className="px-5 py-2 border-b space-y-2">
+              {/* Search bar */}
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Search notes by name, address, job #, keyword..."
+                  value={noteSearch}
+                  onChange={e => setNoteSearch(e.target.value)}
+                  className="h-8 text-xs pl-8 rounded-lg"
+                />
+                {noteSearch && (
+                  <button onClick={() => setNoteSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2">
+                    <X className="w-3 h-3 text-muted-foreground" />
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {!showNewForm && (
+                  <Button
+                    size="sm"
+                    className={cn("h-7 text-xs gap-1 rounded-full", adminConfig.color, "text-white hover:opacity-90")}
+                    onClick={() => setShowNewForm(true)}
+                  >
+                    <Plus className="w-3 h-3" /> New Note
+                  </Button>
+                )}
+                <div className="flex-1" />
+                {[
+                  { key: 'all' as const, label: 'All', count: notes.length },
+                  { key: 'alerts' as const, label: '🔔', count: notes.filter(n => n.alert_date && !n.alert_dismissed).length },
+                  { key: 'job' as const, label: 'Jobs', count: notes.filter(n => n.job_id).length },
+                  { key: 'general' as const, label: 'General', count: notes.filter(n => !n.job_id).length },
+                ].map(tab => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setNoteFilter(tab.key)}
+                    className={cn(
+                      "px-2 py-0.5 rounded-full text-[10px] font-medium transition-all",
+                      noteFilter === tab.key
+                        ? cn(adminConfig.lightBg, adminConfig.textColor, "ring-1", adminConfig.ring)
+                        : "text-muted-foreground hover:bg-muted"
+                    )}
+                  >
+                    {tab.label} <span className="opacity-60">{tab.count}</span>
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* ─── New note form ─── */}
