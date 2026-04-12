@@ -1490,6 +1490,7 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                       )}
                     </div>
                   </td>
+                  )}
                   {!readOnly && (
                     <td onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center gap-1">
