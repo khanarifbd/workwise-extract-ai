@@ -163,6 +163,7 @@ export const AdminNotesOrganiser = ({ jobs, onClose, onJobClick, initialJobId, a
   }, [activeSection, fetchOpsNotes]);
 
   const [jobSearch, setJobSearch] = useState('');
+  const [noteSearch, setNoteSearch] = useState('');
   const [noteFilter, setNoteFilter] = useState<'all' | 'alerts' | 'general' | 'job'>(initialJobId ? 'job' : 'all');
   const [newNoteText, setNewNoteText] = useState('');
   const [newNoteJobId, setNewNoteJobId] = useState<string | null>(initialJobId || null);
