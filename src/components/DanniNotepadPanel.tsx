@@ -142,6 +142,24 @@ export const NotepadPanel = ({
         </Button>
       </div>
 
+      {/* Search bar */}
+      <div className="px-4 pt-3">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+          <Input
+            placeholder="Search notes by name, address, job #, keyword..."
+            value={noteSearch}
+            onChange={e => setNoteSearch(e.target.value)}
+            className="h-8 text-xs pl-8 rounded-lg"
+          />
+          {noteSearch && (
+            <button onClick={() => setNoteSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2">
+              <X className="w-3 h-3 text-muted-foreground" />
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* Active alerts */}
       {activeAlerts.length > 0 && (
         <div className="px-4 pt-3 space-y-2">
