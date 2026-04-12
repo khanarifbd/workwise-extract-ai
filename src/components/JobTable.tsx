@@ -857,6 +857,16 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
       )}
 
       <div className="overflow-x-auto rounded-lg border border-border bg-card">
+        {/* Column expand toggle */}
+        <div className="flex items-center justify-end px-3 py-1.5 bg-muted/30 border-b border-border">
+          <button
+            onClick={() => setShowExtraColumns(!showExtraColumns)}
+            className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-md hover:bg-muted"
+          >
+            {showExtraColumns ? <ChevronLeft className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+            {showExtraColumns ? 'Hide columns' : 'More columns'}
+          </button>
+        </div>
         <table className="data-table">
           <thead>
             <tr>
@@ -868,8 +878,8 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                   />
                 </th>
               )}
-              <th className="w-28">Issued</th>
-              <th className="w-28">Job #</th>
+              {showExtraColumns && <th className="w-28">Issued</th>}
+              {showExtraColumns && <th className="w-28">Job #</th>}
               <th className="w-40">Name / Address</th>
               <th className="w-32">Action</th>
               <th className="w-28">Assigned</th>
@@ -880,9 +890,9 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
               <th className="w-24">Floor</th>
               <th className="w-24">Door</th>
               <th className="w-40">Ongoing Notes</th>
-              <th className="w-36">Booked/End</th>
-              <th className="w-20">Files</th>
-              <th className="w-20">Sign-Off</th>
+              {showExtraColumns && <th className="w-36">Booked/End</th>}
+              {showExtraColumns && <th className="w-20">Files</th>}
+              {showExtraColumns && <th className="w-20">Sign-Off</th>}
               {!readOnly && <th className="w-12"></th>}
             </tr>
           </thead>
