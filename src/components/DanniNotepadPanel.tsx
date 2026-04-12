@@ -58,6 +58,7 @@ export const NotepadPanel = ({
   savingNote,
 }: NotepadPanelProps) => {
   const [jobSearch, setJobSearch] = useState('');
+  const [noteSearch, setNoteSearch] = useState('');
   const [noteFilter, setNoteFilter] = useState<'all' | 'alerts' | 'general' | 'job'>('all');
 
   // All DM jobs for the dropdown (sorted by job number)
@@ -73,7 +74,7 @@ export const NotepadPanel = ({
 
   // Filtered jobs for dropdown search
   const filteredDropdownJobs = useMemo(() => {
-    if (!jobSearch.trim()) return allDmJobsSorted.slice(0, 50); // limit initial display
+    if (!jobSearch.trim()) return allDmJobsSorted.slice(0, 50);
     const search = jobSearch.toLowerCase();
     return allDmJobsSorted.filter(j =>
       j.job_number?.toLowerCase().includes(search) ||
@@ -91,17 +92,29 @@ export const NotepadPanel = ({
 
   // Filter notes
   const filteredNotes = useMemo(() => {
+    let result = danniNotes;
     switch (noteFilter) {
       case 'alerts':
-        return danniNotes.filter((n: any) => n.alert_date && !n.alert_dismissed);
+        result = danniNotes.filter((n: any) => n.alert_date && !n.alert_dismissed); break;
       case 'general':
-        return danniNotes.filter((n: any) => !n.job_id);
+        result = danniNotes.filter((n: any) => !n.job_id); break;
       case 'job':
-        return danniNotes.filter((n: any) => n.job_id);
-      default:
-        return danniNotes;
+        result = danniNotes.filter((n: any) => n.job_id); break;
     }
-  }, [danniNotes, noteFilter]);
+    if (noteSearch.trim()) {
+      const s = noteSearch.toLowerCase();
+      result = result.filter((n: any) => {
+        const job = dmJobs.find((j: any) => j.id === n.job_id);
+        return (
+          n.note_text?.toLowerCase().includes(s) ||
+          job?.job_number?.toLowerCase().includes(s) ||
+          job?.name?.toLowerCase().includes(s) ||
+          job?.address?.toLowerCase().includes(s)
+        );
+      });
+    }
+    return result;
+  }, [danniNotes, noteFilter, noteSearch, dmJobs]);
 
   // Count notes per category
   const alertCount = danniNotes.filter((n: any) => n.alert_date && !n.alert_dismissed).length;
