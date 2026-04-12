@@ -135,6 +135,7 @@ export const AdminNotesOrganiser = ({ jobs, onClose, onJobClick, initialJobId, a
   // Ops notes state
   const [opsNotes, setOpsNotes] = useState<OpsNote[]>([]);
   const [opsLoading, setOpsLoading] = useState(false);
+  const [opsSearch, setOpsSearch] = useState('');
   const [expandedOpsWeeks, setExpandedOpsWeeks] = useState<Set<string>>(new Set());
 
   const fetchOpsNotes = useCallback(async () => {
