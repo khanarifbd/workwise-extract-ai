@@ -976,10 +976,7 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                   )}
                   {showExtraColumns && (
                   <td className="relative z-20">
-                  </td>
-                  <td className="relative z-20">
                     {(() => {
-                      // Check if job should show ongoing alert (manual OR 24hr auto-trigger)
                       const signOffData = getSignOffStatus(job.id, job.team, job.team2);
                       const alertInfo = shouldShowOngoingAlert(job, signOffData.allSignedOff);
                       const showOngoingBadge = alertInfo.showAlert;
@@ -1004,9 +1001,7 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                             <Badge 
                               className={cn(
                                 "text-white font-bold text-xs animate-pulse shadow-md flex items-center gap-1",
-                                alertInfo.isAutoTriggered 
-                                  ? "bg-orange-600" // Auto-triggered (overdue)
-                                  : "bg-amber-500"  // Manual ongoing
+                                alertInfo.isAutoTriggered ? "bg-orange-600" : "bg-amber-500"
                               )}
                               title={alertInfo.isAutoTriggered 
                                 ? `Overdue: ${alertInfo.hoursOverdue}h past 24hr threshold` 
@@ -1026,6 +1021,7 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                       );
                     })()}
                   </td>
+                  )}
                   <td className="relative z-20">
                     <div className="space-y-0.5">
                       <p className="font-medium text-foreground text-sm">
