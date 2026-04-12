@@ -1024,6 +1024,9 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                   )}
                   <td className="relative z-20">
                     <div className="space-y-0.5">
+                      {!showExtraColumns && (
+                        <span className="font-mono text-[10px] font-bold text-primary">#{job.jobNumber}</span>
+                      )}
                       <p className="font-medium text-foreground text-sm">
                         <HighlightText text={job.name} highlight={searchTerm || ''} />
                       </p>
