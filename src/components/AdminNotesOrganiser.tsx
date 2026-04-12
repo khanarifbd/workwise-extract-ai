@@ -135,6 +135,7 @@ export const AdminNotesOrganiser = ({ jobs, onClose, onJobClick, initialJobId, a
   // Ops notes state
   const [opsNotes, setOpsNotes] = useState<OpsNote[]>([]);
   const [opsLoading, setOpsLoading] = useState(false);
+  const [opsSearch, setOpsSearch] = useState('');
   const [expandedOpsWeeks, setExpandedOpsWeeks] = useState<Set<string>>(new Set());
 
   const fetchOpsNotes = useCallback(async () => {
@@ -163,6 +164,7 @@ export const AdminNotesOrganiser = ({ jobs, onClose, onJobClick, initialJobId, a
   }, [activeSection, fetchOpsNotes]);
 
   const [jobSearch, setJobSearch] = useState('');
+  const [noteSearch, setNoteSearch] = useState('');
   const [noteFilter, setNoteFilter] = useState<'all' | 'alerts' | 'general' | 'job'>(initialJobId ? 'job' : 'all');
   const [newNoteText, setNewNoteText] = useState('');
   const [newNoteJobId, setNewNoteJobId] = useState<string | null>(initialJobId || null);
@@ -190,13 +192,26 @@ export const AdminNotesOrganiser = ({ jobs, onClose, onJobClick, initialJobId, a
   const selectedJob = useMemo(() => newNoteJobId ? jobs.find(j => j.id === newNoteJobId) || null : null, [newNoteJobId, jobs]);
 
   const filteredNotes = useMemo(() => {
+    let result = notes;
     switch (noteFilter) {
-      case 'alerts': return notes.filter(n => n.alert_date && !n.alert_dismissed);
-      case 'general': return notes.filter(n => !n.job_id);
-      case 'job': return notes.filter(n => n.job_id);
-      default: return notes;
+      case 'alerts': result = notes.filter(n => n.alert_date && !n.alert_dismissed); break;
+      case 'general': result = notes.filter(n => !n.job_id); break;
+      case 'job': result = notes.filter(n => n.job_id); break;
     }
-  }, [notes, noteFilter]);
+    if (noteSearch.trim()) {
+      const s = noteSearch.toLowerCase();
+      result = result.filter(n => {
+        const job = jobs.find(j => j.id === n.job_id);
+        return (
+          n.note_text?.toLowerCase().includes(s) ||
+          job?.jobNumber?.toLowerCase().includes(s) ||
+          job?.name?.toLowerCase().includes(s) ||
+          job?.address?.toLowerCase().includes(s)
+        );
+      });
+    }
+    return result;
+  }, [notes, noteFilter, noteSearch, jobs]);
 
   const handleSave = async () => {
     if (!newNoteText.trim()) return;
@@ -222,12 +237,24 @@ export const AdminNotesOrganiser = ({ jobs, onClose, onJobClick, initialJobId, a
 
   const unresolvedOps = opsNotes.filter(n => !n.is_resolved).length;
 
+  const filteredOpsNotes = useMemo(() => {
+    if (!opsSearch.trim()) return opsNotes;
+    const s = opsSearch.toLowerCase();
+    return opsNotes.filter(n =>
+      n.title?.toLowerCase().includes(s) ||
+      n.enhanced_text?.toLowerCase().includes(s) ||
+      n.job_number?.toLowerCase().includes(s) ||
+      n.team_association?.toLowerCase().includes(s) ||
+      n.created_by_name?.toLowerCase().includes(s)
+    );
+  }, [opsNotes, opsSearch]);
+
   const opsWeekGroups = useMemo(() => {
     const now = new Date();
     const groups: { label: string; key: string; notes: OpsNote[]; isCurrent: boolean }[] = [];
     const weekMap = new Map<string, { label: string; notes: OpsNote[]; isCurrent: boolean; weekStart: Date }>();
 
-    for (const note of opsNotes) {
+    for (const note of filteredOpsNotes) {
       const noteDate = parseISO(note.created_at);
       const ws = startOfWeek(noteDate, { weekStartsOn: 1 });
       const we = endOfWeek(noteDate, { weekStartsOn: 1 });
@@ -254,7 +281,7 @@ export const AdminNotesOrganiser = ({ jobs, onClose, onJobClick, initialJobId, a
       groups.push({ label: val.label, key, notes: val.notes, isCurrent: val.isCurrent });
     }
     return groups;
-  }, [opsNotes]);
+  }, [filteredOpsNotes]);
 
   const groupByDay = (weekNotes: OpsNote[]) => {
     const dayMap = new Map<string, OpsNote[]>();
@@ -373,36 +400,53 @@ export const AdminNotesOrganiser = ({ jobs, onClose, onJobClick, initialJobId, a
             )}
 
             {/* ─── Quick actions ─── */}
-            <div className="px-5 py-2 border-b flex items-center gap-2">
-              {!showNewForm && (
-                <Button
-                  size="sm"
-                  className={cn("h-7 text-xs gap-1 rounded-full", adminConfig.color, "text-white hover:opacity-90")}
-                  onClick={() => setShowNewForm(true)}
-                >
-                  <Plus className="w-3 h-3" /> New Note
-                </Button>
-              )}
-              <div className="flex-1" />
-              {[
-                { key: 'all' as const, label: 'All', count: notes.length },
-                { key: 'alerts' as const, label: '🔔', count: notes.filter(n => n.alert_date && !n.alert_dismissed).length },
-                { key: 'job' as const, label: 'Jobs', count: notes.filter(n => n.job_id).length },
-                { key: 'general' as const, label: 'General', count: notes.filter(n => !n.job_id).length },
-              ].map(tab => (
-                <button
-                  key={tab.key}
-                  onClick={() => setNoteFilter(tab.key)}
-                  className={cn(
-                    "px-2 py-0.5 rounded-full text-[10px] font-medium transition-all",
-                    noteFilter === tab.key
-                      ? cn(adminConfig.lightBg, adminConfig.textColor, "ring-1", adminConfig.ring)
-                      : "text-muted-foreground hover:bg-muted"
-                  )}
-                >
-                  {tab.label} <span className="opacity-60">{tab.count}</span>
-                </button>
-              ))}
+            <div className="px-5 py-2 border-b space-y-2">
+              {/* Search bar */}
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Search notes by name, address, job #, keyword..."
+                  value={noteSearch}
+                  onChange={e => setNoteSearch(e.target.value)}
+                  className="h-8 text-xs pl-8 rounded-lg"
+                />
+                {noteSearch && (
+                  <button onClick={() => setNoteSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2">
+                    <X className="w-3 h-3 text-muted-foreground" />
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {!showNewForm && (
+                  <Button
+                    size="sm"
+                    className={cn("h-7 text-xs gap-1 rounded-full", adminConfig.color, "text-white hover:opacity-90")}
+                    onClick={() => setShowNewForm(true)}
+                  >
+                    <Plus className="w-3 h-3" /> New Note
+                  </Button>
+                )}
+                <div className="flex-1" />
+                {[
+                  { key: 'all' as const, label: 'All', count: notes.length },
+                  { key: 'alerts' as const, label: '🔔', count: notes.filter(n => n.alert_date && !n.alert_dismissed).length },
+                  { key: 'job' as const, label: 'Jobs', count: notes.filter(n => n.job_id).length },
+                  { key: 'general' as const, label: 'General', count: notes.filter(n => !n.job_id).length },
+                ].map(tab => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setNoteFilter(tab.key)}
+                    className={cn(
+                      "px-2 py-0.5 rounded-full text-[10px] font-medium transition-all",
+                      noteFilter === tab.key
+                        ? cn(adminConfig.lightBg, adminConfig.textColor, "ring-1", adminConfig.ring)
+                        : "text-muted-foreground hover:bg-muted"
+                    )}
+                  >
+                    {tab.label} <span className="opacity-60">{tab.count}</span>
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* ─── New note form ─── */}
@@ -585,7 +629,23 @@ export const AdminNotesOrganiser = ({ jobs, onClose, onJobClick, initialJobId, a
               <div className="flex items-center gap-2 mb-2">
                 <Mic className="w-4 h-4 text-orange-500" />
                 <span className="text-xs font-semibold">Operations Manager Voice Notes</span>
-                <Badge variant="secondary" className="text-[9px] h-4">{opsNotes.length}</Badge>
+                <Badge variant="secondary" className="text-[9px] h-4">{filteredOpsNotes.length}</Badge>
+              </div>
+
+              {/* Ops search bar */}
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Search ops notes by title, content, job #..."
+                  value={opsSearch}
+                  onChange={e => setOpsSearch(e.target.value)}
+                  className="h-8 text-xs pl-8 rounded-lg"
+                />
+                {opsSearch && (
+                  <button onClick={() => setOpsSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2">
+                    <X className="w-3 h-3 text-muted-foreground" />
+                  </button>
+                )}
               </div>
 
               {opsLoading ? (

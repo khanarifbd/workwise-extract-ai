@@ -26,6 +26,8 @@ import {
   FileDown,
   Wrench,
   StickyNote,
+  ChevronRight,
+  ChevronLeft,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { downloadReferBackJobPDF } from './ReferBackJobPDF';
@@ -135,6 +137,7 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
   const [isBulkScanning, setIsBulkScanning] = useState(false);
   const [duplicateActionJob, setDuplicateActionJob] = useState<Job | null>(null);
   const [signOffHistoryJob, setSignOffHistoryJob] = useState<Job | null>(null);
+  const [showExtraColumns, setShowExtraColumns] = useState(false);
   // Fan booking date dialog state
   const [fanBookingDialogData, setFanBookingDialogData] = useState<{
     job: Job;
@@ -854,6 +857,16 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
       )}
 
       <div className="overflow-x-auto rounded-lg border border-border bg-card">
+        {/* Column expand toggle */}
+        <div className="flex items-center justify-end px-3 py-1.5 bg-muted/30 border-b border-border">
+          <button
+            onClick={() => setShowExtraColumns(!showExtraColumns)}
+            className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-md hover:bg-muted"
+          >
+            {showExtraColumns ? <ChevronLeft className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+            {showExtraColumns ? 'Hide columns' : 'More columns'}
+          </button>
+        </div>
         <table className="data-table">
           <thead>
             <tr>
@@ -865,8 +878,8 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                   />
                 </th>
               )}
-              <th className="w-28">Issued</th>
-              <th className="w-28">Job #</th>
+              {showExtraColumns && <th className="w-28">Issued</th>}
+              {showExtraColumns && <th className="w-28">Job #</th>}
               <th className="w-40">Name / Address</th>
               <th className="w-32">Action</th>
               <th className="w-28">Assigned</th>
@@ -877,9 +890,9 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
               <th className="w-24">Floor</th>
               <th className="w-24">Door</th>
               <th className="w-40">Ongoing Notes</th>
-              <th className="w-36">Booked/End</th>
-              <th className="w-20">Files</th>
-              <th className="w-20">Sign-Off</th>
+              {showExtraColumns && <th className="w-36">Booked/End</th>}
+              {showExtraColumns && <th className="w-20">Files</th>}
+              {showExtraColumns && <th className="w-20">Sign-Off</th>}
               {!readOnly && <th className="w-12"></th>}
             </tr>
           </thead>
@@ -956,12 +969,14 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                     </td>
                   )}
                   {/* Issued Column - When job was uploaded */}
+                  {showExtraColumns && (
                   <td className="font-mono text-muted-foreground relative z-20">
                     {format(job.dateIssued, 'dd/MM/yy')}
                   </td>
+                  )}
+                  {showExtraColumns && (
                   <td className="relative z-20">
                     {(() => {
-                      // Check if job should show ongoing alert (manual OR 24hr auto-trigger)
                       const signOffData = getSignOffStatus(job.id, job.team, job.team2);
                       const alertInfo = shouldShowOngoingAlert(job, signOffData.allSignedOff);
                       const showOngoingBadge = alertInfo.showAlert;
@@ -986,9 +1001,7 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                             <Badge 
                               className={cn(
                                 "text-white font-bold text-xs animate-pulse shadow-md flex items-center gap-1",
-                                alertInfo.isAutoTriggered 
-                                  ? "bg-orange-600" // Auto-triggered (overdue)
-                                  : "bg-amber-500"  // Manual ongoing
+                                alertInfo.isAutoTriggered ? "bg-orange-600" : "bg-amber-500"
                               )}
                               title={alertInfo.isAutoTriggered 
                                 ? `Overdue: ${alertInfo.hoursOverdue}h past 24hr threshold` 
@@ -1008,8 +1021,12 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                       );
                     })()}
                   </td>
+                  )}
                   <td className="relative z-20">
                     <div className="space-y-0.5">
+                      {!showExtraColumns && (
+                        <span className="font-mono text-[10px] font-bold text-primary">#{job.jobNumber}</span>
+                      )}
                       <p className="font-medium text-foreground text-sm">
                         <HighlightText text={job.name} highlight={searchTerm || ''} />
                       </p>
@@ -1416,6 +1433,7 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                       )}
                     </div>
                   </td>
+                  {showExtraColumns && (
                   <td>
                     <div className="text-xs text-muted-foreground space-y-0.5">
                       <div className="flex items-center gap-1">
@@ -1428,6 +1446,8 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                       </div>
                     </div>
                   </td>
+                  )}
+                  {showExtraColumns && (
                   <td>
                     <div className="flex items-center gap-1">
                       <Paperclip className="w-3.5 h-3.5 text-muted-foreground" />
@@ -1436,7 +1456,8 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                       </span>
                     </div>
                   </td>
-                  {/* Sign-Off Status Column */}
+                  )}
+                  {showExtraColumns && (
                   <td onClick={(e) => e.stopPropagation()} className="relative z-20">
                     <div className="flex items-center gap-1.5">
                       <SignOffStatusIndicator
@@ -1445,7 +1466,6 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                         team2={job.team2}
                         onClick={() => setSignOffHistoryJob(job)}
                       />
-                      {/* Admin Complete Button */}
                       {!readOnly && !job.isCompleted && onUpdateJob && (
                         <Button
                           variant="ghost"
@@ -1473,6 +1493,7 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                       )}
                     </div>
                   </td>
+                  )}
                   {!readOnly && (
                     <td onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center gap-1">
