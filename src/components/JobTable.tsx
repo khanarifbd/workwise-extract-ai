@@ -26,6 +26,8 @@ import {
   FileDown,
   Wrench,
   StickyNote,
+  ChevronRight,
+  ChevronLeft,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { downloadReferBackJobPDF } from './ReferBackJobPDF';
@@ -135,6 +137,7 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
   const [isBulkScanning, setIsBulkScanning] = useState(false);
   const [duplicateActionJob, setDuplicateActionJob] = useState<Job | null>(null);
   const [signOffHistoryJob, setSignOffHistoryJob] = useState<Job | null>(null);
+  const [showExtraColumns, setShowExtraColumns] = useState(false);
   // Fan booking date dialog state
   const [fanBookingDialogData, setFanBookingDialogData] = useState<{
     job: Job;
