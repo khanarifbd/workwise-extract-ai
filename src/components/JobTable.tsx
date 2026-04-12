@@ -969,8 +969,13 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                     </td>
                   )}
                   {/* Issued Column - When job was uploaded */}
+                  {showExtraColumns && (
                   <td className="font-mono text-muted-foreground relative z-20">
                     {format(job.dateIssued, 'dd/MM/yy')}
+                  </td>
+                  )}
+                  {showExtraColumns && (
+                  <td className="relative z-20">
                   </td>
                   <td className="relative z-20">
                     {(() => {
