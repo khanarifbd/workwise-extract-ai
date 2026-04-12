@@ -191,13 +191,26 @@ export const AdminNotesOrganiser = ({ jobs, onClose, onJobClick, initialJobId, a
   const selectedJob = useMemo(() => newNoteJobId ? jobs.find(j => j.id === newNoteJobId) || null : null, [newNoteJobId, jobs]);
 
   const filteredNotes = useMemo(() => {
+    let result = notes;
     switch (noteFilter) {
-      case 'alerts': return notes.filter(n => n.alert_date && !n.alert_dismissed);
-      case 'general': return notes.filter(n => !n.job_id);
-      case 'job': return notes.filter(n => n.job_id);
-      default: return notes;
+      case 'alerts': result = notes.filter(n => n.alert_date && !n.alert_dismissed); break;
+      case 'general': result = notes.filter(n => !n.job_id); break;
+      case 'job': result = notes.filter(n => n.job_id); break;
     }
-  }, [notes, noteFilter]);
+    if (noteSearch.trim()) {
+      const s = noteSearch.toLowerCase();
+      result = result.filter(n => {
+        const job = jobs.find(j => j.id === n.job_id);
+        return (
+          n.note_text?.toLowerCase().includes(s) ||
+          job?.jobNumber?.toLowerCase().includes(s) ||
+          job?.name?.toLowerCase().includes(s) ||
+          job?.address?.toLowerCase().includes(s)
+        );
+      });
+    }
+    return result;
+  }, [notes, noteFilter, noteSearch, jobs]);
 
   const handleSave = async () => {
     if (!newNoteText.trim()) return;
