@@ -1430,6 +1430,7 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                       )}
                     </div>
                   </td>
+                  {showExtraColumns && (
                   <td>
                     <div className="text-xs text-muted-foreground space-y-0.5">
                       <div className="flex items-center gap-1">
@@ -1442,6 +1443,8 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                       </div>
                     </div>
                   </td>
+                  )}
+                  {showExtraColumns && (
                   <td>
                     <div className="flex items-center gap-1">
                       <Paperclip className="w-3.5 h-3.5 text-muted-foreground" />
@@ -1450,7 +1453,8 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                       </span>
                     </div>
                   </td>
-                  {/* Sign-Off Status Column */}
+                  )}
+                  {showExtraColumns && (
                   <td onClick={(e) => e.stopPropagation()} className="relative z-20">
                     <div className="flex items-center gap-1.5">
                       <SignOffStatusIndicator
@@ -1459,7 +1463,6 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                         team2={job.team2}
                         onClick={() => setSignOffHistoryJob(job)}
                       />
-                      {/* Admin Complete Button */}
                       {!readOnly && !job.isCompleted && onUpdateJob && (
                         <Button
                           variant="ghost"
