@@ -237,12 +237,24 @@ export const AdminNotesOrganiser = ({ jobs, onClose, onJobClick, initialJobId, a
 
   const unresolvedOps = opsNotes.filter(n => !n.is_resolved).length;
 
+  const filteredOpsNotes = useMemo(() => {
+    if (!opsSearch.trim()) return opsNotes;
+    const s = opsSearch.toLowerCase();
+    return opsNotes.filter(n =>
+      n.title?.toLowerCase().includes(s) ||
+      n.enhanced_text?.toLowerCase().includes(s) ||
+      n.job_number?.toLowerCase().includes(s) ||
+      n.team_association?.toLowerCase().includes(s) ||
+      n.created_by_name?.toLowerCase().includes(s)
+    );
+  }, [opsNotes, opsSearch]);
+
   const opsWeekGroups = useMemo(() => {
     const now = new Date();
     const groups: { label: string; key: string; notes: OpsNote[]; isCurrent: boolean }[] = [];
     const weekMap = new Map<string, { label: string; notes: OpsNote[]; isCurrent: boolean; weekStart: Date }>();
 
-    for (const note of opsNotes) {
+    for (const note of filteredOpsNotes) {
       const noteDate = parseISO(note.created_at);
       const ws = startOfWeek(noteDate, { weekStartsOn: 1 });
       const we = endOfWeek(noteDate, { weekStartsOn: 1 });
@@ -269,7 +281,7 @@ export const AdminNotesOrganiser = ({ jobs, onClose, onJobClick, initialJobId, a
       groups.push({ label: val.label, key, notes: val.notes, isCurrent: val.isCurrent });
     }
     return groups;
-  }, [opsNotes]);
+  }, [filteredOpsNotes]);
 
   const groupByDay = (weekNotes: OpsNote[]) => {
     const dayMap = new Map<string, OpsNote[]>();
