@@ -536,7 +536,7 @@ export const DanniDashboard = ({
         } else { toast({ title: result.hasFans ? "Fans Found!" : "No Fans Found" }); }
       }
       handleRefresh();
-    } catch { toast({ title: "Scan Failed", variant: "destructive" }); } finally { setScanningFanJobId(null); }
+    } catch (err: any) { console.error('Fan scan error:', err); toast({ title: "Scan Failed", description: err?.message || 'Unknown error', variant: "destructive" }); } finally { setScanningFanJobId(null); }
   }, [fanCategoryId, toast, handleRefresh, updateJobField]);
 
   const handleFanBookingConfirm = useCallback(async (bookedDate: Date | null) => {
@@ -562,7 +562,7 @@ export const DanniDashboard = ({
         } else { toast({ title: result.hasRoofing ? "Roofing Found!" : "No Roofing Found" }); }
       }
       handleRefresh();
-    } catch { toast({ title: "Scan Failed", variant: "destructive" }); } finally { setScanningRoofingJobId(null); }
+    } catch (err: any) { console.error('Roofing scan error:', err); toast({ title: "Scan Failed", description: err?.message || 'Unknown error', variant: "destructive" }); } finally { setScanningRoofingJobId(null); }
   }, [roofingCategoryId, toast, handleRefresh, updateJobField]);
 
   const handleRoofingBookingConfirm = useCallback(async (bookedDate: Date | null) => {
@@ -588,7 +588,7 @@ export const DanniDashboard = ({
         } else { toast({ title: result.hasFlooring ? "Flooring Found!" : "No Flooring Found" }); }
       }
       handleRefresh();
-    } catch { toast({ title: "Scan Failed", variant: "destructive" }); } finally { setScanningFlooringJobId(null); }
+    } catch (err: any) { console.error('Flooring scan error:', err); toast({ title: "Scan Failed", description: err?.message || 'Unknown error', variant: "destructive" }); } finally { setScanningFlooringJobId(null); }
   }, [flooringCategoryId, toast, handleRefresh, updateJobField]);
 
   const handleFlooringBookingConfirm = useCallback(async (bookedDate: Date | null) => {
