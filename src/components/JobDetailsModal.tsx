@@ -23,6 +23,7 @@ import { AttachmentUpload } from './AttachmentUpload';
 import { PhotoFolderUpload } from './PhotoFolderUpload';
 import { SortableWorkItem } from './SortableWorkItem';
 import { TeamUpdatesSection } from './TeamUpdatesSection';
+import { TeamSignOffNotesBox } from './TeamSignOffNotesBox';
 import { searchSORCodes, SORCode } from '@/data/sorCodes';
 import {
   DndContext,
@@ -366,6 +367,7 @@ export const JobDetailsModal = forwardRef<HTMLDivElement, JobDetailsModalProps>(
                   onChange={(e) => setEditedJob({ ...editedJob, description: e.target.value })}
                   className="min-h-[120px] text-sm"
                 />
+                <TeamSignOffNotesBox job={editedJob} />
               </div>
             </TabsContent>
 
