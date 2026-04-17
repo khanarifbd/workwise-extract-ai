@@ -981,57 +981,7 @@ export const TeamJobList = ({
                   </div>
                 )}
 
-                {/* Completed — hidden in Today mode for focus */}
-                {completedJobs.length > 0 && !todayOnlyFilter && (
-                  <div className="space-y-2 mt-4">
-                    <h2 className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest px-1">
-                      Completed — Last 7 Days ({completedJobs.length})
-                    </h2>
-                    {groupedCompletedMonths.slice(0, 3).map((monthGroup) => (
-                      <Collapsible key={`completed-${monthGroup.monthKey}`} open={expandedMonths.has(`completed-${monthGroup.monthKey}`)} onOpenChange={() => toggleMonth(`completed-${monthGroup.monthKey}`)}>
-                        <CollapsibleTrigger asChild>
-                          <div className="cursor-pointer rounded-xl bg-[hsl(var(--success))]/5 border border-[hsl(var(--success))]/15 px-3 py-2 flex items-center justify-between opacity-80 hover:opacity-100 transition-all">
-                            <div className="flex items-center gap-2">
-                              {expandedMonths.has(`completed-${monthGroup.monthKey}`) ? <ChevronDown className="h-4 w-4 text-[hsl(var(--success))]" /> : <ChevronRight className="h-4 w-4 text-[hsl(var(--success))]" />}
-                              <FolderOpen className="h-4 w-4 text-[hsl(var(--success))]" />
-                              <span className="font-semibold text-sm">{monthGroup.monthLabel}</span>
-                            </div>
-                            <Badge className="text-[10px] bg-[hsl(var(--success))]/15 text-[hsl(var(--success))] hover:bg-[hsl(var(--success))]/15 rounded-full">
-                              {monthGroup.totalJobs} done
-                            </Badge>
-                          </div>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent className="space-y-1.5 mt-1.5 ml-3 border-l-2 border-[hsl(var(--success))]/15 pl-3">
-                          {Array.from(monthGroup.days.entries()).slice(0, 5).map(([dayKey, dayJobs]) => (
-                            <Collapsible key={`completed-${dayKey}`} open={expandedDays.has(`completed-${dayKey}`)} onOpenChange={() => toggleDay(`completed-${dayKey}`)}>
-                              <CollapsibleTrigger asChild>
-                                <div className="cursor-pointer rounded-lg px-3 py-2 flex items-center justify-between opacity-80 hover:opacity-100">
-                                  <div className="flex items-center gap-1.5">
-                                    {expandedDays.has(`completed-${dayKey}`) ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
-                                    <Calendar className="h-3.5 w-3.5 text-[hsl(var(--success))]" />
-                                    <span className="font-medium text-xs">{formatDayHeader(dayKey)}</span>
-                                  </div>
-                                  <Badge variant="secondary" className="text-[10px] px-1.5 bg-[hsl(var(--success))]/15 text-[hsl(var(--success))] rounded-full">{dayJobs.length}</Badge>
-                                </div>
-                              </CollapsibleTrigger>
-                              <CollapsibleContent className="space-y-1 mt-1.5 ml-2 pl-2">
-                                {dayJobs.map((job) => (
-                                  <div key={job.id} className="bg-[hsl(var(--success))]/5 rounded-xl border border-[hsl(var(--success))]/15 p-2.5 opacity-80 hover:opacity-100 transition-all cursor-pointer" onClick={() => onSelectJob(job)}>
-                                    <div className="flex items-center gap-1 mb-0.5">
-                                      <span className="font-mono text-[10px] text-muted-foreground">{job.jobNumber}</span>
-                                      <Badge className="text-[9px] px-1 py-0 bg-[hsl(var(--success))] text-white rounded-full">Complete</Badge>
-                                    </div>
-                                    <h3 className="font-medium text-xs truncate">{job.name}</h3>
-                                  </div>
-                                ))}
-                              </CollapsibleContent>
-                            </Collapsible>
-                          ))}
-                        </CollapsibleContent>
-                      </Collapsible>
-                    ))}
-                  </div>
-                )}
+                {/* Completed jobs are shown exclusively in the dedicated History tab */}
               </>
             )}
           </div>
