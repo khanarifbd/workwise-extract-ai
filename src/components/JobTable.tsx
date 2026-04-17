@@ -34,6 +34,7 @@ import { downloadReferBackJobPDF } from './ReferBackJobPDF';
 import { TeamSelector } from './TeamSelector';
 import { JobDetailsModal } from './JobDetailsModal';
 import { InlineDescriptionEditor } from './InlineDescriptionEditor';
+import { TeamSignOffNotesBox } from './TeamSignOffNotesBox';
 import { FanEditor } from './FanEditor';
 import { FanBookingDateDialog } from './FanBookingDateDialog';
 import { RoofingEditor } from './RoofingEditor';
@@ -1181,6 +1182,7 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                       shouldTruncate={shouldTruncate}
                       searchTerm={searchTerm}
                     />
+                    <TeamSignOffNotesBox job={job} searchTerm={searchTerm} />
                   </td>
                   {/* Fan Column */}
                   <td onClick={(e) => e.stopPropagation()}>
