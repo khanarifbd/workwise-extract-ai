@@ -1774,7 +1774,14 @@ const Index = () => {
               {viewType === 'table' ? (
                 <JobTable 
                   jobs={activeDatabaseTab === 'booked' 
-                    ? displayedJobs.filter(j => !tradeBookings.has(j.id))
+                    ? displayedJobs.filter(j => {
+                        // Hide jobs that are rendered in the ProgressorBookedSection above
+                        // (those with at least one PENDING trade). Fully-completed trade-booked
+                        // jobs fall through to the main table so they remain visible (in green)
+                        // in their original Booked folder day.
+                        const info = tradeBookings.get(j.id);
+                        return !info || info.pendingTrades.length === 0;
+                      })
                     : displayedJobs
                   } 
                   onUpdateJob={canEdit ? handleUpdateJob : undefined}
