@@ -67,16 +67,18 @@ export function useTradeBookedJobs() {
         }
       });
 
-      // Set effective date to nearest upcoming incomplete trade date
-      map.forEach((info, jobId) => {
+      // Set effective date to nearest upcoming incomplete trade date.
+      // If all trades are completed we KEEP the entry (using the latest trade
+      // booked_date as the effective date) so the parent job still appears in
+      // its original Booked folder day, rendered in green alongside the live
+      // booked work for that day.
+      map.forEach((info) => {
         if (info.pendingTrades.length > 0) {
-          // Sort pending by date ascending, pick earliest
           info.pendingTrades.sort((a, b) => a.bookedDate.getTime() - b.bookedDate.getTime());
           info.effectiveBookedDate = info.pendingTrades[0].bookedDate;
-        } else {
-          // All trades completed - remove from map (no longer needs to show in booked)
-          map.delete(jobId);
         }
+        // else: effectiveBookedDate already holds the most recent trade's
+        // booked_date (last assignment from the loop above) — leave it intact.
       });
 
       setTradeBookings(map);
