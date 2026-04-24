@@ -97,6 +97,86 @@ export const SignOffHistoryModal = ({
   const signedOffTeams = signOffs.map(s => s.team_name);
   const pendingTeams = assignedTeams.filter(t => !signedOffTeams.includes(t));
 
+  // Admin sign-off on behalf of a pending team
+  const handleAdminSignOff = useCallback(async (teamName: string) => {
+    if (!canEdit) return;
+    setSigningOffTeam(teamName);
+    try {
+      // Look up team_id from team_access_codes (fallback to team name slug)
+      const { data: codeRow } = await supabase
+        .from('team_access_codes')
+        .select('team_id')
+        .eq('team_name', teamName)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      const teamId = codeRow?.team_id || teamName.toLowerCase().replace(/\s+/g, '_');
+      const adminLabel = user?.email ? `Admin (${user.email})` : 'Admin';
+
+      // 1. Insert sign-off on behalf of the team
+      const { error: signOffErr } = await supabase
+        .from('team_sign_offs')
+        .insert({
+          job_id: jobId,
+          team_id: teamId,
+          team_name: teamName,
+          photos_count: 0,
+          videos_count: 0,
+          documents_count: 0,
+          work_items_total: 0,
+          work_items_modified: 0,
+          progress_notes: `Signed off by ${adminLabel} on behalf of ${teamName} (admin override).`,
+        });
+      if (signOffErr) throw signOffErr;
+
+      // 2. Notify dashboard
+      await supabase.from('team_sign_off_notifications').insert({
+        job_id: jobId,
+        job_number: jobNumber,
+        job_name: jobName,
+        team_id: teamId,
+        team_name: teamName,
+        photos_count: 0,
+        videos_count: 0,
+        documents_count: 0,
+        work_items_total: 0,
+        work_items_modified: 0,
+        progress_notes: `Admin sign-off on behalf of ${teamName}`,
+      });
+
+      // 3. If this completes ALL teams → mark the job complete
+      const remainingPending = pendingTeams.filter(t => t !== teamName);
+      if (remainingPending.length === 0) {
+        await supabase
+          .from('jobs')
+          .update({
+            is_completed: true,
+            status: 'complete',
+            progress: 100,
+            completion_date: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', jobId);
+      }
+
+      toast({
+        title: 'Sign-off recorded ✓',
+        description: `${teamName} signed off by admin${remainingPending.length === 0 ? ' — job marked complete' : ''}.`,
+      });
+      await fetchSignOffs();
+    } catch (err: any) {
+      console.error('Admin sign-off failed:', err);
+      toast({
+        title: 'Sign-off failed',
+        description: err.message || 'Unable to record admin sign-off',
+        variant: 'destructive',
+      });
+    } finally {
+      setSigningOffTeam(null);
+    }
+  }, [canEdit, user, jobId, jobNumber, jobName, pendingTeams, toast]);
+
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-lg">
