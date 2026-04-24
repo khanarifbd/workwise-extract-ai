@@ -1057,6 +1057,15 @@ const Index = () => {
     return jobs.filter(j => (j.status === 'complete' || j.isCompleted) && !j.referBack).length;
   }, [jobs]);
 
+  // Total jobs visible in the BOOKED tab (active booked + completed-but-originally-booked).
+  // Used as the denominator for the "X of Y jobs" subtitle so it matches what is actually rendered.
+  const bookedTabTotalCount = useMemo(() => {
+    return jobs.filter(j => {
+      if (j.referBack) return false;
+      return !!j.bookedDate || tradeBookings.has(j.id);
+    }).length;
+  }, [jobs, tradeBookings]);
+
   // Count refer back jobs for badge — exclude completed jobs (they belong in completed folder)
   const referBackJobsCount = useMemo(() => {
     return jobs.filter(j => j.referBack).length;
