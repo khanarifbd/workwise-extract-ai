@@ -61,7 +61,13 @@ export const ProgressorBookedSection = ({ jobs, tradeBookings, onJobClick, onJob
   const [addSubTaskJob, setAddSubTaskJob] = useState<Job | null>(null);
 
   const progressorJobs = useMemo(() => {
-    return jobs.filter(job => tradeBookings.has(job.id));
+    // Only include jobs that still have pending (incomplete) trades.
+    // Fully-completed trade-booked jobs remain in tradeBookings for Booked-folder
+    // visibility (rendered green) but should not appear in the live progressor section.
+    return jobs.filter(job => {
+      const info = tradeBookings.get(job.id);
+      return !!info && info.pendingTrades.length > 0;
+    });
   }, [jobs, tradeBookings]);
 
   const fetchData = useCallback(async () => {
