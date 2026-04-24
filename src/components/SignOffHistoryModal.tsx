@@ -49,6 +49,9 @@ export const SignOffHistoryModal = ({
   const [isLoading, setIsLoading] = useState(true);
   const [displayCount, setDisplayCount] = useState(INITIAL_LIMIT);
   const [totalCount, setTotalCount] = useState(0);
+  const [signingOffTeam, setSigningOffTeam] = useState<string | null>(null);
+  const { toast } = useToast();
+  const { canEdit, user } = useAdminAuth();
 
   useEffect(() => {
     if (isOpen && jobId) {
