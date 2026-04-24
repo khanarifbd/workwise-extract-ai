@@ -215,11 +215,35 @@ export const SignOffHistoryModal = ({
 
           {/* Pending Teams */}
           {pendingTeams.length > 0 && (
-            <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+            <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg space-y-2">
               <p className="text-sm text-amber-700 dark:text-amber-400">
                 <Clock className="h-4 w-4 inline mr-1" />
                 Awaiting sign-off from: {pendingTeams.join(', ')}
               </p>
+              {canEdit && (
+                <div className="flex flex-col gap-1.5 pt-1">
+                  <p className="text-[11px] text-muted-foreground">
+                    Admin override — sign off on behalf of pending team(s):
+                  </p>
+                  {pendingTeams.map(team => (
+                    <Button
+                      key={team}
+                      size="sm"
+                      variant="outline"
+                      className="justify-start gap-2 h-8 border-amber-500/40 bg-background hover:bg-amber-500/10"
+                      disabled={signingOffTeam !== null}
+                      onClick={() => handleAdminSignOff(team)}
+                    >
+                      {signingOffTeam === team ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <ShieldCheck className="h-3.5 w-3.5 text-success" />
+                      )}
+                      <span className="text-xs">Sign off as <strong>{team}</strong></span>
+                    </Button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
