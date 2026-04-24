@@ -864,10 +864,11 @@ const Index = () => {
         const isJobCompleted = job.status === 'complete' || job.isCompleted;
         
         if (activeDatabaseTab === 'booked') {
-          // Show jobs with a booked date OR jobs with trade-booked sub-tasks
-          // But NOT completed or refer back jobs
+          // Show jobs with a booked date OR jobs with trade-booked sub-tasks.
+          // COMPLETED jobs that originated from a booking REMAIN visible here (rendered in green)
+          // alongside the live booked work — this gives a per-day view of completed vs incomplete.
+          // Refer-back jobs are still excluded (they live in the refer-back folder).
           const hasTradeBooking = tradeBookings.has(job.id);
-          if (isJobCompleted) return false;
           if (job.referBack) return false;
           if (!job.bookedDate && !hasTradeBooking) return false;
           
