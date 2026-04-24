@@ -864,10 +864,11 @@ const Index = () => {
         const isJobCompleted = job.status === 'complete' || job.isCompleted;
         
         if (activeDatabaseTab === 'booked') {
-          // Show jobs with a booked date OR jobs with trade-booked sub-tasks
-          // But NOT completed or refer back jobs
+          // Show jobs with a booked date OR jobs with trade-booked sub-tasks.
+          // COMPLETED jobs that originated from a booking REMAIN visible here (rendered in green)
+          // alongside the live booked work — this gives a per-day view of completed vs incomplete.
+          // Refer-back jobs are still excluded (they live in the refer-back folder).
           const hasTradeBooking = tradeBookings.has(job.id);
-          if (isJobCompleted) return false;
           if (job.referBack) return false;
           if (!job.bookedDate && !hasTradeBooking) return false;
           
@@ -1055,6 +1056,15 @@ const Index = () => {
   const completedJobsCount = useMemo(() => {
     return jobs.filter(j => (j.status === 'complete' || j.isCompleted) && !j.referBack).length;
   }, [jobs]);
+
+  // Total jobs visible in the BOOKED tab (active booked + completed-but-originally-booked).
+  // Used as the denominator for the "X of Y jobs" subtitle so it matches what is actually rendered.
+  const bookedTabTotalCount = useMemo(() => {
+    return jobs.filter(j => {
+      if (j.referBack) return false;
+      return !!j.bookedDate || tradeBookings.has(j.id);
+    }).length;
+  }, [jobs, tradeBookings]);
 
   // Count refer back jobs for badge — exclude completed jobs (they belong in completed folder)
   const referBackJobsCount = useMemo(() => {
@@ -1612,7 +1622,7 @@ const Index = () => {
                         : 'Jobs Database'}
               </h2>
               <p className="text-xs text-muted-foreground">
-                {displayedJobs.length} of {activeDatabaseTab === 'booked' ? bookedJobsCount : activeDatabaseTab === 'completed' ? completedJobsCount : activeDatabaseTab === 'refer_back' ? referBackJobsCount : allTabJobsCount} jobs
+                {displayedJobs.length} of {activeDatabaseTab === 'booked' ? bookedTabTotalCount : activeDatabaseTab === 'completed' ? completedJobsCount : activeDatabaseTab === 'refer_back' ? referBackJobsCount : allTabJobsCount} jobs
                 {activeMonthFolder && (
                   <span className="ml-1">
                     • Showing {format(new Date(activeMonthFolder + '-01'), 'MMMM yyyy')}
@@ -1737,7 +1747,7 @@ const Index = () => {
             {/* Booked Date Sidebar - only show in booked tab */}
             {activeDatabaseTab === 'booked' && (
               <BookedDateSidebar
-                jobs={jobs.filter(j => (!!j.bookedDate || tradeBookings.has(j.id)) && !(j.status === 'complete' || j.isCompleted) && !j.referBack)}
+                jobs={jobs.filter(j => (!!j.bookedDate || tradeBookings.has(j.id)) && !j.referBack)}
                 selectedDate={selectedBookedDate}
                 onDateSelect={setSelectedBookedDate}
                 isFanCategory={isFanCategory}
