@@ -932,7 +932,7 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                   case 'await_callback':
                     return "bg-yellow-100/80 dark:bg-yellow-900/40 border-l-4 border-l-yellow-500 hover:bg-yellow-200/80 dark:hover:bg-yellow-900/50";
                   case 'booked':
-                    return "bg-emerald-100/80 dark:bg-emerald-900/40 border-l-4 border-l-emerald-500 hover:bg-emerald-200/80 dark:hover:bg-emerald-900/50";
+                    return "bg-rose-100/80 dark:bg-rose-900/40 border-l-4 border-l-rose-500 hover:bg-rose-200/80 dark:hover:bg-rose-900/50";
                   case 'escalate_nph':
                     return "bg-pink-100/80 dark:bg-pink-900/40 border-l-4 border-l-pink-500 hover:bg-pink-200/80 dark:hover:bg-pink-900/50";
                   default:
