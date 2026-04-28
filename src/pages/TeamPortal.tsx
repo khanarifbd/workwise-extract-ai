@@ -660,6 +660,15 @@ const TeamPortal = () => {
         isRefreshing={isManualRefreshing}
         justSynced={justSynced}
       />
+
+      {isAuthenticated && session && (
+        <EODReminder
+          teamId={session.teamId}
+          teamName={session.teamName}
+          jobs={jobs}
+          enabled={isDmTeam}
+        />
+      )}
       
       {selectedJob ? (
         <TeamJobDetail
