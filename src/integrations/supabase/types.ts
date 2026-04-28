@@ -215,6 +215,54 @@ export type Database = {
           },
         ]
       }
+      eod_reports: {
+        Row: {
+          created_at: string
+          general_notes: string | null
+          id: string
+          jobs_completed: Json
+          jobs_open: Json
+          jobs_visited: Json
+          open_reasons: string | null
+          report_date: string
+          submitted_at: string
+          submitted_by: string | null
+          team_id: string
+          team_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          general_notes?: string | null
+          id?: string
+          jobs_completed?: Json
+          jobs_open?: Json
+          jobs_visited?: Json
+          open_reasons?: string | null
+          report_date?: string
+          submitted_at?: string
+          submitted_by?: string | null
+          team_id: string
+          team_name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          general_notes?: string | null
+          id?: string
+          jobs_completed?: Json
+          jobs_open?: Json
+          jobs_visited?: Json
+          open_reasons?: string | null
+          report_date?: string
+          submitted_at?: string
+          submitted_by?: string | null
+          team_id?: string
+          team_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       geocode_cache: {
         Row: {
           address: string

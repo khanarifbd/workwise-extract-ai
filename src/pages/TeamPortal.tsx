@@ -7,6 +7,7 @@ import { TeamLoginForm } from '@/components/team-portal/TeamLoginForm';
 import { TeamJobList } from '@/components/team-portal/TeamJobList';
 import { TeamJobDetail } from '@/components/team-portal/TeamJobDetail';
 import { OfflineIndicator } from '@/components/team-portal/OfflineIndicator';
+import { EODReminder } from '@/components/team-portal/EODReminder';
 import { supabase } from '@/integrations/supabase/client';
 import { Job } from '@/types/job';
 import { mapDatabaseJobToJob } from '@/lib/api';
@@ -36,7 +37,26 @@ const TeamPortal = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [isManualRefreshing, setIsManualRefreshing] = useState(false);
   const [justSynced, setJustSynced] = useState(false);
+  const [isDmTeam, setIsDmTeam] = useState(false);
   const { toast } = useToast();
+
+  // Determine if this team is a DM team (only DM teams require EOD reports)
+  useEffect(() => {
+    if (!session?.teamName || session?.isOpsManager) {
+      setIsDmTeam(false);
+      return;
+    }
+    let cancelled = false;
+    supabase
+      .from('team_notification_settings')
+      .select('team_type')
+      .eq('team_name', session.teamName)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelled) setIsDmTeam(data?.team_type === 'dm');
+      });
+    return () => { cancelled = true; };
+  }, [session?.teamName, session?.isOpsManager]);
 
   // Set status bar color on native platforms
   useEffect(() => {
@@ -640,6 +660,15 @@ const TeamPortal = () => {
         isRefreshing={isManualRefreshing}
         justSynced={justSynced}
       />
+
+      {isAuthenticated && session && (
+        <EODReminder
+          teamId={session.teamId}
+          teamName={session.teamName}
+          jobs={jobs}
+          enabled={isDmTeam}
+        />
+      )}
       
       {selectedJob ? (
         <TeamJobDetail

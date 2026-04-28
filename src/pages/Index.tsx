@@ -28,6 +28,7 @@ import { OverdueJobsDashboard } from '@/components/OverdueJobsDashboard';
 import { DanniDashboard } from '@/components/DanniDashboard';
 import { TeamAccountabilityMetrics } from '@/components/TeamAccountabilityMetrics';
 import { AdminNotesOrganiser } from '@/components/AdminNotesOrganiser';
+import { EODReportsPanel } from '@/components/EODReportsPanel';
 import { ReferBackPDFButton } from '@/components/ReferBackPDFButton';
 import { downloadReferBackJobPDF } from '@/components/ReferBackJobPDF';
 import { useJobAlerts } from '@/hooks/useJobAlerts';
@@ -1606,6 +1607,16 @@ const Index = () => {
                 </span>
               )}
             </button>
+            <button
+              onClick={() => setActiveDatabaseTab('eod')}
+              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-2 ${
+                activeDatabaseTab === 'eod'
+                  ? 'bg-rose-600 text-white'
+                  : 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-400 hover:bg-rose-200 dark:hover:bg-rose-900/60'
+              }`}
+            >
+              EOD REPORTS
+            </button>
           </div>
 
           <div className="flex items-center justify-between mb-3">
@@ -1756,6 +1767,10 @@ const Index = () => {
             )}
             
             <div className="flex-1 overflow-auto">
+              {activeDatabaseTab === 'eod' ? (
+                <EODReportsPanel />
+              ) : (
+              <>
               {/* Progressor Booked Section - shown above standard booked jobs */}
               {activeDatabaseTab === 'booked' && viewType === 'table' && (
                 <ProgressorBookedSection
@@ -1822,6 +1837,8 @@ const Index = () => {
                   onJobClick={setSelectedJobForModal}
                   onToggleComplete={handleToggleComplete}
                 />
+              )}
+              </>
               )}
             </div>
           </div>

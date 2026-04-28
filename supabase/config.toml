@@ -83,3 +83,9 @@ verify_jwt = true
 
 [functions.extract-roofing]
 verify_jwt = true
+
+[functions.submit-eod-report]
+verify_jwt = false
+
+[functions.trigger-eod-reminder]
+verify_jwt = false
