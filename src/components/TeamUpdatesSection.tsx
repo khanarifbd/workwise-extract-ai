@@ -137,7 +137,16 @@ export const TeamUpdatesSection = ({ jobId, attachments, workItems, team1, team2
                   </Badge>
                 )}
               </span>
-              <ChevronDown className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+              <span className="flex items-center gap-2">
+                <a
+                  href="#/?tab=eod"
+                  onClick={(e) => e.stopPropagation()}
+                  className="text-[11px] font-semibold text-rose-600 hover:underline"
+                >
+                  View EOD →
+                </a>
+                <ChevronDown className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+              </span>
             </CardTitle>
           </CardHeader>
         </CollapsibleTrigger>
