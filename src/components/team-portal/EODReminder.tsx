@@ -69,7 +69,7 @@ export const EODReminder = ({ teamId, teamName, jobs, enabled = true, autoOpen =
   // Check if already submitted (DB) and load dismissal
   useEffect(() => {
     if (!enabled || !teamId) return;
-    if (localStorage.getItem(dismissedToday ? '__noop' : dismissKey) === '1') {
+    if (localStorage.getItem(dismissKey) === '1') {
       setDismissedToday(true);
     }
     if (localStorage.getItem(submittedKey) === '1') {
@@ -89,7 +89,20 @@ export const EODReminder = ({ teamId, teamName, jobs, enabled = true, autoOpen =
           localStorage.setItem(submittedKey, '1');
         }
       });
-  }, [teamId, enabled, dismissKey, submittedKey, dismissedToday]);
+  }, [teamId, enabled, dismissKey, submittedKey]);
+
+  // Auto-open the dialog when caller passes autoOpen=true (deep-link from push)
+  useEffect(() => {
+    if (!enabled) return;
+    if (autoOpen && !submitted) {
+      setIsOpen(true);
+      // Scroll into view (in case the banner is off-screen)
+      setTimeout(() => {
+        document.getElementById('eod-banner')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+      onAutoOpenHandled?.();
+    }
+  }, [autoOpen, enabled, submitted, onAutoOpenHandled]);
 
   // Show banner after cutoff time when enabled, not submitted, not dismissed
   useEffect(() => {
