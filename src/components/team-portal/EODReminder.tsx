@@ -47,7 +47,7 @@ const playAlarm = () => {
 
 const todayStrGMT = () => new Date().toISOString().slice(0, 10);
 
-export const EODReminder = ({ teamId, teamName, jobs, enabled = true }: EODReminderProps) => {
+export const EODReminder = ({ teamId, teamName, jobs, enabled = true, autoOpen = false, onAutoOpenHandled }: EODReminderProps) => {
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
