@@ -1767,6 +1767,10 @@ const Index = () => {
             )}
             
             <div className="flex-1 overflow-auto">
+              {activeDatabaseTab === 'eod' ? (
+                <EODReportsPanel />
+              ) : (
+              <>
               {/* Progressor Booked Section - shown above standard booked jobs */}
               {activeDatabaseTab === 'booked' && viewType === 'table' && (
                 <ProgressorBookedSection
