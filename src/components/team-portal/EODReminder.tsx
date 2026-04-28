@@ -223,6 +223,7 @@ export const EODReminder = ({ teamId, teamName, jobs, enabled = true, autoOpen =
     <>
       {showBanner && (
         <div
+          id="eod-banner"
           className="relative animate-pulse bg-gradient-to-r from-red-600 via-red-700 to-red-600 text-white px-4 py-4 border-y-4 border-yellow-400 shadow-2xl z-30"
           role="alert"
           aria-live="assertive"
