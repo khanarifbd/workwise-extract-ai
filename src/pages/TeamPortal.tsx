@@ -7,6 +7,7 @@ import { TeamLoginForm } from '@/components/team-portal/TeamLoginForm';
 import { TeamJobList } from '@/components/team-portal/TeamJobList';
 import { TeamJobDetail } from '@/components/team-portal/TeamJobDetail';
 import { OfflineIndicator } from '@/components/team-portal/OfflineIndicator';
+import { EODReminder } from '@/components/team-portal/EODReminder';
 import { supabase } from '@/integrations/supabase/client';
 import { Job } from '@/types/job';
 import { mapDatabaseJobToJob } from '@/lib/api';
