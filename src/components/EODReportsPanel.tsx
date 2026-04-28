@@ -51,7 +51,7 @@ export const EODReportsPanel = () => {
           .eq('team_type', 'dm')
           .eq('is_paused', false),
       ]);
-      const all = (reportsRes.data || []) as EODReport[];
+      const all = (reportsRes.data || []) as unknown as EODReport[];
       setReports(all);
       const submittedIds = new Set(all.map((r) => r.team_id));
       const dm = (dmTeamsRes.data || []) as { team_id: string; team_name: string }[];
