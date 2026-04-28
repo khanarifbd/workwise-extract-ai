@@ -667,6 +667,12 @@ const TeamPortal = () => {
           teamName={session.teamName}
           jobs={jobs}
           enabled={isDmTeam}
+          autoOpen={searchParams.get('eod') === '1'}
+          onAutoOpenHandled={() => {
+            const next = new URLSearchParams(searchParams);
+            next.delete('eod');
+            setSearchParams(next, { replace: true });
+          }}
         />
       )}
       
