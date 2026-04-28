@@ -14,6 +14,10 @@ interface EODReminderProps {
   jobs: Job[];
   // whether we're after the cutoff time (18:00 GMT)
   enabled?: boolean;
+  // when true, force-open the EOD submission dialog (deep-link from push)
+  autoOpen?: boolean;
+  // callback fired after the dialog is auto-opened so caller can clear the URL flag
+  onAutoOpenHandled?: () => void;
 }
 
 // Plays a 2-tone alarm using Web Audio API (no asset required, works offline)
@@ -43,7 +47,7 @@ const playAlarm = () => {
 
 const todayStrGMT = () => new Date().toISOString().slice(0, 10);
 
-export const EODReminder = ({ teamId, teamName, jobs, enabled = true }: EODReminderProps) => {
+export const EODReminder = ({ teamId, teamName, jobs, enabled = true, autoOpen = false, onAutoOpenHandled }: EODReminderProps) => {
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -65,7 +69,7 @@ export const EODReminder = ({ teamId, teamName, jobs, enabled = true }: EODRemin
   // Check if already submitted (DB) and load dismissal
   useEffect(() => {
     if (!enabled || !teamId) return;
-    if (localStorage.getItem(dismissedToday ? '__noop' : dismissKey) === '1') {
+    if (localStorage.getItem(dismissKey) === '1') {
       setDismissedToday(true);
     }
     if (localStorage.getItem(submittedKey) === '1') {
@@ -85,7 +89,20 @@ export const EODReminder = ({ teamId, teamName, jobs, enabled = true }: EODRemin
           localStorage.setItem(submittedKey, '1');
         }
       });
-  }, [teamId, enabled, dismissKey, submittedKey, dismissedToday]);
+  }, [teamId, enabled, dismissKey, submittedKey]);
+
+  // Auto-open the dialog when caller passes autoOpen=true (deep-link from push)
+  useEffect(() => {
+    if (!enabled) return;
+    if (autoOpen && !submitted) {
+      setIsOpen(true);
+      // Scroll into view (in case the banner is off-screen)
+      setTimeout(() => {
+        document.getElementById('eod-banner')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+      onAutoOpenHandled?.();
+    }
+  }, [autoOpen, enabled, submitted, onAutoOpenHandled]);
 
   // Show banner after cutoff time when enabled, not submitted, not dismissed
   useEffect(() => {
@@ -206,6 +223,7 @@ export const EODReminder = ({ teamId, teamName, jobs, enabled = true }: EODRemin
     <>
       {showBanner && (
         <div
+          id="eod-banner"
           className="relative animate-pulse bg-gradient-to-r from-red-600 via-red-700 to-red-600 text-white px-4 py-4 border-y-4 border-yellow-400 shadow-2xl z-30"
           role="alert"
           aria-live="assertive"
