@@ -1838,6 +1838,8 @@ const Index = () => {
                   onToggleComplete={handleToggleComplete}
                 />
               )}
+              </>
+              )}
             </div>
           </div>
         </section>
