@@ -37,7 +37,26 @@ const TeamPortal = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [isManualRefreshing, setIsManualRefreshing] = useState(false);
   const [justSynced, setJustSynced] = useState(false);
+  const [isDmTeam, setIsDmTeam] = useState(false);
   const { toast } = useToast();
+
+  // Determine if this team is a DM team (only DM teams require EOD reports)
+  useEffect(() => {
+    if (!session?.teamName || session?.isOpsManager) {
+      setIsDmTeam(false);
+      return;
+    }
+    let cancelled = false;
+    supabase
+      .from('team_notification_settings')
+      .select('team_type')
+      .eq('team_name', session.teamName)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelled) setIsDmTeam(data?.team_type === 'dm');
+      });
+    return () => { cancelled = true; };
+  }, [session?.teamName, session?.isOpsManager]);
 
   // Set status bar color on native platforms
   useEffect(() => {
