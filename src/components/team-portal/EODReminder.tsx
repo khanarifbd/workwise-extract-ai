@@ -14,6 +14,10 @@ interface EODReminderProps {
   jobs: Job[];
   // whether we're after the cutoff time (18:00 GMT)
   enabled?: boolean;
+  // when true, force-open the EOD submission dialog (deep-link from push)
+  autoOpen?: boolean;
+  // callback fired after the dialog is auto-opened so caller can clear the URL flag
+  onAutoOpenHandled?: () => void;
 }
 
 // Plays a 2-tone alarm using Web Audio API (no asset required, works offline)
