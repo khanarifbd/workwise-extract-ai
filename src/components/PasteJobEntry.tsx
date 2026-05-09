@@ -217,7 +217,8 @@ export const PasteJobEntry = ({ isOpen, onOpenChange, onJobsReady }: PasteJobEnt
               </div>
             )}
             <div className="flex justify-end gap-3 pt-3 border-t">
-              <Button variant="outline" onClick={() => handleClose(false)} disabled={parsing}>Cancel</Button>
+              <Button variant="ghost" onClick={reset} disabled={parsing || !pastedText}>Clear</Button>
+              <Button variant="outline" onClick={() => handleClose(false)} disabled={parsing}>Close</Button>
               <Button onClick={handleParse} disabled={parsing || !pastedText.trim()} className="gap-2">
                 {parsing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                 {parsing ? 'Parsing…' : 'Parse with AI'}
