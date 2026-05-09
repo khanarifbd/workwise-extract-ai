@@ -1484,6 +1484,16 @@ const Index = () => {
                   <PenLine className="w-4 h-4" />
                   Enter Job Manually
                 </Button>
+
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={() => setShowPasteEntry(true)}
+                  className="w-full gap-2 font-medium border-primary/50 text-primary hover:bg-primary/5"
+                >
+                  <ClipboardPaste className="w-4 h-4" />
+                  Paste Job Details (AI extract)
+                </Button>
                 
                 {/* Divider */}
                 <div className="relative">
