@@ -24,6 +24,7 @@ import { JobDetailsModal } from '@/components/JobDetailsModal';
 import { DuplicateJobAlert } from '@/components/DuplicateJobAlert';
 import { CompletedJobsPDFButton } from '@/components/CompletedJobsPDFButton';
 import { ManualJobEntry } from '@/components/ManualJobEntry';
+import { PasteJobEntry } from '@/components/PasteJobEntry';
 import { OverdueJobsDashboard } from '@/components/OverdueJobsDashboard';
 import { DanniDashboard } from '@/components/DanniDashboard';
 import { TeamAccountabilityMetrics } from '@/components/TeamAccountabilityMetrics';
