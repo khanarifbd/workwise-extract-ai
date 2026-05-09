@@ -110,7 +110,15 @@ const Index = () => {
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [bulkUploadInitialFiles, setBulkUploadInitialFiles] = useState<Array<{ file: File; type: FileType }>>([]);
   const [showManualEntry, setShowManualEntry] = useState(false);
-  const [showPasteEntry, setShowPasteEntry] = useState(false);
+  const [showPasteEntry, setShowPasteEntry] = useState(() => {
+    try { return sessionStorage.getItem('pasteJobEntry_open') === '1'; } catch { return false; }
+  });
+  useEffect(() => {
+    try {
+      if (showPasteEntry) sessionStorage.setItem('pasteJobEntry_open', '1');
+      else sessionStorage.removeItem('pasteJobEntry_open');
+    } catch {}
+  }, [showPasteEntry]);
   const [uploadExpanded, setUploadExpanded] = useState(false);
   const [kanbanGroupBy, setKanbanGroupBy] = useState<KanbanGroupBy>('team');
   const [directJobForModal, setDirectJobForModal] = useState<Job | null>(null);

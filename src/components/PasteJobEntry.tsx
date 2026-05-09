@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { ClipboardPaste, Loader2, Plus, Trash2, Sparkles, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -77,13 +77,37 @@ const buildJob = (e: ExtractedJob): Omit<Job, 'id'> => ({
   blockerChaseDate: null,
 });
 
+const TEXT_KEY = 'pasteJobEntry_text';
+const EXTRACTED_KEY = 'pasteJobEntry_extracted';
+
 export const PasteJobEntry = ({ isOpen, onOpenChange, onJobsReady }: PasteJobEntryProps) => {
   const { toast } = useToast();
-  const [pastedText, setPastedText] = useState('');
+  const [pastedText, setPastedText] = useState<string>(() => {
+    try { return sessionStorage.getItem(TEXT_KEY) || ''; } catch { return ''; }
+  });
   const [parsing, setParsing] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [extracted, setExtracted] = useState<ExtractedJob[] | null>(null);
+  const [extracted, setExtracted] = useState<ExtractedJob[] | null>(() => {
+    try {
+      const raw = sessionStorage.getItem(EXTRACTED_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  });
   const [error, setError] = useState<string | null>(null);
+
+  // Persist on change so a tab-bounce / remount doesn't lose work
+  useEffect(() => {
+    try {
+      if (pastedText) sessionStorage.setItem(TEXT_KEY, pastedText);
+      else sessionStorage.removeItem(TEXT_KEY);
+    } catch {}
+  }, [pastedText]);
+  useEffect(() => {
+    try {
+      if (extracted) sessionStorage.setItem(EXTRACTED_KEY, JSON.stringify(extracted));
+      else sessionStorage.removeItem(EXTRACTED_KEY);
+    } catch {}
+  }, [extracted]);
 
   const reset = () => {
     setPastedText('');
@@ -91,10 +115,15 @@ export const PasteJobEntry = ({ isOpen, onOpenChange, onJobsReady }: PasteJobEnt
     setError(null);
     setParsing(false);
     setCreating(false);
+    try {
+      sessionStorage.removeItem(TEXT_KEY);
+      sessionStorage.removeItem(EXTRACTED_KEY);
+    } catch {}
   };
 
   const handleClose = (open: boolean) => {
-    if (!open) reset();
+    // Keep pasted content when user just closes the dialog — only reset on
+    // explicit "Clear" or after successful creation.
     onOpenChange(open);
   };
 
@@ -188,7 +217,8 @@ export const PasteJobEntry = ({ isOpen, onOpenChange, onJobsReady }: PasteJobEnt
               </div>
             )}
             <div className="flex justify-end gap-3 pt-3 border-t">
-              <Button variant="outline" onClick={() => handleClose(false)} disabled={parsing}>Cancel</Button>
+              <Button variant="ghost" onClick={reset} disabled={parsing || !pastedText}>Clear</Button>
+              <Button variant="outline" onClick={() => handleClose(false)} disabled={parsing}>Close</Button>
               <Button onClick={handleParse} disabled={parsing || !pastedText.trim()} className="gap-2">
                 {parsing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                 {parsing ? 'Parsing…' : 'Parse with AI'}
