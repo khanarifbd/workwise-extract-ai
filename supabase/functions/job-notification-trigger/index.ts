@@ -34,6 +34,27 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Webhook secret validation — reject any caller that doesn't present the
+  // shared secret. The DB webhook in Lovable Cloud must send this header.
+  const webhookSecret = Deno.env.get("WEBHOOK_SECRET");
+  const incomingSecret =
+    req.headers.get("x-webhook-secret") ||
+    req.headers.get("X-Webhook-Secret");
+  if (!webhookSecret) {
+    console.error("WEBHOOK_SECRET is not configured on the function");
+    return new Response(
+      JSON.stringify({ error: "Server misconfigured" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+  if (!incomingSecret || incomingSecret !== webhookSecret) {
+    console.warn("Rejected unauthenticated job-notification-trigger call");
+    return new Response(
+      JSON.stringify({ error: "Unauthorized" }),
+      { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
   try {
     const payload: JobUpdatePayload = await req.json();
     console.log("Job notification trigger received:", JSON.stringify(payload, null, 2));
