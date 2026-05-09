@@ -127,6 +127,26 @@ export const PasteJobEntry = ({ isOpen, onOpenChange, onJobsReady }: PasteJobEnt
     onOpenChange(open);
   };
 
+  const autoCreateJobs = useCallback(async (jobs: ExtractedJob[]) => {
+    setCreating(true);
+    try {
+      const built = jobs.map(buildJob);
+      await onJobsReady(built);
+      toast({
+        title: `${built.length} job${built.length === 1 ? '' : 's'} queued`,
+        description: 'Duplicates (if any) will prompt you to confirm.',
+      });
+      reset();
+      onOpenChange(false);
+    } catch (e: any) {
+      console.error('Auto-create error', e);
+      toast({ title: 'Failed to create jobs', description: e?.message, variant: 'destructive' });
+      setExtracted(jobs); // fall back to review UI so user can retry/edit
+    } finally {
+      setCreating(false);
+    }
+  }, [onJobsReady, onOpenChange, toast]);
+
   const handleParse = useCallback(async () => {
     if (!pastedText.trim()) return;
     setParsing(true);
@@ -141,14 +161,23 @@ export const PasteJobEntry = ({ isOpen, onOpenChange, onJobsReady }: PasteJobEnt
         setError('Could not extract any jobs from that text. Try adjusting it and parse again.');
         return;
       }
-      setExtracted(jobs);
+      // Validate minimum required fields before auto-creating
+      const invalid = jobs.find(j => !j.jobNumber.trim() || !j.name.trim());
+      if (invalid) {
+        // Surface review UI so user can fix gaps
+        setExtracted(jobs);
+        setError('Some extracted jobs are missing a Job Number or Tenant Name — please review and complete them.');
+        return;
+      }
+      // Auto-create — no further user action required
+      await autoCreateJobs(jobs);
     } catch (e: any) {
       console.error('Parse error', e);
       setError(e?.message || 'Failed to parse pasted text');
     } finally {
       setParsing(false);
     }
-  }, [pastedText]);
+  }, [pastedText, autoCreateJobs]);
 
   const updateField = (idx: number, field: keyof ExtractedJob, value: string) => {
     setExtracted(prev => prev ? prev.map((j, i) => i === idx ? { ...j, [field]: value } : j) : prev);
@@ -219,9 +248,9 @@ export const PasteJobEntry = ({ isOpen, onOpenChange, onJobsReady }: PasteJobEnt
             <div className="flex justify-end gap-3 pt-3 border-t">
               <Button variant="ghost" onClick={reset} disabled={parsing || !pastedText}>Clear</Button>
               <Button variant="outline" onClick={() => handleClose(false)} disabled={parsing}>Close</Button>
-              <Button onClick={handleParse} disabled={parsing || !pastedText.trim()} className="gap-2">
-                {parsing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                {parsing ? 'Parsing…' : 'Parse with AI'}
+              <Button onClick={handleParse} disabled={parsing || creating || !pastedText.trim()} className="gap-2">
+                {(parsing || creating) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                {parsing ? 'Detecting jobs…' : creating ? 'Creating jobs…' : 'Extract & Create Jobs'}
               </Button>
             </div>
           </div>
