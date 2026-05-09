@@ -55,8 +55,8 @@ export const useCapacitorPush = (teamId: string | null) => {
 
   const addListeners = async () => {
     // On token received (FCM token, not APNs)
-    await FirebaseMessaging.addListener('tokenReceived', (event) => {
-      console.log('FCM token received:', event.token);
+    await FirebaseMessaging.addListener('tokenReceived', (_event) => {
+      console.log('FCM token received successfully');
     });
 
     // On notification received in foreground
@@ -120,7 +120,7 @@ export const useCapacitorPush = (teamId: string | null) => {
       if (permResult.receive === 'granted') {
         // Get FCM token (this triggers APNs->FCM token conversion on iOS)
         const tokenResult = await FirebaseMessaging.getToken();
-        console.log('FCM Token:', tokenResult.token);
+        console.log('FCM token obtained');
 
         setState(prev => ({ ...prev, isRegistered: true }));
 

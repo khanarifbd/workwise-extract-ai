@@ -224,7 +224,11 @@ Deno.serve(async (req) => {
         query = query.gt("updated_at", sinceDate.toISOString());
       } else {
         // FULL LOAD: only jobs assigned to this team
-        query = query.or(`team.eq.${teamName},team2.eq.${teamName}`);
+        // Quote values to prevent PostgREST filter injection if teamName ever
+        // contains commas/dots/operators (defence-in-depth on top of the
+        // earlier exact-match validation against team_access_codes).
+        const safe = teamName.replace(/"/g, '\\"');
+        query = query.or(`team.eq."${safe}",team2.eq."${safe}"`);
       }
 
       const { data, error } = await query;

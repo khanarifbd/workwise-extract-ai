@@ -314,7 +314,7 @@ const TeamPortal = () => {
         console.log('[push] init start');
 
         await PushNotifications.addListener('registration', async (token: Token) => {
-          console.log('[push] registration success', token.value);
+          console.log('[push] registration success');
           localStorage.setItem('pending_fcm_token', token.value);
 
           // If already logged in, save immediately
