@@ -1900,9 +1900,7 @@ const Index = () => {
         isOpen={showPasteEntry}
         onOpenChange={setShowPasteEntry}
         onJobsReady={async (jobs) => {
-          // Tag jobs with the active category so they land in the right folder
-          const tagged = jobs.map(j => ({ ...j, categoryId: activeCategory } as any));
-          await handleBulkJobsExtracted(tagged);
+          await handleBulkJobsExtracted(jobs);
         }}
       />
 
