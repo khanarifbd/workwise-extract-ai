@@ -89,3 +89,6 @@ verify_jwt = false
 
 [functions.trigger-eod-reminder]
 verify_jwt = false
+
+[functions.parse-pasted-jobs]
+verify_jwt = true

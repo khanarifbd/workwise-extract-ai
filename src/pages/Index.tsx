@@ -24,6 +24,7 @@ import { JobDetailsModal } from '@/components/JobDetailsModal';
 import { DuplicateJobAlert } from '@/components/DuplicateJobAlert';
 import { CompletedJobsPDFButton } from '@/components/CompletedJobsPDFButton';
 import { ManualJobEntry } from '@/components/ManualJobEntry';
+import { PasteJobEntry } from '@/components/PasteJobEntry';
 import { OverdueJobsDashboard } from '@/components/OverdueJobsDashboard';
 import { DanniDashboard } from '@/components/DanniDashboard';
 import { TeamAccountabilityMetrics } from '@/components/TeamAccountabilityMetrics';
@@ -40,7 +41,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
-import { ChevronDown, ChevronUp, Loader2, Images, PenLine, CalendarDays, X as XIcon } from 'lucide-react';
+import { ChevronDown, ChevronUp, Loader2, Images, PenLine, CalendarDays, X as XIcon, ClipboardPaste } from 'lucide-react';
 import { isAfter, isBefore, startOfDay, endOfDay, format, parseISO, isValid } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { getGMTNow, getHoursDifferenceGMT } from '@/lib/dateUtils';
@@ -109,6 +110,7 @@ const Index = () => {
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [bulkUploadInitialFiles, setBulkUploadInitialFiles] = useState<Array<{ file: File; type: FileType }>>([]);
   const [showManualEntry, setShowManualEntry] = useState(false);
+  const [showPasteEntry, setShowPasteEntry] = useState(false);
   const [uploadExpanded, setUploadExpanded] = useState(false);
   const [kanbanGroupBy, setKanbanGroupBy] = useState<KanbanGroupBy>('team');
   const [directJobForModal, setDirectJobForModal] = useState<Job | null>(null);
@@ -1482,6 +1484,16 @@ const Index = () => {
                   <PenLine className="w-4 h-4" />
                   Enter Job Manually
                 </Button>
+
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={() => setShowPasteEntry(true)}
+                  className="w-full gap-2 font-medium border-primary/50 text-primary hover:bg-primary/5"
+                >
+                  <ClipboardPaste className="w-4 h-4" />
+                  Paste Job Details (AI extract)
+                </Button>
                 
                 {/* Divider */}
                 <div className="relative">
@@ -1881,6 +1893,14 @@ const Index = () => {
             description: `Job #${newJob.jobNumber} has been added.`,
           });
           return created;
+        }}
+      />
+
+      <PasteJobEntry
+        isOpen={showPasteEntry}
+        onOpenChange={setShowPasteEntry}
+        onJobsReady={async (jobs) => {
+          await handleBulkJobsExtracted(jobs);
         }}
       />
 
