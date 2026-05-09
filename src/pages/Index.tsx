@@ -109,6 +109,7 @@ const Index = () => {
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [bulkUploadInitialFiles, setBulkUploadInitialFiles] = useState<Array<{ file: File; type: FileType }>>([]);
   const [showManualEntry, setShowManualEntry] = useState(false);
+  const [showPasteEntry, setShowPasteEntry] = useState(false);
   const [uploadExpanded, setUploadExpanded] = useState(false);
   const [kanbanGroupBy, setKanbanGroupBy] = useState<KanbanGroupBy>('team');
   const [directJobForModal, setDirectJobForModal] = useState<Job | null>(null);
