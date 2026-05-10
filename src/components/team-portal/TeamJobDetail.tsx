@@ -22,6 +22,7 @@ import { SignOffConfirmationModal } from './SignOffConfirmationModal';
 import { useTranslation, SUPPORTED_LANGUAGES } from '@/hooks/useTranslation';
 import { useBatchUpload } from '@/hooks/useBatchUpload';
 import { AIWritingAssistant } from './AIWritingAssistant';
+import { VoiceDictation } from './VoiceDictation';
 
 interface TeamJobDetailProps {
   job: Job;
@@ -1203,15 +1204,23 @@ export const TeamJobDetail = ({
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
                     <label className="text-xs sm:text-sm text-muted-foreground">Notes</label>
-                    <AIWritingAssistant
-                      currentText={notes}
-                      onAccept={(enhancedText) => setNotes(enhancedText)}
-                      userLanguage={languagePreference}
-                      jobContext={job.summaryOfWorks || job.name}
-                      placeholder="Write your notes here in any language. The AI will help create a clear, professional English version..."
-                    />
+                    <div className="flex gap-1.5">
+                      <VoiceDictation
+                        currentText={notes}
+                        onAccept={(text) => setNotes(text)}
+                        fieldType="notes"
+                        jobContext={job.summaryOfWorks || job.name}
+                      />
+                      <AIWritingAssistant
+                        currentText={notes}
+                        onAccept={(enhancedText) => setNotes(enhancedText)}
+                        userLanguage={languagePreference}
+                        jobContext={job.summaryOfWorks || job.name}
+                        placeholder="Write your notes here in any language. The AI will help create a clear, professional English version..."
+                      />
+                    </div>
                   </div>
                   <Textarea
                     value={notes}
