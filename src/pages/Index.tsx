@@ -1412,6 +1412,20 @@ const Index = () => {
           onDeleteCategory={canEdit ? deleteCategory : undefined}
         />
 
+        {/* NPH Guidelines for active category */}
+        {activeCategory && (() => {
+          const cat = categories.find(c => c.id === activeCategory);
+          if (!cat) return null;
+          return (
+            <CategoryGuidelinesPanel
+              categoryId={cat.id}
+              categoryName={cat.name}
+              categoryColor={cat.color}
+              canEdit={isAdmin}
+            />
+          );
+        })()}
+
         {/* Compact Stats Row — always uses full jobs array for accurate totals */}
         <div className="flex items-center justify-between gap-4 bg-section-stats rounded-lg p-3">
           {isInsulationCategory ? (
