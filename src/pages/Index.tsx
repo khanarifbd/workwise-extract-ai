@@ -14,6 +14,7 @@ import { InsulationAnalyticsReport } from '@/components/InsulationAnalyticsRepor
 import { ExportPanel } from '@/components/ExportPanel';
 import { DMJobFilters, FanJobFilters, InsulationJobFilters, FilterState, getDefaultFilterState } from '@/components/filters';
 import { CategoryTabs } from '@/components/CategoryTabs';
+import { CategoryGuidelinesPanel } from '@/components/CategoryGuidelinesPanel';
 import { KanbanBoard } from '@/components/KanbanBoard';
 import { CalendarView } from '@/components/CalendarView';
 import { MonthlyFolderTabs } from '@/components/MonthlyFolderTabs';
@@ -1421,7 +1422,7 @@ const Index = () => {
               categoryId={cat.id}
               categoryName={cat.name}
               categoryColor={cat.color}
-              canEdit={isAdmin}
+              canEdit={canEdit}
             />
           );
         })()}
