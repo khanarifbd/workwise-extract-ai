@@ -14,6 +14,7 @@ import { InsulationAnalyticsReport } from '@/components/InsulationAnalyticsRepor
 import { ExportPanel } from '@/components/ExportPanel';
 import { DMJobFilters, FanJobFilters, InsulationJobFilters, FilterState, getDefaultFilterState } from '@/components/filters';
 import { CategoryTabs } from '@/components/CategoryTabs';
+import { CategoryGuidelinesPanel } from '@/components/CategoryGuidelinesPanel';
 import { KanbanBoard } from '@/components/KanbanBoard';
 import { CalendarView } from '@/components/CalendarView';
 import { MonthlyFolderTabs } from '@/components/MonthlyFolderTabs';
@@ -1411,6 +1412,20 @@ const Index = () => {
           onUpdateCategory={canEdit ? updateCategory : undefined}
           onDeleteCategory={canEdit ? deleteCategory : undefined}
         />
+
+        {/* NPH Guidelines for active category */}
+        {activeCategory && (() => {
+          const cat = categories.find(c => c.id === activeCategory);
+          if (!cat) return null;
+          return (
+            <CategoryGuidelinesPanel
+              categoryId={cat.id}
+              categoryName={cat.name}
+              categoryColor={cat.color}
+              canEdit={canEdit}
+            />
+          );
+        })()}
 
         {/* Compact Stats Row — always uses full jobs array for accurate totals */}
         <div className="flex items-center justify-between gap-4 bg-section-stats rounded-lg p-3">
