@@ -130,6 +130,33 @@ export type Database = {
         }
         Relationships: []
       }
+      category_guidelines: {
+        Row: {
+          category_id: string
+          content: string
+          created_at: string
+          id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          category_id: string
+          content?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          category_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       contact_history: {
         Row: {
           contact_date: string
