@@ -136,6 +136,7 @@ export type Database = {
           content: string
           created_at: string
           id: string
+          mobile_content: string
           updated_at: string
           updated_by: string | null
         }
@@ -144,6 +145,7 @@ export type Database = {
           content?: string
           created_at?: string
           id?: string
+          mobile_content?: string
           updated_at?: string
           updated_by?: string | null
         }
@@ -152,6 +154,7 @@ export type Database = {
           content?: string
           created_at?: string
           id?: string
+          mobile_content?: string
           updated_at?: string
           updated_by?: string | null
         }

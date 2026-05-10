@@ -9,7 +9,7 @@ const corsHeaders = {
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
-    const { rawText, categoryName } = await req.json();
+    const { rawText, categoryName, mode } = await req.json();
     if (!rawText || typeof rawText !== "string") {
       return new Response(JSON.stringify({ error: "rawText required" }), {
         status: 400,
@@ -19,9 +19,31 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY missing");
 
-    const prompt = `You are a senior technical editor formatting NPH (housing association) operational guidelines for the "${
-      categoryName || "category"
-    }" category.
+    const isMobile = mode === "mobile";
+
+    const prompt = isMobile
+      ? `You are formatting a MOBILE-OPTIMISED quick-reference of NPH (housing association) guidelines for field teams in the "${
+          categoryName || "category"
+        }" category.
+
+Field workers will read this on a phone between jobs. Make it BRUTALLY short and scannable.
+
+Rules:
+- Keep ONLY the most operationally critical rules, timescales, contacts and escalation steps
+- Strip background, rationale and admin context
+- Use short bullet points (- ...) — max ~10 words per bullet
+- Group under at most 3-4 short ## headings (e.g. "Timescales", "Must do", "Escalate")
+- Use **bold** for hard numbers, deadlines and phone numbers
+- No paragraphs, no fluff, no introductions
+- Aim for under 25 lines total
+
+Return ONLY the formatted markdown, no preamble, no code fences.
+
+RAW NOTES:
+"""${rawText}"""`
+      : `You are a senior technical editor formatting NPH (housing association) operational guidelines for the "${
+          categoryName || "category"
+        }" category.
 
 Convert the raw notes below into clean, scannable Markdown for site/ops staff. Preserve EVERY rule, number, timescale, contact and detail — never summarise away content.
 
