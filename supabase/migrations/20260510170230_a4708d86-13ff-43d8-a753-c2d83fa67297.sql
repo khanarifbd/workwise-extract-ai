@@ -1,0 +1,1 @@
+ALTER TABLE public.category_guidelines ADD COLUMN IF NOT EXISTS mobile_content text NOT NULL DEFAULT '';
