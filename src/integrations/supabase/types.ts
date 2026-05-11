@@ -571,6 +571,42 @@ export type Database = {
           },
         ]
       }
+      materials_reports: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          filters: Json
+          id: string
+          job_count: number
+          job_ids: string[]
+          report_data: Json
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          filters?: Json
+          id?: string
+          job_count?: number
+          job_ids?: string[]
+          report_data?: Json
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          filters?: Json
+          id?: string
+          job_count?: number
+          job_ids?: string[]
+          report_data?: Json
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       notification_history: {
         Row: {
           created_at: string

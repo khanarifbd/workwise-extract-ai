@@ -1,4 +1,4 @@
-import { FileDown, Moon, Sun, Settings, History, KeyRound, Users, LogOut, ChevronDown, CalendarDays, CheckCircle2, Briefcase, AlertTriangle, Mic, MessageSquare, Clock, StickyNote, MoreHorizontal } from 'lucide-react';
+import { FileDown, Moon, Sun, Settings, History, KeyRound, Users, LogOut, ChevronDown, CalendarDays, CheckCircle2, Briefcase, AlertTriangle, Mic, MessageSquare, Clock, StickyNote, MoreHorizontal, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
@@ -11,6 +11,7 @@ import { GlobalSignOffHistoryModal } from './GlobalSignOffHistoryModal';
 import { AdminTeamJobsModal } from './AdminTeamJobsModal';
 import { SendTeamMessageModal } from './SendTeamMessageModal';
 import { OpsNotesModal } from './OpsNotesModal';
+import { MaterialsReportModal } from './MaterialsReportModal';
 import { ADMIN_USERS } from './AdminNotesOrganiser';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -48,6 +49,7 @@ export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount
   const [showAvailability, setShowAvailability] = useState(false);
   const [showSignOffHistory, setShowSignOffHistory] = useState(false);
   const [showTeamJobs, setShowTeamJobs] = useState(false);
+  const [showMaterialsReport, setShowMaterialsReport] = useState(false);
   const [showOpsNotes, setShowOpsNotes] = useState(false);
   const [showSendMessage, setShowSendMessage] = useState(false);
   const [opsNotesCount, setOpsNotesCount] = useState(0);
@@ -236,6 +238,10 @@ export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount
                   <FileDown className="w-4 h-4" />
                   Export
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowMaterialsReport(true)} className="flex items-center gap-2 cursor-pointer">
+                  <Package className="w-4 h-4" />
+                  Materials Report
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setIsDark(prev => !prev)} className="flex items-center gap-2 cursor-pointer">
                   {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
                   {isDark ? 'Light Mode' : 'Dark Mode'}
@@ -258,6 +264,7 @@ export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount
       <GlobalSignOffHistoryModal isOpen={showSignOffHistory} onClose={() => setShowSignOffHistory(false)} onJobClick={onJobClick} />
       <AdminTeamJobsModal isOpen={showTeamJobs} onClose={() => setShowTeamJobs(false)} onJobRemoved={onRefresh} />
       <OpsNotesModal isOpen={showOpsNotes} onClose={() => setShowOpsNotes(false)} onJobClick={onJobClick} />
+      <MaterialsReportModal open={showMaterialsReport} onOpenChange={setShowMaterialsReport} />
       <SendTeamMessageModal isOpen={showSendMessage} onClose={() => setShowSendMessage(false)} />
     </header>
   );
