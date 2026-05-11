@@ -140,6 +140,7 @@ const Index = () => {
   const [completionDateFrom, setCompletionDateFrom] = useState<Date | undefined>(undefined);
   const [completionDateTo, setCompletionDateTo] = useState<Date | undefined>(undefined);
   const [showAnalyticsReport, setShowAnalyticsReport] = useState(false);
+  const [showMaterialsReport, setShowMaterialsReport] = useState(false);
   const [duplicateCheck, setDuplicateCheck] = useState<{
     newJob: Omit<Job, 'id'>;
     existingJob: Job;
