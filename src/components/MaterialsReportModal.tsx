@@ -64,18 +64,32 @@ export function MaterialsReportModal({ open, onOpenChange }: Props) {
 
   const loadJobs = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('jobs')
-      .select('id,job_number,name,address,category_id,date_issued,booked_date,status,is_completed,team')
-      .is('deleted_at', null)
-      .order('date_issued', { ascending: false })
-      .limit(2000);
-    setLoading(false);
-    if (error) {
-      toast({ title: 'Failed to load jobs', description: error.message, variant: 'destructive' });
-      return;
+    try {
+      // Chunked fetch to bypass PostgREST 1000-row default limit and load every job
+      const PAGE = 1000;
+      let from = 0;
+      const all: JobLite[] = [];
+      // Hard ceiling to avoid runaway loops; raise if dataset grows beyond this
+      while (from < 50000) {
+        const { data, error } = await supabase
+          .from('jobs')
+          .select('id,job_number,name,address,category_id,date_issued,booked_date,status,is_completed,team')
+          .is('deleted_at', null)
+          .order('date_issued', { ascending: false })
+          .range(from, from + PAGE - 1);
+        if (error) {
+          toast({ title: 'Failed to load jobs', description: error.message, variant: 'destructive' });
+          break;
+        }
+        const rows = (data ?? []) as JobLite[];
+        all.push(...rows);
+        if (rows.length < PAGE) break;
+        from += PAGE;
+      }
+      setJobs(all);
+    } finally {
+      setLoading(false);
     }
-    setJobs((data ?? []) as JobLite[]);
   };
 
   const loadSavedReports = async () => {
