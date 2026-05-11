@@ -81,6 +81,24 @@ export function MaterialsReport({ report, title }: Props) {
     }));
   }, [report]);
 
+  const propertyRows = useMemo(() => {
+    const map = new Map<string, { jobNumber: string; address: string | null; urgency: Urgency; trades: Set<string>; materials: Array<{ name: string; qty: number; unit: string }> }>();
+    report.jobs.forEach((j) => {
+      map.set(j.jobNumber, { jobNumber: j.jobNumber, address: j.address, urgency: j.urgency, trades: new Set(), materials: [] });
+    });
+    report.tradeGroups.forEach((t) => {
+      t.jobNumbers.forEach((jn) => { map.get(jn)?.trades.add(t.trade); });
+    });
+    report.materialGroups.forEach((g) => {
+      g.items.forEach((it) => {
+        it.jobNumbers.forEach((jn) => {
+          map.get(jn)?.materials.push({ name: it.name, qty: it.qty, unit: it.unit });
+        });
+      });
+    });
+    return Array.from(map.values()).sort((a, b) => URGENCY_STYLES[a.urgency].rank - URGENCY_STYLES[b.urgency].rank);
+  }, [report]);
+
   const handleCopy = async () => {
     const text = buildPlainText(report, title);
     await navigator.clipboard.writeText(text);
@@ -189,10 +207,44 @@ export function MaterialsReport({ report, title }: Props) {
         </div>
       </Card>
 
-      {/* TBC notes */}
+      {/* Properties requiring trades & materials */}
+      {propertyRows.length > 0 && (
+        <Card className="p-5">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+            Properties Requiring Trades &amp; Materials ({propertyRows.length})
+          </h2>
+          <div className="divide-y">
+            {propertyRows.map((p) => (
+              <div key={p.jobNumber} className="py-3 space-y-1.5">
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="font-mono text-xs text-muted-foreground w-16 shrink-0">{p.jobNumber}</span>
+                  <span className="flex-1 truncate">{p.address || '—'}</span>
+                  <UrgencyBadge urgency={p.urgency} />
+                </div>
+                {p.trades.size > 0 && (
+                  <div className="flex flex-wrap gap-1.5 pl-[72px]">
+                    {Array.from(p.trades).map((t) => (
+                      <Badge key={t} variant="secondary" className="text-[10px]">{t}</Badge>
+                    ))}
+                  </div>
+                )}
+                {p.materials.length > 0 && (
+                  <ul className="pl-[72px] text-xs text-muted-foreground space-y-0.5">
+                    {p.materials.map((m, i) => (
+                      <li key={i}>• {m.name} <span className="font-mono tabular-nums">— {m.qty} {m.unit}</span></li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* TBC notes / important notes */}
       {report.tbcNotes.length > 0 && (
         <Card className="p-5 bg-warning/5 border-warning/30">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-warning mb-3">Site Confirmation Needed</h2>
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-warning mb-3">Important Notes &amp; Site Confirmation</h2>
           <ul className="space-y-1.5 text-sm">
             {report.tbcNotes.map((n, i) => (
               <li key={i} className="flex gap-2">
