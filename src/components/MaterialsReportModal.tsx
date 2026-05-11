@@ -83,7 +83,7 @@ export function MaterialsReportModal({ open, onOpenChange }: Props) {
       .select('id,title,job_count,created_at,report_data')
       .order('created_at', { ascending: false })
       .limit(50);
-    setSavedReports((data ?? []) as SavedReport[]);
+    setSavedReports((data ?? []) as unknown as SavedReport[]);
   };
 
   const filtered = useMemo(() => {
