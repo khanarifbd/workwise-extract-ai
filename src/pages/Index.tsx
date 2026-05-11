@@ -42,7 +42,8 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
-import { ChevronDown, ChevronUp, Loader2, Images, PenLine, CalendarDays, X as XIcon, ClipboardPaste } from 'lucide-react';
+import { ChevronDown, ChevronUp, Loader2, Images, PenLine, CalendarDays, X as XIcon, ClipboardPaste, Sparkles } from 'lucide-react';
+import { MaterialsReportModal } from '@/components/MaterialsReportModal';
 import { isAfter, isBefore, startOfDay, endOfDay, format, parseISO, isValid } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { getGMTNow, getHoursDifferenceGMT } from '@/lib/dateUtils';
@@ -139,6 +140,7 @@ const Index = () => {
   const [completionDateFrom, setCompletionDateFrom] = useState<Date | undefined>(undefined);
   const [completionDateTo, setCompletionDateTo] = useState<Date | undefined>(undefined);
   const [showAnalyticsReport, setShowAnalyticsReport] = useState(false);
+  const [showMaterialsReport, setShowMaterialsReport] = useState(false);
   const [duplicateCheck, setDuplicateCheck] = useState<{
     newJob: Omit<Job, 'id'>;
     existingJob: Job;
@@ -1436,6 +1438,15 @@ const Index = () => {
           ) : (
             <StatsCards jobs={jobs} allJobs={jobs} tradeBookings={tradeBookings} />
           )}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShowMaterialsReport(true)}
+            className="shrink-0 gap-1.5"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-primary" />
+            Materials Report
+          </Button>
         </div>
 
         {/* Search and Filters - Category Specific */}
@@ -1883,6 +1894,8 @@ const Index = () => {
       {showExport && (
         <ExportPanel jobs={jobs} onClose={() => setShowExport(false)} isFanCategory={isFanCategory} />
       )}
+
+      <MaterialsReportModal open={showMaterialsReport} onOpenChange={setShowMaterialsReport} />
 
       {showBulkUpload && (
         <BulkImageUpload
