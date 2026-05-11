@@ -104,6 +104,7 @@ export function MaterialsReportModal({ open, onOpenChange }: Props) {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return jobs.filter((j) => {
+      if (filterScope === 'booked' && !j.booked_date) return false;
       if (filterStatus === 'incomplete' && (j.is_completed || j.status === 'complete')) return false;
       if (filterCategory !== 'all' && j.category_id !== filterCategory) return false;
       if (filterAssigned === 'assigned' && !j.team) return false;
@@ -114,7 +115,7 @@ export function MaterialsReportModal({ open, onOpenChange }: Props) {
       }
       return true;
     });
-  }, [jobs, search, filterStatus, filterCategory, filterAssigned]);
+  }, [jobs, search, filterStatus, filterCategory, filterAssigned, filterScope]);
 
   const toggleAll = () => {
     if (filtered.every((j) => selected.has(j.id))) {
