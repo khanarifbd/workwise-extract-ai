@@ -11,6 +11,7 @@ import { GlobalSignOffHistoryModal } from './GlobalSignOffHistoryModal';
 import { AdminTeamJobsModal } from './AdminTeamJobsModal';
 import { SendTeamMessageModal } from './SendTeamMessageModal';
 import { OpsNotesModal } from './OpsNotesModal';
+import { MaterialsReportModal } from './MaterialsReportModal';
 import { ADMIN_USERS } from './AdminNotesOrganiser';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { supabase } from '@/integrations/supabase/client';
