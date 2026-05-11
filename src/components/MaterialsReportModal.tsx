@@ -48,6 +48,7 @@ export function MaterialsReportModal({ open, onOpenChange }: Props) {
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<'incomplete' | 'all'>('incomplete');
   const [filterAssigned, setFilterAssigned] = useState<'any' | 'assigned' | 'unassigned'>('any');
+  const [filterScope, setFilterScope] = useState<'database' | 'booked'>('database');
   const [generating, setGenerating] = useState(false);
   const [report, setReport] = useState<MaterialsReportData | null>(null);
   const [reportTitle, setReportTitle] = useState('');
@@ -63,18 +64,32 @@ export function MaterialsReportModal({ open, onOpenChange }: Props) {
 
   const loadJobs = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('jobs')
-      .select('id,job_number,name,address,category_id,date_issued,booked_date,status,is_completed,team')
-      .is('deleted_at', null)
-      .order('date_issued', { ascending: false })
-      .limit(2000);
-    setLoading(false);
-    if (error) {
-      toast({ title: 'Failed to load jobs', description: error.message, variant: 'destructive' });
-      return;
+    try {
+      // Chunked fetch to bypass PostgREST 1000-row default limit and load every job
+      const PAGE = 1000;
+      let from = 0;
+      const all: JobLite[] = [];
+      // Hard ceiling to avoid runaway loops; raise if dataset grows beyond this
+      while (from < 50000) {
+        const { data, error } = await supabase
+          .from('jobs')
+          .select('id,job_number,name,address,category_id,date_issued,booked_date,status,is_completed,team')
+          .is('deleted_at', null)
+          .order('date_issued', { ascending: false })
+          .range(from, from + PAGE - 1);
+        if (error) {
+          toast({ title: 'Failed to load jobs', description: error.message, variant: 'destructive' });
+          break;
+        }
+        const rows = (data ?? []) as JobLite[];
+        all.push(...rows);
+        if (rows.length < PAGE) break;
+        from += PAGE;
+      }
+      setJobs(all);
+    } finally {
+      setLoading(false);
     }
-    setJobs((data ?? []) as JobLite[]);
   };
 
   const loadSavedReports = async () => {
@@ -89,6 +104,7 @@ export function MaterialsReportModal({ open, onOpenChange }: Props) {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return jobs.filter((j) => {
+      if (filterScope === 'booked' && !j.booked_date) return false;
       if (filterStatus === 'incomplete' && (j.is_completed || j.status === 'complete')) return false;
       if (filterCategory !== 'all' && j.category_id !== filterCategory) return false;
       if (filterAssigned === 'assigned' && !j.team) return false;
@@ -99,7 +115,7 @@ export function MaterialsReportModal({ open, onOpenChange }: Props) {
       }
       return true;
     });
-  }, [jobs, search, filterStatus, filterCategory, filterAssigned]);
+  }, [jobs, search, filterStatus, filterCategory, filterAssigned, filterScope]);
 
   const toggleAll = () => {
     if (filtered.every((j) => selected.has(j.id))) {
@@ -208,6 +224,13 @@ export function MaterialsReportModal({ open, onOpenChange }: Props) {
                     {categories.map((c) => (
                       <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+                <Select value={filterScope} onValueChange={(v) => setFilterScope(v as any)}>
+                  <SelectTrigger className="w-44 h-9"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="database">Job Database (all)</SelectItem>
+                    <SelectItem value="booked">Booked folder only</SelectItem>
                   </SelectContent>
                 </Select>
                 <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as any)}>
