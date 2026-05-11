@@ -1,0 +1,1 @@
+UPDATE public.jobs SET deleted_at = now(), is_completed = true, status = 'complete', completion_date = COALESCE(completion_date, now()) WHERE job_number = '231789';
