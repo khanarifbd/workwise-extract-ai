@@ -49,6 +49,7 @@ export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount
   const [showAvailability, setShowAvailability] = useState(false);
   const [showSignOffHistory, setShowSignOffHistory] = useState(false);
   const [showTeamJobs, setShowTeamJobs] = useState(false);
+  const [showMaterialsReport, setShowMaterialsReport] = useState(false);
   const [showOpsNotes, setShowOpsNotes] = useState(false);
   const [showSendMessage, setShowSendMessage] = useState(false);
   const [opsNotesCount, setOpsNotesCount] = useState(0);
