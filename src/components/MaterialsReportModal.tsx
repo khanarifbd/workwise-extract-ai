@@ -48,6 +48,7 @@ export function MaterialsReportModal({ open, onOpenChange }: Props) {
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<'incomplete' | 'all'>('incomplete');
   const [filterAssigned, setFilterAssigned] = useState<'any' | 'assigned' | 'unassigned'>('any');
+  const [filterScope, setFilterScope] = useState<'database' | 'booked'>('database');
   const [generating, setGenerating] = useState(false);
   const [report, setReport] = useState<MaterialsReportData | null>(null);
   const [reportTitle, setReportTitle] = useState('');
