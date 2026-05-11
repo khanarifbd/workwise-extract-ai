@@ -226,6 +226,13 @@ export function MaterialsReportModal({ open, onOpenChange }: Props) {
                     ))}
                   </SelectContent>
                 </Select>
+                <Select value={filterScope} onValueChange={(v) => setFilterScope(v as any)}>
+                  <SelectTrigger className="w-44 h-9"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="database">Job Database (all)</SelectItem>
+                    <SelectItem value="booked">Booked folder only</SelectItem>
+                  </SelectContent>
+                </Select>
                 <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as any)}>
                   <SelectTrigger className="w-40 h-9"><SelectValue /></SelectTrigger>
                   <SelectContent>
