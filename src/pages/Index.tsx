@@ -1895,6 +1895,8 @@ const Index = () => {
         <ExportPanel jobs={jobs} onClose={() => setShowExport(false)} isFanCategory={isFanCategory} />
       )}
 
+      <MaterialsReportModal open={showMaterialsReport} onOpenChange={setShowMaterialsReport} />
+
       {showBulkUpload && (
         <BulkImageUpload
           onJobsExtracted={handleBulkJobsExtracted}
