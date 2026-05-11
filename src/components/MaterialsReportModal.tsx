@@ -257,7 +257,7 @@ export function MaterialsReportModal({ open, onOpenChange }: Props) {
               </div>
             </div>
 
-            <ScrollArea className="flex-1 min-h-0">
+            <div className="flex-1 min-h-0 overflow-y-auto">
               {loading ? (
                 <div className="flex items-center justify-center py-16">
                   <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
@@ -296,7 +296,7 @@ export function MaterialsReportModal({ open, onOpenChange }: Props) {
                   )}
                 </div>
               )}
-            </ScrollArea>
+            </div>
 
             <div className="border-t px-6 py-3 flex items-center gap-3 shrink-0">
               <Input
@@ -314,15 +314,15 @@ export function MaterialsReportModal({ open, onOpenChange }: Props) {
         )}
 
         {view === 'report' && report && (
-          <ScrollArea className="flex-1 min-h-0">
+          <div className="flex-1 min-h-0 overflow-y-auto">
             <div className="p-6">
               <MaterialsReport report={report} title={reportTitle} />
             </div>
-          </ScrollArea>
+          </div>
         )}
 
         {view === 'history' && (
-          <ScrollArea className="flex-1 min-h-0">
+          <div className="flex-1 min-h-0 overflow-y-auto">
             <div className="divide-y">
               {savedReports.length === 0 && (
                 <div className="text-center py-16 text-sm text-muted-foreground">No saved reports yet.</div>
@@ -344,7 +344,7 @@ export function MaterialsReportModal({ open, onOpenChange }: Props) {
                 </div>
               ))}
             </div>
-          </ScrollArea>
+          </div>
         )}
       </DialogContent>
     </Dialog>
