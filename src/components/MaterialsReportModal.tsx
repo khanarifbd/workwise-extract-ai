@@ -234,7 +234,7 @@ export function MaterialsReportModal({ open, onOpenChange }: Props) {
               </div>
             </div>
 
-            <ScrollArea className="flex-1">
+            <ScrollArea className="flex-1 min-h-0">
               {loading ? (
                 <div className="flex items-center justify-center py-16">
                   <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
