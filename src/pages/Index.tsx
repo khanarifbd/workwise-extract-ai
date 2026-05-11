@@ -1438,6 +1438,15 @@ const Index = () => {
           ) : (
             <StatsCards jobs={jobs} allJobs={jobs} tradeBookings={tradeBookings} />
           )}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShowMaterialsReport(true)}
+            className="shrink-0 gap-1.5"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-primary" />
+            Materials Report
+          </Button>
         </div>
 
         {/* Search and Filters - Category Specific */}
