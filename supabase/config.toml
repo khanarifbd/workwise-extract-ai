@@ -92,3 +92,6 @@ verify_jwt = false
 
 [functions.parse-pasted-jobs]
 verify_jwt = true
+
+[functions.generate-materials-report]
+verify_jwt = true
