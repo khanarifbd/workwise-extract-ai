@@ -291,7 +291,7 @@ export function MaterialsReportModal({ open, onOpenChange }: Props) {
         )}
 
         {view === 'report' && report && (
-          <ScrollArea className="flex-1">
+          <ScrollArea className="flex-1 min-h-0">
             <div className="p-6">
               <MaterialsReport report={report} title={reportTitle} />
             </div>
@@ -299,7 +299,7 @@ export function MaterialsReportModal({ open, onOpenChange }: Props) {
         )}
 
         {view === 'history' && (
-          <ScrollArea className="flex-1">
+          <ScrollArea className="flex-1 min-h-0">
             <div className="divide-y">
               {savedReports.length === 0 && (
                 <div className="text-center py-16 text-sm text-muted-foreground">No saved reports yet.</div>
