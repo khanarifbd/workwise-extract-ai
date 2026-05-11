@@ -238,6 +238,10 @@ export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount
                   <FileDown className="w-4 h-4" />
                   Export
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowMaterialsReport(true)} className="flex items-center gap-2 cursor-pointer">
+                  <Package className="w-4 h-4" />
+                  Materials Report
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setIsDark(prev => !prev)} className="flex items-center gap-2 cursor-pointer">
                   {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
                   {isDark ? 'Light Mode' : 'Dark Mode'}
