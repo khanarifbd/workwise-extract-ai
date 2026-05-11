@@ -264,6 +264,7 @@ export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount
       <GlobalSignOffHistoryModal isOpen={showSignOffHistory} onClose={() => setShowSignOffHistory(false)} onJobClick={onJobClick} />
       <AdminTeamJobsModal isOpen={showTeamJobs} onClose={() => setShowTeamJobs(false)} onJobRemoved={onRefresh} />
       <OpsNotesModal isOpen={showOpsNotes} onClose={() => setShowOpsNotes(false)} onJobClick={onJobClick} />
+      <MaterialsReportModal open={showMaterialsReport} onOpenChange={setShowMaterialsReport} />
       <SendTeamMessageModal isOpen={showSendMessage} onClose={() => setShowSendMessage(false)} />
     </header>
   );
