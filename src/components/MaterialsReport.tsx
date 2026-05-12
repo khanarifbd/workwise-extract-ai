@@ -292,11 +292,11 @@ export function MaterialsReport({ report, title, sourceJobs }: Props) {
             <h2 className="text-sm font-semibold">Grand Totals — Trades</h2>
             <Badge variant="secondary" className="ml-auto text-[10px]">{filteredTrades.length}/{grandTrades.length}</Badge>
           </div>
-          {grandTrades.length === 0 ? (
-            <p className="text-sm text-muted-foreground">None identified.</p>
+          {filteredTrades.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{grandTrades.length === 0 ? 'None identified.' : 'No matches.'}</p>
           ) : (
-            <div className="space-y-1">
-              {grandTrades.map((t) => (
+            <div className="space-y-1 max-h-[420px] overflow-y-auto pr-1">
+              {filteredTrades.map((t) => (
                 <div key={t.trade} className="flex items-center justify-between gap-2 py-1.5 px-2 rounded hover:bg-muted/40 text-sm">
                   <div className="flex items-center gap-2 min-w-0">
                     <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', URGENCY_STYLES[t.topUrgency].dot)} />
