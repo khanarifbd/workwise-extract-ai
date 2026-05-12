@@ -100,47 +100,75 @@ export const TeamHistory = ({ jobs, teamName, onSelectJob, embedded = false }: T
   const [refreshing, setRefreshing] = useState(false);
 
   // Fetch authoritative sign-off records for THIS team only — last 2 years
+  // Also backfill completed jobs that may not have a matching sign-off row.
   const fetchSignOffs = useCallback(async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) setLoading(true); else setRefreshing(true);
     try {
       const twoYearsAgo = new Date();
       twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
 
-      const { data, error } = await supabase
-        .from('team_sign_offs')
-        .select('job_id, signed_off_at, progress_notes')
-        .eq('team_name', teamName)
-        .gte('signed_off_at', twoYearsAgo.toISOString())
-        .order('signed_off_at', { ascending: false })
-        .limit(5000);
+      const safeTeamName = teamName.replace(/"/g, '\\"');
+      const [signOffResult, completedJobsResult] = await Promise.all([
+        supabase
+          .from('team_sign_offs')
+          .select('job_id, signed_off_at, progress_notes')
+          .eq('team_name', teamName)
+          .gte('signed_off_at', twoYearsAgo.toISOString())
+          .order('signed_off_at', { ascending: false })
+          .limit(5000),
+        supabase
+          .from('jobs')
+          .select('id, job_number, name, address, phone_number, description, summary_of_works, completion_date, updated_at')
+          .or(`and(team.eq."${safeTeamName}",status.eq.complete),and(team.eq."${safeTeamName}",is_completed.eq.true),and(team2.eq."${safeTeamName}",status.eq.complete),and(team2.eq."${safeTeamName}",is_completed.eq.true)`)
+          .order('updated_at', { ascending: false })
+          .limit(5000),
+      ]);
 
-      if (error) {
-        console.error('Failed to fetch team sign-offs:', error);
-        return;
+      if (signOffResult.error) {
+        console.error('Failed to fetch team sign-offs:', signOffResult.error);
       }
-      setSignOffs(data || []);
+      if (completedJobsResult.error) {
+        console.error('Failed to fetch completed jobs fallback:', completedJobsResult.error);
+      }
+
+      const nextSignOffs = signOffResult.data || [];
+      const nextCompletedJobs = (completedJobsResult.data || []).filter((row) => {
+        const relevantDate = row.completion_date || row.updated_at;
+        if (!relevantDate) return false;
+        return new Date(relevantDate) >= twoYearsAgo;
+      });
+
+      setSignOffs(nextSignOffs);
+      setCompletedJobs(nextCompletedJobs);
 
       // Fetch minimal details for any sign-offs whose job isn't in the live jobs prop
       const jobIdsInMemory = jobsByIdRef.current;
       const uniqueMissing = Array.from(new Set(
-        (data || []).map(s => s.job_id).filter(id => !jobIdsInMemory.has(id))
+        [...nextSignOffs.map(s => s.job_id), ...nextCompletedJobs.map(j => j.id)].filter(id => !jobIdsInMemory.has(id))
       ));
 
       if (uniqueMissing.length > 0) {
         const chunkSize = 100;
-        const fetched = new Map<string, { jobNumber?: string; name?: string; address?: string }>();
+        const fetched = new Map<string, { jobNumber?: string; name?: string; address?: string; phoneNumber?: string; description?: string; summaryOfWorks?: string }>();
         for (let i = 0; i < uniqueMissing.length; i += chunkSize) {
           const chunk = uniqueMissing.slice(i, i + chunkSize);
           const { data: jobRows, error: jobErr } = await supabase
             .from('jobs')
-            .select('id, job_number, name, address')
+            .select('id, job_number, name, address, phone_number, description, summary_of_works')
             .in('id', chunk);
           if (jobErr) {
             console.warn('Failed to fetch missing job details:', jobErr.message);
             continue;
           }
           for (const row of jobRows || []) {
-            fetched.set(row.id, { jobNumber: row.job_number, name: row.name, address: row.address || undefined });
+            fetched.set(row.id, {
+              jobNumber: row.job_number || undefined,
+              name: row.name || undefined,
+              address: row.address || undefined,
+              phoneNumber: row.phone_number || undefined,
+              description: row.description || undefined,
+              summaryOfWorks: row.summary_of_works || undefined,
+            });
           }
         }
         setMissingJobs(fetched);
@@ -174,75 +202,84 @@ export const TeamHistory = ({ jobs, teamName, onSelectJob, embedded = false }: T
     };
   }, [fetchSignOffs]);
 
-  // Real-time subscription for new sign-offs by this team
+  // Real-time subscription for sign-offs and completed-job changes for this team
   useEffect(() => {
     const channel = supabase
       .channel(`team-history-${teamName}`)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'team_sign_offs', filter: `team_name=eq.${teamName}` },
-        async (payload) => {
-          const rec = payload.new as any;
-          setSignOffs(prev => {
-            if (prev.some(s => s.job_id === rec.job_id && s.signed_off_at === rec.signed_off_at)) return prev;
-            return [
-              { job_id: rec.job_id, signed_off_at: rec.signed_off_at, progress_notes: rec.progress_notes },
-              ...prev,
-            ];
-          });
-
-          // If the just-signed-off job isn't in our current jobs prop or fallback map,
-          // fetch its minimal details so it renders immediately in the history list.
-          if (!jobsByIdRef.current.has(rec.job_id) && !missingJobsRef.current.has(rec.job_id)) {
-            const { data: jobRow } = await supabase
-              .from('jobs')
-              .select('id, job_number, name, address')
-              .eq('id', rec.job_id)
-              .maybeSingle();
-            if (jobRow) {
-              setMissingJobs(prev => {
-                const next = new Map(prev);
-                next.set(jobRow.id, {
-                  jobNumber: jobRow.job_number,
-                  name: jobRow.name,
-                  address: jobRow.address || undefined,
-                });
-                return next;
-              });
-            }
+        { event: '*', schema: 'public', table: 'team_sign_offs', filter: `team_name=eq.${teamName}` },
+        () => fetchSignOffs({ silent: true })
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'jobs' },
+        (payload) => {
+          const nextJob = payload.new as any;
+          const prevJob = payload.old as any;
+          const touchesTeam = [nextJob?.team, nextJob?.team2, prevJob?.team, prevJob?.team2].includes(teamName);
+          const touchesCompletedState = [nextJob, prevJob].some((job) => job?.status === 'complete' || job?.is_completed === true);
+          if (touchesTeam && touchesCompletedState) {
+            fetchSignOffs({ silent: true });
           }
         }
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [teamName]);
+  }, [teamName, fetchSignOffs]);
 
-  // Build history entries: one per sign-off, deduped to latest per job
+  // Build history entries: prefer the latest sign-off per job, then backfill from completed jobs.
   const historyEntries = useMemo<HistoryEntry[]>(() => {
     const jobsById = new Map(jobs.map(j => [j.id, j]));
-    const latestByJob = new Map<string, SignOffRecord>();
+    const latestByJob = new Map<string, HistoryEntry>();
     for (const so of signOffs) {
+      const signedOffAt = new Date(so.signed_off_at);
       const existing = latestByJob.get(so.job_id);
-      if (!existing || new Date(so.signed_off_at) > new Date(existing.signed_off_at)) {
-        latestByJob.set(so.job_id, so);
+      if (!existing || signedOffAt > existing.signedOffAt) {
+        latestByJob.set(so.job_id, {
+          job: jobsById.get(so.job_id) || null,
+          jobId: so.job_id,
+          signedOffAt,
+          progressNotes: so.progress_notes,
+          source: 'signoff',
+          fallback: missingJobs.get(so.job_id),
+        });
       }
     }
-    const entries: HistoryEntry[] = [];
-    for (const [jobId, so] of latestByJob) {
-      const job = jobsById.get(jobId) || null;
-      const fallback = !job ? missingJobs.get(jobId) : undefined;
-      // Skip entries we have absolutely no data for
-      if (!job && !fallback) continue;
-      entries.push({
+
+    for (const completedJob of completedJobs) {
+      if (latestByJob.has(completedJob.id)) continue;
+      const relevantDate = completedJob.completion_date || completedJob.updated_at;
+      if (!relevantDate) continue;
+
+      const signedOffAt = new Date(relevantDate);
+      if (!isValid(signedOffAt)) continue;
+
+      const job = jobsById.get(completedJob.id) || null;
+      const existingFallback = missingJobs.get(completedJob.id);
+      const fallback = {
+        jobNumber: completedJob.job_number || existingFallback?.jobNumber,
+        name: completedJob.name || existingFallback?.name,
+        address: completedJob.address || existingFallback?.address,
+        phoneNumber: completedJob.phone_number || existingFallback?.phoneNumber,
+        description: completedJob.description || existingFallback?.description,
+        summaryOfWorks: completedJob.summary_of_works || existingFallback?.summaryOfWorks,
+      };
+
+      if (!job && !fallback.jobNumber && !fallback.name && !fallback.address) continue;
+
+      latestByJob.set(completedJob.id, {
         job,
-        jobId,
-        signedOffAt: new Date(so.signed_off_at),
-        progressNotes: so.progress_notes,
+        jobId: completedJob.id,
+        signedOffAt,
+        progressNotes: null,
+        source: 'completion',
         fallback,
       });
     }
-    return entries;
-  }, [signOffs, jobs, missingJobs]);
+
+    return Array.from(latestByJob.values()).sort((a, b) => b.signedOffAt.getTime() - a.signedOffAt.getTime());
+  }, [signOffs, completedJobs, jobs, missingJobs]);
 
   // Apply search
   const searchedEntries = useMemo(() => {
@@ -252,8 +289,8 @@ export const TeamHistory = ({ jobs, teamName, onSelectJob, embedded = false }: T
       const num = (e.job?.jobNumber || e.fallback?.jobNumber || '').toLowerCase();
       const name = (e.job?.name || e.fallback?.name || '').toLowerCase();
       const address = (e.job?.address || e.fallback?.address || '').toLowerCase();
-      const desc = (e.job?.description || '').toLowerCase();
-      const summary = (e.job?.summaryOfWorks || '').toLowerCase();
+      const desc = (e.job?.description || e.fallback?.description || '').toLowerCase();
+      const summary = (e.job?.summaryOfWorks || e.fallback?.summaryOfWorks || '').toLowerCase();
       const notes = (e.progressNotes || '').toLowerCase();
       return (
         num.includes(term) ||
