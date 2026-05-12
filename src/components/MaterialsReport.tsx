@@ -224,6 +224,66 @@ export function MaterialsReport({ report, title, sourceJobs }: Props) {
         </Card>
       )}
 
+      {/* Accuracy verification audit */}
+      {audit && (
+        <Card className={cn('p-4 border-l-4', audit.issues === 0 ? 'border-l-success bg-success/5' : 'border-l-warning bg-warning/5')}>
+          <button onClick={() => setAuditOpen(o => !o)} className="w-full flex items-center gap-2 text-left">
+            {audit.issues === 0 ? (
+              <ShieldCheck className="w-4 h-4 text-success" />
+            ) : (
+              <ShieldAlert className="w-4 h-4 text-warning" />
+            )}
+            <h2 className="text-sm font-semibold">
+              Accuracy Verification —{' '}
+              {audit.issues === 0
+                ? 'All checks passed'
+                : `${audit.issues} ${audit.issues === 1 ? 'issue' : 'issues'} flagged`}
+            </h2>
+            <span className="ml-auto text-[11px] text-muted-foreground tabular-nums">
+              Source {audit.sourceCount} · Report {audit.reportCount}
+            </span>
+            <ChevronDown className={cn('w-4 h-4 text-muted-foreground transition-transform', auditOpen && 'rotate-180')} />
+          </button>
+          {auditOpen && (
+            <div className="mt-3 grid sm:grid-cols-2 gap-2 text-xs">
+              <AuditRow ok={audit.countMatches} label="Job count matches" detail={`${audit.reportCount} / ${audit.sourceCount}`} />
+              <AuditRow ok={audit.missing.length === 0} label="No missing jobs" detail={audit.missing.length === 0 ? 'All source jobs covered' : `${audit.missing.length} missing: ${audit.missing.slice(0, 5).map(j => j.jobNumber).join(', ')}${audit.missing.length > 5 ? '…' : ''}`} />
+              <AuditRow ok={audit.extra.length === 0} label="No phantom jobs" detail={audit.extra.length === 0 ? 'No unexpected jobs' : `${audit.extra.length} extra: ${audit.extra.slice(0, 5).map(j => j.jobNumber).join(', ')}${audit.extra.length > 5 ? '…' : ''}`} />
+              <AuditRow ok={audit.orphanRefs.length === 0} label="Trade/material refs valid" detail={audit.orphanRefs.length === 0 ? 'All references resolve' : `${audit.orphanRefs.length} orphan refs`} />
+              <AuditRow ok={audit.completedInScope.length === 0} label="No completed jobs in scope" detail={audit.completedInScope.length === 0 ? 'Scope is incomplete jobs only' : `${audit.completedInScope.length} completed jobs included`} />
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* Search + urgency filter */}
+      <div className="flex flex-wrap gap-2 items-center">
+        <div className="relative flex-1 min-w-[220px]">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+          <Input
+            placeholder="Search property, job no, trade, or material..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="pl-9 h-9"
+          />
+        </div>
+        <Select value={urgencyFilter} onValueChange={(v) => setUrgencyFilter(v as any)}>
+          <SelectTrigger className="w-40 h-9"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All urgencies</SelectItem>
+            <SelectItem value="critical">Critical only</SelectItem>
+            <SelectItem value="high">High only</SelectItem>
+            <SelectItem value="medium">Medium only</SelectItem>
+            <SelectItem value="low">Low only</SelectItem>
+          </SelectContent>
+        </Select>
+        {(query || urgencyFilter !== 'all') && (
+          <Button variant="ghost" size="sm" onClick={() => { setQuery(''); setUrgencyFilter('all'); }}>
+            Clear
+          </Button>
+        )}
+      </div>
+
       {/* GRAND TOTALS — at-a-glance procurement view */}
       <div className="grid md:grid-cols-2 gap-4">
         <Card className="p-5">
