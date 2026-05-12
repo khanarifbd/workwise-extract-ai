@@ -453,6 +453,33 @@ const TeamPortal = () => {
     }
   }, [isOnline, isAuthenticated]);
 
+  // Native apps do not always fire normal browser focus events reliably when
+  // resuming from background, so force a refresh when the app becomes active.
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform() || !isAuthenticated) return;
+
+    let remove: (() => void) | undefined;
+
+    (async () => {
+      try {
+        const { App } = await import('@capacitor/app');
+        const listener = await App.addListener('appStateChange', ({ isActive }) => {
+          if (!isActive) return;
+          if (!navigator.onLine) return;
+          syncPendingUpdatesRef.current();
+          loadJobsRef.current();
+        });
+        remove = () => listener.remove();
+      } catch (error) {
+        console.warn('[appStateChange] listener unavailable:', error);
+      }
+    })();
+
+    return () => {
+      remove?.();
+    };
+  }, [isAuthenticated]);
+
   // Use refs to avoid recreating subscriptions on every state change
   const selectedJobRef = useRef(selectedJob);
   selectedJobRef.current = selectedJob;
