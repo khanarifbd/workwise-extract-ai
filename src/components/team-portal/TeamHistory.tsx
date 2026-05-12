@@ -31,6 +31,8 @@ interface TeamHistoryProps {
   jobs: Job[];
   teamName: string;
   onSelectJob: (job: Job) => void;
+  /** When true, hides the outer header so it can be embedded inline. */
+  embedded?: boolean;
 }
 
 interface SignOffRecord {
@@ -62,7 +64,7 @@ const formatDayHeader = (dateKey: string): string => {
   }
 };
 
-export const TeamHistory = ({ jobs, teamName, onSelectJob }: TeamHistoryProps) => {
+export const TeamHistory = ({ jobs, teamName, onSelectJob, embedded = false }: TeamHistoryProps) => {
   const [search, setSearch] = useState('');
   const [expandedYears, setExpandedYears] = useState<Set<string>>(new Set());
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set());
@@ -71,18 +73,22 @@ export const TeamHistory = ({ jobs, teamName, onSelectJob }: TeamHistoryProps) =
   const [loading, setLoading] = useState(true);
   const [missingJobs, setMissingJobs] = useState<Map<string, { jobNumber?: string; name?: string; address?: string }>>(new Map());
 
-  // Fetch authoritative sign-off records for THIS team only
+  // Fetch authoritative sign-off records for THIS team only — last 2 years
   useEffect(() => {
     let cancelled = false;
     const fetchSignOffs = async () => {
       setLoading(true);
       try {
+        const twoYearsAgo = new Date();
+        twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
+
         const { data, error } = await supabase
           .from('team_sign_offs')
           .select('job_id, signed_off_at, progress_notes')
           .eq('team_name', teamName)
+          .gte('signed_off_at', twoYearsAgo.toISOString())
           .order('signed_off_at', { ascending: false })
-          .limit(2000);
+          .limit(5000);
 
         if (error) {
           console.error('Failed to fetch team sign-offs:', error);
@@ -280,21 +286,23 @@ export const TeamHistory = ({ jobs, teamName, onSelectJob }: TeamHistoryProps) =
   const totalSignedOff = historyEntries.length;
 
   return (
-    <div className="p-3 space-y-3">
+    <div className={cn(embedded ? "space-y-3" : "p-3 space-y-3")}>
       {/* Header */}
-      <div className="flex items-center gap-2 px-1">
-        <div className="h-8 w-8 rounded-full bg-[hsl(var(--success))]/15 flex items-center justify-center">
-          <History className="h-4 w-4 text-[hsl(var(--success))]" />
+      {!embedded && (
+        <div className="flex items-center gap-2 px-1">
+          <div className="h-8 w-8 rounded-full bg-[hsl(var(--success))]/15 flex items-center justify-center">
+            <History className="h-4 w-4 text-[hsl(var(--success))]" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-sm font-bold text-foreground">Job History</h2>
+            <p className="text-[10px] text-muted-foreground">
+              {loading
+                ? 'Loading sign-offs…'
+                : `${totalSignedOff} job${totalSignedOff !== 1 ? 's' : ''} signed off by ${teamName}`}
+            </p>
+          </div>
         </div>
-        <div className="flex-1 min-w-0">
-          <h2 className="text-sm font-bold text-foreground">Job History</h2>
-          <p className="text-[10px] text-muted-foreground">
-            {loading
-              ? 'Loading sign-offs…'
-              : `${totalSignedOff} job${totalSignedOff !== 1 ? 's' : ''} signed off by ${teamName}`}
-          </p>
-        </div>
-      </div>
+      )}
 
       {/* Search */}
       <div className="relative">

@@ -78,6 +78,31 @@ const TeamPortal = () => {
     configureStatusBar();
   }, []);
 
+  // Android hardware back button: navigate within the app instead of exiting
+  // - If a job detail is open → return to home (job list)
+  // - Otherwise → minimise the app (so users don't accidentally lose state)
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    let remove: (() => void) | undefined;
+    (async () => {
+      try {
+        const { App } = await import('@capacitor/app');
+        const handle = await App.addListener('backButton', () => {
+          if (selectedJob) {
+            setSelectedJob(null);
+            return;
+          }
+          // At home screen — minimise instead of exiting
+          App.minimizeApp().catch(() => App.exitApp());
+        });
+        remove = () => handle.remove();
+      } catch (e) {
+        console.warn('[backButton] not available:', e);
+      }
+    })();
+    return () => { remove?.(); };
+  }, [selectedJob]);
+
   // Handle deep link from notification
   const handleDeepLink = useCallback((loadedJobs: Job[]) => {
     const jobIdFromUrl = searchParams.get('job');
