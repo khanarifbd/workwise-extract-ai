@@ -357,26 +357,30 @@ export function MaterialsReport({ report, title, sourceJobs }: Props) {
       {propertyRows.length > 0 && (
         <Card className="p-5">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold">Properties ({propertyRows.length})</h2>
+            <h2 className="text-sm font-semibold">Properties ({filteredProperties.length}/{propertyRows.length})</h2>
             <span className="text-[11px] text-muted-foreground">Click any row for full breakdown</span>
           </div>
-          <div className="divide-y">
-            {propertyRows.map((p) => (
-              <button
-                key={p.jobNumber}
-                onClick={() => setDrilldownJob(p.jobNumber)}
-                className="w-full flex items-center gap-3 py-2.5 px-2 -mx-2 rounded hover:bg-muted/50 text-left transition-colors"
-              >
-                <span className="font-mono text-xs text-muted-foreground w-16 shrink-0">{p.jobNumber}</span>
-                <span className="flex-1 truncate text-sm">{p.address || '—'}</span>
-                <span className="text-[11px] text-muted-foreground tabular-nums hidden sm:inline">
-                  {p.trades.size}T · {p.materials.length}M
-                </span>
-                <UrgencyBadge urgency={p.urgency} />
-                <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
-              </button>
-            ))}
-          </div>
+          {filteredProperties.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">No properties match your filters.</p>
+          ) : (
+            <div className="divide-y max-h-[500px] overflow-y-auto">
+              {filteredProperties.map((p) => (
+                <button
+                  key={p.jobNumber}
+                  onClick={() => setDrilldownJob(p.jobNumber)}
+                  className="w-full flex items-center gap-3 py-2.5 px-2 -mx-2 rounded hover:bg-muted/50 text-left transition-colors"
+                >
+                  <span className="font-mono text-xs text-muted-foreground w-16 shrink-0">{p.jobNumber}</span>
+                  <span className="flex-1 truncate text-sm">{p.address || '—'}</span>
+                  <span className="text-[11px] text-muted-foreground tabular-nums hidden sm:inline">
+                    {p.trades.size}T · {p.materials.length}M
+                  </span>
+                  <UrgencyBadge urgency={p.urgency} />
+                  <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                </button>
+              ))}
+            </div>
+          )}
         </Card>
       )}
 
