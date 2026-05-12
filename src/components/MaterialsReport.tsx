@@ -315,13 +315,13 @@ export function MaterialsReport({ report, title, sourceJobs }: Props) {
           <div className="flex items-center gap-2 mb-3">
             <Package className="w-4 h-4 text-primary" />
             <h2 className="text-sm font-semibold">Grand Totals — Materials</h2>
-            <Badge variant="secondary" className="ml-auto text-[10px]">{grandMaterials.length}</Badge>
+            <Badge variant="secondary" className="ml-auto text-[10px]">{filteredMaterials.length}/{grandMaterials.length}</Badge>
           </div>
-          {grandMaterials.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No materials identified.</p>
+          {filteredMaterials.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{grandMaterials.length === 0 ? 'No materials identified.' : 'No matches.'}</p>
           ) : (
             <div className="space-y-0.5 max-h-[420px] overflow-y-auto pr-1">
-              {grandMaterials.map((m, i) => (
+              {filteredMaterials.map((m, i) => (
                 <div key={i} className="flex items-center justify-between gap-2 py-1.5 px-2 rounded hover:bg-muted/40 text-sm">
                   <div className="flex items-center gap-2 min-w-0">
                     <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', URGENCY_STYLES[m.urgency].dot)} />
