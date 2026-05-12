@@ -373,6 +373,9 @@ export const TeamHistory = ({ jobs, teamName, onSelectJob, embedded = false }: T
   }, [search, grouped]);
 
   const totalSignedOff = historyEntries.length;
+  const sourceLabel = historyEntries.some((entry) => entry.source === 'completion')
+    ? 'completed / signed-off'
+    : 'signed off';
 
   return (
     <div className={cn(embedded ? "space-y-3" : "p-3 space-y-3")}>
@@ -387,7 +390,7 @@ export const TeamHistory = ({ jobs, teamName, onSelectJob, embedded = false }: T
             <p className="text-[10px] text-muted-foreground">
               {loading
                 ? 'Loading sign-offs…'
-                : `${totalSignedOff} job${totalSignedOff !== 1 ? 's' : ''} signed off by ${teamName}`}
+                : `${totalSignedOff} job${totalSignedOff !== 1 ? 's' : ''} ${sourceLabel} by ${teamName}`}
             </p>
           </div>
         </div>
@@ -420,16 +423,16 @@ export const TeamHistory = ({ jobs, teamName, onSelectJob, embedded = false }: T
       {loading ? (
         <div className="flex flex-col items-center justify-center py-16 gap-2">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          <p className="text-xs text-muted-foreground">Fetching sign-off history…</p>
+          <p className="text-xs text-muted-foreground">Fetching completed history…</p>
         </div>
       ) : totalSignedOff === 0 ? (
         <div className="flex flex-col items-center justify-center py-16">
           <div className="h-16 w-16 rounded-2xl bg-muted flex items-center justify-center mb-4">
             <CheckCircle2 className="h-8 w-8 text-muted-foreground/50" />
           </div>
-          <p className="text-base font-medium text-muted-foreground">No signed-off jobs yet</p>
+          <p className="text-base font-medium text-muted-foreground">No completed jobs yet</p>
           <p className="text-xs text-muted-foreground/80 text-center px-4 mt-1">
-            Once you sign off jobs, they'll appear here grouped by date.
+            Once jobs are completed, they'll appear here grouped by date.
           </p>
         </div>
       ) : searchedEntries.length === 0 ? (
@@ -492,7 +495,7 @@ export const TeamHistory = ({ jobs, teamName, onSelectJob, embedded = false }: T
                               const jobNumber = entry.job?.jobNumber || entry.fallback?.jobNumber || '—';
                               const name = entry.job?.name || entry.fallback?.name || 'Unknown property';
                               const address = entry.job?.address || entry.fallback?.address;
-                              const phone = entry.job?.phoneNumber;
+                              const phone = entry.job?.phoneNumber || entry.fallback?.phoneNumber;
                               const clickable = !!entry.job;
                               return (
                                 <button
@@ -512,6 +515,9 @@ export const TeamHistory = ({ jobs, teamName, onSelectJob, embedded = false }: T
                                         <span className="font-mono text-[11px] text-muted-foreground">
                                           {jobNumber}
                                         </span>
+                                        {entry.source === 'completion' && (
+                                          <span className="text-[9px] uppercase tracking-wide text-muted-foreground/70">completed</span>
+                                        )}
                                         {!entry.job && (
                                           <span className="text-[9px] uppercase tracking-wide text-muted-foreground/70">archived</span>
                                         )}
