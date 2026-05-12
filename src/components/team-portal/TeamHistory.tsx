@@ -208,68 +208,74 @@ export const TeamHistory = ({ jobs, teamName, onSelectJob }: TeamHistoryProps) =
     });
   }, [historyEntries, search]);
 
-  // Group by month → day (descending) using signed_off_at
+  // Group by year → month → day (descending) using signed_off_at
   const grouped = useMemo(() => {
-    const monthMap = new Map<string, Map<string, HistoryEntry[]>>();
+    const yearMap = new Map<string, Map<string, Map<string, HistoryEntry[]>>>();
     for (const entry of searchedEntries) {
       if (!isValid(entry.signedOffAt)) continue;
+      const yearKey = format(entry.signedOffAt, 'yyyy');
       const monthKey = format(entry.signedOffAt, 'yyyy-MM');
       const dayKey = format(entry.signedOffAt, 'yyyy-MM-dd');
+      if (!yearMap.has(yearKey)) yearMap.set(yearKey, new Map());
+      const monthMap = yearMap.get(yearKey)!;
       if (!monthMap.has(monthKey)) monthMap.set(monthKey, new Map());
       const days = monthMap.get(monthKey)!;
       if (!days.has(dayKey)) days.set(dayKey, []);
       days.get(dayKey)!.push(entry);
     }
 
-    for (const [, days] of monthMap) {
-      for (const [, list] of days) {
-        list.sort((a, b) => b.signedOffAt.getTime() - a.signedOffAt.getTime());
-      }
-    }
-
-    const months = Array.from(monthMap.keys()).sort((a, b) => b.localeCompare(a)).map(monthKey => {
-      const daysMap = monthMap.get(monthKey)!;
-      const sortedDayKeys = Array.from(daysMap.keys()).sort((a, b) => b.localeCompare(a));
-      const sortedDays = new Map<string, HistoryEntry[]>();
-      let total = 0;
-      for (const dk of sortedDayKeys) {
-        const list = daysMap.get(dk)!;
-        sortedDays.set(dk, list);
-        total += list.length;
-      }
-      const monthDate = parseDateKeyAsLocal(`${monthKey}-01`);
-      return {
-        monthKey,
-        monthLabel: format(monthDate, 'MMMM yyyy'),
-        days: sortedDays,
-        total,
-      };
+    const years = Array.from(yearMap.keys()).sort((a, b) => b.localeCompare(a)).map(yearKey => {
+      const monthMap = yearMap.get(yearKey)!;
+      const months = Array.from(monthMap.keys()).sort((a, b) => b.localeCompare(a)).map(monthKey => {
+        const daysMap = monthMap.get(monthKey)!;
+        const sortedDayKeys = Array.from(daysMap.keys()).sort((a, b) => b.localeCompare(a));
+        const sortedDays = new Map<string, HistoryEntry[]>();
+        let total = 0;
+        for (const dk of sortedDayKeys) {
+          const list = daysMap.get(dk)!.sort((a, b) => b.signedOffAt.getTime() - a.signedOffAt.getTime());
+          sortedDays.set(dk, list);
+          total += list.length;
+        }
+        const monthDate = parseDateKeyAsLocal(`${monthKey}-01`);
+        return { monthKey, monthLabel: format(monthDate, 'MMMM'), days: sortedDays, total };
+      });
+      const yearTotal = months.reduce((s, m) => s + m.total, 0);
+      return { yearKey, yearLabel: yearKey, months, total: yearTotal };
     });
 
-    return { months };
+    return { years };
   }, [searchedEntries]);
 
+  const toggleYear = (key: string) =>
+    setExpandedYears(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; });
   const toggleMonth = (key: string) =>
-    setExpandedMonths(prev => {
-      const n = new Set(prev);
-      if (n.has(key)) n.delete(key); else n.add(key);
-      return n;
-    });
-
+    setExpandedMonths(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; });
   const toggleDay = (key: string) =>
-    setExpandedDays(prev => {
-      const n = new Set(prev);
-      if (n.has(key)) n.delete(key); else n.add(key);
-      return n;
-    });
+    setExpandedDays(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; });
 
-  // Auto-expand newest month on first render
+  // When searching, auto-expand all matched groups so results are visible
   useEffect(() => {
-    if (grouped.months.length > 0 && expandedMonths.size === 0 && !search) {
-      setExpandedMonths(new Set([grouped.months[0].monthKey]));
+    if (!search.trim()) {
+      // Reset to fully collapsed when search cleared
+      setExpandedYears(new Set());
+      setExpandedMonths(new Set());
+      setExpandedDays(new Set());
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [grouped.months.length]);
+    const ys = new Set<string>();
+    const ms = new Set<string>();
+    const ds = new Set<string>();
+    for (const y of grouped.years) {
+      ys.add(y.yearKey);
+      for (const m of y.months) {
+        ms.add(m.monthKey);
+        for (const dk of m.days.keys()) ds.add(dk);
+      }
+    }
+    setExpandedYears(ys);
+    setExpandedMonths(ms);
+    setExpandedDays(ds);
+  }, [search, grouped]);
 
   const totalSignedOff = historyEntries.length;
 
