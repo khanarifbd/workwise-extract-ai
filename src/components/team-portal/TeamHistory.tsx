@@ -286,21 +286,23 @@ export const TeamHistory = ({ jobs, teamName, onSelectJob, embedded = false }: T
   const totalSignedOff = historyEntries.length;
 
   return (
-    <div className="p-3 space-y-3">
+    <div className={cn(embedded ? "space-y-3" : "p-3 space-y-3")}>
       {/* Header */}
-      <div className="flex items-center gap-2 px-1">
-        <div className="h-8 w-8 rounded-full bg-[hsl(var(--success))]/15 flex items-center justify-center">
-          <History className="h-4 w-4 text-[hsl(var(--success))]" />
+      {!embedded && (
+        <div className="flex items-center gap-2 px-1">
+          <div className="h-8 w-8 rounded-full bg-[hsl(var(--success))]/15 flex items-center justify-center">
+            <History className="h-4 w-4 text-[hsl(var(--success))]" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-sm font-bold text-foreground">Job History</h2>
+            <p className="text-[10px] text-muted-foreground">
+              {loading
+                ? 'Loading sign-offs…'
+                : `${totalSignedOff} job${totalSignedOff !== 1 ? 's' : ''} signed off by ${teamName}`}
+            </p>
+          </div>
         </div>
-        <div className="flex-1 min-w-0">
-          <h2 className="text-sm font-bold text-foreground">Job History</h2>
-          <p className="text-[10px] text-muted-foreground">
-            {loading
-              ? 'Loading sign-offs…'
-              : `${totalSignedOff} job${totalSignedOff !== 1 ? 's' : ''} signed off by ${teamName}`}
-          </p>
-        </div>
-      </div>
+      )}
 
       {/* Search */}
       <div className="relative">
