@@ -75,75 +75,87 @@ export const TeamHistory = ({ jobs, teamName, onSelectJob, embedded = false }: T
   const [loading, setLoading] = useState(true);
   const [missingJobs, setMissingJobs] = useState<Map<string, { jobNumber?: string; name?: string; address?: string }>>(new Map());
 
+  // Track in-memory job IDs so realtime handler can fetch missing details on the fly
+  const jobsByIdRef = useRef<Map<string, Job>>(new Map());
+  jobsByIdRef.current = useMemo(() => new Map(jobs.map(j => [j.id, j])), [jobs]);
+  const missingJobsRef = useRef<Map<string, { jobNumber?: string; name?: string; address?: string }>>(new Map());
+  missingJobsRef.current = missingJobs;
+  const [refreshing, setRefreshing] = useState(false);
+
   // Fetch authoritative sign-off records for THIS team only — last 2 years
-  useEffect(() => {
-    let cancelled = false;
-    const fetchSignOffs = async () => {
-      setLoading(true);
-      try {
-        const twoYearsAgo = new Date();
-        twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
+  const fetchSignOffs = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoading(true); else setRefreshing(true);
+    try {
+      const twoYearsAgo = new Date();
+      twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
 
-        const { data, error } = await supabase
-          .from('team_sign_offs')
-          .select('job_id, signed_off_at, progress_notes')
-          .eq('team_name', teamName)
-          .gte('signed_off_at', twoYearsAgo.toISOString())
-          .order('signed_off_at', { ascending: false })
-          .limit(5000);
+      const { data, error } = await supabase
+        .from('team_sign_offs')
+        .select('job_id, signed_off_at, progress_notes')
+        .eq('team_name', teamName)
+        .gte('signed_off_at', twoYearsAgo.toISOString())
+        .order('signed_off_at', { ascending: false })
+        .limit(5000);
 
-        if (error) {
-          console.error('Failed to fetch team sign-offs:', error);
-          return;
-        }
-        if (cancelled) return;
-        setSignOffs(data || []);
-
-        // For sign-offs whose job is not in the current jobs prop (older completed jobs
-        // outside the team's current loaded set), fetch minimal job details so we can
-        // still show them in history.
-        const jobIdsInMemory = new Set(jobs.map(j => j.id));
-        const missingIds = (data || [])
-          .map(s => s.job_id)
-          .filter(id => !jobIdsInMemory.has(id));
-        const uniqueMissing = Array.from(new Set(missingIds));
-
-        if (uniqueMissing.length > 0) {
-          // Chunk to respect query size
-          const chunkSize = 100;
-          const fetched = new Map<string, { jobNumber?: string; name?: string; address?: string }>();
-          for (let i = 0; i < uniqueMissing.length; i += chunkSize) {
-            const chunk = uniqueMissing.slice(i, i + chunkSize);
-            const { data: jobRows, error: jobErr } = await supabase
-              .from('jobs')
-              .select('id, job_number, name, address')
-              .in('id', chunk);
-            if (jobErr) {
-              console.warn('Failed to fetch missing job details:', jobErr.message);
-              continue;
-            }
-            for (const row of jobRows || []) {
-              fetched.set(row.id, {
-                jobNumber: row.job_number,
-                name: row.name,
-                address: row.address || undefined,
-              });
-            }
-          }
-          if (!cancelled) setMissingJobs(fetched);
-        } else if (!cancelled) {
-          setMissingJobs(new Map());
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
+      if (error) {
+        console.error('Failed to fetch team sign-offs:', error);
+        return;
       }
-    };
+      setSignOffs(data || []);
 
-    fetchSignOffs();
-    // Re-fetch when teamName changes; jobs change should not trigger a refetch loop,
-    // but we use jobs only inside fetch (not as dep) — refetch only on teamName.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+      // Fetch minimal details for any sign-offs whose job isn't in the live jobs prop
+      const jobIdsInMemory = jobsByIdRef.current;
+      const uniqueMissing = Array.from(new Set(
+        (data || []).map(s => s.job_id).filter(id => !jobIdsInMemory.has(id))
+      ));
+
+      if (uniqueMissing.length > 0) {
+        const chunkSize = 100;
+        const fetched = new Map<string, { jobNumber?: string; name?: string; address?: string }>();
+        for (let i = 0; i < uniqueMissing.length; i += chunkSize) {
+          const chunk = uniqueMissing.slice(i, i + chunkSize);
+          const { data: jobRows, error: jobErr } = await supabase
+            .from('jobs')
+            .select('id, job_number, name, address')
+            .in('id', chunk);
+          if (jobErr) {
+            console.warn('Failed to fetch missing job details:', jobErr.message);
+            continue;
+          }
+          for (const row of jobRows || []) {
+            fetched.set(row.id, { jobNumber: row.job_number, name: row.name, address: row.address || undefined });
+          }
+        }
+        setMissingJobs(fetched);
+      } else {
+        setMissingJobs(new Map());
+      }
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, [teamName]);
+
+  // Initial fetch + refetch on team change
+  useEffect(() => {
+    fetchSignOffs();
+  }, [fetchSignOffs]);
+
+  // Refresh on tab focus / when coming back online (catches sign-offs from other devices)
+  useEffect(() => {
+    const onFocus = () => {
+      if (document.visibilityState === 'visible') fetchSignOffs({ silent: true });
+    };
+    const onOnline = () => fetchSignOffs({ silent: true });
+    document.addEventListener('visibilitychange', onFocus);
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('online', onOnline);
+    return () => {
+      document.removeEventListener('visibilitychange', onFocus);
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('online', onOnline);
+    };
+  }, [fetchSignOffs]);
 
   // Real-time subscription for new sign-offs by this team
   useEffect(() => {
@@ -152,7 +164,7 @@ export const TeamHistory = ({ jobs, teamName, onSelectJob, embedded = false }: T
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'team_sign_offs', filter: `team_name=eq.${teamName}` },
-        (payload) => {
+        async (payload) => {
           const rec = payload.new as any;
           setSignOffs(prev => {
             if (prev.some(s => s.job_id === rec.job_id && s.signed_off_at === rec.signed_off_at)) return prev;
@@ -161,6 +173,27 @@ export const TeamHistory = ({ jobs, teamName, onSelectJob, embedded = false }: T
               ...prev,
             ];
           });
+
+          // If the just-signed-off job isn't in our current jobs prop or fallback map,
+          // fetch its minimal details so it renders immediately in the history list.
+          if (!jobsByIdRef.current.has(rec.job_id) && !missingJobsRef.current.has(rec.job_id)) {
+            const { data: jobRow } = await supabase
+              .from('jobs')
+              .select('id, job_number, name, address')
+              .eq('id', rec.job_id)
+              .maybeSingle();
+            if (jobRow) {
+              setMissingJobs(prev => {
+                const next = new Map(prev);
+                next.set(jobRow.id, {
+                  jobNumber: jobRow.job_number,
+                  name: jobRow.name,
+                  address: jobRow.address || undefined,
+                });
+                return next;
+              });
+            }
+          }
         }
       )
       .subscribe();
