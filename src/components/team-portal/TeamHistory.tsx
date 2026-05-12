@@ -1,6 +1,7 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Job } from '@/types/job';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
@@ -14,6 +15,7 @@ import {
   MapPin,
   Phone,
   Loader2,
+  RefreshCw,
 } from 'lucide-react';
 import { format, isValid, isToday, isYesterday } from 'date-fns';
 import { cn } from '@/lib/utils';
