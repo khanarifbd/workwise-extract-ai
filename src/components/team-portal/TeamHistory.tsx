@@ -64,7 +64,7 @@ const formatDayHeader = (dateKey: string): string => {
   }
 };
 
-export const TeamHistory = ({ jobs, teamName, onSelectJob }: TeamHistoryProps) => {
+export const TeamHistory = ({ jobs, teamName, onSelectJob, embedded = false }: TeamHistoryProps) => {
   const [search, setSearch] = useState('');
   const [expandedYears, setExpandedYears] = useState<Set<string>>(new Set());
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set());
@@ -73,18 +73,22 @@ export const TeamHistory = ({ jobs, teamName, onSelectJob }: TeamHistoryProps) =
   const [loading, setLoading] = useState(true);
   const [missingJobs, setMissingJobs] = useState<Map<string, { jobNumber?: string; name?: string; address?: string }>>(new Map());
 
-  // Fetch authoritative sign-off records for THIS team only
+  // Fetch authoritative sign-off records for THIS team only — last 2 years
   useEffect(() => {
     let cancelled = false;
     const fetchSignOffs = async () => {
       setLoading(true);
       try {
+        const twoYearsAgo = new Date();
+        twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
+
         const { data, error } = await supabase
           .from('team_sign_offs')
           .select('job_id, signed_off_at, progress_notes')
           .eq('team_name', teamName)
+          .gte('signed_off_at', twoYearsAgo.toISOString())
           .order('signed_off_at', { ascending: false })
-          .limit(2000);
+          .limit(5000);
 
         if (error) {
           console.error('Failed to fetch team sign-offs:', error);
