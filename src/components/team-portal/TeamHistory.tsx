@@ -43,15 +43,31 @@ interface SignOffRecord {
   progress_notes: string | null;
 }
 
+interface CompletedJobRecord {
+  id: string;
+  job_number: string | null;
+  name: string | null;
+  address: string | null;
+  phone_number: string | null;
+  description: string | null;
+  summary_of_works: string | null;
+  completion_date: string | null;
+  updated_at: string | null;
+}
+
 interface HistoryEntry {
   job: Job | null;
   jobId: string;
   signedOffAt: Date;
   progressNotes: string | null;
+  source: 'signoff' | 'completion';
   fallback?: {
     jobNumber?: string;
     name?: string;
     address?: string;
+    phoneNumber?: string;
+    description?: string;
+    summaryOfWorks?: string;
   };
 }
 
@@ -72,13 +88,14 @@ export const TeamHistory = ({ jobs, teamName, onSelectJob, embedded = false }: T
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set());
   const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
   const [signOffs, setSignOffs] = useState<SignOffRecord[]>([]);
+  const [completedJobs, setCompletedJobs] = useState<CompletedJobRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [missingJobs, setMissingJobs] = useState<Map<string, { jobNumber?: string; name?: string; address?: string }>>(new Map());
+  const [missingJobs, setMissingJobs] = useState<Map<string, { jobNumber?: string; name?: string; address?: string; phoneNumber?: string; description?: string; summaryOfWorks?: string }>>(new Map());
 
   // Track in-memory job IDs so realtime handler can fetch missing details on the fly
   const jobsByIdRef = useRef<Map<string, Job>>(new Map());
   jobsByIdRef.current = useMemo(() => new Map(jobs.map(j => [j.id, j])), [jobs]);
-  const missingJobsRef = useRef<Map<string, { jobNumber?: string; name?: string; address?: string }>>(new Map());
+  const missingJobsRef = useRef<Map<string, { jobNumber?: string; name?: string; address?: string; phoneNumber?: string; description?: string; summaryOfWorks?: string }>>(new Map());
   missingJobsRef.current = missingJobs;
   const [refreshing, setRefreshing] = useState(false);
 
