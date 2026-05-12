@@ -130,6 +130,54 @@ export function MaterialsReport({ report, title, sourceJobs }: Props) {
 
   const drilldown = drilldownJob ? propertyMap.get(drilldownJob) : null;
 
+  // ---------- Search + urgency filtering ----------
+  const q = query.trim().toLowerCase();
+  const matchesUrg = (u: Urgency) => urgencyFilter === 'all' || urgencyFilter === u;
+
+  const filteredTrades = useMemo(
+    () => grandTrades.filter(t => matchesUrg(t.topUrgency) && (!q || t.trade.toLowerCase().includes(q) || t.jobNumbers.some(j => j.toLowerCase().includes(q)))),
+    [grandTrades, q, urgencyFilter],
+  );
+  const filteredMaterials = useMemo(
+    () => grandMaterials.filter(m => matchesUrg(m.urgency) && (!q || m.name.toLowerCase().includes(q) || m.unit.toLowerCase().includes(q))),
+    [grandMaterials, q, urgencyFilter],
+  );
+  const filteredProperties = useMemo(
+    () => propertyRows.filter(p => {
+      if (!matchesUrg(p.urgency)) return false;
+      if (!q) return true;
+      if (p.jobNumber.toLowerCase().includes(q)) return true;
+      if ((p.address || '').toLowerCase().includes(q)) return true;
+      if (Array.from(p.trades).some(t => t.toLowerCase().includes(q))) return true;
+      if (p.materials.some(m => m.name.toLowerCase().includes(q))) return true;
+      return false;
+    }),
+    [propertyRows, q, urgencyFilter],
+  );
+
+  // ---------- Accuracy audit ----------
+  const audit = useMemo(() => {
+    if (!sourceJobs || sourceJobs.length === 0) return null;
+    const sourceSet = new Map(sourceJobs.map(j => [j.jobNumber, j]));
+    const reportSet = new Set(report.jobs.map(j => j.jobNumber));
+    const missing = sourceJobs.filter(j => !reportSet.has(j.jobNumber));
+    const extra = report.jobs.filter(j => !sourceSet.has(j.jobNumber));
+    const completedInScope = sourceJobs.filter(j => j.isCompleted || j.status === 'complete');
+    // Material refs / trade refs that point at job numbers not in the source set
+    const allRefdJobs = new Set<string>();
+    report.tradeGroups.forEach(t => t.jobNumbers.forEach(j => allRefdJobs.add(j)));
+    report.materialGroups.forEach(g => g.items.forEach(it => it.jobNumbers.forEach(j => allRefdJobs.add(j))));
+    const orphanRefs = Array.from(allRefdJobs).filter(j => !sourceSet.has(j));
+    const countMatches = report.jobCount === sourceJobs.length;
+    const issues =
+      (countMatches ? 0 : 1) +
+      (missing.length > 0 ? 1 : 0) +
+      (extra.length > 0 ? 1 : 0) +
+      (orphanRefs.length > 0 ? 1 : 0) +
+      (completedInScope.length > 0 ? 1 : 0);
+    return { sourceCount: sourceJobs.length, reportCount: report.jobCount, countMatches, missing, extra, orphanRefs, completedInScope, issues };
+  }, [sourceJobs, report]);
+
   const handleCopy = async () => {
     const text = buildPlainText(report, title, grandTrades, grandMaterials);
     await navigator.clipboard.writeText(text);
