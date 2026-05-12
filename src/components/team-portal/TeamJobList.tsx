@@ -972,7 +972,31 @@ export const TeamJobList = ({
                   </div>
                 )}
 
-                {/* Completed jobs are shown exclusively in the dedicated History tab */}
+                {/* Completed Jobs — single collapsible button (last 2 years) */}
+                {!isOpsManager && !todayOnlyFilter && (
+                  <div className="mt-4">
+                    <Collapsible open={completedExpanded} onOpenChange={setCompletedExpanded}>
+                      <CollapsibleTrigger asChild>
+                        <div className="cursor-pointer rounded-xl bg-[hsl(var(--success))]/10 border border-[hsl(var(--success))]/30 px-3 py-3 flex items-center justify-between hover:bg-[hsl(var(--success))]/15 transition-colors">
+                          <div className="flex items-center gap-2">
+                            {completedExpanded
+                              ? <ChevronDown className="h-4 w-4 text-[hsl(var(--success))]" />
+                              : <ChevronRight className="h-4 w-4 text-[hsl(var(--success))]" />}
+                            <CalendarCheck className="h-4 w-4 text-[hsl(var(--success))]" />
+                            <span className="font-bold text-sm">Completed Jobs</span>
+                            <span className="text-[10px] text-muted-foreground">· last 2 years</span>
+                          </div>
+                          <Badge className="text-[10px] bg-[hsl(var(--success))]/20 text-[hsl(var(--success))] hover:bg-[hsl(var(--success))]/20 rounded-full">
+                            Tap to view
+                          </Badge>
+                        </div>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="mt-2">
+                        <TeamHistory jobs={jobs} teamName={teamName} onSelectJob={onSelectJob} embedded />
+                      </CollapsibleContent>
+                    </Collapsible>
+                  </div>
+                )}
               </>
             )}
           </div>
