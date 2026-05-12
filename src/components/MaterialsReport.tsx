@@ -456,6 +456,18 @@ export function MaterialsReport({ report, title, sourceJobs }: Props) {
   );
 }
 
+function AuditRow({ ok, label, detail }: { ok: boolean; label: string; detail: string }) {
+  return (
+    <div className={cn('flex items-start gap-2 px-2.5 py-1.5 rounded border', ok ? 'border-success/30 bg-success/5' : 'border-warning/40 bg-warning/10')}>
+      {ok ? <Check className="w-3.5 h-3.5 text-success shrink-0 mt-0.5" /> : <AlertTriangle className="w-3.5 h-3.5 text-warning shrink-0 mt-0.5" />}
+      <div className="min-w-0">
+        <div className="font-medium text-foreground">{label}</div>
+        <div className="text-muted-foreground text-[11px] truncate">{detail}</div>
+      </div>
+    </div>
+  );
+}
+
 function buildPlainText(
   r: MaterialsReportData,
   title: string | undefined,
