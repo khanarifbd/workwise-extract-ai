@@ -61,15 +61,27 @@ function UrgencyBadge({ urgency }: { urgency: Urgency }) {
   );
 }
 
+export interface SourceJobLite {
+  jobNumber: string;
+  address?: string | null;
+  isCompleted?: boolean;
+  status?: string | null;
+}
+
 interface Props {
   report: MaterialsReportData;
   title?: string;
   onClose?: () => void;
+  /** Original jobs sent to the AI — used by the audit panel to verify accuracy */
+  sourceJobs?: SourceJobLite[];
 }
 
-export function MaterialsReport({ report, title }: Props) {
+export function MaterialsReport({ report, title, sourceJobs }: Props) {
   const [copied, setCopied] = useState(false);
   const [drilldownJob, setDrilldownJob] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
+  const [urgencyFilter, setUrgencyFilter] = useState<'all' | Urgency>('all');
+  const [auditOpen, setAuditOpen] = useState(true);
 
   // Grand totals: aggregate every material across the report (collapsed by name+unit)
   const grandMaterials = useMemo(() => {
