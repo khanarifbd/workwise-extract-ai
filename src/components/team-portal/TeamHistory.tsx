@@ -31,6 +31,8 @@ interface TeamHistoryProps {
   jobs: Job[];
   teamName: string;
   onSelectJob: (job: Job) => void;
+  /** When true, hides the outer header so it can be embedded inline. */
+  embedded?: boolean;
 }
 
 interface SignOffRecord {
