@@ -2,8 +2,10 @@ import { useMemo, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Download, Copy, Check, ChevronRight, Package, Wrench, AlertTriangle } from 'lucide-react';
+import { Download, Copy, Check, ChevronRight, Package, Wrench, AlertTriangle, Search, ShieldCheck, ShieldAlert, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -59,15 +61,27 @@ function UrgencyBadge({ urgency }: { urgency: Urgency }) {
   );
 }
 
+export interface SourceJobLite {
+  jobNumber: string;
+  address?: string | null;
+  isCompleted?: boolean;
+  status?: string | null;
+}
+
 interface Props {
   report: MaterialsReportData;
   title?: string;
   onClose?: () => void;
+  /** Original jobs sent to the AI — used by the audit panel to verify accuracy */
+  sourceJobs?: SourceJobLite[];
 }
 
-export function MaterialsReport({ report, title }: Props) {
+export function MaterialsReport({ report, title, sourceJobs }: Props) {
   const [copied, setCopied] = useState(false);
   const [drilldownJob, setDrilldownJob] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
+  const [urgencyFilter, setUrgencyFilter] = useState<'all' | Urgency>('all');
+  const [auditOpen, setAuditOpen] = useState(true);
 
   // Grand totals: aggregate every material across the report (collapsed by name+unit)
   const grandMaterials = useMemo(() => {
@@ -116,6 +130,54 @@ export function MaterialsReport({ report, title }: Props) {
 
   const drilldown = drilldownJob ? propertyMap.get(drilldownJob) : null;
 
+  // ---------- Search + urgency filtering ----------
+  const q = query.trim().toLowerCase();
+  const matchesUrg = (u: Urgency) => urgencyFilter === 'all' || urgencyFilter === u;
+
+  const filteredTrades = useMemo(
+    () => grandTrades.filter(t => matchesUrg(t.topUrgency) && (!q || t.trade.toLowerCase().includes(q) || t.jobNumbers.some(j => j.toLowerCase().includes(q)))),
+    [grandTrades, q, urgencyFilter],
+  );
+  const filteredMaterials = useMemo(
+    () => grandMaterials.filter(m => matchesUrg(m.urgency) && (!q || m.name.toLowerCase().includes(q) || m.unit.toLowerCase().includes(q))),
+    [grandMaterials, q, urgencyFilter],
+  );
+  const filteredProperties = useMemo(
+    () => propertyRows.filter(p => {
+      if (!matchesUrg(p.urgency)) return false;
+      if (!q) return true;
+      if (p.jobNumber.toLowerCase().includes(q)) return true;
+      if ((p.address || '').toLowerCase().includes(q)) return true;
+      if (Array.from(p.trades).some(t => t.toLowerCase().includes(q))) return true;
+      if (p.materials.some(m => m.name.toLowerCase().includes(q))) return true;
+      return false;
+    }),
+    [propertyRows, q, urgencyFilter],
+  );
+
+  // ---------- Accuracy audit ----------
+  const audit = useMemo(() => {
+    if (!sourceJobs || sourceJobs.length === 0) return null;
+    const sourceSet = new Map(sourceJobs.map(j => [j.jobNumber, j]));
+    const reportSet = new Set(report.jobs.map(j => j.jobNumber));
+    const missing = sourceJobs.filter(j => !reportSet.has(j.jobNumber));
+    const extra = report.jobs.filter(j => !sourceSet.has(j.jobNumber));
+    const completedInScope = sourceJobs.filter(j => j.isCompleted || j.status === 'complete');
+    // Material refs / trade refs that point at job numbers not in the source set
+    const allRefdJobs = new Set<string>();
+    report.tradeGroups.forEach(t => t.jobNumbers.forEach(j => allRefdJobs.add(j)));
+    report.materialGroups.forEach(g => g.items.forEach(it => it.jobNumbers.forEach(j => allRefdJobs.add(j))));
+    const orphanRefs = Array.from(allRefdJobs).filter(j => !sourceSet.has(j));
+    const countMatches = report.jobCount === sourceJobs.length;
+    const issues =
+      (countMatches ? 0 : 1) +
+      (missing.length > 0 ? 1 : 0) +
+      (extra.length > 0 ? 1 : 0) +
+      (orphanRefs.length > 0 ? 1 : 0) +
+      (completedInScope.length > 0 ? 1 : 0);
+    return { sourceCount: sourceJobs.length, reportCount: report.jobCount, countMatches, missing, extra, orphanRefs, completedInScope, issues };
+  }, [sourceJobs, report]);
+
   const handleCopy = async () => {
     const text = buildPlainText(report, title, grandTrades, grandMaterials);
     await navigator.clipboard.writeText(text);
@@ -162,19 +224,79 @@ export function MaterialsReport({ report, title }: Props) {
         </Card>
       )}
 
+      {/* Accuracy verification audit */}
+      {audit && (
+        <Card className={cn('p-4 border-l-4', audit.issues === 0 ? 'border-l-success bg-success/5' : 'border-l-warning bg-warning/5')}>
+          <button onClick={() => setAuditOpen(o => !o)} className="w-full flex items-center gap-2 text-left">
+            {audit.issues === 0 ? (
+              <ShieldCheck className="w-4 h-4 text-success" />
+            ) : (
+              <ShieldAlert className="w-4 h-4 text-warning" />
+            )}
+            <h2 className="text-sm font-semibold">
+              Accuracy Verification —{' '}
+              {audit.issues === 0
+                ? 'All checks passed'
+                : `${audit.issues} ${audit.issues === 1 ? 'issue' : 'issues'} flagged`}
+            </h2>
+            <span className="ml-auto text-[11px] text-muted-foreground tabular-nums">
+              Source {audit.sourceCount} · Report {audit.reportCount}
+            </span>
+            <ChevronDown className={cn('w-4 h-4 text-muted-foreground transition-transform', auditOpen && 'rotate-180')} />
+          </button>
+          {auditOpen && (
+            <div className="mt-3 grid sm:grid-cols-2 gap-2 text-xs">
+              <AuditRow ok={audit.countMatches} label="Job count matches" detail={`${audit.reportCount} / ${audit.sourceCount}`} />
+              <AuditRow ok={audit.missing.length === 0} label="No missing jobs" detail={audit.missing.length === 0 ? 'All source jobs covered' : `${audit.missing.length} missing: ${audit.missing.slice(0, 5).map(j => j.jobNumber).join(', ')}${audit.missing.length > 5 ? '…' : ''}`} />
+              <AuditRow ok={audit.extra.length === 0} label="No phantom jobs" detail={audit.extra.length === 0 ? 'No unexpected jobs' : `${audit.extra.length} extra: ${audit.extra.slice(0, 5).map(j => j.jobNumber).join(', ')}${audit.extra.length > 5 ? '…' : ''}`} />
+              <AuditRow ok={audit.orphanRefs.length === 0} label="Trade/material refs valid" detail={audit.orphanRefs.length === 0 ? 'All references resolve' : `${audit.orphanRefs.length} orphan refs`} />
+              <AuditRow ok={audit.completedInScope.length === 0} label="No completed jobs in scope" detail={audit.completedInScope.length === 0 ? 'Scope is incomplete jobs only' : `${audit.completedInScope.length} completed jobs included`} />
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* Search + urgency filter */}
+      <div className="flex flex-wrap gap-2 items-center">
+        <div className="relative flex-1 min-w-[220px]">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+          <Input
+            placeholder="Search property, job no, trade, or material..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="pl-9 h-9"
+          />
+        </div>
+        <Select value={urgencyFilter} onValueChange={(v) => setUrgencyFilter(v as any)}>
+          <SelectTrigger className="w-40 h-9"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All urgencies</SelectItem>
+            <SelectItem value="critical">Critical only</SelectItem>
+            <SelectItem value="high">High only</SelectItem>
+            <SelectItem value="medium">Medium only</SelectItem>
+            <SelectItem value="low">Low only</SelectItem>
+          </SelectContent>
+        </Select>
+        {(query || urgencyFilter !== 'all') && (
+          <Button variant="ghost" size="sm" onClick={() => { setQuery(''); setUrgencyFilter('all'); }}>
+            Clear
+          </Button>
+        )}
+      </div>
+
       {/* GRAND TOTALS — at-a-glance procurement view */}
       <div className="grid md:grid-cols-2 gap-4">
         <Card className="p-5">
           <div className="flex items-center gap-2 mb-3">
             <Wrench className="w-4 h-4 text-primary" />
             <h2 className="text-sm font-semibold">Grand Totals — Trades</h2>
-            <Badge variant="secondary" className="ml-auto text-[10px]">{grandTrades.length}</Badge>
+            <Badge variant="secondary" className="ml-auto text-[10px]">{filteredTrades.length}/{grandTrades.length}</Badge>
           </div>
-          {grandTrades.length === 0 ? (
-            <p className="text-sm text-muted-foreground">None identified.</p>
+          {filteredTrades.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{grandTrades.length === 0 ? 'None identified.' : 'No matches.'}</p>
           ) : (
-            <div className="space-y-1">
-              {grandTrades.map((t) => (
+            <div className="space-y-1 max-h-[420px] overflow-y-auto pr-1">
+              {filteredTrades.map((t) => (
                 <div key={t.trade} className="flex items-center justify-between gap-2 py-1.5 px-2 rounded hover:bg-muted/40 text-sm">
                   <div className="flex items-center gap-2 min-w-0">
                     <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', URGENCY_STYLES[t.topUrgency].dot)} />
@@ -193,13 +315,13 @@ export function MaterialsReport({ report, title }: Props) {
           <div className="flex items-center gap-2 mb-3">
             <Package className="w-4 h-4 text-primary" />
             <h2 className="text-sm font-semibold">Grand Totals — Materials</h2>
-            <Badge variant="secondary" className="ml-auto text-[10px]">{grandMaterials.length}</Badge>
+            <Badge variant="secondary" className="ml-auto text-[10px]">{filteredMaterials.length}/{grandMaterials.length}</Badge>
           </div>
-          {grandMaterials.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No materials identified.</p>
+          {filteredMaterials.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{grandMaterials.length === 0 ? 'No materials identified.' : 'No matches.'}</p>
           ) : (
             <div className="space-y-0.5 max-h-[420px] overflow-y-auto pr-1">
-              {grandMaterials.map((m, i) => (
+              {filteredMaterials.map((m, i) => (
                 <div key={i} className="flex items-center justify-between gap-2 py-1.5 px-2 rounded hover:bg-muted/40 text-sm">
                   <div className="flex items-center gap-2 min-w-0">
                     <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', URGENCY_STYLES[m.urgency].dot)} />
@@ -235,26 +357,30 @@ export function MaterialsReport({ report, title }: Props) {
       {propertyRows.length > 0 && (
         <Card className="p-5">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold">Properties ({propertyRows.length})</h2>
+            <h2 className="text-sm font-semibold">Properties ({filteredProperties.length}/{propertyRows.length})</h2>
             <span className="text-[11px] text-muted-foreground">Click any row for full breakdown</span>
           </div>
-          <div className="divide-y">
-            {propertyRows.map((p) => (
-              <button
-                key={p.jobNumber}
-                onClick={() => setDrilldownJob(p.jobNumber)}
-                className="w-full flex items-center gap-3 py-2.5 px-2 -mx-2 rounded hover:bg-muted/50 text-left transition-colors"
-              >
-                <span className="font-mono text-xs text-muted-foreground w-16 shrink-0">{p.jobNumber}</span>
-                <span className="flex-1 truncate text-sm">{p.address || '—'}</span>
-                <span className="text-[11px] text-muted-foreground tabular-nums hidden sm:inline">
-                  {p.trades.size}T · {p.materials.length}M
-                </span>
-                <UrgencyBadge urgency={p.urgency} />
-                <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
-              </button>
-            ))}
-          </div>
+          {filteredProperties.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">No properties match your filters.</p>
+          ) : (
+            <div className="divide-y max-h-[500px] overflow-y-auto">
+              {filteredProperties.map((p) => (
+                <button
+                  key={p.jobNumber}
+                  onClick={() => setDrilldownJob(p.jobNumber)}
+                  className="w-full flex items-center gap-3 py-2.5 px-2 -mx-2 rounded hover:bg-muted/50 text-left transition-colors"
+                >
+                  <span className="font-mono text-xs text-muted-foreground w-16 shrink-0">{p.jobNumber}</span>
+                  <span className="flex-1 truncate text-sm">{p.address || '—'}</span>
+                  <span className="text-[11px] text-muted-foreground tabular-nums hidden sm:inline">
+                    {p.trades.size}T · {p.materials.length}M
+                  </span>
+                  <UrgencyBadge urgency={p.urgency} />
+                  <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                </button>
+              ))}
+            </div>
+          )}
         </Card>
       )}
 
@@ -326,6 +452,18 @@ export function MaterialsReport({ report, title }: Props) {
           </div>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function AuditRow({ ok, label, detail }: { ok: boolean; label: string; detail: string }) {
+  return (
+    <div className={cn('flex items-start gap-2 px-2.5 py-1.5 rounded border', ok ? 'border-success/30 bg-success/5' : 'border-warning/40 bg-warning/10')}>
+      {ok ? <Check className="w-3.5 h-3.5 text-success shrink-0 mt-0.5" /> : <AlertTriangle className="w-3.5 h-3.5 text-warning shrink-0 mt-0.5" />}
+      <div className="min-w-0">
+        <div className="font-medium text-foreground">{label}</div>
+        <div className="text-muted-foreground text-[11px] truncate">{detail}</div>
+      </div>
     </div>
   );
 }

@@ -316,7 +316,18 @@ export function MaterialsReportModal({ open, onOpenChange }: Props) {
         {view === 'report' && report && (
           <div className="flex-1 min-h-0 overflow-y-auto">
             <div className="p-6">
-              <MaterialsReport report={report} title={reportTitle} />
+              <MaterialsReport
+                report={report}
+                title={reportTitle}
+                sourceJobs={jobs
+                  .filter((j) => selected.has(j.id))
+                  .map((j) => ({
+                    jobNumber: j.job_number,
+                    address: j.address,
+                    isCompleted: !!j.is_completed,
+                    status: j.status,
+                  }))}
+              />
             </div>
           </div>
         )}
