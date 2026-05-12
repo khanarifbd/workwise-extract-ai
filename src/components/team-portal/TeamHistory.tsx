@@ -64,6 +64,7 @@ const formatDayHeader = (dateKey: string): string => {
 
 export const TeamHistory = ({ jobs, teamName, onSelectJob }: TeamHistoryProps) => {
   const [search, setSearch] = useState('');
+  const [expandedYears, setExpandedYears] = useState<Set<string>>(new Set());
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set());
   const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
   const [signOffs, setSignOffs] = useState<SignOffRecord[]>([]);
