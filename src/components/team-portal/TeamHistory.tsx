@@ -175,6 +175,8 @@ export const TeamHistory = ({ jobs, teamName, onSelectJob, embedded = false }: T
       } else {
         setMissingJobs(new Map());
       }
+    } catch (err) {
+      console.error('[TeamHistory] fetchSignOffs failed:', err);
     } finally {
       setLoading(false);
       setRefreshing(false);
