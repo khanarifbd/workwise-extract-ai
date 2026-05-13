@@ -299,6 +299,8 @@ const TeamPortal = () => {
   // Note: OS permission prompts cannot be shown "during install" automatically; we request on the first app open,
   // then bind the token to the team after login.
   const pushInitRef = useRef(false);
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
 
   const saveFcmTokenToTeam = useCallback(
     async (token: string, teamId: string) => {
@@ -329,7 +331,9 @@ const TeamPortal = () => {
     []
   );
 
-  // 1) Ask permission + register on first native app open
+  // 1) Ask permission + register on first native app open (runs ONCE for app lifetime)
+  // We intentionally use [] deps so the registration listener is never torn down on
+  // session changes — otherwise token refresh events would be lost after login.
   useEffect(() => {
     const initPush = async () => {
       if (!Capacitor.isNativePlatform() || pushInitRef.current) return;
@@ -342,9 +346,10 @@ const TeamPortal = () => {
           console.log('[push] registration success');
           localStorage.setItem('pending_fcm_token', token.value);
 
-          // If already logged in, save immediately
-          if (session?.teamId) {
-            await saveFcmTokenToTeam(token.value, session.teamId);
+          // If already logged in, save immediately (read latest session via ref)
+          const currentTeamId = sessionRef.current?.teamId;
+          if (currentTeamId) {
+            await saveFcmTokenToTeam(token.value, currentTeamId);
           }
         });
 
@@ -372,11 +377,13 @@ const TeamPortal = () => {
     initPush();
 
     return () => {
+      // Only tear down on real app unmount
       if (Capacitor.isNativePlatform()) {
         PushNotifications.removeAllListeners().catch(() => undefined);
       }
     };
-  }, [session?.teamId, saveFcmTokenToTeam]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 2) After login: bind any pending token to this team
   useEffect(() => {
