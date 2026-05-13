@@ -299,6 +299,8 @@ const TeamPortal = () => {
   // Note: OS permission prompts cannot be shown "during install" automatically; we request on the first app open,
   // then bind the token to the team after login.
   const pushInitRef = useRef(false);
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
 
   const saveFcmTokenToTeam = useCallback(
     async (token: string, teamId: string) => {
