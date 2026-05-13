@@ -87,19 +87,19 @@ export const FanEditor = ({ fanInfo, onUpdate, job, fanCategoryId, onJobUpdated 
   return (
     <Popover open={isOpen} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
-        <button className="flex items-center">
-          {currentTotal > 0 ? (
+        {currentTotal > 0 ? (
+          <button type="button" className="flex items-center">
             <Badge className="bg-cyan-500/20 text-cyan-700 dark:text-cyan-400 border-cyan-500/30 cursor-pointer hover:bg-cyan-500/30">
               <Fan className="w-3 h-3 mr-1" />
               FAN {currentTotal}
             </Badge>
-          ) : (
-            <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
-              <Fan className="w-3 h-3 mr-1" />
-              FAN
-            </Button>
-          )}
-        </button>
+          </button>
+        ) : (
+          <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
+            <Fan className="w-3 h-3 mr-1" />
+            FAN
+          </Button>
+        )}
       </PopoverTrigger>
       <PopoverContent className="w-48 p-3" align="start">
         <div className="space-y-3">
