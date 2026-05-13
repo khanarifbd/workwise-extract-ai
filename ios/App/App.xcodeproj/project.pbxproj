@@ -308,7 +308,7 @@
 				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 8;
-				DEVELOPMENT_TEAM = 79ALA2CALH;
+				DEVELOPMENT_TEAM = TJSZ96X5PJ;
 				INFOPLIST_FILE = App/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Work Wish";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.business";
@@ -338,7 +338,7 @@
 				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 8;
-				DEVELOPMENT_TEAM = 79ALA2CALH;
+				DEVELOPMENT_TEAM = TJSZ96X5PJ;
 				INFOPLIST_FILE = App/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Work Wish";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.business";
