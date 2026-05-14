@@ -383,21 +383,27 @@ export const TeamHistory = ({ jobs, teamName, onSelectJob, embedded = false }: T
       // Reset to fully collapsed when search cleared
       setExpandedYears(new Set());
       setExpandedMonths(new Set());
+      setExpandedWeeks(new Set());
       setExpandedDays(new Set());
       return;
     }
     const ys = new Set<string>();
     const ms = new Set<string>();
+    const ws = new Set<string>();
     const ds = new Set<string>();
     for (const y of grouped.years) {
       ys.add(y.yearKey);
       for (const m of y.months) {
         ms.add(m.monthKey);
-        for (const dk of m.days.keys()) ds.add(dk);
+        for (const w of m.weeks) {
+          ws.add(w.weekKey);
+          for (const dk of w.days.keys()) ds.add(dk);
+        }
       }
     }
     setExpandedYears(ys);
     setExpandedMonths(ms);
+    setExpandedWeeks(ws);
     setExpandedDays(ds);
   }, [search, grouped]);
 
