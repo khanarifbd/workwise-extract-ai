@@ -1,5 +1,21 @@
 import jsPDF from 'jspdf';
 
+const isIOSLikeDevice = () => {
+  if (typeof navigator === 'undefined') return false;
+
+  const userAgent = navigator.userAgent || '';
+  const platform = navigator.platform || '';
+  const maxTouchPoints = navigator.maxTouchPoints || 0;
+
+  return /iPad|iPhone|iPod/i.test(userAgent)
+    || (platform === 'MacIntel' && maxTouchPoints > 1);
+};
+
+export const preparePDFWindow = () => {
+  if (!isIOSLikeDevice()) return null;
+  return window.open('', '_blank');
+};
+
 /**
  * Reliable PDF delivery across desktop, mobile, and sandboxed iframes (Lovable preview).
  *
@@ -8,13 +24,40 @@ import jsPDF from 'jspdf';
  * and some mobile browsers block `window.open`. Doing both guarantees the user
  * sees the PDF one way or the other.
  */
-export function downloadPDF(doc: jsPDF, filename: string) {
+export function downloadPDF(doc: jsPDF, filename: string, options?: { targetWindow?: Window | null }) {
   const blob = doc.output('blob');
   if (!blob || blob.size === 0) {
     throw new Error('Generated PDF is empty');
   }
 
+  const preOpenedWindow = options?.targetWindow ?? null;
+
+  if (isIOSLikeDevice()) {
+    const iosWindow = preOpenedWindow ?? window.open('', '_blank');
+    if (!iosWindow) {
+      throw new Error('Popup blocked before PDF could open on iOS');
+    }
+
+    try {
+      const dataUrl = doc.output('dataurlstring', { filename });
+      iosWindow.location.replace(dataUrl);
+      return;
+    } catch (err) {
+      console.warn('[downloadPDF] iOS data URL open failed, falling back to blob URL', err);
+    }
+  }
+
   const url = URL.createObjectURL(blob);
+
+  if (preOpenedWindow && !preOpenedWindow.closed) {
+    try {
+      preOpenedWindow.location.replace(url);
+      setTimeout(() => URL.revokeObjectURL(url), 180000);
+      return;
+    } catch (err) {
+      console.warn('[downloadPDF] pre-opened window fallback failed', err);
+    }
+  }
 
   // Path A: anchor download (works on most desktop browsers, native apps)
   try {

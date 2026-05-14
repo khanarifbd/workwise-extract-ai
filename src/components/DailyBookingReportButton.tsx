@@ -4,7 +4,7 @@ import { FileText } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import jsPDF from 'jspdf';
 import { useToast } from '@/hooks/use-toast';
-import { downloadPDF } from '@/lib/pdfDownload';
+import { downloadPDF, preparePDFWindow } from '@/lib/pdfDownload';
 
 interface DailyBookingReportButtonProps {
   jobs: Job[];
@@ -74,6 +74,8 @@ export const DailyBookingReportButton = ({
   };
 
   const generateReport = () => {
+    const targetWindow = preparePDFWindow();
+
     try {
     const dateJobs = getJobsForDate();
     
@@ -245,13 +247,16 @@ export const DailyBookingReportButton = ({
 
     // Save the PDF using shared reliable downloader
     const fileName = `Allsaints_Daily_Report_${format(date, 'yyyy-MM-dd')}.pdf`;
-    downloadPDF(doc, fileName);
+    downloadPDF(doc, fileName, { targetWindow });
 
     toast({
       title: "Report Generated",
       description: `${dateJobs.length} job${dateJobs.length !== 1 ? 's' : ''} — check your downloads or new tab.`,
     });
     } catch (error) {
+      if (targetWindow && !targetWindow.closed) {
+        targetWindow.close();
+      }
       console.error('Error generating daily report:', error);
       toast({
         title: "Report Error",
