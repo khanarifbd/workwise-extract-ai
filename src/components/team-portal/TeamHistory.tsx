@@ -509,75 +509,94 @@ export const TeamHistory = ({ jobs, teamName, onSelectJob, embedded = false }: T
                       </div>
                     </CollapsibleTrigger>
                     <CollapsibleContent className="space-y-1.5 mt-1.5 ml-3 border-l border-[hsl(var(--success))]/15 pl-3">
-                      {Array.from(m.days.entries()).map(([dayKey, dayEntries]) => (
-                        <Collapsible key={dayKey} open={expandedDays.has(dayKey)} onOpenChange={() => toggleDay(dayKey)}>
+                      {m.weeks.map((w) => (
+                        <Collapsible key={w.weekKey} open={expandedWeeks.has(w.weekKey)} onOpenChange={() => toggleWeek(w.weekKey)}>
                           <CollapsibleTrigger asChild>
-                            <div className="cursor-pointer rounded-lg px-3 py-2 flex items-center justify-between hover:bg-muted/50 transition-colors">
+                            <div className="cursor-pointer rounded-lg bg-[hsl(var(--success))]/[0.04] border border-[hsl(var(--success))]/10 px-3 py-1.5 flex items-center justify-between hover:bg-[hsl(var(--success))]/10 transition-colors">
                               <div className="flex items-center gap-1.5">
-                                {expandedDays.has(dayKey)
-                                  ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                                  : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
-                                <Calendar className="h-3.5 w-3.5 text-[hsl(var(--success))]/80" />
-                                <span className="font-medium text-xs">{formatDayHeader(dayKey)}</span>
+                                {expandedWeeks.has(w.weekKey)
+                                  ? <ChevronDown className="h-3 w-3 text-[hsl(var(--success))]/80" />
+                                  : <ChevronRight className="h-3 w-3 text-[hsl(var(--success))]/80" />}
+                                <span className="font-medium text-[11px] text-foreground/80">{w.weekLabel}</span>
                               </div>
                               <Badge variant="secondary" className="text-[10px] px-1.5 rounded-full">
-                                {dayEntries.length}
+                                {w.total}
                               </Badge>
                             </div>
                           </CollapsibleTrigger>
-                          <CollapsibleContent className="space-y-1 mt-1.5 ml-2 pl-2">
-                            {dayEntries.map((entry) => {
-                              const jobNumber = entry.job?.jobNumber || entry.fallback?.jobNumber || '—';
-                              const name = entry.job?.name || entry.fallback?.name || 'Unknown property';
-                              const address = entry.job?.address || entry.fallback?.address;
-                              const phone = entry.job?.phoneNumber || entry.fallback?.phoneNumber;
-                              const clickable = !!entry.job;
-                              return (
-                                <button
-                                  key={entry.jobId + entry.signedOffAt.toISOString()}
-                                  onClick={() => entry.job && onSelectJob(entry.job)}
-                                  disabled={!clickable}
-                                  className={cn(
-                                    "w-full text-left rounded-lg border border-border bg-card p-3 transition-colors",
-                                    "border-l-4 border-l-[hsl(var(--success))]",
-                                    clickable ? "hover:bg-muted/40 cursor-pointer" : "opacity-70 cursor-not-allowed"
-                                  )}
-                                >
-                                  <div className="flex items-start justify-between gap-2">
-                                    <div className="min-w-0 flex-1">
-                                      <div className="flex items-center gap-1.5 mb-0.5">
-                                        <CheckCircle2 className="h-3.5 w-3.5 text-[hsl(var(--success))] flex-shrink-0" />
-                                        <span className="font-mono text-[11px] text-muted-foreground">
-                                          {jobNumber}
-                                        </span>
-                                        {entry.source === 'completion' && (
-                                          <span className="text-[9px] uppercase tracking-wide text-muted-foreground/70">completed</span>
-                                        )}
-                                        {!entry.job && (
-                                          <span className="text-[9px] uppercase tracking-wide text-muted-foreground/70">archived</span>
-                                        )}
-                                      </div>
-                                      <p className="font-semibold text-sm text-foreground truncate">{name}</p>
-                                      {address && (
-                                        <p className="text-xs text-muted-foreground flex items-start gap-1 mt-0.5">
-                                          <MapPin className="h-3 w-3 mt-0.5 flex-shrink-0" />
-                                          <span className="line-clamp-1">{address}</span>
-                                        </p>
-                                      )}
-                                      {phone && (
-                                        <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                                          <Phone className="h-3 w-3 flex-shrink-0" />
-                                          <span>{phone}</span>
-                                        </p>
-                                      )}
+                          <CollapsibleContent className="space-y-1.5 mt-1.5 ml-2 border-l border-[hsl(var(--success))]/10 pl-2">
+                            {Array.from(w.days.entries()).map(([dayKey, dayEntries]) => (
+                              <Collapsible key={dayKey} open={expandedDays.has(dayKey)} onOpenChange={() => toggleDay(dayKey)}>
+                                <CollapsibleTrigger asChild>
+                                  <div className="cursor-pointer rounded-lg px-3 py-2 flex items-center justify-between hover:bg-muted/50 transition-colors">
+                                    <div className="flex items-center gap-1.5">
+                                      {expandedDays.has(dayKey)
+                                        ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                                        : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+                                      <Calendar className="h-3.5 w-3.5 text-[hsl(var(--success))]/80" />
+                                      <span className="font-medium text-xs">{formatDayHeader(dayKey)}</span>
                                     </div>
-                                    <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                                      {format(entry.signedOffAt, 'HH:mm')}
-                                    </span>
+                                    <Badge variant="secondary" className="text-[10px] px-1.5 rounded-full">
+                                      {dayEntries.length}
+                                    </Badge>
                                   </div>
-                                </button>
-                              );
-                            })}
+                                </CollapsibleTrigger>
+                                <CollapsibleContent className="space-y-1 mt-1.5 ml-2 pl-2">
+                                  {dayEntries.map((entry) => {
+                                    const jobNumber = entry.job?.jobNumber || entry.fallback?.jobNumber || '—';
+                                    const name = entry.job?.name || entry.fallback?.name || 'Unknown property';
+                                    const address = entry.job?.address || entry.fallback?.address;
+                                    const phone = entry.job?.phoneNumber || entry.fallback?.phoneNumber;
+                                    const clickable = !!entry.job;
+                                    return (
+                                      <button
+                                        key={entry.jobId + entry.signedOffAt.toISOString()}
+                                        onClick={() => entry.job && onSelectJob(entry.job)}
+                                        disabled={!clickable}
+                                        className={cn(
+                                          "w-full text-left rounded-lg border border-border bg-card p-3 transition-colors",
+                                          "border-l-4 border-l-[hsl(var(--success))]",
+                                          clickable ? "hover:bg-muted/40 cursor-pointer" : "opacity-70 cursor-not-allowed"
+                                        )}
+                                      >
+                                        <div className="flex items-start justify-between gap-2">
+                                          <div className="min-w-0 flex-1">
+                                            <div className="flex items-center gap-1.5 mb-0.5">
+                                              <CheckCircle2 className="h-3.5 w-3.5 text-[hsl(var(--success))] flex-shrink-0" />
+                                              <span className="font-mono text-[11px] text-muted-foreground">
+                                                {jobNumber}
+                                              </span>
+                                              {entry.source === 'completion' && (
+                                                <span className="text-[9px] uppercase tracking-wide text-muted-foreground/70">completed</span>
+                                              )}
+                                              {!entry.job && (
+                                                <span className="text-[9px] uppercase tracking-wide text-muted-foreground/70">archived</span>
+                                              )}
+                                            </div>
+                                            <p className="font-semibold text-sm text-foreground truncate">{name}</p>
+                                            {address && (
+                                              <p className="text-xs text-muted-foreground flex items-start gap-1 mt-0.5">
+                                                <MapPin className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                                                <span className="line-clamp-1">{address}</span>
+                                              </p>
+                                            )}
+                                            {phone && (
+                                              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                                                <Phone className="h-3 w-3 flex-shrink-0" />
+                                                <span>{phone}</span>
+                                              </p>
+                                            )}
+                                          </div>
+                                          <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                                            {format(entry.signedOffAt, 'HH:mm')}
+                                          </span>
+                                        </div>
+                                      </button>
+                                    );
+                                  })}
+                                </CollapsibleContent>
+                              </Collapsible>
+                            ))}
                           </CollapsibleContent>
                         </Collapsible>
                       ))}
