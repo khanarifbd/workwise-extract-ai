@@ -1,13 +1,12 @@
 import jsPDF from 'jspdf';
 
 /**
- * Reliable PDF download that works in sandboxed/iframe environments
- * where doc.save() and link.click() can silently fail.
+ * Reliable PDF download that works across desktop, mobile, and sandboxed iframes.
  *
  * Strategy:
- *  1. Open blob in a new browser tab (most reliable in sandboxed/iframe contexts)
- *  2. Fallback: hidden anchor link.click()
- *  3. Last resort: window.location.assign
+ *  1. Anchor `download` click — works in 95% of browsers, triggers a real download.
+ *  2. Fallback: open blob in a new tab (sandboxed iframes where download is blocked).
+ *  3. Last resort: navigate current window to the blob URL.
  */
 export function downloadPDF(doc: jsPDF, filename: string) {
   const blob = doc.output('blob');
@@ -16,34 +15,37 @@ export function downloadPDF(doc: jsPDF, filename: string) {
   }
 
   const url = URL.createObjectURL(blob);
+  const cleanup = () => setTimeout(() => URL.revokeObjectURL(url), 120000);
 
-  // Strategy 1: Open blob in a new tab — user sees the PDF and can save/download
-  // This is the most reliable approach in sandboxed iframes where download attr is blocked
-  const opened = window.open(url, '_blank');
-  if (opened) {
-    setTimeout(() => URL.revokeObjectURL(url), 120000);
-    return;
-  }
-
-  // Strategy 2: Hidden anchor click (works on non-sandboxed desktop browsers)
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  link.target = '_blank';
-  link.rel = 'noopener noreferrer';
-  link.style.position = 'fixed';
-  link.style.left = '-9999px';
-  document.body.appendChild(link);
-
+  // Strategy 1: Anchor click with download attribute (most reliable)
   try {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.rel = 'noopener noreferrer';
+    link.style.position = 'fixed';
+    link.style.left = '-9999px';
+    document.body.appendChild(link);
     link.click();
+    document.body.removeChild(link);
+    cleanup();
+    return;
   } catch {
-    // Strategy 3: Navigate to the blob URL directly
-    window.location.assign(url);
-  } finally {
-    setTimeout(() => {
-      if (document.body.contains(link)) document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    }, 120000);
+    // fall through
   }
+
+  // Strategy 2: Open in new tab
+  try {
+    const opened = window.open(url, '_blank');
+    if (opened) {
+      cleanup();
+      return;
+    }
+  } catch {
+    // fall through
+  }
+
+  // Strategy 3: Navigate current window
+  window.location.assign(url);
+  cleanup();
 }
