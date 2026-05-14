@@ -469,8 +469,21 @@ export const TeamJobDetail = ({
       }
 
       if (!isOnline) {
+        await addToSyncQueue({
+          teamId,
+          actionType: 'progress_update',
+          payload: {
+            id: job.id,
+            progress_notes: trimmed,
+          },
+        });
+
         setNotes(trimmed);
-        setHasUnsavedChanges(true);
+        setHasUnsavedChanges(false);
+        onJobUpdate({
+          ...job,
+          progressNotes: trimmed,
+        });
         toast({
           title: 'Saved Offline',
           description: 'Dictated notes were saved locally and will sync when online.',
@@ -479,22 +492,14 @@ export const TeamJobDetail = ({
       }
 
       await updateTeamJob(job.id, {
-        status,
-        progress,
         notes: trimmed,
-        isOngoing,
-        ongoingReason: isOngoing ? ongoingReason : '',
       });
 
       setNotes(trimmed);
       setHasUnsavedChanges(false);
       onJobUpdate({
         ...job,
-        progress,
         progressNotes: trimmed,
-        status,
-        isOngoing,
-        ongoingReason: isOngoing ? ongoingReason : '',
       });
 
       toast({
@@ -502,7 +507,7 @@ export const TeamJobDetail = ({
         description: 'Dictated notes were saved to the job.',
       });
     },
-    [isOnline, updateTeamJob, job, status, progress, isOngoing, ongoingReason, onJobUpdate, toast]
+    [isOnline, addToSyncQueue, teamId, job, updateTeamJob, onJobUpdate, toast]
   );
 
   // Handle job completion/sign-off with full data transfer
