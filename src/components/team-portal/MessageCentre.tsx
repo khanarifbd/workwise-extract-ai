@@ -149,24 +149,28 @@ export const MessageCentre = ({ teamId, teamName }: MessageCentreProps) => {
       {/* Fullscreen message panel overlay */}
       {isOpen && (
         <div className="fixed inset-0 z-[100] bg-background flex flex-col safe-area-bottom safe-area-left safe-area-right">
-          {/* Header */}
-          <div className="bg-gradient-to-r from-primary to-[hsl(38,92%,50%)] text-primary-foreground px-4 py-3">
-            <div className="flex items-center gap-3">
+          {/* Header — back button on its own row so it's never covered by title text */}
+          <div
+            className="bg-gradient-to-r from-primary to-[hsl(38,92%,50%)] text-primary-foreground px-3 pb-3"
+            style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.5rem)' }}
+          >
+            <div className="flex items-center justify-between gap-2 mb-2">
               <button
                 type="button"
-                className="h-10 w-10 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full bg-white/20 active:bg-white/30 transition-colors shrink-0"
+                className="h-11 min-w-[88px] px-3 flex items-center justify-center gap-1.5 rounded-full bg-white/20 active:bg-white/30 transition-colors shrink-0 font-semibold text-sm text-white"
                 onClick={() => setIsOpen(false)}
-                aria-label="Go back"
+                aria-label="Back to home"
               >
-                <ArrowLeft className="h-5 w-5 text-white" />
+                <ArrowLeft className="h-5 w-5" />
+                <span>Back</span>
               </button>
-              <div className="flex items-center gap-2 flex-1">
-                <MessageSquare className="h-5 w-5" />
-                <div>
-                  <h2 className="text-sm font-bold">Messages</h2>
-                  <p className="text-[10px] text-primary-foreground/70">{messages.length} message{messages.length !== 1 ? 's' : ''}</p>
-                </div>
-              </div>
+              <span className="text-[10px] text-primary-foreground/70 pr-1">
+                {messages.length} message{messages.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 px-1">
+              <MessageSquare className="h-5 w-5" />
+              <h2 className="text-sm font-bold">Messages</h2>
             </div>
           </div>
 
