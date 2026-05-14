@@ -86,6 +86,7 @@ export const TeamHistory = ({ jobs, teamName, onSelectJob, embedded = false }: T
   const [search, setSearch] = useState('');
   const [expandedYears, setExpandedYears] = useState<Set<string>>(new Set());
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set());
+  const [expandedWeeks, setExpandedWeeks] = useState<Set<string>>(new Set());
   const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
   const [signOffs, setSignOffs] = useState<SignOffRecord[]>([]);
   const [completedJobs, setCompletedJobs] = useState<CompletedJobRecord[]>([]);
