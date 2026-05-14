@@ -1,5 +1,16 @@
 import jsPDF from 'jspdf';
 
+const isIOSLikeDevice = () => {
+  if (typeof navigator === 'undefined') return false;
+
+  const userAgent = navigator.userAgent || '';
+  const platform = navigator.platform || '';
+  const maxTouchPoints = navigator.maxTouchPoints || 0;
+
+  return /iPad|iPhone|iPod/i.test(userAgent)
+    || (platform === 'MacIntel' && maxTouchPoints > 1);
+};
+
 /**
  * Reliable PDF delivery across desktop, mobile, and sandboxed iframes (Lovable preview).
  *
@@ -12,6 +23,22 @@ export function downloadPDF(doc: jsPDF, filename: string) {
   const blob = doc.output('blob');
   if (!blob || blob.size === 0) {
     throw new Error('Generated PDF is empty');
+  }
+
+  if (isIOSLikeDevice()) {
+    const iosWindow = window.open('', '_blank');
+    if (!iosWindow) {
+      throw new Error('Popup blocked before PDF could open on iOS');
+    }
+
+    try {
+      const dataUrl = doc.output('dataurlstring', { filename });
+      iosWindow.location.replace(dataUrl);
+      return;
+    } catch (err) {
+      iosWindow.close();
+      console.warn('[downloadPDF] iOS data URL open failed, falling back to blob URL', err);
+    }
   }
 
   const url = URL.createObjectURL(blob);
