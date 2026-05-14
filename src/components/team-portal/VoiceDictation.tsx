@@ -97,29 +97,80 @@ export const VoiceDictation = ({
     try {
       setError(null);
       chunksRef.current = [];
+
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setError("Recording not supported on this device/browser.");
+        return;
+      }
+      if (typeof MediaRecorder === "undefined") {
+        setError("Audio recording is not supported on this device.");
+        return;
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
       });
       streamRef.current = stream;
-      const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-        ? "audio/webm;codecs=opus"
-        : MediaRecorder.isTypeSupported("audio/mp4")
-        ? "audio/mp4"
-        : "audio/webm";
-      const mr = new MediaRecorder(stream, { mimeType: mime });
+
+      // Pick the first MIME type the browser actually supports; fall back to
+      // browser default (undefined) if none of our candidates work — Safari/iOS
+      // sometimes only supports the default codec.
+      const candidates = [
+        "audio/webm;codecs=opus",
+        "audio/webm",
+        "audio/mp4;codecs=mp4a.40.2",
+        "audio/mp4",
+        "audio/aac",
+      ];
+      const mime = candidates.find((m) => {
+        try { return MediaRecorder.isTypeSupported(m); } catch { return false; }
+      });
+
+      let mr: MediaRecorder;
+      try {
+        mr = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+      } catch (err) {
+        console.error("MediaRecorder construction failed", err);
+        stream.getTracks().forEach((t) => t.stop());
+        setError("This browser cannot record audio in a supported format.");
+        return;
+      }
+      const effectiveMime = mr.mimeType || mime || "audio/webm";
+
       mediaRecorderRef.current = mr;
-      mr.ondataavailable = (e) => e.data.size > 0 && chunksRef.current.push(e.data);
+      mr.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) chunksRef.current.push(e.data);
+      };
+      mr.onerror = (ev: any) => {
+        console.error("MediaRecorder error", ev);
+        setError("Recording error: " + (ev?.error?.message || "unknown"));
+      };
       mr.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: mime });
+        const blob = new Blob(chunksRef.current, { type: effectiveMime });
+        if (blob.size === 0) {
+          setError("No audio captured. Please try again and speak into the mic.");
+          return;
+        }
         setAudioBlob(blob);
         setAudioUrl(URL.createObjectURL(blob));
       };
-      mr.start(1000);
+      // Some iOS Safari versions reject timeslice — start without it for safety.
+      try { mr.start(1000); } catch { mr.start(); }
       setIsRecording(true);
       setDuration(0);
       timerRef.current = setInterval(() => setDuration((d) => d + 1), 1000);
-    } catch (e) {
-      setError("Microphone permission denied. Enable it in browser settings.");
+    } catch (e: any) {
+      console.error("getUserMedia failed", e);
+      const name = e?.name || "";
+      if (name === "NotAllowedError" || name === "SecurityError") {
+        setError("Microphone permission denied. Enable it in your device/browser settings and reload.");
+      } else if (name === "NotFoundError" || name === "OverconstrainedError") {
+        setError("No microphone found on this device.");
+      } else if (name === "NotReadableError") {
+        setError("Microphone is in use by another app. Close it and try again.");
+      } else {
+        setError("Could not start recording: " + (e?.message || name || "unknown error"));
+      }
     }
   };
 
@@ -421,7 +472,7 @@ export const VoiceDictation = ({
                   <Trash2 className="h-4 w-4 mr-2" /> Discard
                 </Button>
                 <Button onClick={transcribe} className="flex-1 bg-rose-600 hover:bg-rose-700">
-                  <Sparkles className="h-4 w-4 mr-2" /> Transcribe
+                  <Sparkles className="h-4 w-4 mr-2" /> Save & Transcribe
                 </Button>
               </>
             )}
@@ -435,7 +486,7 @@ export const VoiceDictation = ({
                   disabled={!draftText.trim()}
                   className="flex-1 bg-green-600 hover:bg-green-700"
                 >
-                  <Check className="h-4 w-4 mr-2" /> Use text
+                  <Check className="h-4 w-4 mr-2" /> Save to {fieldType === "notes" ? "notes" : "description"}
                 </Button>
               </>
             )}
