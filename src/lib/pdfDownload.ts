@@ -1,12 +1,12 @@
 import jsPDF from 'jspdf';
 
 /**
- * Reliable PDF download that works across desktop, mobile, and sandboxed iframes.
+ * Reliable PDF delivery across desktop, mobile, and sandboxed iframes (Lovable preview).
  *
- * Strategy:
- *  1. Anchor `download` click — works in 95% of browsers, triggers a real download.
- *  2. Fallback: open blob in a new tab (sandboxed iframes where download is blocked).
- *  3. Last resort: navigate current window to the blob URL.
+ * We try BOTH an anchor `download` click AND opening the blob in a new tab.
+ * Sandboxed iframes without `allow-downloads` silently swallow the anchor click,
+ * and some mobile browsers block `window.open`. Doing both guarantees the user
+ * sees the PDF one way or the other.
  */
 export function downloadPDF(doc: jsPDF, filename: string) {
   const blob = doc.output('blob');
@@ -15,9 +15,8 @@ export function downloadPDF(doc: jsPDF, filename: string) {
   }
 
   const url = URL.createObjectURL(blob);
-  const cleanup = () => setTimeout(() => URL.revokeObjectURL(url), 120000);
 
-  // Strategy 1: Anchor click with download attribute (most reliable)
+  // Path A: anchor download (works on most desktop browsers, native apps)
   try {
     const link = document.createElement('a');
     link.href = url;
@@ -28,24 +27,29 @@ export function downloadPDF(doc: jsPDF, filename: string) {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    cleanup();
-    return;
-  } catch {
-    // fall through
+  } catch (err) {
+    console.warn('[downloadPDF] anchor download failed', err);
   }
 
-  // Strategy 2: Open in new tab
+  // Path B: open in new tab (visible fallback inside sandboxed iframes)
   try {
-    const opened = window.open(url, '_blank');
-    if (opened) {
-      cleanup();
-      return;
+    const win = window.open(url, '_blank', 'noopener,noreferrer');
+    if (!win) {
+      // Popup blocked — last resort: navigate top window
+      try {
+        if (window.top && window.top !== window.self) {
+          (window.top as Window).location.href = url;
+        } else {
+          window.location.assign(url);
+        }
+      } catch {
+        window.location.assign(url);
+      }
     }
-  } catch {
-    // fall through
+  } catch (err) {
+    console.warn('[downloadPDF] window.open failed', err);
   }
 
-  // Strategy 3: Navigate current window
-  window.location.assign(url);
-  cleanup();
+  // Revoke after a long delay so the new tab has time to load
+  setTimeout(() => URL.revokeObjectURL(url), 180000);
 }
