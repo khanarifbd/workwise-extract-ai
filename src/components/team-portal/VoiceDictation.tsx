@@ -418,12 +418,24 @@ export const VoiceDictation = ({
               </div>
             )}
 
-            {phase === "processing" && (
-              <div className="flex flex-col items-center gap-3 py-10">
-                <Loader2 className="h-10 w-10 text-rose-500 animate-spin" />
-                <p className="text-sm text-muted-foreground">
-                  AI is transcribing & translating…
-                </p>
+            {phase !== "idle" && phase !== "review" && (
+              <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold">{phaseMeta[phase].title}</p>
+                    <p className="text-xs text-muted-foreground">{phaseMeta[phase].detail}</p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                    <span>Progress</span>
+                    <span>{phaseMeta[phase].progress}%</span>
+                  </div>
+                  <Progress value={phaseMeta[phase].progress} className="h-2" />
+                </div>
               </div>
             )}
 
@@ -531,8 +543,8 @@ export const VoiceDictation = ({
                 <Button variant="outline" onClick={reset} className="flex-1">
                   <Trash2 className="h-4 w-4 mr-2" /> Discard
                 </Button>
-                <Button onClick={transcribe} className="flex-1 bg-rose-600 hover:bg-rose-700">
-                  <Sparkles className="h-4 w-4 mr-2" /> Save & Transcribe
+                 <Button onClick={transcribe} className="flex-1 bg-rose-600 hover:bg-rose-700">
+                   <Sparkles className="h-4 w-4 mr-2" /> Transcribe recording
                 </Button>
               </>
             )}
@@ -546,7 +558,7 @@ export const VoiceDictation = ({
                   disabled={!draftText.trim()}
                   className="flex-1 bg-green-600 hover:bg-green-700"
                 >
-                  <Check className="h-4 w-4 mr-2" /> Save to {fieldType === "notes" ? "notes" : "description"}
+                   <Check className="h-4 w-4 mr-2" /> {onPersist ? `Save to job ${fieldType === "notes" ? "notes" : "description"}` : `Apply to ${fieldType === "notes" ? "notes" : "description"}`}
                 </Button>
               </>
             )}
