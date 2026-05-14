@@ -105,16 +105,12 @@ export const TeamHistory = ({ jobs, teamName, onSelectJob, embedded = false }: T
   const fetchSignOffs = useCallback(async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) setLoading(true); else setRefreshing(true);
     try {
-      const twoYearsAgo = new Date();
-      twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
-
       const safeTeamName = teamName.replace(/"/g, '\\"');
       const [signOffResult, completedJobsResult] = await Promise.all([
         supabase
           .from('team_sign_offs')
           .select('job_id, signed_off_at, progress_notes')
           .eq('team_name', teamName)
-          .gte('signed_off_at', twoYearsAgo.toISOString())
           .order('signed_off_at', { ascending: false })
           .limit(5000),
         supabase
@@ -135,8 +131,7 @@ export const TeamHistory = ({ jobs, teamName, onSelectJob, embedded = false }: T
       const nextSignOffs = signOffResult.data || [];
       const nextCompletedJobs = (completedJobsResult.data || []).filter((row) => {
         const relevantDate = row.completion_date || row.updated_at;
-        if (!relevantDate) return false;
-        return new Date(relevantDate) >= twoYearsAgo;
+        return !!relevantDate;
       });
 
       setSignOffs(nextSignOffs);
