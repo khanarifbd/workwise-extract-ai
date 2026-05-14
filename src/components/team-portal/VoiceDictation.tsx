@@ -472,7 +472,7 @@ export const VoiceDictation = ({
                   <Trash2 className="h-4 w-4 mr-2" /> Discard
                 </Button>
                 <Button onClick={transcribe} className="flex-1 bg-rose-600 hover:bg-rose-700">
-                  <Sparkles className="h-4 w-4 mr-2" /> Transcribe
+                  <Sparkles className="h-4 w-4 mr-2" /> Save & Transcribe
                 </Button>
               </>
             )}
@@ -486,7 +486,7 @@ export const VoiceDictation = ({
                   disabled={!draftText.trim()}
                   className="flex-1 bg-green-600 hover:bg-green-700"
                 >
-                  <Check className="h-4 w-4 mr-2" /> Use text
+                  <Check className="h-4 w-4 mr-2" /> Save to {fieldType === "notes" ? "notes" : "description"}
                 </Button>
               </>
             )}
