@@ -17,7 +17,7 @@ import {
   Loader2,
   RefreshCw,
 } from 'lucide-react';
-import { format, isValid, isToday, isYesterday } from 'date-fns';
+import { format, isValid, isToday, isYesterday, startOfISOWeek, endOfISOWeek, getISOWeek } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -86,6 +86,7 @@ export const TeamHistory = ({ jobs, teamName, onSelectJob, embedded = false }: T
   const [search, setSearch] = useState('');
   const [expandedYears, setExpandedYears] = useState<Set<string>>(new Set());
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set());
+  const [expandedWeeks, setExpandedWeeks] = useState<Set<string>>(new Set());
   const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
   const [signOffs, setSignOffs] = useState<SignOffRecord[]>([]);
   const [completedJobs, setCompletedJobs] = useState<CompletedJobRecord[]>([]);
@@ -104,16 +105,12 @@ export const TeamHistory = ({ jobs, teamName, onSelectJob, embedded = false }: T
   const fetchSignOffs = useCallback(async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) setLoading(true); else setRefreshing(true);
     try {
-      const twoYearsAgo = new Date();
-      twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
-
       const safeTeamName = teamName.replace(/"/g, '\\"');
       const [signOffResult, completedJobsResult] = await Promise.all([
         supabase
           .from('team_sign_offs')
           .select('job_id, signed_off_at, progress_notes')
           .eq('team_name', teamName)
-          .gte('signed_off_at', twoYearsAgo.toISOString())
           .order('signed_off_at', { ascending: false })
           .limit(5000),
         supabase
@@ -134,8 +131,7 @@ export const TeamHistory = ({ jobs, teamName, onSelectJob, embedded = false }: T
       const nextSignOffs = signOffResult.data || [];
       const nextCompletedJobs = (completedJobsResult.data || []).filter((row) => {
         const relevantDate = row.completion_date || row.updated_at;
-        if (!relevantDate) return false;
-        return new Date(relevantDate) >= twoYearsAgo;
+        return !!relevantDate;
       });
 
       setSignOffs(nextSignOffs);
@@ -305,36 +301,65 @@ export const TeamHistory = ({ jobs, teamName, onSelectJob, embedded = false }: T
     });
   }, [historyEntries, search]);
 
-  // Group by year → month → day (descending) using signed_off_at
+  // Group by year → month → week → day (descending) using signed_off_at
   const grouped = useMemo(() => {
-    const yearMap = new Map<string, Map<string, Map<string, HistoryEntry[]>>>();
+    type WeekEntry = { weekKey: string; weekLabel: string; days: Map<string, HistoryEntry[]>; total: number };
+    type MonthEntry = { monthKey: string; monthLabel: string; weeks: WeekEntry[]; total: number };
+    const yearMap = new Map<string, Map<string, Map<string, Map<string, HistoryEntry[]>>>>();
+    const weekMeta = new Map<string, { start: Date; end: Date; isoWeek: number }>();
+
     for (const entry of searchedEntries) {
       if (!isValid(entry.signedOffAt)) continue;
       const yearKey = format(entry.signedOffAt, 'yyyy');
       const monthKey = format(entry.signedOffAt, 'yyyy-MM');
+      const weekStart = startOfISOWeek(entry.signedOffAt);
+      const weekKey = `${monthKey}-W${format(weekStart, 'yyyy-MM-dd')}`;
       const dayKey = format(entry.signedOffAt, 'yyyy-MM-dd');
+
+      if (!weekMeta.has(weekKey)) {
+        weekMeta.set(weekKey, {
+          start: weekStart,
+          end: endOfISOWeek(entry.signedOffAt),
+          isoWeek: getISOWeek(entry.signedOffAt),
+        });
+      }
+
       if (!yearMap.has(yearKey)) yearMap.set(yearKey, new Map());
       const monthMap = yearMap.get(yearKey)!;
       if (!monthMap.has(monthKey)) monthMap.set(monthKey, new Map());
-      const days = monthMap.get(monthKey)!;
+      const weekMap = monthMap.get(monthKey)!;
+      if (!weekMap.has(weekKey)) weekMap.set(weekKey, new Map());
+      const days = weekMap.get(weekKey)!;
       if (!days.has(dayKey)) days.set(dayKey, []);
       days.get(dayKey)!.push(entry);
     }
 
     const years = Array.from(yearMap.keys()).sort((a, b) => b.localeCompare(a)).map(yearKey => {
       const monthMap = yearMap.get(yearKey)!;
-      const months = Array.from(monthMap.keys()).sort((a, b) => b.localeCompare(a)).map(monthKey => {
-        const daysMap = monthMap.get(monthKey)!;
-        const sortedDayKeys = Array.from(daysMap.keys()).sort((a, b) => b.localeCompare(a));
-        const sortedDays = new Map<string, HistoryEntry[]>();
-        let total = 0;
-        for (const dk of sortedDayKeys) {
-          const list = daysMap.get(dk)!.sort((a, b) => b.signedOffAt.getTime() - a.signedOffAt.getTime());
-          sortedDays.set(dk, list);
-          total += list.length;
-        }
+      const months: MonthEntry[] = Array.from(monthMap.keys()).sort((a, b) => b.localeCompare(a)).map(monthKey => {
+        const weekMap = monthMap.get(monthKey)!;
+        const weeks: WeekEntry[] = Array.from(weekMap.keys())
+          .sort((a, b) => b.localeCompare(a))
+          .map(weekKey => {
+            const daysMap = weekMap.get(weekKey)!;
+            const sortedDayKeys = Array.from(daysMap.keys()).sort((a, b) => b.localeCompare(a));
+            const sortedDays = new Map<string, HistoryEntry[]>();
+            let total = 0;
+            for (const dk of sortedDayKeys) {
+              const list = daysMap.get(dk)!.sort((a, b) => b.signedOffAt.getTime() - a.signedOffAt.getTime());
+              sortedDays.set(dk, list);
+              total += list.length;
+            }
+            const meta = weekMeta.get(weekKey)!;
+            const sameMonth = format(meta.start, 'MMM') === format(meta.end, 'MMM');
+            const range = sameMonth
+              ? `${format(meta.start, 'd')}–${format(meta.end, 'd MMM')}`
+              : `${format(meta.start, 'd MMM')}–${format(meta.end, 'd MMM')}`;
+            return { weekKey, weekLabel: `Week ${meta.isoWeek} · ${range}`, days: sortedDays, total };
+          });
+        const monthTotal = weeks.reduce((s, w) => s + w.total, 0);
         const monthDate = parseDateKeyAsLocal(`${monthKey}-01`);
-        return { monthKey, monthLabel: format(monthDate, 'MMMM'), days: sortedDays, total };
+        return { monthKey, monthLabel: format(monthDate, 'MMMM'), weeks, total: monthTotal };
       });
       const yearTotal = months.reduce((s, m) => s + m.total, 0);
       return { yearKey, yearLabel: yearKey, months, total: yearTotal };
@@ -347,6 +372,8 @@ export const TeamHistory = ({ jobs, teamName, onSelectJob, embedded = false }: T
     setExpandedYears(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; });
   const toggleMonth = (key: string) =>
     setExpandedMonths(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; });
+  const toggleWeek = (key: string) =>
+    setExpandedWeeks(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; });
   const toggleDay = (key: string) =>
     setExpandedDays(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; });
 
@@ -356,21 +383,27 @@ export const TeamHistory = ({ jobs, teamName, onSelectJob, embedded = false }: T
       // Reset to fully collapsed when search cleared
       setExpandedYears(new Set());
       setExpandedMonths(new Set());
+      setExpandedWeeks(new Set());
       setExpandedDays(new Set());
       return;
     }
     const ys = new Set<string>();
     const ms = new Set<string>();
+    const ws = new Set<string>();
     const ds = new Set<string>();
     for (const y of grouped.years) {
       ys.add(y.yearKey);
       for (const m of y.months) {
         ms.add(m.monthKey);
-        for (const dk of m.days.keys()) ds.add(dk);
+        for (const w of m.weeks) {
+          ws.add(w.weekKey);
+          for (const dk of w.days.keys()) ds.add(dk);
+        }
       }
     }
     setExpandedYears(ys);
     setExpandedMonths(ms);
+    setExpandedWeeks(ws);
     setExpandedDays(ds);
   }, [search, grouped]);
 
@@ -476,75 +509,94 @@ export const TeamHistory = ({ jobs, teamName, onSelectJob, embedded = false }: T
                       </div>
                     </CollapsibleTrigger>
                     <CollapsibleContent className="space-y-1.5 mt-1.5 ml-3 border-l border-[hsl(var(--success))]/15 pl-3">
-                      {Array.from(m.days.entries()).map(([dayKey, dayEntries]) => (
-                        <Collapsible key={dayKey} open={expandedDays.has(dayKey)} onOpenChange={() => toggleDay(dayKey)}>
+                      {m.weeks.map((w) => (
+                        <Collapsible key={w.weekKey} open={expandedWeeks.has(w.weekKey)} onOpenChange={() => toggleWeek(w.weekKey)}>
                           <CollapsibleTrigger asChild>
-                            <div className="cursor-pointer rounded-lg px-3 py-2 flex items-center justify-between hover:bg-muted/50 transition-colors">
+                            <div className="cursor-pointer rounded-lg bg-[hsl(var(--success))]/[0.04] border border-[hsl(var(--success))]/10 px-3 py-1.5 flex items-center justify-between hover:bg-[hsl(var(--success))]/10 transition-colors">
                               <div className="flex items-center gap-1.5">
-                                {expandedDays.has(dayKey)
-                                  ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                                  : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
-                                <Calendar className="h-3.5 w-3.5 text-[hsl(var(--success))]/80" />
-                                <span className="font-medium text-xs">{formatDayHeader(dayKey)}</span>
+                                {expandedWeeks.has(w.weekKey)
+                                  ? <ChevronDown className="h-3 w-3 text-[hsl(var(--success))]/80" />
+                                  : <ChevronRight className="h-3 w-3 text-[hsl(var(--success))]/80" />}
+                                <span className="font-medium text-[11px] text-foreground/80">{w.weekLabel}</span>
                               </div>
                               <Badge variant="secondary" className="text-[10px] px-1.5 rounded-full">
-                                {dayEntries.length}
+                                {w.total}
                               </Badge>
                             </div>
                           </CollapsibleTrigger>
-                          <CollapsibleContent className="space-y-1 mt-1.5 ml-2 pl-2">
-                            {dayEntries.map((entry) => {
-                              const jobNumber = entry.job?.jobNumber || entry.fallback?.jobNumber || '—';
-                              const name = entry.job?.name || entry.fallback?.name || 'Unknown property';
-                              const address = entry.job?.address || entry.fallback?.address;
-                              const phone = entry.job?.phoneNumber || entry.fallback?.phoneNumber;
-                              const clickable = !!entry.job;
-                              return (
-                                <button
-                                  key={entry.jobId + entry.signedOffAt.toISOString()}
-                                  onClick={() => entry.job && onSelectJob(entry.job)}
-                                  disabled={!clickable}
-                                  className={cn(
-                                    "w-full text-left rounded-lg border border-border bg-card p-3 transition-colors",
-                                    "border-l-4 border-l-[hsl(var(--success))]",
-                                    clickable ? "hover:bg-muted/40 cursor-pointer" : "opacity-70 cursor-not-allowed"
-                                  )}
-                                >
-                                  <div className="flex items-start justify-between gap-2">
-                                    <div className="min-w-0 flex-1">
-                                      <div className="flex items-center gap-1.5 mb-0.5">
-                                        <CheckCircle2 className="h-3.5 w-3.5 text-[hsl(var(--success))] flex-shrink-0" />
-                                        <span className="font-mono text-[11px] text-muted-foreground">
-                                          {jobNumber}
-                                        </span>
-                                        {entry.source === 'completion' && (
-                                          <span className="text-[9px] uppercase tracking-wide text-muted-foreground/70">completed</span>
-                                        )}
-                                        {!entry.job && (
-                                          <span className="text-[9px] uppercase tracking-wide text-muted-foreground/70">archived</span>
-                                        )}
-                                      </div>
-                                      <p className="font-semibold text-sm text-foreground truncate">{name}</p>
-                                      {address && (
-                                        <p className="text-xs text-muted-foreground flex items-start gap-1 mt-0.5">
-                                          <MapPin className="h-3 w-3 mt-0.5 flex-shrink-0" />
-                                          <span className="line-clamp-1">{address}</span>
-                                        </p>
-                                      )}
-                                      {phone && (
-                                        <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                                          <Phone className="h-3 w-3 flex-shrink-0" />
-                                          <span>{phone}</span>
-                                        </p>
-                                      )}
+                          <CollapsibleContent className="space-y-1.5 mt-1.5 ml-2 border-l border-[hsl(var(--success))]/10 pl-2">
+                            {Array.from(w.days.entries()).map(([dayKey, dayEntries]) => (
+                              <Collapsible key={dayKey} open={expandedDays.has(dayKey)} onOpenChange={() => toggleDay(dayKey)}>
+                                <CollapsibleTrigger asChild>
+                                  <div className="cursor-pointer rounded-lg px-3 py-2 flex items-center justify-between hover:bg-muted/50 transition-colors">
+                                    <div className="flex items-center gap-1.5">
+                                      {expandedDays.has(dayKey)
+                                        ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                                        : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+                                      <Calendar className="h-3.5 w-3.5 text-[hsl(var(--success))]/80" />
+                                      <span className="font-medium text-xs">{formatDayHeader(dayKey)}</span>
                                     </div>
-                                    <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                                      {format(entry.signedOffAt, 'HH:mm')}
-                                    </span>
+                                    <Badge variant="secondary" className="text-[10px] px-1.5 rounded-full">
+                                      {dayEntries.length}
+                                    </Badge>
                                   </div>
-                                </button>
-                              );
-                            })}
+                                </CollapsibleTrigger>
+                                <CollapsibleContent className="space-y-1 mt-1.5 ml-2 pl-2">
+                                  {dayEntries.map((entry) => {
+                                    const jobNumber = entry.job?.jobNumber || entry.fallback?.jobNumber || '—';
+                                    const name = entry.job?.name || entry.fallback?.name || 'Unknown property';
+                                    const address = entry.job?.address || entry.fallback?.address;
+                                    const phone = entry.job?.phoneNumber || entry.fallback?.phoneNumber;
+                                    const clickable = !!entry.job;
+                                    return (
+                                      <button
+                                        key={entry.jobId + entry.signedOffAt.toISOString()}
+                                        onClick={() => entry.job && onSelectJob(entry.job)}
+                                        disabled={!clickable}
+                                        className={cn(
+                                          "w-full text-left rounded-lg border border-border bg-card p-3 transition-colors",
+                                          "border-l-4 border-l-[hsl(var(--success))]",
+                                          clickable ? "hover:bg-muted/40 cursor-pointer" : "opacity-70 cursor-not-allowed"
+                                        )}
+                                      >
+                                        <div className="flex items-start justify-between gap-2">
+                                          <div className="min-w-0 flex-1">
+                                            <div className="flex items-center gap-1.5 mb-0.5">
+                                              <CheckCircle2 className="h-3.5 w-3.5 text-[hsl(var(--success))] flex-shrink-0" />
+                                              <span className="font-mono text-[11px] text-muted-foreground">
+                                                {jobNumber}
+                                              </span>
+                                              {entry.source === 'completion' && (
+                                                <span className="text-[9px] uppercase tracking-wide text-muted-foreground/70">completed</span>
+                                              )}
+                                              {!entry.job && (
+                                                <span className="text-[9px] uppercase tracking-wide text-muted-foreground/70">archived</span>
+                                              )}
+                                            </div>
+                                            <p className="font-semibold text-sm text-foreground truncate">{name}</p>
+                                            {address && (
+                                              <p className="text-xs text-muted-foreground flex items-start gap-1 mt-0.5">
+                                                <MapPin className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                                                <span className="line-clamp-1">{address}</span>
+                                              </p>
+                                            )}
+                                            {phone && (
+                                              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                                                <Phone className="h-3 w-3 flex-shrink-0" />
+                                                <span>{phone}</span>
+                                              </p>
+                                            )}
+                                          </div>
+                                          <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                                            {format(entry.signedOffAt, 'HH:mm')}
+                                          </span>
+                                        </div>
+                                      </button>
+                                    );
+                                  })}
+                                </CollapsibleContent>
+                              </Collapsible>
+                            ))}
                           </CollapsibleContent>
                         </Collapsible>
                       ))}
