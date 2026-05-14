@@ -301,36 +301,65 @@ export const TeamHistory = ({ jobs, teamName, onSelectJob, embedded = false }: T
     });
   }, [historyEntries, search]);
 
-  // Group by year → month → day (descending) using signed_off_at
+  // Group by year → month → week → day (descending) using signed_off_at
   const grouped = useMemo(() => {
-    const yearMap = new Map<string, Map<string, Map<string, HistoryEntry[]>>>();
+    type WeekEntry = { weekKey: string; weekLabel: string; days: Map<string, HistoryEntry[]>; total: number };
+    type MonthEntry = { monthKey: string; monthLabel: string; weeks: WeekEntry[]; total: number };
+    const yearMap = new Map<string, Map<string, Map<string, Map<string, HistoryEntry[]>>>>();
+    const weekMeta = new Map<string, { start: Date; end: Date; isoWeek: number }>();
+
     for (const entry of searchedEntries) {
       if (!isValid(entry.signedOffAt)) continue;
       const yearKey = format(entry.signedOffAt, 'yyyy');
       const monthKey = format(entry.signedOffAt, 'yyyy-MM');
+      const weekStart = startOfISOWeek(entry.signedOffAt);
+      const weekKey = `${monthKey}-W${format(weekStart, 'yyyy-MM-dd')}`;
       const dayKey = format(entry.signedOffAt, 'yyyy-MM-dd');
+
+      if (!weekMeta.has(weekKey)) {
+        weekMeta.set(weekKey, {
+          start: weekStart,
+          end: endOfISOWeek(entry.signedOffAt),
+          isoWeek: getISOWeek(entry.signedOffAt),
+        });
+      }
+
       if (!yearMap.has(yearKey)) yearMap.set(yearKey, new Map());
       const monthMap = yearMap.get(yearKey)!;
       if (!monthMap.has(monthKey)) monthMap.set(monthKey, new Map());
-      const days = monthMap.get(monthKey)!;
+      const weekMap = monthMap.get(monthKey)!;
+      if (!weekMap.has(weekKey)) weekMap.set(weekKey, new Map());
+      const days = weekMap.get(weekKey)!;
       if (!days.has(dayKey)) days.set(dayKey, []);
       days.get(dayKey)!.push(entry);
     }
 
     const years = Array.from(yearMap.keys()).sort((a, b) => b.localeCompare(a)).map(yearKey => {
       const monthMap = yearMap.get(yearKey)!;
-      const months = Array.from(monthMap.keys()).sort((a, b) => b.localeCompare(a)).map(monthKey => {
-        const daysMap = monthMap.get(monthKey)!;
-        const sortedDayKeys = Array.from(daysMap.keys()).sort((a, b) => b.localeCompare(a));
-        const sortedDays = new Map<string, HistoryEntry[]>();
-        let total = 0;
-        for (const dk of sortedDayKeys) {
-          const list = daysMap.get(dk)!.sort((a, b) => b.signedOffAt.getTime() - a.signedOffAt.getTime());
-          sortedDays.set(dk, list);
-          total += list.length;
-        }
+      const months: MonthEntry[] = Array.from(monthMap.keys()).sort((a, b) => b.localeCompare(a)).map(monthKey => {
+        const weekMap = monthMap.get(monthKey)!;
+        const weeks: WeekEntry[] = Array.from(weekMap.keys())
+          .sort((a, b) => b.localeCompare(a))
+          .map(weekKey => {
+            const daysMap = weekMap.get(weekKey)!;
+            const sortedDayKeys = Array.from(daysMap.keys()).sort((a, b) => b.localeCompare(a));
+            const sortedDays = new Map<string, HistoryEntry[]>();
+            let total = 0;
+            for (const dk of sortedDayKeys) {
+              const list = daysMap.get(dk)!.sort((a, b) => b.signedOffAt.getTime() - a.signedOffAt.getTime());
+              sortedDays.set(dk, list);
+              total += list.length;
+            }
+            const meta = weekMeta.get(weekKey)!;
+            const sameMonth = format(meta.start, 'MMM') === format(meta.end, 'MMM');
+            const range = sameMonth
+              ? `${format(meta.start, 'd')}–${format(meta.end, 'd MMM')}`
+              : `${format(meta.start, 'd MMM')}–${format(meta.end, 'd MMM')}`;
+            return { weekKey, weekLabel: `Week ${meta.isoWeek} · ${range}`, days: sortedDays, total };
+          });
+        const monthTotal = weeks.reduce((s, w) => s + w.total, 0);
         const monthDate = parseDateKeyAsLocal(`${monthKey}-01`);
-        return { monthKey, monthLabel: format(monthDate, 'MMMM'), days: sortedDays, total };
+        return { monthKey, monthLabel: format(monthDate, 'MMMM'), weeks, total: monthTotal };
       });
       const yearTotal = months.reduce((s, m) => s + m.total, 0);
       return { yearKey, yearLabel: yearKey, months, total: yearTotal };
@@ -343,6 +372,8 @@ export const TeamHistory = ({ jobs, teamName, onSelectJob, embedded = false }: T
     setExpandedYears(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; });
   const toggleMonth = (key: string) =>
     setExpandedMonths(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; });
+  const toggleWeek = (key: string) =>
+    setExpandedWeeks(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; });
   const toggleDay = (key: string) =>
     setExpandedDays(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; });
 
