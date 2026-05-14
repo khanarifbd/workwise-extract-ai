@@ -461,6 +461,55 @@ export const TeamJobDetail = ({
     }
   };
 
+  const persistNotesFromDictation = useCallback(
+    async (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed) {
+        throw new Error('Nothing to save.');
+      }
+
+      if (!isOnline) {
+        await addToSyncQueue({
+          teamId,
+          actionType: 'progress_update',
+          payload: {
+            id: job.id,
+            progress_notes: trimmed,
+          },
+        });
+
+        setNotes(trimmed);
+        setHasUnsavedChanges(false);
+        onJobUpdate({
+          ...job,
+          progressNotes: trimmed,
+        });
+        toast({
+          title: 'Saved Offline',
+          description: 'Dictated notes were saved locally and will sync when online.',
+        });
+        return;
+      }
+
+      await updateTeamJob(job.id, {
+        notes: trimmed,
+      });
+
+      setNotes(trimmed);
+      setHasUnsavedChanges(false);
+      onJobUpdate({
+        ...job,
+        progressNotes: trimmed,
+      });
+
+      toast({
+        title: 'Saved',
+        description: 'Dictated notes were saved to the job.',
+      });
+    },
+    [isOnline, addToSyncQueue, teamId, job, updateTeamJob, onJobUpdate, toast]
+  );
+
   // Handle job completion/sign-off with full data transfer
   const handleCompleteJob = async () => {
     if (!canSignOff) return;
@@ -1210,6 +1259,7 @@ export const TeamJobDetail = ({
                       <VoiceDictation
                         currentText={notes}
                         onAccept={(text) => setNotes(text)}
+                        onPersist={persistNotesFromDictation}
                         fieldType="notes"
                         jobContext={job.summaryOfWorks || job.name}
                       />

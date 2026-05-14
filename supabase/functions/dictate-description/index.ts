@@ -51,16 +51,17 @@ Return STRICT JSON only:
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
+          model: "google/gemini-3-flash-preview",
           messages: [
             {
               role: "user",
               content: [
                 { type: "text", text: transcribePrompt },
                 {
-                  type: "image_url",
-                  image_url: {
-                    url: `data:${body.mimeType || "audio/webm"};base64,${body.audioBase64}`,
+                  type: "input_audio",
+                  input_audio: {
+                    data: body.audioBase64,
+                    format: getAudioFormat(body.mimeType),
                   },
                 },
               ],
@@ -162,4 +163,14 @@ function jsonResp(obj: any, status = 200) {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+function getAudioFormat(mimeType?: string) {
+  const lower = mimeType?.toLowerCase() || "";
+  if (lower.includes("mp4") || lower.includes("m4a")) return "mp4";
+  if (lower.includes("mpeg") || lower.includes("mp3")) return "mp3";
+  if (lower.includes("wav")) return "wav";
+  if (lower.includes("ogg")) return "ogg";
+  if (lower.includes("aac")) return "aac";
+  return "webm";
 }

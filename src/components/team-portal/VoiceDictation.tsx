@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import {
@@ -35,6 +36,7 @@ interface Question {
 interface Props {
   currentText: string;
   onAccept: (text: string) => void;
+  onPersist?: (text: string) => Promise<void>;
   fieldType?: "description" | "notes";
   jobContext?: string;
   /** Compact button label / variant */
@@ -44,6 +46,7 @@ interface Props {
 export const VoiceDictation = ({
   currentText,
   onAccept,
+  onPersist,
   fieldType = "description",
   jobContext,
   label,
@@ -53,7 +56,7 @@ export const VoiceDictation = ({
   const [duration, setDuration] = useState(0);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [phase, setPhase] = useState<"idle" | "processing" | "review">("idle");
+  const [phase, setPhase] = useState<"idle" | "encoding" | "transcribing" | "refining" | "review" | "saving">("idle");
   const [draftText, setDraftText] = useState("");
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -193,10 +196,11 @@ export const VoiceDictation = ({
 
   const transcribe = async () => {
     if (!audioBlob) return;
-    setPhase("processing");
+    setPhase("encoding");
     setError(null);
     try {
       const audioBase64 = await blobToBase64(audioBlob);
+      setPhase("transcribing");
       const { data, error: fnErr } = await supabase.functions.invoke("dictate-description", {
         body: {
           audioBase64,
@@ -209,6 +213,7 @@ export const VoiceDictation = ({
       });
       if (fnErr) throw new Error(fnErr.message || "Dictation failed");
       if (data?.error) throw new Error(data.error);
+      setPhase("refining");
       setDraftText(data?.finalText || "");
       setQuestions(data?.questions || []);
       setPhase("review");
@@ -226,7 +231,7 @@ export const VoiceDictation = ({
       setQuestions([]);
       return;
     }
-    setPhase("processing");
+    setPhase("refining");
     try {
       const { data, error: fnErr } = await supabase.functions.invoke("dictate-description", {
         body: {
@@ -250,18 +255,73 @@ export const VoiceDictation = ({
     }
   };
 
-  const handleAccept = () => {
-    if (!draftText.trim()) return;
-    onAccept(draftText.trim());
-    toast({
-      title: "Dictation applied",
-      description: `${fieldType === "notes" ? "Progress notes" : "Description"} updated.`,
-    });
-    setIsOpen(false);
+  const handleAccept = async () => {
+    const nextText = draftText.trim();
+    if (!nextText) return;
+
+    setError(null);
+
+    try {
+      if (onPersist) {
+        setPhase("saving");
+        await onPersist(nextText);
+      }
+
+      onAccept(nextText);
+
+      if (!onPersist) {
+        toast({
+          title: "Dictation applied",
+          description: `${fieldType === "notes" ? "Progress notes" : "Description"} updated.`,
+        });
+      }
+
+      setIsOpen(false);
+    } catch (e: any) {
+      setError(e?.message || `Failed to save ${fieldType === "notes" ? "notes" : "description"}.`);
+      setPhase("review");
+    }
   };
 
   const fmt = (s: number) =>
     `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
+
+  const phaseMeta = {
+    idle: {
+      title: isRecording ? "Recording in progress" : audioBlob ? "Recording ready" : "Ready to record",
+      detail: isRecording
+        ? "Speak naturally and include every detail you want saved."
+        : audioBlob
+          ? "Review the playback, then transcribe and save it."
+          : "Tap record and describe the work in as much detail as needed.",
+      progress: audioBlob ? 100 : isRecording ? Math.min(95, Math.max(12, duration * 4)) : 0,
+    },
+    encoding: {
+      title: "Preparing audio",
+      detail: "Compressing and uploading your recording securely.",
+      progress: 24,
+    },
+    transcribing: {
+      title: "Transcribing speech",
+      detail: "Converting speech to text and detecting the language.",
+      progress: 62,
+    },
+    refining: {
+      title: "Checking wording",
+      detail: "Cleaning the text for a clear British-English job update.",
+      progress: 86,
+    },
+    review: {
+      title: "Review and save",
+      detail: "Edit anything you want before saving it into the job.",
+      progress: 100,
+    },
+    saving: {
+      title: `Saving ${fieldType === "notes" ? "notes" : "description"}`,
+      detail: "Writing the dictated text into the job record.",
+      progress: 96,
+    },
+  } as const;
 
   return (
     <>
@@ -358,12 +418,24 @@ export const VoiceDictation = ({
               </div>
             )}
 
-            {phase === "processing" && (
-              <div className="flex flex-col items-center gap-3 py-10">
-                <Loader2 className="h-10 w-10 text-rose-500 animate-spin" />
-                <p className="text-sm text-muted-foreground">
-                  AI is transcribing & translating…
-                </p>
+            {phase !== "idle" && phase !== "review" && (
+              <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold">{phaseMeta[phase].title}</p>
+                    <p className="text-xs text-muted-foreground">{phaseMeta[phase].detail}</p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                    <span>Progress</span>
+                    <span>{phaseMeta[phase].progress}%</span>
+                  </div>
+                  <Progress value={phaseMeta[phase].progress} className="h-2" />
+                </div>
               </div>
             )}
 
@@ -471,8 +543,8 @@ export const VoiceDictation = ({
                 <Button variant="outline" onClick={reset} className="flex-1">
                   <Trash2 className="h-4 w-4 mr-2" /> Discard
                 </Button>
-                <Button onClick={transcribe} className="flex-1 bg-rose-600 hover:bg-rose-700">
-                  <Sparkles className="h-4 w-4 mr-2" /> Save & Transcribe
+                 <Button onClick={transcribe} className="flex-1 bg-rose-600 hover:bg-rose-700">
+                   <Sparkles className="h-4 w-4 mr-2" /> Transcribe recording
                 </Button>
               </>
             )}
@@ -486,7 +558,7 @@ export const VoiceDictation = ({
                   disabled={!draftText.trim()}
                   className="flex-1 bg-green-600 hover:bg-green-700"
                 >
-                  <Check className="h-4 w-4 mr-2" /> Save to {fieldType === "notes" ? "notes" : "description"}
+                   <Check className="h-4 w-4 mr-2" /> {onPersist ? `Save to job ${fieldType === "notes" ? "notes" : "description"}` : `Apply to ${fieldType === "notes" ? "notes" : "description"}`}
                 </Button>
               </>
             )}
