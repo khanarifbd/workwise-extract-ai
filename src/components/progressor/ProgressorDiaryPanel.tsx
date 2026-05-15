@@ -50,6 +50,7 @@ export const ProgressorDiaryPanel = ({ jobs, progressorName, onJumpToJob }: Prop
   }, []);
 
   const [jobId, setJobId] = useState<string>('none');
+  const [jobPickerOpen, setJobPickerOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [notes, setNotes] = useState('');
   const [scheduledAt, setScheduledAt] = useState(defaultDate);
@@ -61,9 +62,18 @@ export const ProgressorDiaryPanel = ({ jobs, progressorName, onJumpToJob }: Prop
     () => jobs
       .slice()
       .sort((a, b) => `${a.jobNumber}`.localeCompare(`${b.jobNumber}`))
-      .map(j => ({ value: j.id, label: `#${j.jobNumber} — ${j.name}` })),
+      .map(j => ({
+        value: j.id,
+        jobNumber: j.jobNumber,
+        name: j.name,
+        address: j.address,
+        // Combined searchable string for cmdk fuzzy match
+        keywords: `${j.jobNumber} ${j.name} ${j.address}`,
+      })),
     [jobs],
   );
+
+  const selectedJob = jobId === 'none' ? null : jobOptions.find(o => o.value === jobId) || null;
 
   const handleCreate = async () => {
     if (!title.trim()) {
