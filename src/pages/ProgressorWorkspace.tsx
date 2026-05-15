@@ -274,11 +274,7 @@ const StreamColumn = ({
   });
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 border-r last:border-r-0 border-border">
-      <div className={cn("h-9 px-3 flex items-center text-white text-xs font-bold uppercase tracking-wide shrink-0", tone)}>
-        <span>{title}</span>
-        <span className="ml-auto opacity-90">{jobs.length}</span>
-      </div>
+    <div className="flex-1 flex flex-col min-h-0">
       <ScrollArea className="flex-1">
         <div className="p-2 space-y-2">
           {isLoading && (
