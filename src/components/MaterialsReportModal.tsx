@@ -38,6 +38,12 @@ interface Props {
   onOpenChange: (v: boolean) => void;
 }
 
+type DatePreset = 'all' | 'today' | 'yesterday' | 'last7' | 'last30' | 'thisMonth' | 'lastMonth' | 'custom';
+type DateField = 'booked_date' | 'date_issued';
+
+const startOfDay = (d: Date) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
+const endOfDay = (d: Date) => { const x = new Date(d); x.setHours(23, 59, 59, 999); return x; };
+
 export function MaterialsReportModal({ open, onOpenChange }: Props) {
   const { categories } = useCategories();
   const [view, setView] = useState<'select' | 'report' | 'history'>('select');
@@ -49,6 +55,10 @@ export function MaterialsReportModal({ open, onOpenChange }: Props) {
   const [filterStatus, setFilterStatus] = useState<'incomplete' | 'all'>('incomplete');
   const [filterAssigned, setFilterAssigned] = useState<'any' | 'assigned' | 'unassigned'>('any');
   const [filterScope, setFilterScope] = useState<'database' | 'booked'>('database');
+  const [dateField, setDateField] = useState<DateField>('booked_date');
+  const [datePreset, setDatePreset] = useState<DatePreset>('all');
+  const [customFrom, setCustomFrom] = useState<string>('');
+  const [customTo, setCustomTo] = useState<string>('');
   const [generating, setGenerating] = useState(false);
   const [report, setReport] = useState<MaterialsReportData | null>(null);
   const [reportTitle, setReportTitle] = useState('');
