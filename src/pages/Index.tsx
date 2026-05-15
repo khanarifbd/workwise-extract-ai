@@ -95,7 +95,7 @@ const Index = () => {
   useMetricsIntegrity(jobs);
   
   // Get trade-booked jobs (sub-tasks with booked dates)
-  const { tradeBookings } = useTradeBookedJobs();
+  const { tradeBookings, refetch: refetchTradeBookings } = useTradeBookedJobs();
   
   // Get job IDs for sign-off status
   const jobIds = useMemo(() => jobs.map(j => j.id), [jobs]);
@@ -1794,7 +1794,16 @@ const Index = () => {
               <BookedDateSidebar
                 jobs={jobs.filter(j => (!!j.bookedDate || tradeBookings.has(j.id)) && !j.referBack)}
                 selectedDate={selectedBookedDate}
-                onDateSelect={setSelectedBookedDate}
+                onDateSelect={(d) => {
+                  setSelectedBookedDate(d);
+                  // Refresh data on day-click so the count in the sidebar
+                  // and the jobs in the table are guaranteed to match the
+                  // latest DB state (avoids needing a manual page refresh).
+                  if (d) {
+                    refreshJobs();
+                    refetchTradeBookings();
+                  }
+                }}
                 isFanCategory={isFanCategory}
                 tradeBookings={tradeBookings}
               />

@@ -38,6 +38,8 @@ import {
 } from 'lucide-react';
 import { useContactHistory } from '@/hooks/useContactHistory';
 import { CONTACT_OUTCOMES } from '@/types/contactHistory';
+import { useLinkedTradeJobs, LinkedTradeJobInfo } from '@/hooks/useLinkedTradeJobs';
+import { Fan, Triangle, LayoutGrid, DoorClosed } from 'lucide-react';
 import { format, differenceInCalendarDays, startOfWeek, endOfWeek, getISOWeek } from 'date-fns';
 
 /* ───────────────────── Priority Pill ───────────────────── */
@@ -64,7 +66,39 @@ const PriorityPill = ({ priority }: { priority: JobPriority }) => {
   );
 };
 
-/* ───────────────────── Workspace Shell ───────────────────── */
+/* ───────────────────── Linked Trade Pill (Fan / Roof / Floor / Fire Door) ───────────────────── */
+const TRADE_META: Record<LinkedTradeJobInfo['kind'], { label: string; Icon: React.ComponentType<{ className?: string }>; tone: string }> = {
+  fan:       { label: 'Fan',       Icon: Fan,         tone: 'text-cyan-600 border-cyan-300 bg-cyan-50 dark:bg-cyan-950/30 dark:text-cyan-300 dark:border-cyan-800' },
+  roofing:   { label: 'Roof',      Icon: Triangle,    tone: 'text-orange-600 border-orange-300 bg-orange-50 dark:bg-orange-950/30 dark:text-orange-300 dark:border-orange-800' },
+  flooring:  { label: 'Floor',     Icon: LayoutGrid,  tone: 'text-teal-600 border-teal-300 bg-teal-50 dark:bg-teal-950/30 dark:text-teal-300 dark:border-teal-800' },
+  fire_door: { label: 'Fire Door', Icon: DoorClosed,  tone: 'text-emerald-600 border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-800' },
+};
+
+const LinkedTradePill = ({ info }: { info: LinkedTradeJobInfo }) => {
+  const meta = TRADE_META[info.kind];
+  const Icon = meta.Icon;
+  const completed = info.isCompleted || info.status === 'complete';
+  const dateLabel = info.bookedDate
+    ? format(new Date(info.bookedDate), 'EEE dd MMM')
+    : 'unbooked';
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border',
+        meta.tone,
+        completed && 'opacity-70 line-through',
+      )}
+      title={`${meta.label} #${info.jobNumber}${info.team ? ` — ${info.team}` : ''}`}
+    >
+      <Icon className="h-3 w-3" />
+      <span>{meta.label}:</span>
+      <span className="font-bold">{dateLabel}</span>
+      {completed && <CheckCircle2 className="h-3 w-3" />}
+    </span>
+  );
+};
+
+
 const ProgressorWorkspace = () => {
   const navigate = useNavigate();
   const { user, isLoading, hasAccess, signOut } = useProgressorAuth();
@@ -431,6 +465,7 @@ const JobDetailPanel = ({
   const [tab, setTab] = useState('description');
   const [showAddTrade, setShowAddTrade] = useState(false);
   const { subTasks, updateSubTask } = useSubTasks(job.id);
+  const { linked: linkedTrades } = useLinkedTradeJobs(job.id);
   const priority = detectJobPriority(job.description, job.privateNotes);
 
   return (
@@ -455,6 +490,11 @@ const JobDetailPanel = ({
             </div>
             <h2 className="text-lg font-semibold truncate">{job.name}</h2>
             <p className="text-sm text-muted-foreground truncate">{job.address}</p>
+            {linkedTrades.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                {linkedTrades.map((lt) => <LinkedTradePill key={lt.id} info={lt} />)}
+              </div>
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-1 shrink-0">
             {job.team && <Badge>{job.team}</Badge>}
