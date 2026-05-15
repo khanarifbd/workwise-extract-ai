@@ -70,6 +70,7 @@ const ProgressorWorkspace = () => {
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [activeStream, setActiveStream] = useState<ProgStream>('dm');
 
   const [diaryOpen, setDiaryOpen] = useState(false);
   const [tradesOpen, setTradesOpen] = useState(false);
@@ -87,6 +88,11 @@ const ProgressorWorkspace = () => {
     () => [...dmJobs, ...aaJobs].find(j => j.id === selectedId) || null,
     [dmJobs, aaJobs, selectedId],
   );
+
+  // Auto-switch to the stream of the selected job (e.g. when jumping from diary).
+  useEffect(() => {
+    if (selected && selected.stream !== activeStream) setActiveStream(selected.stream);
+  }, [selected]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (isLoading || !hasAccess) {
     return (
@@ -139,31 +145,37 @@ const ProgressorWorkspace = () => {
       </header>
 
       {/* Body */}
-      <div className="flex-1 flex min-h-0">
-        {/* Left: Two stream columns */}
-        <aside className="w-[640px] border-r border-border bg-muted/20 flex min-h-0">
-          <StreamColumn
-            title="DM"
-            tone="bg-progressor"
-            jobs={dmFiltered}
-            isLoading={jobsLoading}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
-            getSignOffStatus={getSignOffStatus}
-          />
-          <StreamColumn
-            title="A & A"
-            tone="bg-emerald-600"
-            jobs={aaFiltered}
-            isLoading={jobsLoading}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
-            getSignOffStatus={getSignOffStatus}
-          />
+      <div className="flex-1 flex min-h-0 p-3 gap-3">
+        {/* Left: Single stream (tab-switched) */}
+        <aside className="w-[420px] flex flex-col min-h-0 rounded-2xl border border-border bg-card overflow-hidden shadow-sm">
+          <Tabs value={activeStream} onValueChange={(v) => setActiveStream(v as ProgStream)} className="flex flex-col flex-1 min-h-0">
+            <div className="p-2 border-b border-border bg-muted/30">
+              <TabsList className="grid grid-cols-2 w-full h-9 rounded-xl">
+                <TabsTrigger value="dm" className="rounded-lg data-[state=active]:bg-progressor data-[state=active]:text-progressor-foreground font-bold text-xs">
+                  DM <span className="ml-1.5 opacity-80">{dmFiltered.length}</span>
+                </TabsTrigger>
+                <TabsTrigger value="aa" className="rounded-lg data-[state=active]:bg-emerald-600 data-[state=active]:text-white font-bold text-xs">
+                  A &amp; A <span className="ml-1.5 opacity-80">{aaFiltered.length}</span>
+                </TabsTrigger>
+              </TabsList>
+            </div>
+            <TabsContent value="dm" className="flex-1 min-h-0 mt-0 data-[state=inactive]:hidden">
+              <StreamColumn
+                title="DM" tone="bg-progressor" jobs={dmFiltered} isLoading={jobsLoading}
+                selectedId={selectedId} onSelect={setSelectedId} getSignOffStatus={getSignOffStatus}
+              />
+            </TabsContent>
+            <TabsContent value="aa" className="flex-1 min-h-0 mt-0 data-[state=inactive]:hidden">
+              <StreamColumn
+                title="A & A" tone="bg-emerald-600" jobs={aaFiltered} isLoading={jobsLoading}
+                selectedId={selectedId} onSelect={setSelectedId} getSignOffStatus={getSignOffStatus}
+              />
+            </TabsContent>
+          </Tabs>
         </aside>
 
         {/* Right: Detail */}
-        <main className="flex-1 min-w-0 bg-background">
+        <main className="flex-1 min-w-0 rounded-2xl border border-border bg-card overflow-hidden shadow-sm">
           {selected ? (
             <JobDetailPanel
               key={selected.id}
@@ -267,11 +279,7 @@ const StreamColumn = ({
   });
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 border-r last:border-r-0 border-border">
-      <div className={cn("h-9 px-3 flex items-center text-white text-xs font-bold uppercase tracking-wide shrink-0", tone)}>
-        <span>{title}</span>
-        <span className="ml-auto opacity-90">{jobs.length}</span>
-      </div>
+    <div className="flex-1 flex flex-col min-h-0">
       <ScrollArea className="flex-1">
         <div className="p-2 space-y-2">
           {isLoading && (
