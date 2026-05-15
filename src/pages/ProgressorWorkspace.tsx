@@ -386,9 +386,6 @@ const DescriptionTab = ({ job, progressorName, onSaved }: { job: IncompleteJob; 
   const save = async () => {
     setSaving(true);
     try {
-      const stamped = draft.trim()
-        ? `${draft}\n\n— [Progressor ${progressorName} • ${format(new Date(), 'dd MMM yy HH:mm')}]`
-        : '';
       const { error } = await supabase.from('jobs').update({ description: draft }).eq('id', job.id);
       if (error) throw error;
       onSaved();
