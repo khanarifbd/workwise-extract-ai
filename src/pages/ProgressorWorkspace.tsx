@@ -270,7 +270,6 @@ export default ProgressorWorkspace;
 const JobDetailPanel = ({
   job, progressorName, onChanged,
 }: { job: IncompleteJob; progressorName: string; onChanged: () => void }) => {
-  const { toast } = useToast();
   const [tab, setTab] = useState('description');
   const [showAddTrade, setShowAddTrade] = useState(false);
   const { subTasks, updateSubTask } = useSubTasks(job.id);
