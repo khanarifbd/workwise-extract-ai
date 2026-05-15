@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useProgressorAuth } from '@/hooks/useProgressorAuth';
@@ -27,9 +27,9 @@ import { cn } from '@/lib/utils';
 import {
   Search, Calendar as CalendarIcon, X, NotebookPen, BookOpenCheck, Wrench,
   LogOut, Loader2, Save, Edit3, FileText, MessageSquare, Image as ImageIcon,
-  AlertCircle, CheckCircle2, Plus, Building2,
+  CheckCircle2, Plus, Building2,
 } from 'lucide-react';
-import { format, formatDistanceToNow, isAfter } from 'date-fns';
+import { format, isAfter } from 'date-fns';
 
 /* ───────────────────── Workspace Shell ───────────────────── */
 const ProgressorWorkspace = () => {
