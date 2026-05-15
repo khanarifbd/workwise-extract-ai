@@ -304,6 +304,53 @@ export function MaterialsReportModal({ open, onOpenChange }: Props) {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Select value={dateField} onValueChange={(v) => setDateField(v as DateField)}>
+                  <SelectTrigger className="w-40 h-9"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="booked_date">By Booked date</SelectItem>
+                    <SelectItem value="date_issued">By Issued date</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={datePreset} onValueChange={(v) => setDatePreset(v as DatePreset)}>
+                  <SelectTrigger className="w-40 h-9"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Any date</SelectItem>
+                    <SelectItem value="today">Today</SelectItem>
+                    <SelectItem value="yesterday">Yesterday</SelectItem>
+                    <SelectItem value="last7">Last 7 days</SelectItem>
+                    <SelectItem value="last30">Last 30 days</SelectItem>
+                    <SelectItem value="thisMonth">This month</SelectItem>
+                    <SelectItem value="lastMonth">Last month</SelectItem>
+                    <SelectItem value="custom">Custom range…</SelectItem>
+                  </SelectContent>
+                </Select>
+                {datePreset === 'custom' && (
+                  <>
+                    <Input
+                      type="date"
+                      value={customFrom}
+                      onChange={(e) => setCustomFrom(e.target.value)}
+                      className="w-40 h-9"
+                    />
+                    <span className="text-xs text-muted-foreground">to</span>
+                    <Input
+                      type="date"
+                      value={customTo}
+                      onChange={(e) => setCustomTo(e.target.value)}
+                      className="w-40 h-9"
+                    />
+                  </>
+                )}
+                {datePreset !== 'all' && (
+                  <button
+                    onClick={() => { setDatePreset('all'); setCustomFrom(''); setCustomTo(''); }}
+                    className="text-xs text-muted-foreground hover:text-foreground underline"
+                  >
+                    Clear date
+                  </button>
+                )}
+              </div>
               <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <button onClick={toggleAll} className="hover:text-foreground transition-colors">
                   {allFilteredSelected ? 'Clear visible' : `Select all visible (${filtered.length})`}
