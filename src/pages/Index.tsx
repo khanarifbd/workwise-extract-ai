@@ -1386,6 +1386,26 @@ const Index = () => {
       )}
       
       <main className="flex-1 container mx-auto px-4 py-4 flex flex-col gap-4">
+        {/* Compact Stats Row — always uses full jobs array for accurate totals */}
+        <div className="flex items-center justify-between gap-4 bg-section-stats rounded-lg p-3">
+          {isInsulationCategory ? (
+            <InsulationStatsCards jobs={jobs} />
+          ) : isFanCategory ? (
+            <FanStatsCards jobs={jobs} />
+          ) : (
+            <StatsCards jobs={jobs} allJobs={jobs} tradeBookings={tradeBookings} />
+          )}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShowMaterialsReport(true)}
+            className="shrink-0 gap-1.5"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-primary" />
+            Materials Report
+          </Button>
+        </div>
+
         {/* Category Tabs - hide add/edit for viewers */}
         <CategoryTabs
           categories={categories}
@@ -1409,26 +1429,6 @@ const Index = () => {
             />
           );
         })()}
-
-        {/* Compact Stats Row — always uses full jobs array for accurate totals */}
-        <div className="flex items-center justify-between gap-4 bg-section-stats rounded-lg p-3">
-          {isInsulationCategory ? (
-            <InsulationStatsCards jobs={jobs} />
-          ) : isFanCategory ? (
-            <FanStatsCards jobs={jobs} />
-          ) : (
-            <StatsCards jobs={jobs} allJobs={jobs} tradeBookings={tradeBookings} />
-          )}
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setShowMaterialsReport(true)}
-            className="shrink-0 gap-1.5"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-primary" />
-            Materials Report
-          </Button>
-        </div>
 
         {/* Search and Filters - Category Specific */}
         <div className="bg-section-filters rounded-lg p-3">
