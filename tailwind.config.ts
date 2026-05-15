@@ -75,6 +75,11 @@ export default {
           upload: "hsl(var(--section-upload))",
           database: "hsl(var(--section-database))",
         },
+        progressor: {
+          DEFAULT: "hsl(var(--progressor))",
+          foreground: "hsl(var(--progressor-foreground))",
+          muted: "hsl(var(--progressor-muted))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
