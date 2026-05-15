@@ -5,6 +5,7 @@ import { Edit2, Check, X, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { HighlightText } from '@/components/HighlightText';
+import { RenderWithProgressor, stripProgressorMarkers, hasProgressorMarkers } from '@/lib/progressorMarkup';
 import {
   Tooltip,
   TooltipContent,
