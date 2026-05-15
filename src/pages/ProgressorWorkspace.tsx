@@ -36,7 +36,7 @@ import {
   LogOut, Loader2, Save, Edit3, FileText, MessageSquare, Image as ImageIcon,
   CheckCircle2, Plus, Building2, Siren, Zap, Star,
 } from 'lucide-react';
-import { format, differenceInCalendarDays } from 'date-fns';
+import { format, differenceInCalendarDays, startOfWeek, endOfWeek, getISOWeek } from 'date-fns';
 
 /* ───────────────────── Priority Pill ───────────────────── */
 const PriorityPill = ({ priority }: { priority: JobPriority }) => {
