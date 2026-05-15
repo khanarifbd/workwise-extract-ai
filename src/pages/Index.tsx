@@ -1,6 +1,7 @@
 /* @refresh reset */
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useSessionPersistence } from '@/hooks/useSessionPersistence';
+import { useMetricsIntegrity } from '@/hooks/useMetricsIntegrity';
 import { Job } from '@/types/job';
 import { FileDropZone } from '@/components/FileDropZone';
 import { InsulationFileDropZone, InsulationFileType } from '@/components/InsulationFileDropZone';
@@ -90,6 +91,8 @@ const Index = () => {
   const setActiveCategory = setUrlCategory;
   
   const { jobs, isLoading: jobsLoading, addJob, editJob, removeJob, toggleComplete, refreshJobs } = useJobs(activeCategory ?? undefined);
+  // Continuously validates that totals/active/complete/booked counts reconcile.
+  useMetricsIntegrity(jobs);
   
   // Get trade-booked jobs (sub-tasks with booked dates)
   const { tradeBookings } = useTradeBookedJobs();
