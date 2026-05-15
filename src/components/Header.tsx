@@ -171,14 +171,14 @@ export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount
             {/* Sign-off bell */}
             <SignOffNotificationBell onJobClick={onJobClick} />
 
-            {/* Progressor Workspace */}
+            {/* Progressor Workspace - prominent CTA */}
             <Link
               to="/progressor"
-              title="Open Progressor Workspace"
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-progressor hover:bg-progressor/10 transition-colors"
+              title="Open Progressor Workspace — close incomplete jobs"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-white bg-progressor hover:bg-progressor/90 shadow-lg shadow-progressor/30 hover:shadow-progressor/50 ring-2 ring-progressor/40 hover:ring-progressor/60 transition-all hover:scale-[1.03] active:scale-[0.98]"
             >
-              <Workflow className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">Progressor</span>
+              <Workflow className="w-4 h-4" />
+              <span>Progressor</span>
             </Link>
 
             {/* Teams dropdown */}

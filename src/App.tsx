@@ -87,13 +87,13 @@ const App = () => (
                 </AdminRoute>
               } />
               <Route path="/team" element={<TeamPortal />} />
-              <Route path="/progressor-login" element={<ProgressorAuth />} />
+              <Route path="/progressor-login" element={<Navigate to="/progressor" replace />} />
               <Route path="/progressor" element={
-                <ProgressorRoute>
+                <AdminRoute>
                   <Suspense fallback={<PageLoader />}>
                     <ProgressorWorkspace />
                   </Suspense>
-                </ProgressorRoute>
+                </AdminRoute>
               } />
               <Route path="/progressor-panel" element={<Navigate to="/progressor" replace />} />
               <Route path="/team-progressor" element={
