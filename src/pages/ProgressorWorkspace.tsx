@@ -70,6 +70,7 @@ const ProgressorWorkspace = () => {
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [activeStream, setActiveStream] = useState<ProgStream>('dm');
 
   const [diaryOpen, setDiaryOpen] = useState(false);
   const [tradesOpen, setTradesOpen] = useState(false);
