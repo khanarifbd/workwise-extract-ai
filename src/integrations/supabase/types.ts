@@ -835,6 +835,51 @@ export type Database = {
         }
         Relationships: []
       }
+      progressor_diary_entries: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          is_done: boolean
+          job_id: string | null
+          notes: string
+          notified: boolean
+          notify_at: string | null
+          notify_enabled: boolean
+          scheduled_at: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_done?: boolean
+          job_id?: string | null
+          notes?: string
+          notified?: boolean
+          notify_at?: string | null
+          notify_enabled?: boolean
+          scheduled_at: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_done?: boolean
+          job_id?: string | null
+          notes?: string
+          notified?: boolean
+          notify_at?: string | null
+          notify_enabled?: boolean
+          scheduled_at?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       progressor_team_codes: {
         Row: {
           access_code: string
