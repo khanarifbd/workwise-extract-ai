@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
+// Category IDs (from the categories table). Hard-coded so this hook stays
+// self-contained and the progressor workspace only ever pulls these two streams.
+export const DM_CATEGORY_ID = 'e1563697-457a-4a67-aa9e-b0785dbc711d';
+export const AA_CATEGORY_ID = 'a4a08b3b-70b6-4fa9-b54b-c173dcf07a33';
+
+export type ProgStream = 'dm' | 'aa';
+
 export interface IncompleteJob {
   id: string;
   jobNumber: string;
@@ -15,6 +22,8 @@ export interface IncompleteJob {
   isCompleted: boolean;
   attachments: any[];
   updatedAt: string;
+  categoryId: string | null;
+  stream: ProgStream;
 }
 
 const mapRow = (r: any): IncompleteJob => ({
@@ -31,8 +40,15 @@ const mapRow = (r: any): IncompleteJob => ({
   isCompleted: !!r.is_completed,
   attachments: r.attachments || [],
   updatedAt: r.updated_at,
+  categoryId: r.category_id,
+  stream: r.category_id === AA_CATEGORY_ID ? 'aa' : 'dm',
 });
 
+/**
+ * Returns DM + A&A jobs that were booked *before today* (i.e. their booked
+ * day has passed) and are still not completed/signed-off. These are the
+ * jobs the progressor needs to chase.
+ */
 export const useProgressorIncompleteJobs = () => {
   const [jobs, setJobs] = useState<IncompleteJob[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -40,10 +56,16 @@ export const useProgressorIncompleteJobs = () => {
   const fetch = useCallback(async (background = false) => {
     if (!background) setIsLoading(true);
     try {
+      // Start of today in local time → anything booked strictly before this is "past its booked day".
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
+
       const { data, error } = await supabase
         .from('jobs')
-        .select('id, job_number, name, address, description, private_notes, team, team2, booked_date, status, is_completed, attachments, updated_at')
+        .select('id, job_number, name, address, description, private_notes, team, team2, booked_date, status, is_completed, attachments, updated_at, category_id')
+        .in('category_id', [DM_CATEGORY_ID, AA_CATEGORY_ID])
         .not('booked_date', 'is', null)
+        .lt('booked_date', startOfToday.toISOString())
         .neq('is_completed', true)
         .neq('status', 'complete')
         .is('deleted_at', null)
@@ -68,48 +90,28 @@ export const useProgressorIncompleteJobs = () => {
     return () => { supabase.removeChannel(ch); };
   }, [fetch]);
 
-  return { jobs, isLoading, refresh: () => fetch(true) };
+  const dmJobs = useMemo(() => jobs.filter(j => j.stream === 'dm'), [jobs]);
+  const aaJobs = useMemo(() => jobs.filter(j => j.stream === 'aa'), [jobs]);
+
+  return { jobs, dmJobs, aaJobs, isLoading, refresh: () => fetch(true) };
 };
 
-export type DateFilter = 'all' | 'overdue' | 'today' | 'week' | 'range';
+/** Group a list of jobs by booked-date (YYYY-MM-DD, local). */
+export const groupJobsByBookedDate = (jobs: IncompleteJob[]) => {
+  const map = new Map<string, IncompleteJob[]>();
+  jobs.forEach(j => {
+    if (!j.bookedDate) return;
+    const d = new Date(j.bookedDate);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(j);
+  });
+  return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
+};
 
-export const useFilteredIncompleteJobs = (
-  jobs: IncompleteJob[],
-  dateFilter: DateFilter,
-  fromDate: string | null,
-  toDate: string | null,
-  teamFilter: string | null,
-  search: string,
-) => {
-  return useMemo(() => {
-    const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const endOfToday = new Date(startOfToday); endOfToday.setDate(endOfToday.getDate() + 1);
-    const endOfWeek = new Date(startOfToday); endOfWeek.setDate(endOfWeek.getDate() + 7);
-    const q = search.trim().toLowerCase();
-
-    return jobs.filter(j => {
-      if (!j.bookedDate) return false;
-      const bd = new Date(j.bookedDate);
-
-      if (dateFilter === 'overdue' && bd >= now) return false;
-      if (dateFilter === 'today' && (bd < startOfToday || bd >= endOfToday)) return false;
-      if (dateFilter === 'week' && (bd < startOfToday || bd >= endOfWeek)) return false;
-      if (dateFilter === 'range') {
-        if (fromDate && bd < new Date(fromDate)) return false;
-        if (toDate) {
-          const t = new Date(toDate); t.setDate(t.getDate() + 1);
-          if (bd >= t) return false;
-        }
-      }
-
-      if (teamFilter && j.team !== teamFilter && j.team2 !== teamFilter) return false;
-
-      if (q) {
-        const hay = `${j.jobNumber} ${j.name} ${j.address || ''}`.toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-      return true;
-    });
-  }, [jobs, dateFilter, fromDate, toDate, teamFilter, search]);
+/** Free-text search filter that works on either stream. */
+export const filterJobsBySearch = (jobs: IncompleteJob[], search: string) => {
+  const q = search.trim().toLowerCase();
+  if (!q) return jobs;
+  return jobs.filter(j => `${j.jobNumber} ${j.name} ${j.address || ''}`.toLowerCase().includes(q));
 };

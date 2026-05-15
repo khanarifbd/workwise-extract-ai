@@ -5,6 +5,7 @@ import { Edit2, Check, X, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { HighlightText } from '@/components/HighlightText';
+import { RenderWithProgressor, stripProgressorMarkers, hasProgressorMarkers } from '@/lib/progressorMarkup';
 import {
   Tooltip,
   TooltipContent,
@@ -36,11 +37,11 @@ export const InlineDescriptionEditor = ({
   const [editValue, setEditValue] = useState(description);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Detect if description contains priority keywords
+  // Detect if description contains priority keywords (ignore progressor markers)
   const priorityInfo = useMemo(() => {
     if (!description) return null;
-    
-    const lowerDesc = description.toLowerCase();
+
+    const lowerDesc = stripProgressorMarkers(description).toLowerCase();
     const foundKeywords = PRIORITY_KEYWORDS.filter(keyword => lowerDesc.includes(keyword));
     
     if (foundKeywords.length === 0) return null;
@@ -139,7 +140,11 @@ export const InlineDescriptionEditor = ({
         !isExpanded && shouldTruncate && "line-clamp-2"
       )}>
         {description ? (
-          <HighlightText text={description} highlight={searchTerm || ''} />
+          hasProgressorMarkers(description) ? (
+            <span className="whitespace-pre-wrap"><RenderWithProgressor text={description} /></span>
+          ) : (
+            <HighlightText text={description} highlight={searchTerm || ''} />
+          )
         ) : (
           <span className="text-muted-foreground italic">No description</span>
         )}

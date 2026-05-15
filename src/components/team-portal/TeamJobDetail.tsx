@@ -23,6 +23,7 @@ import { useTranslation, SUPPORTED_LANGUAGES } from '@/hooks/useTranslation';
 import { useBatchUpload } from '@/hooks/useBatchUpload';
 import { AIWritingAssistant } from './AIWritingAssistant';
 import { VoiceDictation } from './VoiceDictation';
+import { RenderWithProgressor } from '@/lib/progressorMarkup';
 
 interface TeamJobDetailProps {
   job: Job;
@@ -1015,7 +1016,21 @@ export const TeamJobDetail = ({
                       )}
                     </div>
                     <div className="bg-muted/30 p-2 rounded text-xs sm:text-sm whitespace-pre-wrap max-h-48 overflow-y-auto">
-                      {showOriginal || !translatedDescription ? job.description : translatedDescription}
+                      {showOriginal || !translatedDescription ? (
+                        <RenderWithProgressor text={job.description} />
+                      ) : (
+                        translatedDescription
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Progressor Notes — visible to teams under the description */}
+                {(job as any).privateNotes && (
+                  <div className="pt-2 border-t">
+                    <p className="text-xs text-progressor font-semibold mb-1">📝 Progressor Notes</p>
+                    <div className="bg-progressor/5 border border-progressor/30 p-2 rounded text-xs sm:text-sm whitespace-pre-wrap max-h-40 overflow-y-auto text-progressor font-medium">
+                      {(job as any).privateNotes}
                     </div>
                   </div>
                 )}
