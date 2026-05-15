@@ -184,7 +184,15 @@ export const useJobs = (categoryId?: string) => {
       } catch { /* silent */ }
     };
 
-    integrityIntervalRef.current = setInterval(runIntegrityCheck, 180000);
+    integrityIntervalRef.current = setInterval(runIntegrityCheck, 30000);
+
+    // Re-check when the tab regains focus so users always see fresh counts
+    // when they come back to the genie (fixes stale day-click counts).
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') runIntegrityCheck();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
 
     return () => {
       if (debounceTimerRef.current) {
@@ -195,6 +203,8 @@ export const useJobs = (categoryId?: string) => {
         clearInterval(integrityIntervalRef.current);
         integrityIntervalRef.current = null;
       }
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
       supabase.removeChannel(channel);
     };
   }, [categoryId, loadJobs, debouncedReload]);
