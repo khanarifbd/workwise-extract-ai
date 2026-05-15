@@ -20,14 +20,15 @@ import { CalendarView } from '@/components/CalendarView';
 import { MonthlyFolderTabs } from '@/components/MonthlyFolderTabs';
 import { BookedDateSidebar } from '@/components/BookedDateSidebar';
 import { ProgressorBookedSection } from '@/components/ProgressorBookedSection';
-import { ViewToggle } from '@/components/ViewToggle';
+import { Link } from 'react-router-dom';
+import { Workflow } from 'lucide-react';
 import { JobDetailsModal } from '@/components/JobDetailsModal';
 import { DuplicateJobAlert } from '@/components/DuplicateJobAlert';
 import { CompletedJobsPDFButton } from '@/components/CompletedJobsPDFButton';
 import { ManualJobEntry } from '@/components/ManualJobEntry';
 import { PasteJobEntry } from '@/components/PasteJobEntry';
 import { OverdueJobsDashboard } from '@/components/OverdueJobsDashboard';
-import { DanniDashboard } from '@/components/DanniDashboard';
+
 import { TeamAccountabilityMetrics } from '@/components/TeamAccountabilityMetrics';
 import { AdminNotesOrganiser } from '@/components/AdminNotesOrganiser';
 import { EODReportsPanel } from '@/components/EODReportsPanel';
@@ -102,9 +103,6 @@ const Index = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [showOverdueDashboard, setShowOverdueDashboard] = useState(false);
-  const [showDanniDashboard, setShowDanniDashboard] = useState(() => {
-    return sessionStorage.getItem('danniDashboardOpen') === 'true';
-  });
   const [showTeamMetrics, setShowTeamMetrics] = useState(false);
   const [showAdminNotes, setShowAdminNotes] = useState(false);
   const [adminNotesAdmin, setAdminNotesAdmin] = useState<string>('Cecil');
@@ -148,10 +146,6 @@ const Index = () => {
   } | null>(null);
   const { toast } = useToast();
 
-  // Persist Danni dashboard state across browser bounces
-  useEffect(() => {
-    sessionStorage.setItem('danniDashboardOpen', showDanniDashboard ? 'true' : 'false');
-  }, [showDanniDashboard]);
 
   // Set first category as active when loaded (only if no URL category)
   useEffect(() => {
@@ -1362,25 +1356,9 @@ const Index = () => {
         onRefresh={refreshJobs}
         overdueCount={danniCount}
         onShowOverdue={() => setShowOverdueDashboard(true)}
-        danniCount={danniCount}
-        onShowDanni={() => setShowDanniDashboard(true)}
         onShowAdminNotes={(adminName) => { setAdminNotesAdmin(adminName); setShowAdminNotes(true); }}
       />
       
-      {/* Danni Sign-Off Readiness Dashboard */}
-      {showDanniDashboard && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <DanniDashboard
-            onClose={() => setShowDanniDashboard(false)}
-            onJobClick={(job) => {
-              // Keep Danni open - it will stay visible behind the job modal
-              setSelectedJobForModal(job);
-            }}
-            onJobUpdated={refreshJobs}
-            onShowMetrics={() => setShowTeamMetrics(true)}
-          />
-        </div>
-      )}
 
       {/* Team Accountability Metrics - layered on top of Danni */}
       {showTeamMetrics && (
@@ -1796,7 +1774,14 @@ const Index = () => {
                   </SelectContent>
                 </Select>
               )}
-              <ViewToggle view={viewType} onViewChange={setViewType} />
+              <Link
+                to="/progressor"
+                title="Open Progressor Workspace — close incomplete jobs"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-white bg-progressor hover:bg-progressor/90 shadow-lg shadow-progressor/30 hover:shadow-progressor/50 ring-2 ring-progressor/40 hover:ring-progressor/60 transition-all hover:scale-[1.03] active:scale-[0.98]"
+              >
+                <Workflow className="w-4 h-4" />
+                <span>Progressor</span>
+              </Link>
             </div>
           </div>
           

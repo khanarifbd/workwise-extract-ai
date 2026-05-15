@@ -254,26 +254,10 @@ const StreamColumn = ({
       }));
   }, [jobs]);
 
-  // Default open: most recent month + its most recent week
-  const defaultMonthKey = months.length ? months[months.length - 1].monthKey : null;
-  const defaultWeekKey = months.length
-    ? months[months.length - 1].weeks[months[months.length - 1].weeks.length - 1]?.weekKey ?? null
-    : null;
-  const [openMonths, setOpenMonths] = useState<Set<string>>(
-    () => new Set(defaultMonthKey ? [defaultMonthKey] : []),
-  );
-  const [openWeeks, setOpenWeeks] = useState<Set<string>>(
-    () => new Set(defaultWeekKey ? [defaultWeekKey] : []),
-  );
-  useEffect(() => {
-    if (defaultMonthKey) {
-      setOpenMonths(prev => prev.size === 0 ? new Set([defaultMonthKey]) : prev);
-    }
-    if (defaultWeekKey) {
-      setOpenWeeks(prev => prev.size === 0 ? new Set([defaultWeekKey]) : prev);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [defaultMonthKey, defaultWeekKey]);
+  // Default: everything collapsed for a clean, minimalist view.
+  // The progressor expands months/weeks they want to focus on.
+  const [openMonths, setOpenMonths] = useState<Set<string>>(() => new Set());
+  const [openWeeks, setOpenWeeks] = useState<Set<string>>(() => new Set());
 
   const toggleMonth = (k: string) => setOpenMonths(prev => {
     const n = new Set(prev); n.has(k) ? n.delete(k) : n.add(k); return n;
@@ -374,7 +358,7 @@ const DayGroup = ({
   onSelect: (id: string) => void;
   getSignOffStatus: (id: string, t1: string | null, t2: string | null) => any;
 }) => {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
       <CollapsibleTrigger asChild>

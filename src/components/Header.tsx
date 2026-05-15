@@ -1,4 +1,4 @@
-import { FileDown, Moon, Sun, Settings, History, KeyRound, Users, LogOut, ChevronDown, CalendarDays, CheckCircle2, Briefcase, AlertTriangle, Mic, MessageSquare, Clock, StickyNote, MoreHorizontal, Package, Workflow } from 'lucide-react';
+import { FileDown, Moon, Sun, Settings, History, KeyRound, Users, LogOut, ChevronDown, CalendarDays, CheckCircle2, Briefcase, AlertTriangle, Mic, MessageSquare, StickyNote, MoreHorizontal, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
@@ -32,12 +32,10 @@ interface HeaderProps {
   onRefresh?: () => void;
   overdueCount?: number;
   onShowOverdue?: () => void;
-  danniCount?: number;
-  onShowDanni?: () => void;
   onShowAdminNotes?: (adminName: string) => void;
 }
 
-export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount = 0, onShowOverdue, danniCount = 0, onShowDanni, onShowAdminNotes }: HeaderProps) => {
+export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount = 0, onShowOverdue, onShowAdminNotes }: HeaderProps) => {
   const [isDark, setIsDark] = useState(() => {
     const stored = localStorage.getItem('theme');
     if (stored) return stored === 'dark';
@@ -99,20 +97,8 @@ export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount
             </div>
           </div>
 
-          {/* ─── Centre: Alert badges (Danni & Overdue) ─── */}
+          {/* ─── Centre: Alert badges (Overdue) ─── */}
           <div className="flex items-center gap-1.5">
-            {danniCount > 0 && onShowDanni && (
-              <button
-                onClick={onShowDanni}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-500/10 text-red-600 dark:text-red-400 text-xs font-semibold transition-colors hover:bg-red-500/20"
-              >
-                <Clock className="w-3.5 h-3.5" />
-                Danni
-                <span className="bg-red-500 text-white text-[10px] font-bold rounded-full h-4 min-w-4 flex items-center justify-center px-1">
-                  {danniCount > 99 ? '99+' : danniCount}
-                </span>
-              </button>
-            )}
             {overdueCount > 0 && onShowOverdue && (
               <button
                 onClick={onShowOverdue}
@@ -170,16 +156,6 @@ export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount
 
             {/* Sign-off bell */}
             <SignOffNotificationBell onJobClick={onJobClick} />
-
-            {/* Progressor Workspace - prominent CTA */}
-            <Link
-              to="/progressor"
-              title="Open Progressor Workspace — close incomplete jobs"
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-white bg-progressor hover:bg-progressor/90 shadow-lg shadow-progressor/30 hover:shadow-progressor/50 ring-2 ring-progressor/40 hover:ring-progressor/60 transition-all hover:scale-[1.03] active:scale-[0.98]"
-            >
-              <Workflow className="w-4 h-4" />
-              <span>Progressor</span>
-            </Link>
 
             {/* Teams dropdown */}
             <DropdownMenu>
