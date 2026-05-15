@@ -37,11 +37,11 @@ export const InlineDescriptionEditor = ({
   const [editValue, setEditValue] = useState(description);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Detect if description contains priority keywords
+  // Detect if description contains priority keywords (ignore progressor markers)
   const priorityInfo = useMemo(() => {
     if (!description) return null;
-    
-    const lowerDesc = description.toLowerCase();
+
+    const lowerDesc = stripProgressorMarkers(description).toLowerCase();
     const foundKeywords = PRIORITY_KEYWORDS.filter(keyword => lowerDesc.includes(keyword));
     
     if (foundKeywords.length === 0) return null;
