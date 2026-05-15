@@ -89,6 +89,11 @@ const ProgressorWorkspace = () => {
     [dmJobs, aaJobs, selectedId],
   );
 
+  // Auto-switch to the stream of the selected job (e.g. when jumping from diary).
+  useEffect(() => {
+    if (selected && selected.stream !== activeStream) setActiveStream(selected.stream);
+  }, [selected]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (isLoading || !hasAccess) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
