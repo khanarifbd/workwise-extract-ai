@@ -91,6 +91,8 @@ const Index = () => {
   const setActiveCategory = setUrlCategory;
   
   const { jobs, isLoading: jobsLoading, addJob, editJob, removeJob, toggleComplete, refreshJobs } = useJobs(activeCategory ?? undefined);
+  // Continuously validates that totals/active/complete/booked counts reconcile.
+  useMetricsIntegrity(jobs);
   
   // Get trade-booked jobs (sub-tasks with booked dates)
   const { tradeBookings } = useTradeBookedJobs();
