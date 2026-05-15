@@ -8,9 +8,13 @@ import { Label } from '@/components/ui/label';
 import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem,
+} from '@/components/ui/command';
 import { Badge } from '@/components/ui/badge';
 import {
-  Plus, Bell, BellOff, Trash2, Check, CalendarClock, Briefcase, Loader2, AlertCircle,
+  Plus, Bell, BellOff, Trash2, Check, CalendarClock, Briefcase, Loader2, AlertCircle, ChevronsUpDown, Search,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
