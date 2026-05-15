@@ -111,23 +111,78 @@ export function MaterialsReportModal({ open, onOpenChange }: Props) {
     setSavedReports((data ?? []) as unknown as SavedReport[]);
   };
 
+  const dateRange = useMemo<{ from: Date | null; to: Date | null }>(() => {
+    const now = new Date();
+    const today = startOfDay(now);
+    switch (datePreset) {
+      case 'today':
+        return { from: today, to: endOfDay(now) };
+      case 'yesterday': {
+        const y = new Date(today); y.setDate(y.getDate() - 1);
+        return { from: y, to: endOfDay(y) };
+      }
+      case 'last7': {
+        const f = new Date(today); f.setDate(f.getDate() - 6);
+        return { from: f, to: endOfDay(now) };
+      }
+      case 'last30': {
+        const f = new Date(today); f.setDate(f.getDate() - 29);
+        return { from: f, to: endOfDay(now) };
+      }
+      case 'thisMonth': {
+        const f = new Date(now.getFullYear(), now.getMonth(), 1);
+        return { from: f, to: endOfDay(now) };
+      }
+      case 'lastMonth': {
+        const f = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const t = new Date(now.getFullYear(), now.getMonth(), 0);
+        return { from: f, to: endOfDay(t) };
+      }
+      case 'custom':
+        return {
+          from: customFrom ? startOfDay(new Date(customFrom)) : null,
+          to: customTo ? endOfDay(new Date(customTo)) : null,
+        };
+      default:
+        return { from: null, to: null };
+    }
+  }, [datePreset, customFrom, customTo]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
+    const { from, to } = dateRange;
     return jobs.filter((j) => {
       if (filterScope === 'booked' && !j.booked_date) return false;
       if (filterStatus === 'incomplete' && (j.is_completed || j.status === 'complete')) return false;
       if (filterCategory !== 'all' && j.category_id !== filterCategory) return false;
       if (filterAssigned === 'assigned' && !j.team) return false;
       if (filterAssigned === 'unassigned' && j.team) return false;
+      if (from || to) {
+        const raw = dateField === 'booked_date' ? j.booked_date : j.date_issued;
+        if (!raw) return false;
+        const t = new Date(raw).getTime();
+        if (from && t < from.getTime()) return false;
+        if (to && t > to.getTime()) return false;
+      }
       if (q) {
         const hay = `${j.job_number} ${j.name ?? ''} ${j.address ?? ''}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
-  }, [jobs, search, filterStatus, filterCategory, filterAssigned, filterScope]);
+  }, [jobs, search, filterStatus, filterCategory, filterAssigned, filterScope, dateRange, dateField]);
 
   const toggleAll = () => {
+    if (filtered.every((j) => selected.has(j.id))) {
+      const next = new Set(selected);
+      filtered.forEach((j) => next.delete(j.id));
+      setSelected(next);
+    } else {
+      const next = new Set(selected);
+      filtered.forEach((j) => next.add(j.id));
+      setSelected(next);
+    }
+  };
     if (filtered.every((j) => selected.has(j.id))) {
       const next = new Set(selected);
       filtered.forEach((j) => next.delete(j.id));
