@@ -1,6 +1,7 @@
 /* @refresh reset */
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useSessionPersistence } from '@/hooks/useSessionPersistence';
+import { useMetricsIntegrity } from '@/hooks/useMetricsIntegrity';
 import { Job } from '@/types/job';
 import { FileDropZone } from '@/components/FileDropZone';
 import { InsulationFileDropZone, InsulationFileType } from '@/components/InsulationFileDropZone';
