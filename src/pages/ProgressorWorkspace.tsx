@@ -458,6 +458,11 @@ const JobDetailPanel = ({
             </div>
             <h2 className="text-lg font-semibold truncate">{job.name}</h2>
             <p className="text-sm text-muted-foreground truncate">{job.address}</p>
+            {linkedTrades.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                {linkedTrades.map((lt) => <LinkedTradePill key={lt.id} info={lt} />)}
+              </div>
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-1 shrink-0">
             {job.team && <Badge>{job.team}</Badge>}
