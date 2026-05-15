@@ -720,3 +720,71 @@ const MediaTab = ({ job, onChanged }: { job: IncompleteJob; onChanged: () => voi
     </div>
   );
 };
+
+/* ───────────────────── Call Log Tab (read-only contact history) ───────────────────── */
+const CallLogTab = ({ jobId }: { jobId: string }) => {
+  const { history, isLoading } = useContactHistory(jobId);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-10">
+        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (history.length === 0) {
+    return (
+      <div className="text-center py-8">
+        <Phone className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
+        <p className="text-xs text-muted-foreground italic">No call attempts logged yet.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold flex items-center gap-1.5">
+          <Phone className="h-4 w-4 text-progressor" /> Call Log
+        </h3>
+        <span className="text-[11px] text-muted-foreground">
+          {history.length} attempt{history.length === 1 ? '' : 's'}
+        </span>
+      </div>
+
+      <div className="space-y-2">
+        {history.map((h) => {
+          const meta = CONTACT_OUTCOMES.find(o => o.value === h.outcome);
+          return (
+            <div
+              key={h.id}
+              className="rounded-lg border bg-card p-3 flex gap-3"
+              style={{ borderLeftWidth: 4, borderLeftColor: meta?.color || '#94a3b8' }}
+            >
+              <div className="text-lg leading-none pt-0.5">{meta?.icon || '📞'}</div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2 mb-0.5">
+                  <span className="text-xs font-bold uppercase tracking-wide" style={{ color: meta?.color }}>
+                    {meta?.label || h.outcome}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground font-mono">
+                    {format(h.contactDate, 'dd MMM yy · HH:mm')}
+                  </span>
+                </div>
+                {h.notes && (
+                  <p className="text-xs text-foreground whitespace-pre-wrap mb-1">{h.notes}</p>
+                )}
+                <div className="flex flex-wrap gap-2 text-[10px] text-muted-foreground">
+                  {h.createdBy && <span>by {h.createdBy}</span>}
+                  {h.nextAction && <span>· next: {h.nextAction}</span>}
+                  {h.nextActionDate && <span>· {format(h.nextActionDate, 'dd MMM HH:mm')}</span>}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
