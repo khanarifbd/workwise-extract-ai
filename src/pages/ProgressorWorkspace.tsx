@@ -433,6 +433,7 @@ const JobDetailPanel = ({
   const [tab, setTab] = useState('description');
   const [showAddTrade, setShowAddTrade] = useState(false);
   const { subTasks, updateSubTask } = useSubTasks(job.id);
+  const { linked: linkedTrades } = useLinkedTradeJobs(job.id);
   const priority = detectJobPriority(job.description, job.privateNotes);
 
   return (
