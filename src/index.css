@@ -62,6 +62,11 @@
     --section-upload: 175 55% 86%;
     --section-database: 220 50% 92%;
     
+    /* Progressor blue — distinct authoring colour */
+    --progressor: 217 91% 50%;
+    --progressor-foreground: 0 0% 100%;
+    --progressor-muted: 217 91% 95%;
+
     --shadow-sm: 0 1px 2px 0 hsl(220 25% 10% / 0.05);
     --shadow-md: 0 4px 6px -1px hsl(220 25% 10% / 0.1), 0 2px 4px -2px hsl(220 25% 10% / 0.1);
     --shadow-lg: 0 10px 15px -3px hsl(220 25% 10% / 0.1), 0 4px 6px -4px hsl(220 25% 10% / 0.1);
@@ -116,6 +121,10 @@
     --section-filters: 215 50% 20%;
     --section-upload: 200 55% 16%;
     --section-database: 220 52% 19%;
+
+    --progressor: 217 91% 60%;
+    --progressor-foreground: 0 0% 100%;
+    --progressor-muted: 217 60% 18%;
   }
 }
 

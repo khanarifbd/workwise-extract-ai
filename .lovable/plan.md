@@ -1,76 +1,97 @@
-## Materials & Trades Procurement Report (in-app feature)
+## New Progressor Workspace
 
-Bring the one-off A&A report we generated into the Genie as a permanent, repeatable tool the admin/organiser can use on any selection of jobs.
+A single, full-screen "Progressor Workspace" that replaces the existing scattered progressor pages (`ProgressorPanel`, `ProgressorBookedDashboard`, `ProgressorTeamView`, etc.). One screen, stays open until the progressor explicitly closes it, with inline job editing, diary, notes, and trade booking integrated.
 
-### User flow
+### 1. Route & Entry
+- New route: `/progressor` (replaces current progressor landing).
+- Old routes kept as redirects → `/progressor` so deep links don't break.
+- Auth: existing `useProgressorAuth` (job_progressor + admin roles).
+- Entry button on Admin header: "Progressor Workspace".
 
-1. Admin opens **"Materials Report"** (new button in the Header / actions bar, plus a tab inside the Reports area — same pattern as Insulation Analytics & Weekly Leaderboard).
-2. A modal opens: **Job Selector**
-   - Filter strip: Category (DM/Voids/A&A/Fans/etc), Date range (logged date), Status (incomplete only by default), Team assigned / unassigned.
-   - Searchable, multi-select list of jobs (job no, name, address, category, days-since-logged, booked date).
-   - "Select all matching" + per-row checkboxes. Sticky footer shows count.
-3. Click **Generate Report** → calls a new edge function `generate-materials-report` that:
-   - Pulls the selected jobs (work_items, additional_works, description, dateIssued, bookedDate, status, category).
-   - Computes an **urgency score** per job server-side (deterministic, NOT AI):
-     - Critical: booked within 7 days OR logged 30+ days ago and not booked
-     - High: booked within 14 days OR logged 21+ days ago
-     - Medium: booked within 30 days OR logged 14+ days ago
-     - Low: everything else
-   - Sends the corpus to Lovable AI (`google/gemini-2.5-pro`) with a strict tool-calling JSON schema returning structured groups (no free-form markdown).
-4. Report renders in a clean, printable two-column layout with **Download PDF** and **Copy to clipboard** actions. Saved to `materials_reports` table so admin can reopen past reports.
-
-### Report layout (Awwwards-clean, scannable)
-
+### 2. Layout (desktop-first, responsive)
 ```text
-┌─────────────────────────────────────────────────────┐
-│ Materials & Trades Report     Generated 11 May 2026 │
-│ 24 jobs · A&A · Incomplete                          │
-├──────────────────┬──────────────────────────────────┤
-│ URGENCY SUMMARY  │  TRADES TO ASSIGN                │
-│ ● Critical  4    │  Plumber          12 jobs        │
-│ ● High      9    │  Electrician       8 jobs        │
-│ ● Medium    8    │  Tiler             6 jobs        │
-│ ○ Low       3    │  Carpenter         5 jobs        │
-├──────────────────┴──────────────────────────────────┤
-│ MATERIALS TO ORDER                                  │
-│                                                     │
-│ ▸ Bathroom Suites                                   │
-│   Comfort-height WC ········· 1   ● Critical (231..)│
-│   Thermostatic shower ······· 3   ● High            │
-│ ▸ Grab Rails & Accessibility                        │
-│   600mm grab rail ··········· 17  ● High            │
-│   Keysafe ··················· 3   ● Medium          │
-│ ▸ Flooring · Plumbing · Electrical · ...            │
-│                                                     │
-│ Each row expands → linked job numbers + per-job qty │
-├─────────────────────────────────────────────────────┤
-│ ACTION LIST (top of report, printable)              │
-│ □ Order all Critical items today                    │
-│ □ Assign Plumber to 4 critical jobs                 │
-│ □ ...                                               │
-└─────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────┐
+│  Header: Progressor Workspace   [Diary] [Notes] [Trades] [×]   │
+├──────────────┬─────────────────────────────────────────────────┤
+│ LEFT PANEL   │  RIGHT PANEL                                    │
+│ Job List     │  Selected Job Detail (inline editor)            │
+│ ─────────    │  ─────────────────────────────────              │
+│ Filters:     │  - Header: job#, name, address, team chips      │
+│  • Date range│  - Tabs: Description | Notes | Media | Trades   │
+│  • Team      │  - All progressor edits render in BLUE          │
+│  • Search    │                                                 │
+│              │  Inline edit — no modals, no navigation away.   │
+│ Scrollable   │                                                 │
+│ list of      │                                                 │
+│ incomplete   │                                                 │
+│ booked jobs  │                                                 │
+└──────────────┴─────────────────────────────────────────────────┘
 ```
+- Workspace is a fixed-position overlay (z-50) over the app. Closes only via the × button (no backdrop click, no ESC) — explicit close, as requested.
+- Right panel is empty-state until a job is clicked; clicking a job in the left list loads it in the right panel without unmounting the workspace.
 
-Design tokens: existing semantic colours. Urgency dots: `destructive` (critical), `warning` (high), `primary` (medium), `muted` (low). Heavy use of whitespace, single H1, monospace for quantities, collapsible material groups, sticky urgency legend on scroll.
+### 3. Job List (left panel)
+**"Incomplete jobs" definition:** `booked_date IS NOT NULL AND is_completed = false AND status != 'complete'` AND not fully signed off by all assigned teams (uses existing `useSignOffStatus`).
 
-### Technical pieces
+Filters:
+- Date range picker (from / to over `booked_date`); default = all upcoming + overdue.
+- Quick chips: Today, This Week, Overdue, All.
+- Team filter (multi).
+- Free-text search (job#, name, address).
 
-- **Migration** — `materials_reports` table: `id, created_at, created_by, job_ids uuid[], filters jsonb, report_data jsonb, title text`. RLS: admins manage; viewers select.
-- **Edge function** `generate-materials-report` (verify_jwt = true):
-  - Input: `{ jobIds: string[], title?: string }`
-  - Computes urgency per job, builds compact corpus.
-  - Calls Lovable AI with tool-calling schema (`materialGroups[]`, `tradeGroups[]`, `actionList[]`, `notes`). Each material item: `name, qty, unit, urgency, jobRefs[]`.
-  - Persists to `materials_reports`, returns the structured JSON.
-- **New components**
-  - `src/components/MaterialsReportButton.tsx` — entry button (placed in Header next to other report buttons).
-  - `src/components/MaterialsReportModal.tsx` — job selector with filters + multi-select.
-  - `src/components/MaterialsReport.tsx` — rendered report (collapsible groups, urgency badges).
-  - `src/components/MaterialsReportPDF.tsx` — jsPDF export using existing `downloadPDF` helper.
-  - `src/hooks/useMaterialsReports.ts` — list/load/create/delete saved reports.
-- **History drawer** — list of past reports inside the modal so admin can reopen any prior run.
+Each row shows: job#, tenant name, short address, booked date pill (red if overdue), assigned team badges, sign-off progress dots (e.g. 1/2).
 
-### Out of scope for v1
+### 4. Inline Job Detail (right panel)
+Tabs:
+- **Description** — view + edit job description. Saves go to `jobs.description`. Blue text styling for progressor edits.
+- **Notes** — adds to `jobs.private_notes` (progressor-only stream); each new entry prefixed with timestamp + "Progressor". Rendered in blue.
+- **Media** — reuses `ProgressorMediaUpload` to add photos/files; gallery shows existing.
+- **Trades / Sub-tasks** — reuses `useSubTasks` + `AddSubTaskModal` logic inline (no modal — embedded form). Lists current sub-tasks with status, lets progressor book/edit trade slots.
 
-- Auto-emailing the merchant.
-- Editing line items inside the report (read-only; admin re-runs to refresh).
-- Cost totals (the SOR-cost system already covers spend; this report is procurement-focused).
+All actions stay inside the workspace (no route changes).
+
+### 5. Side panels (top-right buttons)
+- **Diary** → slide-over panel showing booked jobs by date (reuses logic from `ProgressorBookedDashboard`).
+- **Notes** → slide-over with progressor-wide notepad (`progressor_todos` + free notes per job).
+- **Trades** → slide-over for `TradeCompaniesModal` (manage trade companies/contacts).
+
+These slide in from the right, overlay the right panel, close on × — workspace itself stays open underneath.
+
+### 6. Blue progressor text
+- New CSS token `--progressor-text` (HSL blue, e.g. `217 91% 55%`) added to `index.css`, mapped to a `text-progressor` Tailwind utility in `tailwind.config.ts`.
+- All progressor-authored text (description edits, notes, sub-task notes) rendered with `text-progressor font-medium`. Admin/team text unchanged.
+- We tag progressor edits by prefixing notes with `[Progressor – {name} {timestamp}]` so the source is clear even outside the workspace.
+
+### 7. Removed / deprecated UI
+- `ProgressorPanel`, `ProgressorTeamView`, `ProgressorBookedSection`, `ProgressorBookedDashboard` pages → replaced by `/progressor` workspace. Files kept for now but unmounted from routes; can be deleted in a follow-up.
+- Old "Progressor" buttons in Admin header point to the new workspace.
+
+### 8. Files
+
+**New:**
+- `src/pages/ProgressorWorkspace.tsx` — top-level workspace shell.
+- `src/components/progressor/workspace/JobListPanel.tsx`
+- `src/components/progressor/workspace/JobDetailPanel.tsx`
+- `src/components/progressor/workspace/DescriptionTab.tsx`
+- `src/components/progressor/workspace/NotesTab.tsx`
+- `src/components/progressor/workspace/MediaTab.tsx`
+- `src/components/progressor/workspace/TradesTab.tsx`
+- `src/components/progressor/workspace/DiarySlideOver.tsx`
+- `src/components/progressor/workspace/NotesSlideOver.tsx`
+- `src/components/progressor/workspace/TradesSlideOver.tsx`
+- `src/hooks/useProgressorIncompleteJobs.ts` — fetch + filter + realtime.
+
+**Edited:**
+- `src/App.tsx` — add `/progressor` route, redirect old paths.
+- `src/index.css` — add `--progressor-text` HSL token.
+- `tailwind.config.ts` — map `text-progressor` color.
+- `src/components/Header.tsx` — replace progressor link with new workspace entry.
+
+### 9. Verification
+- Manual flow: log in as progressor → workspace opens → filter by date → click job → edit description → save → verify blue text persists on admin view → add note, upload photo, book a trade sub-task → confirm all writes via DB query → close workspace explicitly.
+- Realtime: ensure `jobs`, `job_sub_tasks`, `team_sign_offs` updates reflect in the list without refresh.
+
+### Out of scope
+- Deleting the old progressor pages from the repo (deprecated only this round).
+- Mobile-specific layout polish beyond responsive stacking.
+- Permission changes — uses existing `is_job_progressor` RLS.

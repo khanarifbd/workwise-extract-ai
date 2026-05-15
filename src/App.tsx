@@ -36,7 +36,7 @@ const lazyRetry = (importFn: () => Promise<any>) => {
 };
 
 const Index = lazy(() => lazyRetry(() => import("./pages/Index")));
-const ProgressorPanel = lazy(() => lazyRetry(() => import("./pages/ProgressorPanel")));
+const ProgressorWorkspace = lazy(() => lazyRetry(() => import("./pages/ProgressorWorkspace")));
 const ProgressorTeamView = lazy(() => lazyRetry(() => import("./pages/ProgressorTeamView")));
 
 const PageLoader = () => (
@@ -91,10 +91,11 @@ const App = () => (
               <Route path="/progressor" element={
                 <ProgressorRoute>
                   <Suspense fallback={<PageLoader />}>
-                    <ProgressorPanel />
+                    <ProgressorWorkspace />
                   </Suspense>
                 </ProgressorRoute>
               } />
+              <Route path="/progressor-panel" element={<Navigate to="/progressor" replace />} />
               <Route path="/team-progressor" element={
                 <Suspense fallback={<PageLoader />}>
                   <ProgressorTeamView />
