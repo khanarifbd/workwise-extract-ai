@@ -220,7 +220,39 @@ const StreamColumn = ({
   onSelect: (id: string) => void;
   getSignOffStatus: (id: string, t1: string | null, t2: string | null) => any;
 }) => {
-  const grouped = useMemo(() => groupJobsByBookedDate(jobs), [jobs]);
+  // Group [date,jobs][] by Month → Day
+  const months = useMemo(() => {
+    const grouped = groupJobsByBookedDate(jobs); // [yyyy-mm-dd, jobs[]]
+    const map = new Map<string, { monthLabel: string; days: [string, IncompleteJob[]][] }>();
+    grouped.forEach(([dayKey, list]) => {
+      const d = new Date(dayKey);
+      const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      if (!map.has(monthKey)) {
+        map.set(monthKey, { monthLabel: format(d, 'MMMM yyyy'), days: [] });
+      }
+      map.get(monthKey)!.days.push([dayKey, list]);
+    });
+    return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
+  }, [jobs]);
+
+  // Default open: most recent month (last in chronological list)
+  const defaultMonthKey = months.length ? months[months.length - 1][0] : null;
+  const [openMonths, setOpenMonths] = useState<Set<string>>(
+    () => new Set(defaultMonthKey ? [defaultMonthKey] : []),
+  );
+  // Auto-expand when months become available
+  useEffect(() => {
+    if (defaultMonthKey) {
+      setOpenMonths(prev => prev.size === 0 ? new Set([defaultMonthKey]) : prev);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultMonthKey]);
+
+  const toggleMonth = (k: string) => setOpenMonths(prev => {
+    const n = new Set(prev);
+    n.has(k) ? n.delete(k) : n.add(k);
+    return n;
+  });
 
   return (
     <div className="flex-1 flex flex-col min-h-0 border-r last:border-r-0 border-border">
@@ -229,71 +261,125 @@ const StreamColumn = ({
         <span className="ml-auto opacity-90">{jobs.length}</span>
       </div>
       <ScrollArea className="flex-1">
-        <div className="p-2 space-y-3">
+        <div className="p-2 space-y-2">
           {isLoading && (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
             </div>
           )}
-          {!isLoading && grouped.length === 0 && (
+          {!isLoading && months.length === 0 && (
             <p className="text-center text-xs text-muted-foreground py-8">All caught up.</p>
           )}
-          {grouped.map(([date, list]) => {
-            const d = new Date(date);
-            const daysAgo = differenceInCalendarDays(new Date(), d);
+          {months.map(([monthKey, { monthLabel, days }]) => {
+            const monthCount = days.reduce((acc, [, l]) => acc + l.length, 0);
+            const open = openMonths.has(monthKey);
             return (
-              <div key={date}>
-                <div className="px-1 py-1 mb-1 flex items-baseline justify-between sticky top-0 bg-muted/20 backdrop-blur z-[1]">
-                  <h4 className="text-[10px] font-bold uppercase tracking-wide text-foreground/80">
-                    {format(d, 'EEE dd MMM')}
-                  </h4>
-                  <span className="text-[9px] text-destructive font-semibold">
-                    {daysAgo === 1 ? '1 day overdue' : `${daysAgo} days overdue`}
-                  </span>
-                </div>
-                <div className="space-y-1.5">
-                  {list.map(j => {
-                    const so = getSignOffStatus(j.id, j.team, j.team2);
-                    const priority = detectJobPriority(j.description, j.privateNotes);
-                    return (
-                      <button
-                        key={j.id}
-                        onClick={() => onSelect(j.id)}
-                        className={cn(
-                          "w-full text-left p-2 rounded-lg border transition-all",
-                          selectedId === j.id
-                            ? "bg-progressor-muted border-progressor shadow-sm"
-                            : "bg-card border-border hover:border-progressor/50",
-                        )}
-                      >
-                        <div className="flex items-start justify-between gap-2 mb-0.5">
-                          <span className="text-xs font-bold font-mono">#{j.jobNumber}</span>
-                          {priority && <PriorityPill priority={priority} />}
-                        </div>
-                        <p className="text-sm font-medium truncate leading-tight">{j.name}</p>
-                        <p className="text-[11px] text-muted-foreground truncate">{j.address}</p>
-                        <div className="flex items-center gap-1 mt-1 flex-wrap">
-                          {j.team && <Badge variant="secondary" className="text-[9px] px-1.5 py-0">{j.team}</Badge>}
-                          {j.team2 && <Badge variant="secondary" className="text-[9px] px-1.5 py-0">{j.team2}</Badge>}
-                          {so?.totalAssigned > 0 && (
-                            <span className={cn(
-                              "text-[9px] ml-auto px-1.5 py-0.5 rounded-full font-medium",
-                              so.allSignedOff ? "bg-success/15 text-success" : "bg-muted text-muted-foreground",
-                            )}>
-                              ✓ {so.totalSignedOff}/{so.totalAssigned}
-                            </span>
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+              <Collapsible key={monthKey} open={open} onOpenChange={() => toggleMonth(monthKey)}>
+                <CollapsibleTrigger asChild>
+                  <button
+                    className={cn(
+                      "w-full flex items-center gap-2 px-2 py-2 rounded-md transition-colors",
+                      "bg-muted/40 hover:bg-muted/70",
+                    )}
+                  >
+                    <ChevronDown className={cn("h-4 w-4 shrink-0 transition-transform text-muted-foreground", !open && "-rotate-90")} />
+                    <span className="text-sm font-extrabold tracking-tight text-foreground uppercase">{monthLabel}</span>
+                    <span className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full bg-background text-muted-foreground">{monthCount}</span>
+                  </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
+                  <div className="pl-1 pt-1 space-y-2">
+                    {days.map(([date, list]) => {
+                      const d = new Date(date);
+                      const daysAgo = differenceInCalendarDays(new Date(), d);
+                      const dayKey = `${monthKey}-${date}`;
+                      return (
+                        <DayGroup
+                          key={dayKey}
+                          dateLabel={format(d, 'EEE dd MMM')}
+                          overdueLabel={daysAgo === 1 ? '1 day overdue' : `${daysAgo} days overdue`}
+                          list={list}
+                          selectedId={selectedId}
+                          onSelect={onSelect}
+                          getSignOffStatus={getSignOffStatus}
+                        />
+                      );
+                    })}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
             );
           })}
         </div>
       </ScrollArea>
     </div>
+  );
+};
+
+/* ───────────────────── Day Group (collapsible) ───────────────────── */
+const DayGroup = ({
+  dateLabel, overdueLabel, list, selectedId, onSelect, getSignOffStatus,
+}: {
+  dateLabel: string;
+  overdueLabel: string;
+  list: IncompleteJob[];
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+  getSignOffStatus: (id: string, t1: string | null, t2: string | null) => any;
+}) => {
+  const [open, setOpen] = useState(true);
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <CollapsibleTrigger asChild>
+        <button className="w-full flex items-baseline justify-between px-1.5 py-1 rounded hover:bg-muted/40 group">
+          <div className="flex items-center gap-1.5">
+            <ChevronDown className={cn("h-3 w-3 text-muted-foreground transition-transform", !open && "-rotate-90")} />
+            <h4 className="text-[11px] font-bold uppercase tracking-wider text-foreground">{dateLabel}</h4>
+            <span className="text-[10px] font-semibold text-muted-foreground">· {list.length}</span>
+          </div>
+          <span className="text-[9px] text-destructive font-semibold">{overdueLabel}</span>
+        </button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
+        <div className="space-y-1.5 pl-3 pt-1">
+          {list.map(j => {
+            const so = getSignOffStatus(j.id, j.team, j.team2);
+            const priority = detectJobPriority(j.description, j.privateNotes);
+            return (
+              <button
+                key={j.id}
+                onClick={() => onSelect(j.id)}
+                className={cn(
+                  "w-full text-left p-2 rounded-lg border transition-all",
+                  selectedId === j.id
+                    ? "bg-progressor-muted border-progressor shadow-sm"
+                    : "bg-card border-border hover:border-progressor/50",
+                )}
+              >
+                <div className="flex items-start justify-between gap-2 mb-0.5">
+                  <span className="text-xs font-bold font-mono">#{j.jobNumber}</span>
+                  {priority && <PriorityPill priority={priority} />}
+                </div>
+                <p className="text-sm font-medium truncate leading-tight">{j.name}</p>
+                <p className="text-[11px] text-muted-foreground truncate">{j.address}</p>
+                <div className="flex items-center gap-1 mt-1 flex-wrap">
+                  {j.team && <Badge variant="secondary" className="text-[9px] px-1.5 py-0">{j.team}</Badge>}
+                  {j.team2 && <Badge variant="secondary" className="text-[9px] px-1.5 py-0">{j.team2}</Badge>}
+                  {so?.totalAssigned > 0 && (
+                    <span className={cn(
+                      "text-[9px] ml-auto px-1.5 py-0.5 rounded-full font-medium",
+                      so.allSignedOff ? "bg-success/15 text-success" : "bg-muted text-muted-foreground",
+                    )}>
+                      ✓ {so.totalSignedOff}/{so.totalAssigned}
+                    </span>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
   );
 };
 
