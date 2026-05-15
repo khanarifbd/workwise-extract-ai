@@ -38,6 +38,12 @@ interface Props {
   onOpenChange: (v: boolean) => void;
 }
 
+type DatePreset = 'all' | 'today' | 'yesterday' | 'last7' | 'last30' | 'thisMonth' | 'lastMonth' | 'custom';
+type DateField = 'booked_date' | 'date_issued';
+
+const startOfDay = (d: Date) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
+const endOfDay = (d: Date) => { const x = new Date(d); x.setHours(23, 59, 59, 999); return x; };
+
 export function MaterialsReportModal({ open, onOpenChange }: Props) {
   const { categories } = useCategories();
   const [view, setView] = useState<'select' | 'report' | 'history'>('select');
@@ -49,6 +55,10 @@ export function MaterialsReportModal({ open, onOpenChange }: Props) {
   const [filterStatus, setFilterStatus] = useState<'incomplete' | 'all'>('incomplete');
   const [filterAssigned, setFilterAssigned] = useState<'any' | 'assigned' | 'unassigned'>('any');
   const [filterScope, setFilterScope] = useState<'database' | 'booked'>('database');
+  const [dateField, setDateField] = useState<DateField>('booked_date');
+  const [datePreset, setDatePreset] = useState<DatePreset>('all');
+  const [customFrom, setCustomFrom] = useState<string>('');
+  const [customTo, setCustomTo] = useState<string>('');
   const [generating, setGenerating] = useState(false);
   const [report, setReport] = useState<MaterialsReportData | null>(null);
   const [reportTitle, setReportTitle] = useState('');
@@ -101,21 +111,66 @@ export function MaterialsReportModal({ open, onOpenChange }: Props) {
     setSavedReports((data ?? []) as unknown as SavedReport[]);
   };
 
+  const dateRange = useMemo<{ from: Date | null; to: Date | null }>(() => {
+    const now = new Date();
+    const today = startOfDay(now);
+    switch (datePreset) {
+      case 'today':
+        return { from: today, to: endOfDay(now) };
+      case 'yesterday': {
+        const y = new Date(today); y.setDate(y.getDate() - 1);
+        return { from: y, to: endOfDay(y) };
+      }
+      case 'last7': {
+        const f = new Date(today); f.setDate(f.getDate() - 6);
+        return { from: f, to: endOfDay(now) };
+      }
+      case 'last30': {
+        const f = new Date(today); f.setDate(f.getDate() - 29);
+        return { from: f, to: endOfDay(now) };
+      }
+      case 'thisMonth': {
+        const f = new Date(now.getFullYear(), now.getMonth(), 1);
+        return { from: f, to: endOfDay(now) };
+      }
+      case 'lastMonth': {
+        const f = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const t = new Date(now.getFullYear(), now.getMonth(), 0);
+        return { from: f, to: endOfDay(t) };
+      }
+      case 'custom':
+        return {
+          from: customFrom ? startOfDay(new Date(customFrom)) : null,
+          to: customTo ? endOfDay(new Date(customTo)) : null,
+        };
+      default:
+        return { from: null, to: null };
+    }
+  }, [datePreset, customFrom, customTo]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
+    const { from, to } = dateRange;
     return jobs.filter((j) => {
       if (filterScope === 'booked' && !j.booked_date) return false;
       if (filterStatus === 'incomplete' && (j.is_completed || j.status === 'complete')) return false;
       if (filterCategory !== 'all' && j.category_id !== filterCategory) return false;
       if (filterAssigned === 'assigned' && !j.team) return false;
       if (filterAssigned === 'unassigned' && j.team) return false;
+      if (from || to) {
+        const raw = dateField === 'booked_date' ? j.booked_date : j.date_issued;
+        if (!raw) return false;
+        const t = new Date(raw).getTime();
+        if (from && t < from.getTime()) return false;
+        if (to && t > to.getTime()) return false;
+      }
       if (q) {
         const hay = `${j.job_number} ${j.name ?? ''} ${j.address ?? ''}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
-  }, [jobs, search, filterStatus, filterCategory, filterAssigned, filterScope]);
+  }, [jobs, search, filterStatus, filterCategory, filterAssigned, filterScope, dateRange, dateField]);
 
   const toggleAll = () => {
     if (filtered.every((j) => selected.has(j.id))) {
@@ -248,6 +303,53 @@ export function MaterialsReportModal({ open, onOpenChange }: Props) {
                     <SelectItem value="unassigned">Unassigned</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Select value={dateField} onValueChange={(v) => setDateField(v as DateField)}>
+                  <SelectTrigger className="w-40 h-9"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="booked_date">By Booked date</SelectItem>
+                    <SelectItem value="date_issued">By Issued date</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={datePreset} onValueChange={(v) => setDatePreset(v as DatePreset)}>
+                  <SelectTrigger className="w-40 h-9"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Any date</SelectItem>
+                    <SelectItem value="today">Today</SelectItem>
+                    <SelectItem value="yesterday">Yesterday</SelectItem>
+                    <SelectItem value="last7">Last 7 days</SelectItem>
+                    <SelectItem value="last30">Last 30 days</SelectItem>
+                    <SelectItem value="thisMonth">This month</SelectItem>
+                    <SelectItem value="lastMonth">Last month</SelectItem>
+                    <SelectItem value="custom">Custom range…</SelectItem>
+                  </SelectContent>
+                </Select>
+                {datePreset === 'custom' && (
+                  <>
+                    <Input
+                      type="date"
+                      value={customFrom}
+                      onChange={(e) => setCustomFrom(e.target.value)}
+                      className="w-40 h-9"
+                    />
+                    <span className="text-xs text-muted-foreground">to</span>
+                    <Input
+                      type="date"
+                      value={customTo}
+                      onChange={(e) => setCustomTo(e.target.value)}
+                      className="w-40 h-9"
+                    />
+                  </>
+                )}
+                {datePreset !== 'all' && (
+                  <button
+                    onClick={() => { setDatePreset('all'); setCustomFrom(''); setCustomTo(''); }}
+                    className="text-xs text-muted-foreground hover:text-foreground underline"
+                  >
+                    Clear date
+                  </button>
+                )}
               </div>
               <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <button onClick={toggleAll} className="hover:text-foreground transition-colors">
