@@ -481,6 +481,9 @@ const JobDetailPanel = ({
             <TabsContent value="notes" className="m-0">
               <NotesTab job={job} progressorName={progressorName} onSaved={onChanged} />
             </TabsContent>
+            <TabsContent value="calls" className="m-0">
+              <CallLogTab jobId={job.id} />
+            </TabsContent>
             <TabsContent value="media" className="m-0">
               <MediaTab job={job} onChanged={onChanged} />
             </TabsContent>
