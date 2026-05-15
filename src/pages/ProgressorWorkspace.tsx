@@ -26,7 +26,7 @@ import { TradeCompaniesModal } from '@/components/progressor/TradeCompaniesModal
 import { SUB_TASK_STATUS_OPTIONS } from '@/types/subTask';
 import { cn } from '@/lib/utils';
 import {
-  RenderWithProgressor, wrapProgressorText, detectJobPriority, JobPriority, stripProgressorMarkers,
+  RenderWithProgressor, wrapProgressorText, detectJobPriority, JobPriority,
 } from '@/lib/progressorMarkup';
 import {
   Search, Calendar as CalendarIcon, X, NotebookPen, BookOpenCheck, Wrench,
