@@ -36,7 +36,7 @@ import {
   LogOut, Loader2, Save, Edit3, FileText, MessageSquare, Image as ImageIcon,
   CheckCircle2, Plus, Building2, Siren, Zap, Star,
 } from 'lucide-react';
-import { format, differenceInCalendarDays } from 'date-fns';
+import { format, differenceInCalendarDays, startOfWeek, endOfWeek, getISOWeek } from 'date-fns';
 
 /* ───────────────────── Priority Pill ───────────────────── */
 const PriorityPill = ({ priority }: { priority: JobPriority }) => {
@@ -220,38 +220,66 @@ const StreamColumn = ({
   onSelect: (id: string) => void;
   getSignOffStatus: (id: string, t1: string | null, t2: string | null) => any;
 }) => {
-  // Group [date,jobs][] by Month → Day
+  // Group [date,jobs][] by Month → Week → Day
+  type WeekBucket = { weekKey: string; weekLabel: string; days: [string, IncompleteJob[]][] };
+  type MonthBucket = { monthLabel: string; weeks: Map<string, WeekBucket> };
   const months = useMemo(() => {
     const grouped = groupJobsByBookedDate(jobs); // [yyyy-mm-dd, jobs[]]
-    const map = new Map<string, { monthLabel: string; days: [string, IncompleteJob[]][] }>();
+    const map = new Map<string, MonthBucket>();
     grouped.forEach(([dayKey, list]) => {
       const d = new Date(dayKey);
       const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       if (!map.has(monthKey)) {
-        map.set(monthKey, { monthLabel: format(d, 'MMMM yyyy'), days: [] });
+        map.set(monthKey, { monthLabel: format(d, 'MMMM yyyy'), weeks: new Map() });
       }
-      map.get(monthKey)!.days.push([dayKey, list]);
+      const ws = startOfWeek(d, { weekStartsOn: 1 });
+      const we = endOfWeek(d, { weekStartsOn: 1 });
+      const weekKey = `${ws.getFullYear()}-W${String(getISOWeek(ws)).padStart(2, '0')}`;
+      const sameMonth = ws.getMonth() === we.getMonth();
+      const weekLabel = sameMonth
+        ? `${format(ws, 'd')}–${format(we, 'd MMM')}`
+        : `${format(ws, 'd MMM')}–${format(we, 'd MMM')}`;
+      const monthBucket = map.get(monthKey)!;
+      if (!monthBucket.weeks.has(weekKey)) {
+        monthBucket.weeks.set(weekKey, { weekKey, weekLabel, days: [] });
+      }
+      monthBucket.weeks.get(weekKey)!.days.push([dayKey, list]);
     });
-    return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
+    return Array.from(map.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([mk, mb]) => ({
+        monthKey: mk,
+        monthLabel: mb.monthLabel,
+        weeks: Array.from(mb.weeks.values()).sort((a, b) => a.weekKey.localeCompare(b.weekKey)),
+      }));
   }, [jobs]);
 
-  // Default open: most recent month (last in chronological list)
-  const defaultMonthKey = months.length ? months[months.length - 1][0] : null;
+  // Default open: most recent month + its most recent week
+  const defaultMonthKey = months.length ? months[months.length - 1].monthKey : null;
+  const defaultWeekKey = months.length
+    ? months[months.length - 1].weeks[months[months.length - 1].weeks.length - 1]?.weekKey ?? null
+    : null;
   const [openMonths, setOpenMonths] = useState<Set<string>>(
     () => new Set(defaultMonthKey ? [defaultMonthKey] : []),
   );
-  // Auto-expand when months become available
+  const [openWeeks, setOpenWeeks] = useState<Set<string>>(
+    () => new Set(defaultWeekKey ? [defaultWeekKey] : []),
+  );
   useEffect(() => {
     if (defaultMonthKey) {
       setOpenMonths(prev => prev.size === 0 ? new Set([defaultMonthKey]) : prev);
     }
+    if (defaultWeekKey) {
+      setOpenWeeks(prev => prev.size === 0 ? new Set([defaultWeekKey]) : prev);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [defaultMonthKey]);
+  }, [defaultMonthKey, defaultWeekKey]);
 
   const toggleMonth = (k: string) => setOpenMonths(prev => {
-    const n = new Set(prev);
-    n.has(k) ? n.delete(k) : n.add(k);
-    return n;
+    const n = new Set(prev); n.has(k) ? n.delete(k) : n.add(k); return n;
+  });
+  const toggleWeek = (k: string) => setOpenWeeks(prev => {
+    const n = new Set(prev); n.has(k) ? n.delete(k) : n.add(k); return n;
   });
 
   return (
@@ -270,8 +298,8 @@ const StreamColumn = ({
           {!isLoading && months.length === 0 && (
             <p className="text-center text-xs text-muted-foreground py-8">All caught up.</p>
           )}
-          {months.map(([monthKey, { monthLabel, days }]) => {
-            const monthCount = days.reduce((acc, [, l]) => acc + l.length, 0);
+          {months.map(({ monthKey, monthLabel, weeks }) => {
+            const monthCount = weeks.reduce((acc, w) => acc + w.days.reduce((a, [, l]) => a + l.length, 0), 0);
             const open = openMonths.has(monthKey);
             return (
               <Collapsible key={monthKey} open={open} onOpenChange={() => toggleMonth(monthKey)}>
@@ -288,21 +316,40 @@ const StreamColumn = ({
                   </button>
                 </CollapsibleTrigger>
                 <CollapsibleContent className="data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
-                  <div className="pl-1 pt-1 space-y-2">
-                    {days.map(([date, list]) => {
-                      const d = new Date(date);
-                      const daysAgo = differenceInCalendarDays(new Date(), d);
-                      const dayKey = `${monthKey}-${date}`;
+                  <div className="pl-1 pt-1 space-y-1.5">
+                    {weeks.map(({ weekKey, weekLabel, days }) => {
+                      const weekCount = days.reduce((a, [, l]) => a + l.length, 0);
+                      const wOpen = openWeeks.has(weekKey);
                       return (
-                        <DayGroup
-                          key={dayKey}
-                          dateLabel={format(d, 'EEE dd MMM')}
-                          overdueLabel={daysAgo === 1 ? '1 day overdue' : `${daysAgo} days overdue`}
-                          list={list}
-                          selectedId={selectedId}
-                          onSelect={onSelect}
-                          getSignOffStatus={getSignOffStatus}
-                        />
+                        <Collapsible key={weekKey} open={wOpen} onOpenChange={() => toggleWeek(weekKey)}>
+                          <CollapsibleTrigger asChild>
+                            <button className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/50 transition-colors">
+                              <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 transition-transform text-muted-foreground", !wOpen && "-rotate-90")} />
+                              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Week · {weekLabel}</span>
+                              <span className="ml-auto text-[10px] font-semibold text-muted-foreground/80">{weekCount}</span>
+                            </button>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent className="data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
+                            <div className="pl-2 pt-1 space-y-2">
+                              {days.map(([date, list]) => {
+                                const d = new Date(date);
+                                const daysAgo = differenceInCalendarDays(new Date(), d);
+                                const dayKey = `${weekKey}-${date}`;
+                                return (
+                                  <DayGroup
+                                    key={dayKey}
+                                    dateLabel={format(d, 'EEE dd MMM')}
+                                    overdueLabel={daysAgo === 1 ? '1 day overdue' : `${daysAgo} days overdue`}
+                                    list={list}
+                                    selectedId={selectedId}
+                                    onSelect={onSelect}
+                                    getSignOffStatus={getSignOffStatus}
+                                  />
+                                );
+                              })}
+                            </div>
+                          </CollapsibleContent>
+                        </Collapsible>
                       );
                     })}
                   </div>
