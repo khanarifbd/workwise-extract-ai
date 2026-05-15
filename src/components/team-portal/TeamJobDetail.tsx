@@ -23,6 +23,7 @@ import { useTranslation, SUPPORTED_LANGUAGES } from '@/hooks/useTranslation';
 import { useBatchUpload } from '@/hooks/useBatchUpload';
 import { AIWritingAssistant } from './AIWritingAssistant';
 import { VoiceDictation } from './VoiceDictation';
+import { RenderWithProgressor } from '@/lib/progressorMarkup';
 
 interface TeamJobDetailProps {
   job: Job;
