@@ -183,16 +183,6 @@ export function MaterialsReportModal({ open, onOpenChange }: Props) {
       setSelected(next);
     }
   };
-    if (filtered.every((j) => selected.has(j.id))) {
-      const next = new Set(selected);
-      filtered.forEach((j) => next.delete(j.id));
-      setSelected(next);
-    } else {
-      const next = new Set(selected);
-      filtered.forEach((j) => next.add(j.id));
-      setSelected(next);
-    }
-  };
 
   const toggleOne = (id: string) => {
     const next = new Set(selected);
