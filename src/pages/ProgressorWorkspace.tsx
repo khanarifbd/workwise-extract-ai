@@ -191,9 +191,13 @@ const ProgressorWorkspace = () => {
       <Sheet open={diaryOpen} onOpenChange={setDiaryOpen}>
         <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
           <SheetHeader>
-            <SheetTitle className="flex items-center gap-2"><BookOpenCheck className="h-5 w-5 text-progressor" /> Diary — All Overdue Jobs by Booked Date</SheetTitle>
+            <SheetTitle className="flex items-center gap-2"><BookOpenCheck className="h-5 w-5 text-progressor" /> Diary &amp; Reminders</SheetTitle>
           </SheetHeader>
-          <DiaryPanel jobs={[...dmJobs, ...aaJobs]} onSelect={(id) => { setSelectedId(id); setDiaryOpen(false); }} />
+          <ProgressorDiaryPanel
+            jobs={[...dmJobs, ...aaJobs]}
+            progressorName={progressorName}
+            onJumpToJob={(id) => { setSelectedId(id); setDiaryOpen(false); }}
+          />
         </SheetContent>
       </Sheet>
 
