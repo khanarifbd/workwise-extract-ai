@@ -38,6 +38,8 @@ import {
 } from 'lucide-react';
 import { useContactHistory } from '@/hooks/useContactHistory';
 import { CONTACT_OUTCOMES } from '@/types/contactHistory';
+import { useLinkedTradeJobs, LinkedTradeJobInfo } from '@/hooks/useLinkedTradeJobs';
+import { Fan, Triangle, LayoutGrid, DoorClosed } from 'lucide-react';
 import { format, differenceInCalendarDays, startOfWeek, endOfWeek, getISOWeek } from 'date-fns';
 
 /* ───────────────────── Priority Pill ───────────────────── */
