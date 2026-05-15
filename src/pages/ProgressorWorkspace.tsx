@@ -34,8 +34,10 @@ import {
 import {
   Search, Calendar as CalendarIcon, X, BookOpenCheck, Wrench,
   LogOut, Loader2, Save, Edit3, FileText, MessageSquare, Image as ImageIcon,
-  CheckCircle2, Plus, Building2, Siren, Zap, Star,
+  CheckCircle2, Plus, Building2, Siren, Zap, Star, Phone,
 } from 'lucide-react';
+import { useContactHistory } from '@/hooks/useContactHistory';
+import { CONTACT_OUTCOMES } from '@/types/contactHistory';
 import { format, differenceInCalendarDays, startOfWeek, endOfWeek, getISOWeek } from 'date-fns';
 
 /* ───────────────────── Priority Pill ───────────────────── */
