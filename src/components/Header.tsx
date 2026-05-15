@@ -171,6 +171,16 @@ export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount
             {/* Sign-off bell */}
             <SignOffNotificationBell onJobClick={onJobClick} />
 
+            {/* Progressor Workspace */}
+            <Link
+              to="/progressor"
+              title="Open Progressor Workspace"
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-progressor hover:bg-progressor/10 transition-colors"
+            >
+              <Workflow className="w-3.5 h-3.5" />
+              <span className="hidden md:inline">Progressor</span>
+            </Link>
+
             {/* Teams dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
