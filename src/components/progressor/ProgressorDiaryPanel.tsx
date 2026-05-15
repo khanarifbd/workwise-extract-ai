@@ -142,17 +142,53 @@ export const ProgressorDiaryPanel = ({ jobs, progressorName, onJumpToJob }: Prop
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <div>
             <Label className="text-[11px]">Linked job (optional)</Label>
-            <Select value={jobId} onValueChange={setJobId}>
-              <SelectTrigger className="h-9">
-                <SelectValue placeholder="No job" />
-              </SelectTrigger>
-              <SelectContent className="max-h-72">
-                <SelectItem value="none">— No job —</SelectItem>
-                {jobOptions.map(o => (
-                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Popover open={jobPickerOpen} onOpenChange={setJobPickerOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  className="w-full h-9 justify-between font-normal"
+                >
+                  <span className="truncate text-left">
+                    {selectedJob
+                      ? <>#{selectedJob.jobNumber} — <span className="text-muted-foreground">{selectedJob.name}</span></>
+                      : <span className="text-muted-foreground">— No job —</span>}
+                  </span>
+                  <ChevronsUpDown className="h-3.5 w-3.5 opacity-50 shrink-0 ml-1" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="p-0 w-[--radix-popover-trigger-width] min-w-[320px]" align="start">
+                <Command>
+                  <CommandInput placeholder="Search job #, name or address…" />
+                  <CommandList className="max-h-72">
+                    <CommandEmpty>No matching job.</CommandEmpty>
+                    <CommandGroup>
+                      <CommandItem
+                        value="no-job"
+                        onSelect={() => { setJobId('none'); setJobPickerOpen(false); }}
+                      >
+                        <span className="text-muted-foreground italic">— No job —</span>
+                      </CommandItem>
+                      {jobOptions.map(o => (
+                        <CommandItem
+                          key={o.value}
+                          value={o.keywords}
+                          onSelect={() => { setJobId(o.value); setJobPickerOpen(false); }}
+                          className="flex flex-col items-start gap-0.5"
+                        >
+                          <div className="flex items-center gap-2 w-full">
+                            <span className="text-xs font-bold font-mono">#{o.jobNumber}</span>
+                            <span className="text-sm font-medium truncate">{o.name}</span>
+                            {jobId === o.value && <Check className="h-3.5 w-3.5 text-progressor ml-auto" />}
+                          </div>
+                          <span className="text-[11px] text-muted-foreground truncate w-full">{o.address}</span>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
           <div>
             <Label className="text-[11px]">When</Label>
