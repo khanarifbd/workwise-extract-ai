@@ -140,7 +140,11 @@ export const InlineDescriptionEditor = ({
         !isExpanded && shouldTruncate && "line-clamp-2"
       )}>
         {description ? (
-          <HighlightText text={description} highlight={searchTerm || ''} />
+          hasProgressorMarkers(description) ? (
+            <span className="whitespace-pre-wrap"><RenderWithProgressor text={description} /></span>
+          ) : (
+            <HighlightText text={description} highlight={searchTerm || ''} />
+          )
         ) : (
           <span className="text-muted-foreground italic">No description</span>
         )}
