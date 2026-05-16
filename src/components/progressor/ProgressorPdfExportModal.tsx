@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -10,11 +10,12 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import {
   Loader2, FileDown, Image as ImageIcon,
-  CalendarIcon, Users, X,
+  CalendarIcon, Users, X, CheckCircle2, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import {
   format, startOfWeek, endOfWeek, startOfMonth, endOfMonth,
-  isSameDay, isSameMonth, getISOWeek,
+  getISOWeek, addDays, addWeeks, addMonths, subDays,
+  isSameDay, isWithinInterval,
 } from 'date-fns';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -24,7 +25,6 @@ import { downloadPDF } from '@/lib/pdfDownload';
 import { IncompleteJob } from '@/hooks/useProgressorIncompleteJobs';
 import { assertCount } from '@/lib/metricsIntegrity';
 import { cn } from '@/lib/utils';
-import { CheckCircle2 } from 'lucide-react';
 
 type Scope = 'day' | 'week' | 'month' | 'individual';
 
@@ -34,7 +34,6 @@ interface Props {
   jobs: IncompleteJob[];
 }
 
-// Key helpers
 const dayKey = (d: Date) => format(d, 'yyyy-MM-dd');
 const weekKey = (d: Date) => format(startOfWeek(d, { weekStartsOn: 1 }), 'yyyy-MM-dd');
 const monthKey = (d: Date) => format(d, 'yyyy-MM');
@@ -43,36 +42,34 @@ export function ProgressorPdfExportModal({ open, onOpenChange, jobs }: Props) {
   const { toast } = useToast();
 
   const [scope, setScope] = useState<Scope>('week');
-  // Multi-select anchors per scope
   const [selectedDays, setSelectedDays] = useState<Date[]>([]);
-  const [selectedWeeks, setSelectedWeeks] = useState<Date[]>([]); // store week-start dates
-  const [selectedMonths, setSelectedMonths] = useState<Date[]>([]); // store month-start dates
+  const [selectedWeeks, setSelectedWeeks] = useState<Date[]>([]);
+  const [selectedMonths, setSelectedMonths] = useState<Date[]>([]);
   const [selectedTeams, setSelectedTeams] = useState<Set<string>>(new Set());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  useEffect(() => { setSelectedIds(new Set()); }, [scope]);
+  // Range-pick state for days
+  const [rangeAnchor, setRangeAnchor] = useState<Date | null>(null);
 
-  // Build set of allowed date-keys for filtering
+  // Navigation cursors for week/month browsers
+  const [weekCursor, setWeekCursor] = useState<Date>(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const [monthCursor, setMonthCursor] = useState<Date>(() => startOfMonth(new Date()));
+
+  useEffect(() => { setSelectedIds(new Set()); setRangeAnchor(null); }, [scope]);
+  useEffect(() => { if (!open) { setRangeAnchor(null); } }, [open]);
+
+  // ---- Allowed day-keys for filter ----
   const allowedDayKeys = useMemo(() => {
     const s = new Set<string>();
-    if (scope === 'day') {
-      selectedDays.forEach(d => s.add(dayKey(d)));
-    } else if (scope === 'week') {
-      selectedWeeks.forEach(wkStart => {
-        const start = startOfWeek(wkStart, { weekStartsOn: 1 });
-        for (let i = 0; i < 7; i++) {
-          const d = new Date(start); d.setDate(start.getDate() + i);
-          s.add(dayKey(d));
-        }
-      });
-    } else if (scope === 'month') {
-      selectedMonths.forEach(m => {
-        const start = startOfMonth(m);
-        const end = endOfMonth(m);
-        const cur = new Date(start);
-        while (cur <= end) { s.add(dayKey(cur)); cur.setDate(cur.getDate() + 1); }
-      });
-    }
+    if (scope === 'day') selectedDays.forEach(d => s.add(dayKey(d)));
+    else if (scope === 'week') selectedWeeks.forEach(wk => {
+      const start = startOfWeek(wk, { weekStartsOn: 1 });
+      for (let i = 0; i < 7; i++) s.add(dayKey(addDays(start, i)));
+    });
+    else if (scope === 'month') selectedMonths.forEach(m => {
+      const start = startOfMonth(m); const end = endOfMonth(m);
+      for (let cur = new Date(start); cur <= end; cur = addDays(cur, 1)) s.add(dayKey(cur));
+    });
     return s;
   }, [scope, selectedDays, selectedWeeks, selectedMonths]);
 
@@ -82,7 +79,6 @@ export function ProgressorPdfExportModal({ open, onOpenChange, jobs }: Props) {
     (scope === 'month' && selectedMonths.length > 0) ||
     scope === 'individual';
 
-  // Teams
   const allTeams = useMemo(() => {
     const s = new Set<string>();
     jobs.forEach(j => { if (j.team) s.add(j.team); if (j.team2) s.add(j.team2); });
@@ -94,7 +90,6 @@ export function ProgressorPdfExportModal({ open, onOpenChange, jobs }: Props) {
     if (allowedDayKeys.size === 0) return [];
     return jobs.filter(j => {
       if (!j.bookedDate) return false;
-      // bookedDate is local YYYY-MM-DD; normalize
       const key = j.bookedDate.length >= 10 ? j.bookedDate.slice(0, 10) : dayKey(new Date(j.bookedDate));
       return allowedDayKeys.has(key);
     });
@@ -112,7 +107,7 @@ export function ProgressorPdfExportModal({ open, onOpenChange, jobs }: Props) {
     return teamFiltered;
   }, [scope, teamFiltered, selectedIds]);
 
-  // Media map
+  // ---- Media map ----
   const candidateIds = useMemo(() => teamFiltered.map(j => j.id), [teamFiltered]);
   const [mediaMap, setMediaMap] = useState<Record<string, boolean>>({});
   const [loadingMedia, setLoadingMedia] = useState(false);
@@ -146,7 +141,7 @@ export function ProgressorPdfExportModal({ open, onOpenChange, jobs }: Props) {
   const hasMedia = (j: IncompleteJob): boolean =>
     (j.attachments && j.attachments.length > 0) || !!mediaMap[j.id];
 
-  // Accuracy checksum
+  // ---- Integrity ----
   useEffect(() => {
     if (!open) return;
     const recomputed = (scope === 'individual')
@@ -155,7 +150,11 @@ export function ProgressorPdfExportModal({ open, onOpenChange, jobs }: Props) {
     assertCount('progressor-export:finalJobs', finalJobs.length, recomputed);
   }, [open, finalJobs, teamFiltered, selectedIds, scope]);
 
-  // Toggle helpers (multi-select)
+  // ---- Toggle helpers ----
+  const isDaySelected = (d: Date) => selectedDays.some(x => dayKey(x) === dayKey(d));
+  const isWeekSelected = (d: Date) => selectedWeeks.some(x => weekKey(x) === weekKey(d));
+  const isMonthSelected = (d: Date) => selectedMonths.some(x => monthKey(x) === monthKey(d));
+
   const toggleDay = (d: Date) => setSelectedDays(prev => {
     const k = dayKey(d);
     return prev.some(x => dayKey(x) === k) ? prev.filter(x => dayKey(x) !== k) : [...prev, d];
@@ -175,6 +174,34 @@ export function ProgressorPdfExportModal({ open, onOpenChange, jobs }: Props) {
     );
   };
 
+  // Range add for days
+  const addDayRange = (a: Date, b: Date) => {
+    const start = a <= b ? a : b;
+    const end = a <= b ? b : a;
+    setSelectedDays(prev => {
+      const map = new Map(prev.map(d => [dayKey(d), d]));
+      for (let cur = new Date(start); cur <= end; cur = addDays(cur, 1)) {
+        map.set(dayKey(cur), new Date(cur));
+      }
+      return Array.from(map.values());
+    });
+  };
+
+  const handleCalendarDayClick = (d: Date, e?: React.MouseEvent) => {
+    if (scope !== 'day') {
+      if (scope === 'week') toggleWeek(d);
+      else if (scope === 'month') toggleMonth(d);
+      return;
+    }
+    if (e?.shiftKey && rangeAnchor) {
+      addDayRange(rangeAnchor, d);
+      setRangeAnchor(d);
+      return;
+    }
+    toggleDay(d);
+    setRangeAnchor(d);
+  };
+
   const toggleTeam = (t: string) => setSelectedTeams(p => {
     const n = new Set(p); n.has(t) ? n.delete(t) : n.add(t); return n;
   });
@@ -182,155 +209,201 @@ export function ProgressorPdfExportModal({ open, onOpenChange, jobs }: Props) {
     const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n;
   });
 
-  // Pretty chips of selections
+  const clearScopeSelection = () => {
+    if (scope === 'day') { setSelectedDays([]); setRangeAnchor(null); }
+    if (scope === 'week') setSelectedWeeks([]);
+    if (scope === 'month') setSelectedMonths([]);
+  };
+
+  // ---- Quick presets ----
+  const applyPreset = (preset: string) => {
+    const today = new Date();
+    if (scope === 'day') {
+      if (preset === 'today') setSelectedDays([today]);
+      else if (preset === 'tomorrow') setSelectedDays([addDays(today, 1)]);
+      else if (preset === 'yesterday') setSelectedDays([subDays(today, 1)]);
+      else if (preset === 'next7') {
+        const days: Date[] = [];
+        for (let i = 0; i < 7; i++) days.push(addDays(today, i));
+        setSelectedDays(days);
+      } else if (preset === 'last7') {
+        const days: Date[] = [];
+        for (let i = 6; i >= 0; i--) days.push(subDays(today, i));
+        setSelectedDays(days);
+      }
+    } else if (scope === 'week') {
+      if (preset === 'this') setSelectedWeeks([startOfWeek(today, { weekStartsOn: 1 })]);
+      else if (preset === 'next') setSelectedWeeks([startOfWeek(addWeeks(today, 1), { weekStartsOn: 1 })]);
+      else if (preset === 'last') setSelectedWeeks([startOfWeek(subDays(today, 7), { weekStartsOn: 1 })]);
+      else if (preset === 'next4') {
+        const out: Date[] = [];
+        for (let i = 0; i < 4; i++) out.push(startOfWeek(addWeeks(today, i), { weekStartsOn: 1 }));
+        setSelectedWeeks(out);
+      }
+    } else if (scope === 'month') {
+      if (preset === 'this') setSelectedMonths([startOfMonth(today)]);
+      else if (preset === 'next') setSelectedMonths([startOfMonth(addMonths(today, 1))]);
+      else if (preset === 'last') setSelectedMonths([startOfMonth(addMonths(today, -1))]);
+      else if (preset === 'next3') {
+        const out: Date[] = [];
+        for (let i = 0; i < 3; i++) out.push(startOfMonth(addMonths(today, i)));
+        setSelectedMonths(out);
+      }
+    }
+  };
+
+  // ---- Chips ----
   const selectionChips = useMemo(() => {
     if (scope === 'day') {
-      return selectedDays
-        .slice()
-        .sort((a, b) => a.getTime() - b.getTime())
+      return selectedDays.slice().sort((a, b) => a.getTime() - b.getTime())
         .map(d => ({ key: dayKey(d), label: format(d, 'EEE dd MMM'), onRemove: () => toggleDay(d) }));
     }
     if (scope === 'week') {
-      return selectedWeeks
-        .slice()
-        .sort((a, b) => a.getTime() - b.getTime())
-        .map(d => ({
-          key: weekKey(d),
-          label: `W${getISOWeek(d)} · ${format(d, 'dd MMM')}–${format(endOfWeek(d, { weekStartsOn: 1 }), 'dd MMM')}`,
-          onRemove: () => toggleWeek(d),
-        }));
+      return selectedWeeks.slice().sort((a, b) => a.getTime() - b.getTime()).map(d => ({
+        key: weekKey(d),
+        label: `W${getISOWeek(d)} · ${format(d, 'dd MMM')}–${format(endOfWeek(d, { weekStartsOn: 1 }), 'dd MMM')}`,
+        onRemove: () => toggleWeek(d),
+      }));
     }
     if (scope === 'month') {
-      return selectedMonths
-        .slice()
-        .sort((a, b) => a.getTime() - b.getTime())
+      return selectedMonths.slice().sort((a, b) => a.getTime() - b.getTime())
         .map(d => ({ key: monthKey(d), label: format(d, 'MMM yyyy'), onRemove: () => toggleMonth(d) }));
     }
     return [];
   }, [scope, selectedDays, selectedWeeks, selectedMonths]);
 
-  const clearScopeSelection = () => {
-    if (scope === 'day') setSelectedDays([]);
-    if (scope === 'week') setSelectedWeeks([]);
-    if (scope === 'month') setSelectedMonths([]);
-  };
+  // Calendar highlighting for day scope
+  const calendarSelected = scope === 'day' ? selectedDays : [];
 
-  // Build calendar modifiers to highlight selections
-  const calendarSelected: Date[] = useMemo(() => {
-    if (scope === 'day') return selectedDays;
-    if (scope === 'week') {
-      const out: Date[] = [];
-      selectedWeeks.forEach(wk => {
-        for (let i = 0; i < 7; i++) {
-          const d = new Date(wk); d.setDate(wk.getDate() + i);
-          out.push(d);
-        }
-      });
-      return out;
-    }
-    if (scope === 'month') {
-      const out: Date[] = [];
-      selectedMonths.forEach(m => {
-        const start = startOfMonth(m); const end = endOfMonth(m);
-        const cur = new Date(start);
-        while (cur <= end) { out.push(new Date(cur)); cur.setDate(cur.getDate() + 1); }
-      });
-      return out;
-    }
-    return [];
-  }, [scope, selectedDays, selectedWeeks, selectedMonths]);
+  // ---- Week browser: list of 12 weeks centred on cursor ----
+  const weekList = useMemo(() => {
+    const start = addWeeks(weekCursor, -4);
+    return Array.from({ length: 12 }, (_, i) => addWeeks(start, i));
+  }, [weekCursor]);
 
-  // PDF
+  const monthList = useMemo(() => {
+    const start = addMonths(monthCursor, -4);
+    return Array.from({ length: 12 }, (_, i) => addMonths(start, i));
+  }, [monthCursor]);
+
+  // ---- PDF generation ----
   const generatePdf = () => {
     if (finalJobs.length === 0) {
       toast({ title: 'Nothing to export', description: 'No jobs match your filters.', variant: 'destructive' });
       return;
     }
-    const doc = new jsPDF({ orientation: 'landscape' });
-    const pw = doc.internal.pageSize.width;
+    try {
+      const doc = new jsPDF({ orientation: 'landscape' });
+      const pw = doc.internal.pageSize.width;
 
-    doc.setFillColor(15, 23, 42);
-    doc.rect(0, 0, pw, 22, 'F');
-    doc.setTextColor(255);
-    doc.setFontSize(14); doc.setFont('helvetica', 'bold');
-    doc.text('PROGRESSOR — OUTSTANDING JOBS LIST', 14, 14);
-    doc.setFontSize(9); doc.setFont('helvetica', 'normal');
-    doc.text(format(new Date(), 'dd MMM yyyy HH:mm'), pw - 14, 14, { align: 'right' });
+      doc.setFillColor(15, 23, 42);
+      doc.rect(0, 0, pw, 22, 'F');
+      doc.setTextColor(255);
+      doc.setFontSize(14); doc.setFont('helvetica', 'bold');
+      doc.text('PROGRESSOR — OUTSTANDING JOBS LIST', 14, 14);
+      doc.setFontSize(9); doc.setFont('helvetica', 'normal');
+      doc.text(format(new Date(), 'dd MMM yyyy HH:mm'), pw - 14, 14, { align: 'right' });
 
-    let subtitle = `Scope: ${scope.toUpperCase()}`;
-    if (selectionChips.length > 0) subtitle += `  ·  ${selectionChips.map(c => c.label).join(', ')}`;
-    if (selectedTeams.size > 0) subtitle += `  ·  Teams: ${Array.from(selectedTeams).join(', ')}`;
-    subtitle += `  ·  ${finalJobs.length} job${finalJobs.length === 1 ? '' : 's'}`;
-    doc.setTextColor(80); doc.setFontSize(9);
-    const wrapped = doc.splitTextToSize(subtitle, pw - 28);
-    doc.text(wrapped, 14, 28);
+      let subtitle = `Scope: ${scope.toUpperCase()}`;
+      if (selectionChips.length > 0) subtitle += `  ·  ${selectionChips.map(c => c.label).join(', ')}`;
+      if (selectedTeams.size > 0) subtitle += `  ·  Teams: ${Array.from(selectedTeams).join(', ')}`;
+      subtitle += `  ·  ${finalJobs.length} job${finalJobs.length === 1 ? '' : 's'}`;
+      doc.setTextColor(80); doc.setFontSize(9);
+      const wrapped = doc.splitTextToSize(subtitle, pw - 28);
+      doc.text(wrapped, 14, 28);
 
-    const tableStart = 28 + (Array.isArray(wrapped) ? wrapped.length : 1) * 5;
+      const tableStart = 28 + (Array.isArray(wrapped) ? wrapped.length : 1) * 5;
 
-    const rows = finalJobs.map(j => [
-      j.jobNumber,
-      j.name || '—',
-      j.address || '—',
-      [j.team, j.team2].filter(Boolean).join(' + ') || '—',
-      j.bookedDate ? format(new Date(j.bookedDate), 'EEE dd MMM') : '—',
-      hasMedia(j) ? '[X]' : '[  ]',
-    ]);
+      const sorted = [...finalJobs].sort((a, b) => {
+        const ax = a.bookedDate || '';
+        const bx = b.bookedDate || '';
+        if (ax !== bx) return ax.localeCompare(bx);
+        return (a.jobNumber || '').localeCompare(b.jobNumber || '');
+      });
 
-    autoTable(doc, {
-      startY: tableStart,
-      head: [['Job #', 'Tenant', 'Address', 'Team', 'Booked', 'Media']],
-      body: rows,
-      styles: { fontSize: 8.5, cellPadding: 2.5, valign: 'middle' },
-      headStyles: { fillColor: [51, 65, 85], textColor: 255, fontStyle: 'bold' },
-      alternateRowStyles: { fillColor: [248, 250, 252] },
-      columnStyles: {
-        0: { cellWidth: 24, fontStyle: 'bold' },
-        1: { cellWidth: 46 },
-        2: { cellWidth: 92 },
-        3: { cellWidth: 48 },
-        4: { cellWidth: 36 },
-        5: { cellWidth: 22, halign: 'center' },
-      },
-      margin: { left: 10, right: 10 },
-    });
+      const rows = sorted.map(j => [
+        j.jobNumber || '—',
+        j.name || '—',
+        j.address || '—',
+        [j.team, j.team2].filter(Boolean).join(' + ') || '—',
+        j.bookedDate ? format(new Date(j.bookedDate), 'EEE dd MMM') : '—',
+        hasMedia(j) ? '[X]' : '[  ]',
+      ]);
 
-    const pageCount = doc.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(7); doc.setTextColor(140);
-      doc.text(
-        `Page ${i} of ${pageCount}  ·  Media tickbox = team has uploaded photos for this job`,
-        pw / 2, doc.internal.pageSize.height - 6, { align: 'center' },
-      );
+      autoTable(doc, {
+        startY: tableStart,
+        head: [['Job #', 'Tenant', 'Address', 'Team', 'Booked', 'Media']],
+        body: rows,
+        styles: { fontSize: 8.5, cellPadding: 2.5, valign: 'middle' },
+        headStyles: { fillColor: [51, 65, 85], textColor: 255, fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [248, 250, 252] },
+        columnStyles: {
+          0: { cellWidth: 24, fontStyle: 'bold' },
+          1: { cellWidth: 46 },
+          2: { cellWidth: 92 },
+          3: { cellWidth: 48 },
+          4: { cellWidth: 36 },
+          5: { cellWidth: 22, halign: 'center' },
+        },
+        margin: { left: 10, right: 10 },
+      });
+
+      const pageCount = doc.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(7); doc.setTextColor(140);
+        doc.text(
+          `Page ${i} of ${pageCount}  ·  Media tickbox = team has uploaded photos for this job`,
+          pw / 2, doc.internal.pageSize.height - 6, { align: 'center' },
+        );
+      }
+
+      const fname = `progressor-jobs-${scope}-${format(new Date(), 'yyyy-MM-dd-HHmm')}.pdf`;
+      downloadPDF(doc, fname);
+      toast({ title: 'PDF generated', description: `${finalJobs.length} jobs exported.` });
+    } catch (e: any) {
+      console.error('PDF generation failed', e);
+      toast({ title: 'PDF generation failed', description: e?.message || 'Unknown error', variant: 'destructive' });
     }
-
-    const fname = `progressor-jobs-${scope}-${format(new Date(), 'yyyy-MM-dd-HHmm')}.pdf`;
-    downloadPDF(doc, fname);
-    toast({ title: 'PDF generated', description: `${finalJobs.length} jobs exported.` });
   };
 
   const COLS = 'minmax(0,1fr) 8rem 6rem 3rem';
 
-  // Picker button label
-  const pickerLabel = useMemo(() => {
-    if (scope === 'individual') return '';
-    const n = selectionChips.length;
-    if (n === 0) return `Pick ${scope}${scope === 'day' ? 's' : 's'}…`;
-    if (n === 1) return selectionChips[0].label;
-    return `${n} ${scope}s selected`;
-  }, [scope, selectionChips]);
+  // Day-in-week badge (within the week browser)
+  const weekJobCount = (wkStart: Date) => {
+    const wkEnd = endOfWeek(wkStart, { weekStartsOn: 1 });
+    return jobs.filter(j => {
+      if (!j.bookedDate) return false;
+      const d = new Date(j.bookedDate.slice(0, 10));
+      return isWithinInterval(d, { start: wkStart, end: wkEnd });
+    }).length;
+  };
+  const monthJobCount = (m: Date) => {
+    const s = startOfMonth(m); const e = endOfMonth(m);
+    return jobs.filter(j => {
+      if (!j.bookedDate) return false;
+      const d = new Date(j.bookedDate.slice(0, 10));
+      return isWithinInterval(d, { start: s, end: e });
+    }).length;
+  };
+  const dayJobCount = (d: Date) => {
+    const k = dayKey(d);
+    return jobs.filter(j => j.bookedDate && j.bookedDate.slice(0, 10) === k).length;
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-5xl max-h-[92vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileDown className="h-5 w-5 text-progressor" /> Export Jobs PDF
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            Select days, weeks, months or individual jobs and export a PDF list.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 min-h-0 flex flex-col gap-3 overflow-hidden">
-          {/* Scope tabs */}
           <Tabs value={scope} onValueChange={(v) => setScope(v as Scope)}>
             <TabsList className="grid grid-cols-4 w-full h-10">
               <TabsTrigger value="day">Days</TabsTrigger>
@@ -340,83 +413,183 @@ export function ProgressorPdfExportModal({ open, onOpenChange, jobs }: Props) {
             </TabsList>
           </Tabs>
 
-          {/* Multi-pick calendar */}
-          {scope !== 'individual' && (
+          {/* ---- DAY SCOPE ---- */}
+          {scope === 'day' && (
             <div className="space-y-2">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { k: 'today', label: 'Today' },
+                  { k: 'tomorrow', label: 'Tomorrow' },
+                  { k: 'yesterday', label: 'Yesterday' },
+                  { k: 'last7', label: 'Last 7 days' },
+                  { k: 'next7', label: 'Next 7 days' },
+                ].map(p => (
+                  <Button key={p.k} size="sm" variant="outline" className="h-7 text-xs" onClick={() => applyPreset(p.k)}>
+                    {p.label}
+                  </Button>
+                ))}
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="flex-1 h-10 justify-start font-medium">
-                      <CalendarIcon className="h-4 w-4 mr-2 text-progressor" />
-                      {pickerLabel}
+                    <Button size="sm" variant="outline" className="h-7 text-xs gap-1">
+                      <CalendarIcon className="h-3 w-3" /> Pick days
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
                     <div className="px-3 pt-3 pb-1 text-[11px] text-muted-foreground">
-                      {scope === 'day' && 'Click days to toggle. Multi-select supported.'}
-                      {scope === 'week' && 'Click any day to toggle that whole week.'}
-                      {scope === 'month' && 'Click any day to toggle that whole month.'}
+                      Click to toggle. <kbd className="px-1 py-0.5 border rounded bg-muted">Shift</kbd>+click to pick a range.
                     </div>
                     <Calendar
                       mode="multiple"
                       selected={calendarSelected}
-                      onDayClick={(d) => {
-                        if (scope === 'day') toggleDay(d);
-                        else if (scope === 'week') toggleWeek(d);
-                        else if (scope === 'month') toggleMonth(d);
-                      }}
+                      onDayClick={(d, _mods, e) => handleCalendarDayClick(d, e as any)}
                       weekStartsOn={1}
                       showOutsideDays
                       initialFocus
                       className={cn('p-3 pointer-events-auto')}
                     />
-                    <div className="flex items-center justify-between px-3 py-2 border-t">
-                      <button
-                        className="text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
-                        onClick={clearScopeSelection}
-                        disabled={selectionChips.length === 0}
-                      >
-                        Clear
-                      </button>
-                      <button
-                        className="text-xs text-progressor font-medium"
-                        onClick={() => {
-                          const today = new Date();
-                          if (scope === 'day') toggleDay(today);
-                          else if (scope === 'week') toggleWeek(today);
-                          else if (scope === 'month') toggleMonth(today);
-                        }}
-                      >
-                        + {scope === 'day' ? 'Today' : scope === 'week' ? 'This week' : 'This month'}
-                      </button>
-                    </div>
                   </PopoverContent>
                 </Popover>
               </div>
-
-              {/* Selection chips */}
-              {selectionChips.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 p-2 border rounded-md bg-muted/30 max-h-20 overflow-y-auto">
-                  {selectionChips.map(c => (
-                    <Badge key={c.key} variant="secondary" className="text-[10px] gap-1 pl-2 pr-1 py-0.5">
-                      {c.label}
-                      <button onClick={c.onRemove} className="hover:bg-muted rounded-sm p-0.5" aria-label="Remove">
-                        <X className="h-3 w-3" />
-                      </button>
-                    </Badge>
-                  ))}
-                  <button
-                    onClick={clearScopeSelection}
-                    className="text-[10px] underline text-muted-foreground ml-1"
-                  >
-                    clear all
-                  </button>
-                </div>
-              )}
             </div>
           )}
 
-          {/* Team filter chips */}
+          {/* ---- WEEK SCOPE ---- */}
+          {scope === 'week' && (
+            <div className="space-y-2">
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { k: 'last', label: 'Last week' },
+                  { k: 'this', label: 'This week' },
+                  { k: 'next', label: 'Next week' },
+                  { k: 'next4', label: 'Next 4 weeks' },
+                ].map(p => (
+                  <Button key={p.k} size="sm" variant="outline" className="h-7 text-xs" onClick={() => applyPreset(p.k)}>
+                    {p.label}
+                  </Button>
+                ))}
+              </div>
+              <div className="border rounded-md p-2 bg-muted/20">
+                <div className="flex items-center justify-between mb-2">
+                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setWeekCursor(addWeeks(weekCursor, -4))}>
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <button
+                    className="text-xs font-medium hover:underline"
+                    onClick={() => setWeekCursor(startOfWeek(new Date(), { weekStartsOn: 1 }))}
+                  >
+                    Jump to this week
+                  </button>
+                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setWeekCursor(addWeeks(weekCursor, 4))}>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                  {weekList.map(wk => {
+                    const selected = isWeekSelected(wk);
+                    const count = weekJobCount(wk);
+                    const isThisWeek = weekKey(wk) === weekKey(new Date());
+                    return (
+                      <button
+                        key={weekKey(wk)}
+                        onClick={() => toggleWeek(wk)}
+                        className={cn(
+                          'text-left px-2 py-1.5 rounded border text-xs flex items-center justify-between gap-2 transition',
+                          selected ? 'bg-progressor text-progressor-foreground border-progressor' : 'bg-background hover:bg-muted/60',
+                          isThisWeek && !selected && 'ring-1 ring-progressor/40'
+                        )}
+                      >
+                        <span className="truncate">
+                          <span className="font-semibold">W{getISOWeek(wk)}</span>
+                          <span className="opacity-80 ml-1">
+                            {format(wk, 'dd MMM')}–{format(endOfWeek(wk, { weekStartsOn: 1 }), 'dd MMM')}
+                          </span>
+                        </span>
+                        <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full', selected ? 'bg-white/20' : 'bg-muted')}>
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ---- MONTH SCOPE ---- */}
+          {scope === 'month' && (
+            <div className="space-y-2">
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { k: 'last', label: 'Last month' },
+                  { k: 'this', label: 'This month' },
+                  { k: 'next', label: 'Next month' },
+                  { k: 'next3', label: 'Next 3 months' },
+                ].map(p => (
+                  <Button key={p.k} size="sm" variant="outline" className="h-7 text-xs" onClick={() => applyPreset(p.k)}>
+                    {p.label}
+                  </Button>
+                ))}
+              </div>
+              <div className="border rounded-md p-2 bg-muted/20">
+                <div className="flex items-center justify-between mb-2">
+                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setMonthCursor(addMonths(monthCursor, -4))}>
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <button
+                    className="text-xs font-medium hover:underline"
+                    onClick={() => setMonthCursor(startOfMonth(new Date()))}
+                  >
+                    Jump to this month
+                  </button>
+                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setMonthCursor(addMonths(monthCursor, 4))}>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5">
+                  {monthList.map(m => {
+                    const selected = isMonthSelected(m);
+                    const count = monthJobCount(m);
+                    const isThisMonth = monthKey(m) === monthKey(new Date());
+                    return (
+                      <button
+                        key={monthKey(m)}
+                        onClick={() => toggleMonth(m)}
+                        className={cn(
+                          'text-left px-2 py-1.5 rounded border text-xs flex items-center justify-between gap-2 transition',
+                          selected ? 'bg-progressor text-progressor-foreground border-progressor' : 'bg-background hover:bg-muted/60',
+                          isThisMonth && !selected && 'ring-1 ring-progressor/40'
+                        )}
+                      >
+                        <span className="font-medium truncate">{format(m, 'MMM yyyy')}</span>
+                        <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full', selected ? 'bg-white/20' : 'bg-muted')}>
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Selection chips */}
+          {scope !== 'individual' && selectionChips.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 p-2 border rounded-md bg-muted/30 max-h-20 overflow-y-auto">
+              {selectionChips.map(c => (
+                <Badge key={c.key} variant="secondary" className="text-[10px] gap-1 pl-2 pr-1 py-0.5">
+                  {c.label}
+                  <button onClick={c.onRemove} className="hover:bg-muted rounded-sm p-0.5" aria-label="Remove">
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              ))}
+              <button onClick={clearScopeSelection} className="text-[10px] underline text-muted-foreground ml-1">
+                clear all
+              </button>
+            </div>
+          )}
+
+          {/* Team filter */}
           <div>
             <Label className="text-xs flex items-center gap-1 mb-1">
               <Users className="h-3 w-3" /> Teams
