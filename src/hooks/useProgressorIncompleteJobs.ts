@@ -13,6 +13,7 @@ export interface IncompleteJob {
   jobNumber: string;
   name: string;
   address: string | null;
+  phoneNumber: string | null;
   description: string | null;
   privateNotes: string | null;
   team: string | null;
