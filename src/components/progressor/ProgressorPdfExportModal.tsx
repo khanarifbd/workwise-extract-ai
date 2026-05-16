@@ -47,9 +47,14 @@ export function ProgressorPdfExportModal({ open, onOpenChange, jobs }: Props) {
 
   // ── Compute window ─────────────────────────────────
   const window = useMemo(() => {
-    if (scope === 'day')   return { start: new Date(anchor.setHours(0,0,0,0)), end: new Date(new Date(anchor).setHours(23,59,59,999)) };
-    if (scope === 'week')  return { start: startOfWeek(anchor, { weekStartsOn: 1 }), end: endOfWeek(anchor, { weekStartsOn: 1 }) };
-    if (scope === 'month') return { start: startOfMonth(anchor), end: endOfMonth(anchor) };
+    const a = new Date(anchor);
+    if (scope === 'day') {
+      const start = new Date(a); start.setHours(0,0,0,0);
+      const end   = new Date(a); end.setHours(23,59,59,999);
+      return { start, end };
+    }
+    if (scope === 'week')  return { start: startOfWeek(a, { weekStartsOn: 1 }), end: endOfWeek(a, { weekStartsOn: 1 }) };
+    if (scope === 'month') return { start: startOfMonth(a), end: endOfMonth(a) };
     return null;
   }, [scope, anchor]);
 
