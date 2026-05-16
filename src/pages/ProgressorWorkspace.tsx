@@ -35,7 +35,7 @@ import {
 import {
   Search, Calendar as CalendarIcon, X, BookOpenCheck, Wrench,
   LogOut, Loader2, Save, Edit3, FileText, MessageSquare, Image as ImageIcon,
-  CheckCircle2, Plus, Building2, Siren, Zap, Star, Phone,
+  CheckCircle2, Plus, Building2, Siren, Zap, Star, Phone, FileDown,
 } from 'lucide-react';
 import { useContactHistory } from '@/hooks/useContactHistory';
 import { CONTACT_OUTCOMES } from '@/types/contactHistory';
