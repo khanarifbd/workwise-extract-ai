@@ -95,3 +95,6 @@ verify_jwt = true
 
 [functions.generate-materials-report]
 verify_jwt = true
+
+[functions.gauge-team-description]
+verify_jwt = false
