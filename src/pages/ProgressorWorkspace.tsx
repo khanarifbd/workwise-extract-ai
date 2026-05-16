@@ -255,6 +255,12 @@ const ProgressorWorkspace = () => {
       </Sheet>
 
       <TradeCompaniesModal open={tradesOpen} onOpenChange={setTradesOpen} />
+
+      <ProgressorPdfExportModal
+        open={exportOpen}
+        onOpenChange={setExportOpen}
+        jobs={[...dmJobs, ...aaJobs]}
+      />
     </div>
   );
 };
