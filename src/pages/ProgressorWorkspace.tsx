@@ -103,7 +103,7 @@ const LinkedTradePill = ({ info }: { info: LinkedTradeJobInfo }) => {
 const ProgressorWorkspace = () => {
   const navigate = useNavigate();
   const { user, isLoading, hasAccess, signOut } = useProgressorAuth();
-  const { dmJobs, aaJobs, isLoading: jobsLoading, refresh } = useProgressorIncompleteJobs();
+  const { dmJobs, aaJobs, isLoading: jobsLoading, refresh, verifyAccuracy } = useProgressorIncompleteJobs();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
