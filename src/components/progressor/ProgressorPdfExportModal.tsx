@@ -648,7 +648,7 @@ export function ProgressorPdfExportModal({ open, onOpenChange, jobs }: Props) {
               )}
             </div>
 
-            <ScrollArea className="flex-1">
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
               <div className="divide-y">
                 {!hasAnyDateSelection && (
                   <div className="p-6 text-center text-sm text-muted-foreground">
