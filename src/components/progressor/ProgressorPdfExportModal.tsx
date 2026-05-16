@@ -770,7 +770,14 @@ export function ProgressorPdfExportModal({ open, onOpenChange, jobs, verifyAccur
             </Button>
           )}
           <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
-          <Button onClick={generatePdf} disabled={finalJobs.length === 0}>
+          <Button
+            onClick={() => {
+              // MUST pre-open within the click gesture to bypass sandboxed-iframe popup blockers
+              const w = preparePDFWindow();
+              generatePdf(w);
+            }}
+            disabled={finalJobs.length === 0}
+          >
             <FileDown className="h-4 w-4 mr-1.5" /> Generate PDF ({finalJobs.length})
           </Button>
         </DialogFooter>
