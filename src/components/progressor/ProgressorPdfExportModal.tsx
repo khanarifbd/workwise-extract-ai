@@ -32,6 +32,7 @@ interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   jobs: IncompleteJob[];
+  verifyAccuracy?: () => Promise<{ local: number; db: number; ok: boolean }>;
 }
 
 const dayKey = (d: Date) => format(d, 'yyyy-MM-dd');
