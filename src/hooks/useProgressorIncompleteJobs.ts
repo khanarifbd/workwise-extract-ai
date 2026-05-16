@@ -25,6 +25,7 @@ export interface IncompleteJob {
   updatedAt: string;
   categoryId: string | null;
   stream: ProgStream;
+  referBack: boolean;
 }
 
 const mapRow = (r: any): IncompleteJob => ({
@@ -44,6 +45,7 @@ const mapRow = (r: any): IncompleteJob => ({
   updatedAt: r.updated_at,
   categoryId: r.category_id,
   stream: r.category_id === AA_CATEGORY_ID ? 'aa' : 'dm',
+  referBack: !!r.refer_back,
 });
 
 /**
