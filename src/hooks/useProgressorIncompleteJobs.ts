@@ -66,17 +66,20 @@ export const useProgressorIncompleteJobs = () => {
 
       const { data, error } = await supabase
         .from('jobs')
-        .select('id, job_number, name, address, phone_number, description, private_notes, team, team2, booked_date, status, is_completed, attachments, updated_at, category_id')
+        .select('id, job_number, name, address, phone_number, description, private_notes, team, team2, booked_date, status, is_completed, attachments, updated_at, category_id, refer_back')
         .in('category_id', [DM_CATEGORY_ID, AA_CATEGORY_ID])
         .not('booked_date', 'is', null)
         .lt('booked_date', startOfToday.toISOString())
         .neq('is_completed', true)
         .neq('status', 'complete')
+        .neq('refer_back', true)
         .is('deleted_at', null)
         .order('booked_date', { ascending: true })
         .limit(2000);
       if (error) throw error;
-      setJobs((data || []).map(mapRow));
+      // Belt-and-braces: also strip any row that slipped through with refer_back true
+      // (e.g. column not present on older rows but RLS still returns it).
+      setJobs((data || []).map(mapRow).filter(j => !j.referBack));
     } catch (err) {
       console.error('useProgressorIncompleteJobs error', err);
     } finally {
