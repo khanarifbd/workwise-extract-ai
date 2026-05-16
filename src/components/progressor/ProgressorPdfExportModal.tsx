@@ -384,7 +384,7 @@ export function ProgressorPdfExportModal({ open, onOpenChange, jobs, verifyAccur
       }
 
       const fname = `progressor-jobs-${scope}-${format(new Date(), 'yyyy-MM-dd-HHmm')}.pdf`;
-      downloadPDF(doc, fname);
+      downloadPDF(doc, fname, { targetWindow: preOpened ?? null });
       toast({ title: 'PDF generated', description: `${finalJobs.length} jobs exported.` });
     } catch (e: any) {
       console.error('PDF generation failed', e);
