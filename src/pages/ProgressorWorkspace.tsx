@@ -111,6 +111,7 @@ const ProgressorWorkspace = () => {
 
   const [diaryOpen, setDiaryOpen] = useState(false);
   const [tradesOpen, setTradesOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !hasAccess) navigate('/progressor-login', { replace: true });
