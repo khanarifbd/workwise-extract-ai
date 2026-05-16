@@ -660,17 +660,43 @@ export function ProgressorPdfExportModal({ open, onOpenChange, jobs, verifyAccur
               </span>
             </div>
 
-            <div className="px-3 py-1.5 border-b bg-muted/30 flex items-center justify-between text-xs">
+            <div className="px-3 py-1.5 border-b bg-muted/30 flex items-center justify-between text-xs gap-2">
               <span className="font-semibold">
                 {scope === 'individual'
                   ? `${selectedIds.size} selected of ${teamFiltered.length}`
                   : `${finalJobs.length} job${finalJobs.length === 1 ? '' : 's'}`}
               </span>
-              {loadingMedia && (
-                <span className="flex items-center gap-1 text-muted-foreground">
-                  <Loader2 className="h-3 w-3 animate-spin" /> loading media…
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                {loadingMedia && (
+                  <span className="flex items-center gap-1 text-muted-foreground">
+                    <Loader2 className="h-3 w-3 animate-spin" /> loading media…
+                  </span>
+                )}
+                {verifyAccuracy && (
+                  <button
+                    onClick={runAccuracyCheck}
+                    title={`Local cache: ${accuracy.local}  ·  Database: ${accuracy.db}${accuracy.checkedAt ? `  ·  checked ${format(new Date(accuracy.checkedAt), 'HH:mm:ss')}` : ''}`}
+                    className={cn(
+                      'flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-medium transition',
+                      accuracy.checking && 'opacity-70',
+                      accuracy.ok
+                        ? 'border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                        : 'border-red-300 bg-red-50 text-red-700 hover:bg-red-100 animate-pulse'
+                    )}
+                  >
+                    {accuracy.checking
+                      ? <Loader2 className="h-3 w-3 animate-spin" />
+                      : accuracy.ok
+                        ? <CheckCircle2 className="h-3 w-3" />
+                        : <X className="h-3 w-3" />}
+                    {accuracy.checking
+                      ? 'Verifying…'
+                      : accuracy.ok
+                        ? `DB synced (${accuracy.db})`
+                        : `Drift: local ${accuracy.local} ≠ DB ${accuracy.db} — click to resync`}
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
