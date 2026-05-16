@@ -369,10 +369,17 @@ export function ProgressorPdfExportModal({ open, onOpenChange, jobs }: Props) {
 
   const COLS = 'minmax(0,1fr) 8rem 6rem 3rem';
 
-  // Day-in-week badge (within the week browser)
+  // Apply team filter so counts match what users will actually see after filtering
+  const teamFilteredAll = useMemo(() => {
+    if (selectedTeams.size === 0) return jobs;
+    return jobs.filter(j =>
+      (j.team && selectedTeams.has(j.team)) || (j.team2 && selectedTeams.has(j.team2))
+    );
+  }, [jobs, selectedTeams]);
+
   const weekJobCount = (wkStart: Date) => {
     const wkEnd = endOfWeek(wkStart, { weekStartsOn: 1 });
-    return jobs.filter(j => {
+    return teamFilteredAll.filter(j => {
       if (!j.bookedDate) return false;
       const d = new Date(j.bookedDate.slice(0, 10));
       return isWithinInterval(d, { start: wkStart, end: wkEnd });
@@ -380,15 +387,11 @@ export function ProgressorPdfExportModal({ open, onOpenChange, jobs }: Props) {
   };
   const monthJobCount = (m: Date) => {
     const s = startOfMonth(m); const e = endOfMonth(m);
-    return jobs.filter(j => {
+    return teamFilteredAll.filter(j => {
       if (!j.bookedDate) return false;
       const d = new Date(j.bookedDate.slice(0, 10));
       return isWithinInterval(d, { start: s, end: e });
     }).length;
-  };
-  const dayJobCount = (d: Date) => {
-    const k = dayKey(d);
-    return jobs.filter(j => j.bookedDate && j.bookedDate.slice(0, 10) === k).length;
   };
 
   return (
@@ -645,7 +648,7 @@ export function ProgressorPdfExportModal({ open, onOpenChange, jobs }: Props) {
               )}
             </div>
 
-            <ScrollArea className="flex-1">
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
               <div className="divide-y">
                 {!hasAnyDateSelection && (
                   <div className="p-6 text-center text-sm text-muted-foreground">
@@ -695,7 +698,7 @@ export function ProgressorPdfExportModal({ open, onOpenChange, jobs }: Props) {
                   );
                 })}
               </div>
-            </ScrollArea>
+            </div>
           </div>
         </div>
 
