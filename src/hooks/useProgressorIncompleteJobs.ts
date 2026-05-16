@@ -130,7 +130,7 @@ export const useProgressorIncompleteJobs = () => {
   const dmJobs = useMemo(() => jobs.filter(j => j.stream === 'dm'), [jobs]);
   const aaJobs = useMemo(() => jobs.filter(j => j.stream === 'aa'), [jobs]);
 
-  return { jobs, dmJobs, aaJobs, isLoading, refresh: () => fetch(true) };
+  return { jobs, dmJobs, aaJobs, isLoading, refresh: () => fetch(true), verifyAccuracy };
 };
 
 /** Group a list of jobs by booked-date (YYYY-MM-DD, local). */
