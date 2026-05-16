@@ -21,7 +21,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { downloadPDF } from '@/lib/pdfDownload';
+import { downloadPDF, preparePDFWindow } from '@/lib/pdfDownload';
 import { IncompleteJob } from '@/hooks/useProgressorIncompleteJobs';
 import { assertCount } from '@/lib/metricsIntegrity';
 import { cn } from '@/lib/utils';
