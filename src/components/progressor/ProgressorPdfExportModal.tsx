@@ -312,7 +312,7 @@ export function ProgressorPdfExportModal({ open, onOpenChange, jobs, verifyAccur
   }, [monthCursor]);
 
   // ---- PDF generation ----
-  const generatePdf = () => {
+  const generatePdf = (preOpened?: Window | null) => {
     if (finalJobs.length === 0) {
       toast({ title: 'Nothing to export', description: 'No jobs match your filters.', variant: 'destructive' });
       return;
