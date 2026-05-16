@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -32,13 +32,14 @@ interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   jobs: IncompleteJob[];
+  verifyAccuracy?: () => Promise<{ local: number; db: number; ok: boolean }>;
 }
 
 const dayKey = (d: Date) => format(d, 'yyyy-MM-dd');
 const weekKey = (d: Date) => format(startOfWeek(d, { weekStartsOn: 1 }), 'yyyy-MM-dd');
 const monthKey = (d: Date) => format(d, 'yyyy-MM');
 
-export function ProgressorPdfExportModal({ open, onOpenChange, jobs }: Props) {
+export function ProgressorPdfExportModal({ open, onOpenChange, jobs, verifyAccuracy }: Props) {
   const { toast } = useToast();
 
   const [scope, setScope] = useState<Scope>('week');
@@ -149,6 +150,30 @@ export function ProgressorPdfExportModal({ open, onOpenChange, jobs }: Props) {
       : teamFiltered.length;
     assertCount('progressor-export:finalJobs', finalJobs.length, recomputed);
   }, [open, finalJobs, teamFiltered, selectedIds, scope]);
+
+  // ---- DB accuracy detector (live sync check against main database) ----
+  const [accuracy, setAccuracy] = useState<{ local: number; db: number; ok: boolean; checking: boolean; checkedAt?: number }>({
+    local: 0, db: 0, ok: true, checking: false,
+  });
+
+  const runAccuracyCheck = useCallback(async () => {
+    if (!verifyAccuracy) return;
+    setAccuracy(a => ({ ...a, checking: true }));
+    try {
+      const res = await verifyAccuracy();
+      setAccuracy({ ...res, checking: false, checkedAt: Date.now() });
+    } catch (e) {
+      console.error('accuracy check failed', e);
+      setAccuracy(a => ({ ...a, checking: false }));
+    }
+  }, [verifyAccuracy]);
+
+  useEffect(() => {
+    if (!open) return;
+    runAccuracyCheck();
+    const id = setInterval(runAccuracyCheck, 15000);
+    return () => clearInterval(id);
+  }, [open, runAccuracyCheck]);
 
   // ---- Toggle helpers ----
   const isDaySelected = (d: Date) => selectedDays.some(x => dayKey(x) === dayKey(d));
@@ -635,17 +660,43 @@ export function ProgressorPdfExportModal({ open, onOpenChange, jobs }: Props) {
               </span>
             </div>
 
-            <div className="px-3 py-1.5 border-b bg-muted/30 flex items-center justify-between text-xs">
+            <div className="px-3 py-1.5 border-b bg-muted/30 flex items-center justify-between text-xs gap-2">
               <span className="font-semibold">
                 {scope === 'individual'
                   ? `${selectedIds.size} selected of ${teamFiltered.length}`
                   : `${finalJobs.length} job${finalJobs.length === 1 ? '' : 's'}`}
               </span>
-              {loadingMedia && (
-                <span className="flex items-center gap-1 text-muted-foreground">
-                  <Loader2 className="h-3 w-3 animate-spin" /> loading media…
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                {loadingMedia && (
+                  <span className="flex items-center gap-1 text-muted-foreground">
+                    <Loader2 className="h-3 w-3 animate-spin" /> loading media…
+                  </span>
+                )}
+                {verifyAccuracy && (
+                  <button
+                    onClick={runAccuracyCheck}
+                    title={`Local cache: ${accuracy.local}  ·  Database: ${accuracy.db}${accuracy.checkedAt ? `  ·  checked ${format(new Date(accuracy.checkedAt), 'HH:mm:ss')}` : ''}`}
+                    className={cn(
+                      'flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-medium transition',
+                      accuracy.checking && 'opacity-70',
+                      accuracy.ok
+                        ? 'border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                        : 'border-red-300 bg-red-50 text-red-700 hover:bg-red-100 animate-pulse'
+                    )}
+                  >
+                    {accuracy.checking
+                      ? <Loader2 className="h-3 w-3 animate-spin" />
+                      : accuracy.ok
+                        ? <CheckCircle2 className="h-3 w-3" />
+                        : <X className="h-3 w-3" />}
+                    {accuracy.checking
+                      ? 'Verifying…'
+                      : accuracy.ok
+                        ? `DB synced (${accuracy.db})`
+                        : `Drift: local ${accuracy.local} ≠ DB ${accuracy.db} — click to resync`}
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
