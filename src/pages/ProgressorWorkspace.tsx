@@ -437,6 +437,15 @@ const DayGroup = ({
                 </div>
                 <p className="text-sm font-medium truncate leading-tight">{j.name}</p>
                 <p className="text-[11px] text-muted-foreground truncate">{j.address}</p>
+                {j.phoneNumber && (
+                  <a
+                    href={`tel:${j.phoneNumber}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="block text-[11px] font-bold text-progressor truncate hover:underline"
+                  >
+                    📞 {j.phoneNumber}
+                  </a>
+                )}
                 <div className="flex items-center gap-1 mt-1 flex-wrap">
                   {j.team && <Badge variant="secondary" className="text-[9px] px-1.5 py-0">{j.team}</Badge>}
                   {j.team2 && <Badge variant="secondary" className="text-[9px] px-1.5 py-0">{j.team2}</Badge>}
@@ -490,6 +499,14 @@ const JobDetailPanel = ({
             </div>
             <h2 className="text-lg font-semibold truncate">{job.name}</h2>
             <p className="text-sm text-muted-foreground truncate">{job.address}</p>
+            {job.phoneNumber && (
+              <a
+                href={`tel:${job.phoneNumber}`}
+                className="inline-flex items-center gap-1.5 mt-1 text-sm font-bold text-progressor hover:underline"
+              >
+                📞 {job.phoneNumber}
+              </a>
+            )}
             {linkedTrades.length > 0 && (
               <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
                 {linkedTrades.map((lt) => <LinkedTradePill key={lt.id} info={lt} />)}
