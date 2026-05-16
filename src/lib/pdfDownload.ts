@@ -11,9 +11,26 @@ const isIOSLikeDevice = () => {
     || (platform === 'MacIntel' && maxTouchPoints > 1);
 };
 
-export const preparePDFWindow = () => {
-  if (!isIOSLikeDevice()) return null;
-  return window.open('', '_blank');
+/**
+ * Pre-open a blank tab synchronously during a user gesture (click handler).
+ * This is the only reliable way to deliver a PDF from inside sandboxed iframes
+ * (Lovable preview) and on iOS Safari. Call this FIRST in the onClick, then
+ * pass the returned window to downloadPDF via `targetWindow`.
+ * Returns null when popup is blocked or running outside a browser.
+ */
+export const preparePDFWindow = (): Window | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const w = window.open('', '_blank');
+    if (w) {
+      try {
+        w.document.write('<!doctype html><title>Preparing PDF…</title><body style="font-family:system-ui;padding:24px;color:#475569">Preparing PDF…</body>');
+      } catch { /* cross-origin write may fail, fine */ }
+    }
+    return w;
+  } catch {
+    return null;
+  }
 };
 
 /**

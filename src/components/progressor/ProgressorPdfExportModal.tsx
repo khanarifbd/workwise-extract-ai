@@ -21,7 +21,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { downloadPDF } from '@/lib/pdfDownload';
+import { downloadPDF, preparePDFWindow } from '@/lib/pdfDownload';
 import { IncompleteJob } from '@/hooks/useProgressorIncompleteJobs';
 import { assertCount } from '@/lib/metricsIntegrity';
 import { cn } from '@/lib/utils';
@@ -312,7 +312,7 @@ export function ProgressorPdfExportModal({ open, onOpenChange, jobs, verifyAccur
   }, [monthCursor]);
 
   // ---- PDF generation ----
-  const generatePdf = () => {
+  const generatePdf = (preOpened?: Window | null) => {
     if (finalJobs.length === 0) {
       toast({ title: 'Nothing to export', description: 'No jobs match your filters.', variant: 'destructive' });
       return;
@@ -384,7 +384,7 @@ export function ProgressorPdfExportModal({ open, onOpenChange, jobs, verifyAccur
       }
 
       const fname = `progressor-jobs-${scope}-${format(new Date(), 'yyyy-MM-dd-HHmm')}.pdf`;
-      downloadPDF(doc, fname);
+      downloadPDF(doc, fname, { targetWindow: preOpened ?? null });
       toast({ title: 'PDF generated', description: `${finalJobs.length} jobs exported.` });
     } catch (e: any) {
       console.error('PDF generation failed', e);
@@ -770,7 +770,14 @@ export function ProgressorPdfExportModal({ open, onOpenChange, jobs, verifyAccur
             </Button>
           )}
           <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
-          <Button onClick={generatePdf} disabled={finalJobs.length === 0}>
+          <Button
+            onClick={() => {
+              // MUST pre-open within the click gesture to bypass sandboxed-iframe popup blockers
+              const w = preparePDFWindow();
+              generatePdf(w);
+            }}
+            disabled={finalJobs.length === 0}
+          >
             <FileDown className="h-4 w-4 mr-1.5" /> Generate PDF ({finalJobs.length})
           </Button>
         </DialogFooter>
