@@ -32,6 +32,7 @@ const mapRow = (r: any): IncompleteJob => ({
   jobNumber: r.job_number,
   name: r.name,
   address: r.address,
+  phoneNumber: r.phone_number,
   description: r.description,
   privateNotes: r.private_notes,
   team: r.team,
@@ -63,7 +64,7 @@ export const useProgressorIncompleteJobs = () => {
 
       const { data, error } = await supabase
         .from('jobs')
-        .select('id, job_number, name, address, description, private_notes, team, team2, booked_date, status, is_completed, attachments, updated_at, category_id')
+        .select('id, job_number, name, address, phone_number, description, private_notes, team, team2, booked_date, status, is_completed, attachments, updated_at, category_id')
         .in('category_id', [DM_CATEGORY_ID, AA_CATEGORY_ID])
         .not('booked_date', 'is', null)
         .lt('booked_date', startOfToday.toISOString())
