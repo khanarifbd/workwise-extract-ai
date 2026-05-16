@@ -169,6 +169,9 @@ const ProgressorWorkspace = () => {
         <Button variant="outline" size="sm" onClick={() => setTradesOpen(true)}>
           <Building2 className="h-4 w-4 mr-1.5" /> Trades
         </Button>
+        <Button variant="outline" size="sm" onClick={() => setExportOpen(true)}>
+          <FileDown className="h-4 w-4 mr-1.5" /> Export PDF
+        </Button>
         <Button variant="ghost" size="sm" onClick={signOut} title="Sign out">
           <LogOut className="h-4 w-4" />
         </Button>
