@@ -260,6 +260,7 @@ const ProgressorWorkspace = () => {
         open={exportOpen}
         onOpenChange={setExportOpen}
         jobs={[...dmJobs, ...aaJobs]}
+        verifyAccuracy={verifyAccuracy}
       />
     </div>
   );
