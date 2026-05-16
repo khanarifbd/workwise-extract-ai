@@ -698,7 +698,7 @@ export function ProgressorPdfExportModal({ open, onOpenChange, jobs }: Props) {
                   );
                 })}
               </div>
-            </ScrollArea>
+            </div>
           </div>
         </div>
 
