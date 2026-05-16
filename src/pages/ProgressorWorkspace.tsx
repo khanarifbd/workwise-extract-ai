@@ -24,6 +24,7 @@ import { ProgressorTodoList } from '@/components/progressor/ProgressorTodoList';
 import { AddSubTaskModal } from '@/components/progressor/AddSubTaskModal';
 import { TradeCompaniesModal } from '@/components/progressor/TradeCompaniesModal';
 import { ProgressorDiaryPanel } from '@/components/progressor/ProgressorDiaryPanel';
+import { ProgressorPdfExportModal } from '@/components/progressor/ProgressorPdfExportModal';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown } from 'lucide-react';
 import { SUB_TASK_STATUS_OPTIONS } from '@/types/subTask';
