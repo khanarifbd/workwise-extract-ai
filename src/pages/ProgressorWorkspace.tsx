@@ -24,6 +24,7 @@ import { ProgressorTodoList } from '@/components/progressor/ProgressorTodoList';
 import { AddSubTaskModal } from '@/components/progressor/AddSubTaskModal';
 import { TradeCompaniesModal } from '@/components/progressor/TradeCompaniesModal';
 import { ProgressorDiaryPanel } from '@/components/progressor/ProgressorDiaryPanel';
+import { ProgressorPdfExportModal } from '@/components/progressor/ProgressorPdfExportModal';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown } from 'lucide-react';
 import { SUB_TASK_STATUS_OPTIONS } from '@/types/subTask';
@@ -34,7 +35,7 @@ import {
 import {
   Search, Calendar as CalendarIcon, X, BookOpenCheck, Wrench,
   LogOut, Loader2, Save, Edit3, FileText, MessageSquare, Image as ImageIcon,
-  CheckCircle2, Plus, Building2, Siren, Zap, Star, Phone,
+  CheckCircle2, Plus, Building2, Siren, Zap, Star, Phone, FileDown,
 } from 'lucide-react';
 import { useContactHistory } from '@/hooks/useContactHistory';
 import { CONTACT_OUTCOMES } from '@/types/contactHistory';
@@ -110,6 +111,7 @@ const ProgressorWorkspace = () => {
 
   const [diaryOpen, setDiaryOpen] = useState(false);
   const [tradesOpen, setTradesOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !hasAccess) navigate('/progressor-login', { replace: true });
@@ -166,6 +168,9 @@ const ProgressorWorkspace = () => {
         </Button>
         <Button variant="outline" size="sm" onClick={() => setTradesOpen(true)}>
           <Building2 className="h-4 w-4 mr-1.5" /> Trades
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => setExportOpen(true)}>
+          <FileDown className="h-4 w-4 mr-1.5" /> Export PDF
         </Button>
         <Button variant="ghost" size="sm" onClick={signOut} title="Sign out">
           <LogOut className="h-4 w-4" />
@@ -250,6 +255,12 @@ const ProgressorWorkspace = () => {
       </Sheet>
 
       <TradeCompaniesModal open={tradesOpen} onOpenChange={setTradesOpen} />
+
+      <ProgressorPdfExportModal
+        open={exportOpen}
+        onOpenChange={setExportOpen}
+        jobs={[...dmJobs, ...aaJobs]}
+      />
     </div>
   );
 };
