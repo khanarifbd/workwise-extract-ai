@@ -151,6 +151,30 @@ export function ProgressorPdfExportModal({ open, onOpenChange, jobs, verifyAccur
     assertCount('progressor-export:finalJobs', finalJobs.length, recomputed);
   }, [open, finalJobs, teamFiltered, selectedIds, scope]);
 
+  // ---- DB accuracy detector (live sync check against main database) ----
+  const [accuracy, setAccuracy] = useState<{ local: number; db: number; ok: boolean; checking: boolean; checkedAt?: number }>({
+    local: 0, db: 0, ok: true, checking: false,
+  });
+
+  const runAccuracyCheck = useCallback(async () => {
+    if (!verifyAccuracy) return;
+    setAccuracy(a => ({ ...a, checking: true }));
+    try {
+      const res = await verifyAccuracy();
+      setAccuracy({ ...res, checking: false, checkedAt: Date.now() });
+    } catch (e) {
+      console.error('accuracy check failed', e);
+      setAccuracy(a => ({ ...a, checking: false }));
+    }
+  }, [verifyAccuracy]);
+
+  useEffect(() => {
+    if (!open) return;
+    runAccuracyCheck();
+    const id = setInterval(runAccuracyCheck, 15000);
+    return () => clearInterval(id);
+  }, [open, runAccuracyCheck]);
+
   // ---- Toggle helpers ----
   const isDaySelected = (d: Date) => selectedDays.some(x => dayKey(x) === dayKey(d));
   const isWeekSelected = (d: Date) => selectedWeeks.some(x => weekKey(x) === weekKey(d));
