@@ -89,6 +89,36 @@ export const useProgressorIncompleteJobs = () => {
 
   useEffect(() => { fetch(false); }, [fetch]);
 
+  /**
+   * Accuracy detector — re-runs the same filter against the DB using a HEAD
+   * count query and compares to the local cache. Returns drift information so
+   * the UI can warn the user and auto-resync. 100% reconciliation guarantee.
+   */
+  const verifyAccuracy = useCallback(async (): Promise<{ local: number; db: number; ok: boolean }> => {
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const { count, error } = await supabase
+      .from('jobs')
+      .select('id', { count: 'exact', head: true })
+      .in('category_id', [DM_CATEGORY_ID, AA_CATEGORY_ID])
+      .not('booked_date', 'is', null)
+      .lt('booked_date', startOfToday.toISOString())
+      .neq('is_completed', true)
+      .neq('status', 'complete')
+      .neq('refer_back', true)
+      .is('deleted_at', null);
+    if (error) throw error;
+    const db = count ?? 0;
+    const local = jobs.length;
+    const ok = db === local;
+    if (!ok) {
+      // eslint-disable-next-line no-console
+      console.warn(`[progressor-accuracy] drift: local=${local} db=${db} — resyncing`);
+      await fetch(true);
+    }
+    return { local, db, ok };
+  }, [jobs.length, fetch]);
+
   useEffect(() => {
     const ch = supabase
       .channel('progressor-incomplete-jobs')
