@@ -39,7 +39,7 @@ const dayKey = (d: Date) => format(d, 'yyyy-MM-dd');
 const weekKey = (d: Date) => format(startOfWeek(d, { weekStartsOn: 1 }), 'yyyy-MM-dd');
 const monthKey = (d: Date) => format(d, 'yyyy-MM');
 
-export function ProgressorPdfExportModal({ open, onOpenChange, jobs }: Props) {
+export function ProgressorPdfExportModal({ open, onOpenChange, jobs, verifyAccuracy }: Props) {
   const { toast } = useToast();
 
   const [scope, setScope] = useState<Scope>('week');
