@@ -474,7 +474,7 @@ export function ProgressorPdfExportModal({ open, onOpenChange, jobs }: Props) {
 
             <ScrollArea className="flex-1">
               <div className="divide-y">
-                {!hasAnyDateSelection && scope !== 'individual' && (
+                {!hasAnyDateSelection && (
                   <div className="p-6 text-center text-sm text-muted-foreground">
                     Pick one or more {scope}s above to begin.
                   </div>
