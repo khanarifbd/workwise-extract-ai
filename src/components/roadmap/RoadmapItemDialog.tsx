@@ -82,6 +82,18 @@ export const RoadmapItemDialog = ({ open, onOpenChange, item, roadmapStart, road
                 value={form.end_date || ''}
                 onChange={e => set('end_date', e.target.value)} />
             </div>
+            <div>
+              <Label>Duration (days)</Label>
+              <Input
+                type="number"
+                min={1}
+                value={durationDays(form.start_date, form.end_date)}
+                onChange={e => {
+                  const n = Math.max(1, Number(e.target.value) || 1);
+                  if (form.start_date) set('end_date', addDays(form.start_date, n - 1));
+                }}
+              />
+            </div>
           </div>
 
           <div>
