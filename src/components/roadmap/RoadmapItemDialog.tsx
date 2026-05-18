@@ -69,7 +69,8 @@ export const RoadmapItemDialog = ({ open, onOpenChange, item, roadmapStart, road
             <Input value={form.label || ''} onChange={e => set('label', e.target.value)} placeholder="e.g. Plumbing 1st fix" />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
+
             <div>
               <Label>Start date</Label>
               <Input type="date" min={roadmapStart} max={roadmapEnd}
