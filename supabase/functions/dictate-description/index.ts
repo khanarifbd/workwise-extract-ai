@@ -44,6 +44,10 @@ TASK:
 Return STRICT JSON only:
 {"transcript": "...english transcript here...", "detectedLanguage": "english|polish|...", "confidence": 0.0-1.0}`;
 
+      // Use the same data-URL / image_url pattern proven to work in
+      // process-voice-note (Ops Manager portal). `input_audio` is not
+      // reliably accepted by the Lovable AI Gateway — the data-URL trick is.
+      const mime = body.mimeType || "audio/webm";
       const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -51,22 +55,20 @@ Return STRICT JSON only:
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
+          model: "google/gemini-2.5-flash",
           messages: [
             {
               role: "user",
               content: [
                 { type: "text", text: transcribePrompt },
                 {
-                  type: "input_audio",
-                  input_audio: {
-                    data: body.audioBase64,
-                    format: getAudioFormat(body.mimeType),
-                  },
+                  type: "image_url",
+                  image_url: { url: `data:${mime};base64,${body.audioBase64}` },
                 },
               ],
             },
           ],
+          max_tokens: 2000,
         }),
       });
       if (!r.ok) {
