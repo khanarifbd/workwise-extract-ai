@@ -173,7 +173,7 @@ const RoadmapEditor = () => {
                   <div className="flex-1 relative min-h-[44px]" onClick={() => setEditing(item)} role="button">
                     {/* grid lines */}
                     <div className="absolute inset-0 flex">
-                      {columns.map(c => <div key={c.key} className="flex-1 border-r border-border/40" />)}
+                      {columns.map(c => <div key={c.key} className="border-r border-border/40" style={{ flexGrow: c.days, flexBasis: 0 }} />)}
                     </div>
                     {/* today line */}
                     {todayPct !== null && (
