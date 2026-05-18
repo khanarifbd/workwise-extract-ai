@@ -33,6 +33,9 @@ export interface RoadmapItem {
   notify_on_end: boolean;
   notify_lead_minutes: number;
   last_notified_at: string | null;
+  parent_id: string | null;
+  collapsed: boolean;
+  created_at?: string;
 }
 
 export const useRoadmaps = () => {

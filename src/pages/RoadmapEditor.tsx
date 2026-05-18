@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Loader2, Plus, ArrowLeft, CalendarDays, Bell, Star, Diamond, Trash2, Settings2, FileUp, Copy } from 'lucide-react';
+import { Loader2, Plus, ArrowLeft, CalendarDays, Bell, Star, Diamond, Trash2, Settings2, FileUp, Copy, ChevronRight, ChevronDown, CornerDownRight } from 'lucide-react';
 import { useRoadmaps, useRoadmapItems, RoadmapItem } from '@/hooks/useRoadmaps';
 import { buildColumns, barPosition, parseLocalDate, toISODate } from '@/lib/roadmapUtils';
 import { Button } from '@/components/ui/button';
@@ -21,7 +21,7 @@ const RoadmapEditor = () => {
   const roadmap = roadmaps.find(r => r.id === id);
   const { items, create, update: updateItem, remove: removeItem, isLoading } = useRoadmapItems(id);
   const [editing, setEditing] = useState<RoadmapItem | null>(null);
-  const [adding, setAdding] = useState(false);
+  const [addingParent, setAddingParent] = useState<string | null | undefined>(undefined); // undefined=closed, null=root, string=child of
   const [showSettings, setShowSettings] = useState(false);
   const [importing, setImporting] = useState(false);
 
@@ -31,6 +31,20 @@ const RoadmapEditor = () => {
     if (!roadmap) return [];
     return buildColumns(roadmap.start_date, roadmap.end_date, roadmap.time_unit);
   }, [roadmap]);
+
+  // Build hierarchy: roots + children-by-parent
+  const { roots, childrenOf } = useMemo(() => {
+    const childrenOf: Record<string, RoadmapItem[]> = {};
+    const roots: RoadmapItem[] = [];
+    for (const it of items) {
+      if (it.parent_id) {
+        (childrenOf[it.parent_id] = childrenOf[it.parent_id] || []).push(it);
+      } else {
+        roots.push(it);
+      }
+    }
+    return { roots, childrenOf };
+  }, [items]);
 
   const todayPct = useMemo(() => {
     if (!roadmap) return null;
@@ -56,15 +70,91 @@ const RoadmapEditor = () => {
     );
   }
 
+  const renderRow = (item: RoadmapItem, depth: number, idx: number) => {
+    const pos = barPosition(item.start_date, item.end_date, roadmap.start_date, roadmap.end_date, roadmap.time_unit);
+    const kids = childrenOf[item.id] || [];
+    const hasKids = kids.length > 0;
+    return (
+      <div key={item.id}>
+        <div className={cn('group flex border-b last:border-b-0 hover:bg-muted/40 transition', idx % 2 === 1 && 'bg-muted/10')}>
+          <div className="w-64 shrink-0 flex items-center gap-1 px-2 py-1 text-sm border-r" style={{ paddingLeft: 8 + depth * 14 }}>
+            {hasKids ? (
+              <button
+                onClick={() => updateItem(item.id, { collapsed: !item.collapsed })}
+                className="p-0.5 hover:bg-muted rounded shrink-0"
+                title={item.collapsed ? 'Expand' : 'Collapse'}
+              >
+                {item.collapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+              </button>
+            ) : depth > 0 ? <CornerDownRight className="w-3 h-3 text-muted-foreground/60 shrink-0" /> : <span className="w-4" />}
+            <button onClick={() => setEditing(item)} className="flex-1 text-left truncate font-medium flex items-center gap-1.5">
+              {item.symbol && <span className="text-xs">{item.symbol}</span>}
+              <span className="truncate">{item.label}</span>
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); setAddingParent(item.id); }}
+              className="opacity-30 group-hover:opacity-100 p-0.5 hover:bg-muted rounded text-muted-foreground hover:text-foreground shrink-0 transition-opacity"
+              title="Add sub-task"
+            >
+              <Plus className="w-3 h-3" />
+            </button>
+          </div>
+          <div className="flex-1 relative min-h-[26px] group" onClick={() => setEditing(item)} role="button">
+            {/* week grid lines */}
+            <div className="absolute inset-0 flex pointer-events-none">
+              {columns.map((c, i) => (
+                <div
+                  key={c.key}
+                  className={cn(
+                    'border-r',
+                    i === columns.length - 1 ? 'border-transparent' : 'border-border/60',
+                  )}
+                  style={{ flexGrow: c.days, flexBasis: 0 }}
+                />
+              ))}
+            </div>
+            {/* today line */}
+            {todayPct !== null && (
+              <div className="absolute top-0 bottom-0 w-px bg-red-500/70 pointer-events-none" style={{ left: `${todayPct}%` }} />
+            )}
+            {/* bar */}
+            {item.is_milestone ? (
+              <div className="absolute top-1/2 -translate-y-1/2" style={{ left: `calc(${pos.leftPct}% - 8px)` }} title={item.label}>
+                <div className="w-4 h-4 rotate-45 rounded-sm shadow flex items-center justify-center text-white" style={{ background: item.color }}>
+                  <Diamond className="w-2.5 h-2.5 -rotate-45" />
+                </div>
+              </div>
+            ) : (
+              <div
+                className="absolute top-1/2 -translate-y-1/2 h-[18px] rounded flex items-center px-1.5 text-[10px] text-white font-semibold shadow-sm overflow-hidden"
+                style={{ left: `${pos.leftPct}%`, width: `${pos.widthPct}%`, background: item.color }}
+                title={`${item.label} · ${item.start_date} → ${item.end_date}`}
+              >
+                {item.progress > 0 && item.progress < 100 && (
+                  <div className="absolute inset-y-0 left-0 bg-black/25" style={{ width: `${item.progress}%` }} />
+                )}
+                <span className="relative truncate leading-none">
+                  {item.symbol ? `${item.symbol} ` : ''}{item.label}
+                </span>
+                {(item.notify_on_start || item.notify_on_end) && <Bell className="w-2.5 h-2.5 ml-1 shrink-0 relative" />}
+              </div>
+            )}
+          </div>
+        </div>
+        {hasKids && !item.collapsed && kids.map((k, i) => renderRow(k, depth + 1, idx + 1 + i))}
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b">
-        <div className="container mx-auto px-4 py-3 flex items-center gap-3">
+        <div className="container mx-auto px-4 py-3 flex items-center gap-3 flex-wrap">
           <Button variant="ghost" size="sm" onClick={() => navigate('/roadmaps')}>
             <ArrowLeft className="w-4 h-4 mr-1" /> Roadmaps
           </Button>
-          <div className="flex-1">
+          <div className="flex-1 min-w-[200px]">
             <h1 className="text-lg font-bold tracking-tight">{roadmap.name}</h1>
             <p className="text-xs text-muted-foreground flex items-center gap-1">
               <CalendarDays className="w-3 h-3" />
@@ -72,13 +162,12 @@ const RoadmapEditor = () => {
             </p>
           </div>
           <Button variant="outline" size="sm" onClick={async () => {
-            // Dedupe items with same normalised label + start_date + end_date — keep earliest created
             const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
             const seen = new Map<string, RoadmapItem>();
             const dupes: RoadmapItem[] = [];
-            const sorted = [...items].sort((a, b) => (a as any).created_at?.localeCompare?.((b as any).created_at) || 0);
+            const sorted = [...items].sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
             for (const it of sorted) {
-              const key = `${norm(it.label)}|${it.start_date}|${it.end_date}`;
+              const key = `${it.parent_id || 'root'}|${norm(it.label)}|${it.start_date}|${it.end_date}`;
               if (seen.has(key)) dupes.push(it); else seen.set(key, it);
             }
             if (!dupes.length) { toast.info('No duplicates found'); return; }
@@ -94,7 +183,7 @@ const RoadmapEditor = () => {
           <Button variant="outline" size="sm" onClick={() => setImporting(true)}>
             <FileUp className="w-4 h-4 mr-1" /> Import PDF
           </Button>
-          <Button size="sm" onClick={() => setAdding(true)}>
+          <Button size="sm" onClick={() => setAddingParent(null)}>
             <Plus className="w-4 h-4 mr-1" /> Add task
           </Button>
         </div>
@@ -143,10 +232,17 @@ const RoadmapEditor = () => {
         <div className="border rounded-lg overflow-hidden bg-card">
           {/* Column headers */}
           <div className="flex bg-[#0a2540] text-white text-sm font-semibold">
-            <div className="w-64 shrink-0 px-3 py-3 border-r border-white/10">Task</div>
+            <div className="w-64 shrink-0 px-3 py-2.5 border-r border-white/10">Task</div>
             <div className="flex-1 flex">
-              {columns.map(c => (
-                <div key={c.key} className="min-w-[80px] px-2 py-3 text-center border-r border-white/10" style={{ flexGrow: c.days, flexBasis: 0 }}>
+              {columns.map((c, i) => (
+                <div
+                  key={c.key}
+                  className={cn(
+                    'min-w-[70px] px-2 py-2.5 text-center',
+                    i === columns.length - 1 ? '' : 'border-r border-white/30',
+                  )}
+                  style={{ flexGrow: c.days, flexBasis: 0 }}
+                >
                   <div>{c.label}</div>
                   {c.sublabel && <div className="text-[10px] font-normal opacity-80">{c.sublabel}</div>}
                 </div>
@@ -157,75 +253,30 @@ const RoadmapEditor = () => {
           {/* Rows */}
           {isLoading ? (
             <div className="p-10 text-center text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin inline" /></div>
-          ) : items.length === 0 ? (
+          ) : roots.length === 0 ? (
             <div className="p-10 text-center text-muted-foreground">
               No tasks yet. Click <strong>Add task</strong> to create your first bar.
             </div>
           ) : (
-            items.map((item, idx) => {
-              const pos = barPosition(item.start_date, item.end_date, roadmap.start_date, roadmap.end_date);
-              return (
-                <div key={item.id} className={cn('flex border-b last:border-b-0 hover:bg-muted/40 transition', idx % 2 === 1 && 'bg-muted/20')}>
-                  <button onClick={() => setEditing(item)} className="w-64 shrink-0 px-3 py-3 text-left text-sm font-medium truncate border-r flex items-center gap-2">
-                    {item.symbol && <span>{item.symbol}</span>}
-                    <span className="truncate">{item.label}</span>
-                  </button>
-                  <div className="flex-1 relative min-h-[44px]" onClick={() => setEditing(item)} role="button">
-                    {/* grid lines */}
-                    <div className="absolute inset-0 flex">
-                      {columns.map(c => <div key={c.key} className="border-r border-border/40" style={{ flexGrow: c.days, flexBasis: 0 }} />)}
-                    </div>
-                    {/* today line */}
-                    {todayPct !== null && (
-                      <div className="absolute top-0 bottom-0 w-px bg-red-500/70" style={{ left: `${todayPct}%` }} />
-                    )}
-                    {/* bar */}
-                    {item.is_milestone ? (
-                      <div className="absolute top-1/2 -translate-y-1/2"
-                        style={{ left: `calc(${pos.leftPct}% - 10px)` }}
-                        title={item.label}>
-                        <div className="w-5 h-5 rotate-45 rounded-sm shadow flex items-center justify-center text-[10px] text-white font-bold"
-                          style={{ background: item.color }}>
-                          <Diamond className="w-3 h-3 -rotate-45" />
-                        </div>
-                      </div>
-                    ) : (
-                      <div
-                        className="absolute top-1/2 -translate-y-1/2 h-6 rounded-md flex items-center px-2 text-[11px] text-white font-semibold shadow-sm overflow-hidden"
-                        style={{ left: `${pos.leftPct}%`, width: `${pos.widthPct}%`, background: item.color }}
-                        title={`${item.label} · ${item.start_date} → ${item.end_date}`}>
-                        {/* progress overlay */}
-                        {item.progress > 0 && item.progress < 100 && (
-                          <div className="absolute inset-y-0 left-0 bg-black/20" style={{ width: `${item.progress}%` }} />
-                        )}
-                        <span className="relative truncate">
-                          {item.symbol ? `${item.symbol} ` : ''}{item.label}
-                        </span>
-                        {(item.notify_on_start || item.notify_on_end) && <Bell className="w-3 h-3 ml-1 shrink-0 relative" />}
-                        {item.is_milestone && <Star className="w-3 h-3 ml-1 shrink-0 relative" />}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })
+            roots.map((item, idx) => renderRow(item, 0, idx))
           )}
         </div>
 
-        <p className="text-[11px] text-muted-foreground mt-2 flex items-center gap-3">
+        <p className="text-[11px] text-muted-foreground mt-2 flex items-center gap-3 flex-wrap">
           <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500" /> Today</span>
           <span className="inline-flex items-center gap-1"><Bell className="w-3 h-3" /> Audible alert set</span>
           <span className="inline-flex items-center gap-1"><Diamond className="w-3 h-3" /> Milestone</span>
-          <span>Click any row to edit · {toISODate(new Date())}</span>
+          <span className="inline-flex items-center gap-1"><ChevronDown className="w-3 h-3" /> Click chevron to collapse sub-tasks</span>
+          <span>Click row to edit · Hover row to add sub-task · {toISODate(new Date())}</span>
         </p>
       </div>
 
       <RoadmapItemDialog
-        open={adding}
-        onOpenChange={setAdding}
+        open={addingParent !== undefined}
+        onOpenChange={(o) => !o && setAddingParent(undefined)}
         roadmapStart={roadmap.start_date}
         roadmapEnd={roadmap.end_date}
-        onSave={async (p) => { await create(p); toast.success('Task added'); }}
+        onSave={async (p) => { await create({ ...p, parent_id: addingParent || null }); toast.success('Task added'); }}
       />
       <RoadmapItemDialog
         open={!!editing}
