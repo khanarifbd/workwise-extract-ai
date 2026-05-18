@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Loader2, Plus, ArrowLeft, CalendarDays, Bell, Star, Diamond, Trash2, Settings2 } from 'lucide-react';
+import { Loader2, Plus, ArrowLeft, CalendarDays, Bell, Star, Diamond, Trash2, Settings2, FileUp } from 'lucide-react';
 import { useRoadmaps, useRoadmapItems, RoadmapItem } from '@/hooks/useRoadmaps';
 import { buildColumns, barPosition, parseLocalDate, toISODate } from '@/lib/roadmapUtils';
 import { Button } from '@/components/ui/button';
@@ -8,9 +8,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RoadmapItemDialog } from '@/components/roadmap/RoadmapItemDialog';
+import { RoadmapPdfImportModal } from '@/components/roadmap/RoadmapPdfImportModal';
 import { useRoadmapAlerts } from '@/hooks/useRoadmapAlerts';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 const RoadmapEditor = () => {
   const { id } = useParams<{ id: string }>();
@@ -21,6 +23,7 @@ const RoadmapEditor = () => {
   const [editing, setEditing] = useState<RoadmapItem | null>(null);
   const [adding, setAdding] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   useRoadmapAlerts(items);
 
@@ -70,6 +73,9 @@ const RoadmapEditor = () => {
           </div>
           <Button variant="outline" size="sm" onClick={() => setShowSettings(s => !s)}>
             <Settings2 className="w-4 h-4 mr-1" /> Settings
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setImporting(true)}>
+            <FileUp className="w-4 h-4 mr-1" /> Import PDF
           </Button>
           <Button size="sm" onClick={() => setAdding(true)}>
             <Plus className="w-4 h-4 mr-1" /> Add task
@@ -212,6 +218,21 @@ const RoadmapEditor = () => {
         roadmapEnd={roadmap.end_date}
         onSave={async (p) => { if (editing) { await updateItem(editing.id, p); toast.success('Task saved'); } }}
         onDelete={editing ? async () => { await removeItem(editing.id); toast.success('Task deleted'); } : undefined}
+      />
+      <RoadmapPdfImportModal
+        open={importing}
+        onOpenChange={setImporting}
+        roadmap={roadmap}
+        existingItems={items}
+        onImport={async ({ toInsert, toUpdate, roadmapPatch }) => {
+          if (toInsert.length) {
+            const payload = toInsert.map(p => ({ ...p, roadmap_id: roadmap.id }));
+            const { error } = await supabase.from('roadmap_items').insert(payload as any);
+            if (error) throw error;
+          }
+          for (const u of toUpdate) await updateItem(u.id, u.patch);
+          if (roadmapPatch) await update(roadmap.id, roadmapPatch);
+        }}
       />
     </div>
   );
