@@ -78,13 +78,21 @@ export const RoadmapPdfImportModal = ({ open, onOpenChange, roadmap, existingIte
     try {
       const text = await extractTextFromPDF(file);
       const { data, error } = await supabase.functions.invoke('extract-roadmap-items', {
-        body: { pdfText: text, roadmapStart: roadmap.start_date, roadmapEnd: roadmap.end_date },
+        body: {
+          pdfText: text,
+          roadmapStart: roadmap.start_date,
+          roadmapEnd: roadmap.end_date,
+          timeUnit: roadmap.time_unit,
+        },
       });
-      if (error) throw error;
+      if (error) throw new Error(error.message || 'Edge function error');
       if (!data?.success) throw new Error(data?.error || 'Extraction failed');
       const ex: Extracted = data.data;
+      if (!ex.items || ex.items.length === 0) {
+        toast.info('No tasks found in the document.');
+      }
 
-      // Sequence items missing both dates and duration: default 7-day blocks for week view, 2 days for day view
+      // The edge function should provide both dates, but fall back defensively
       const defaultDur = roadmap.time_unit === 'week' ? 7 : 2;
       let cursor = parseLocalDate(roadmap.start_date);
       const built: Row[] = (ex.items || []).map((it) => {
