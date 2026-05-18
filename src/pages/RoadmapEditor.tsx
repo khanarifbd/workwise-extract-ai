@@ -74,6 +74,9 @@ const RoadmapEditor = () => {
           <Button variant="outline" size="sm" onClick={() => setShowSettings(s => !s)}>
             <Settings2 className="w-4 h-4 mr-1" /> Settings
           </Button>
+          <Button variant="outline" size="sm" onClick={() => setImporting(true)}>
+            <FileUp className="w-4 h-4 mr-1" /> Import PDF
+          </Button>
           <Button size="sm" onClick={() => setAdding(true)}>
             <Plus className="w-4 h-4 mr-1" /> Add task
           </Button>
