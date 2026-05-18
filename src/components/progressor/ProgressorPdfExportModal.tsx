@@ -682,28 +682,44 @@ export function ProgressorPdfExportModal({ open, onOpenChange, jobs, verifyAccur
                   </span>
                 )}
                 {verifyAccuracy && (
-                  <button
-                    onClick={runAccuracyCheck}
-                    title={`Local cache: ${accuracy.local}  ·  Database: ${accuracy.db}${accuracy.checkedAt ? `  ·  checked ${format(new Date(accuracy.checkedAt), 'HH:mm:ss')}` : ''}`}
-                    className={cn(
-                      'flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-medium transition',
-                      accuracy.checking && 'opacity-70',
-                      accuracy.ok
-                        ? 'border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-                        : 'border-red-300 bg-red-50 text-red-700 hover:bg-red-100 animate-pulse'
-                    )}
-                  >
-                    {accuracy.checking
-                      ? <Loader2 className="h-3 w-3 animate-spin" />
-                      : accuracy.ok
-                        ? <CheckCircle2 className="h-3 w-3" />
-                        : <X className="h-3 w-3" />}
-                    {accuracy.checking
-                      ? 'Verifying…'
-                      : accuracy.ok
-                        ? `DB synced (${accuracy.db})`
-                        : `Drift: local ${accuracy.local} ≠ DB ${accuracy.db} — click to resync`}
-                  </button>
+                  <>
+                    <button
+                      onClick={() => runAccuracyCheck(false)}
+                      title={`Local cache: ${accuracy.local}  ·  Database: ${accuracy.db}${accuracy.checkedAt ? `  ·  checked ${format(new Date(accuracy.checkedAt), 'HH:mm:ss')}` : ''}`}
+                      className={cn(
+                        'flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-medium transition',
+                        accuracy.checking && 'opacity-70',
+                        accuracy.ok
+                          ? 'border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                          : 'border-red-300 bg-red-50 text-red-700 hover:bg-red-100 animate-pulse'
+                      )}
+                    >
+                      {accuracy.checking
+                        ? <Loader2 className="h-3 w-3 animate-spin" />
+                        : accuracy.ok
+                          ? <CheckCircle2 className="h-3 w-3" />
+                          : <X className="h-3 w-3" />}
+                      {accuracy.checking
+                        ? 'Verifying…'
+                        : accuracy.ok
+                          ? `DB synced (${accuracy.db})`
+                          : `Drift: local ${accuracy.local} ≠ DB ${accuracy.db}`}
+                    </button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={accuracy.ok ? 'outline' : 'default'}
+                      onClick={() => runAccuracyCheck(true)}
+                      disabled={accuracy.checking}
+                      className={cn(
+                        'h-6 px-2 text-[10px] gap-1',
+                        !accuracy.ok && 'bg-red-600 hover:bg-red-700 text-white border-red-700'
+                      )}
+                    >
+                      <RefreshCw className={cn('h-3 w-3', accuracy.checking && 'animate-spin')} />
+                      Resync now
+                    </Button>
+                  </>
                 )}
               </div>
             </div>
