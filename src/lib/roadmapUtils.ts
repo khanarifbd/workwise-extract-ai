@@ -38,7 +38,7 @@ export const daysBetween = (a: Date, b: Date): number =>
 export const buildColumns = (start: string, end: string, unit: 'week' | 'day') => {
   const s = parseLocalDate(start);
   const e = parseLocalDate(end);
-  const cols: { key: string; label: string; sublabel?: string; start: Date; end: Date }[] = [];
+  const cols: { key: string; label: string; sublabel?: string; start: Date; end: Date; days: number }[] = [];
   if (unit === 'week') {
     let i = 0;
     let cur = new Date(s);
@@ -52,6 +52,7 @@ export const buildColumns = (start: string, end: string, unit: 'week' | 'day') =
         sublabel: `${cur.toLocaleDateString(undefined,{day:'numeric',month:'short'})} – ${wkEnd.toLocaleDateString(undefined,{day:'numeric',month:'short'})}`,
         start: new Date(cur),
         end: new Date(wkEnd),
+        days: daysBetween(cur, wkEnd) + 1,
       });
       cur.setDate(cur.getDate() + 7);
     }
@@ -64,6 +65,7 @@ export const buildColumns = (start: string, end: string, unit: 'week' | 'day') =
         sublabel: cur.toLocaleDateString(undefined, { weekday: 'short', month: 'short' }),
         start: new Date(cur),
         end: new Date(cur),
+        days: 1,
       });
       cur.setDate(cur.getDate() + 1);
     }
