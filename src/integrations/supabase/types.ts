@@ -960,6 +960,7 @@ export type Database = {
       roadmap_items: {
         Row: {
           assigned_team: string | null
+          collapsed: boolean
           color: string
           created_at: string
           depends_on: string | null
@@ -972,6 +973,7 @@ export type Database = {
           notify_lead_minutes: number
           notify_on_end: boolean
           notify_on_start: boolean
+          parent_id: string | null
           progress: number
           roadmap_id: string
           sort_order: number
@@ -981,6 +983,7 @@ export type Database = {
         }
         Insert: {
           assigned_team?: string | null
+          collapsed?: boolean
           color?: string
           created_at?: string
           depends_on?: string | null
@@ -993,6 +996,7 @@ export type Database = {
           notify_lead_minutes?: number
           notify_on_end?: boolean
           notify_on_start?: boolean
+          parent_id?: string | null
           progress?: number
           roadmap_id: string
           sort_order?: number
@@ -1002,6 +1006,7 @@ export type Database = {
         }
         Update: {
           assigned_team?: string | null
+          collapsed?: boolean
           color?: string
           created_at?: string
           depends_on?: string | null
@@ -1014,6 +1019,7 @@ export type Database = {
           notify_lead_minutes?: number
           notify_on_end?: boolean
           notify_on_start?: boolean
+          parent_id?: string | null
           progress?: number
           roadmap_id?: string
           sort_order?: number
@@ -1025,6 +1031,13 @@ export type Database = {
           {
             foreignKeyName: "roadmap_items_depends_on_fkey"
             columns: ["depends_on"]
+            isOneToOne: false
+            referencedRelation: "roadmap_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "roadmap_items_parent_id_fkey"
+            columns: ["parent_id"]
             isOneToOne: false
             referencedRelation: "roadmap_items"
             referencedColumns: ["id"]
