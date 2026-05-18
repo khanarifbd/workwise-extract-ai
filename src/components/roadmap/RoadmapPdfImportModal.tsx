@@ -83,36 +83,37 @@ export const RoadmapPdfImportModal = ({ open, onOpenChange, roadmap, existingIte
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'Extraction failed');
       const ex: Extracted = data.data;
-      // Build rows: snap dates to roadmap window, detect duplicates
-      const rs = parseLocalDate(roadmap.start_date);
-      const re = parseLocalDate(roadmap.end_date);
-      const clamp = (d: string) => {
-        if (!d) return roadmap.start_date;
-        const p = parseLocalDate(d);
-        if (p < rs) return roadmap.start_date;
-        if (p > re) return roadmap.end_date;
-        return d;
-      };
-      // For items missing dates but with duration, sequence them after roadmap start
+
+      // Sequence items missing both dates and duration: default 7-day blocks for week view, 2 days for day view
+      const defaultDur = roadmap.time_unit === 'week' ? 7 : 2;
       let cursor = parseLocalDate(roadmap.start_date);
       const built: Row[] = (ex.items || []).map((it) => {
         let s = it.start_date;
         let e = it.end_date;
-        if ((!s || !e) && it.duration_days && it.duration_days > 0) {
+        const dur = it.duration_days && it.duration_days > 0 ? it.duration_days : defaultDur;
+
+        if (!s && !e) {
+          // Both missing → place at cursor with duration
           const sd = new Date(cursor);
-          const ed = new Date(cursor); ed.setDate(ed.getDate() + Math.max(0, it.duration_days - 1));
+          const ed = new Date(cursor); ed.setDate(ed.getDate() + Math.max(0, dur - 1));
           s = toISODate(sd); e = toISODate(ed);
           cursor = new Date(ed); cursor.setDate(cursor.getDate() + 1);
+        } else if (s && !e) {
+          const sd = parseLocalDate(s);
+          const ed = new Date(sd); ed.setDate(ed.getDate() + Math.max(0, dur - 1));
+          e = toISODate(ed);
+        } else if (!s && e) {
+          s = e;
         }
-        s = clamp(s || roadmap.start_date);
-        e = clamp(e || s);
-        if (parseLocalDate(e) < parseLocalDate(s)) e = s;
+        if (parseLocalDate(e!) < parseLocalDate(s!)) e = s;
+
         const dup = existingItems.find(x => normalise(x.label) === normalise(it.label));
         return {
-          item: { ...it, start_date: s, end_date: e },
+          item: { ...it, start_date: s!, end_date: e! },
           include: true,
           duplicateOf: dup,
-          action: dup ? 'skip' : 'add',
+          // Default to ADD (not skip) so one click imports everything
+          action: dup ? 'add' : 'add',
           color: colorForTrade(it.trade),
         };
       });
@@ -149,18 +150,33 @@ export const RoadmapPdfImportModal = ({ open, onOpenChange, roadmap, existingIte
       }
     });
 
+    // Auto-extend roadmap window so all extracted bars fit
+    const includedRows = rows.filter(r => r.include && r.action !== 'skip');
+    let minDate = parseLocalDate(roadmap.start_date);
+    let maxDate = parseLocalDate(roadmap.end_date);
+    includedRows.forEach(r => {
+      const s = parseLocalDate(r.item.start_date);
+      const e = parseLocalDate(r.item.end_date);
+      if (s < minDate) minDate = s;
+      if (e > maxDate) maxDate = e;
+    });
+    const roadmapPatch: Partial<Roadmap> = {};
+    const newStart = toISODate(minDate);
+    const newEnd = toISODate(maxDate);
+    if (newStart !== roadmap.start_date) roadmapPatch.start_date = newStart;
+    if (newEnd !== roadmap.end_date) roadmapPatch.end_date = newEnd;
+
     // Merge customer/address into roadmap notes (non-destructive)
-    let roadmapPatch: Partial<Roadmap> | undefined;
     const header: string[] = [];
     if (customer && !roadmap.notes.includes(customer)) header.push(`Customer: ${customer}`);
     if (address && !roadmap.notes.includes(address)) header.push(`Address: ${address}`);
     if (header.length) {
-      roadmapPatch = { notes: [header.join('\n'), roadmap.notes].filter(Boolean).join('\n\n') };
+      roadmapPatch.notes = [header.join('\n'), roadmap.notes].filter(Boolean).join('\n\n');
     }
 
     setBusy(true);
     try {
-      await onImport({ toInsert, toUpdate, roadmapPatch });
+      await onImport({ toInsert, toUpdate, roadmapPatch: Object.keys(roadmapPatch).length ? roadmapPatch : undefined });
       toast.success(`Imported ${toInsert.length} new${toUpdate.length ? `, updated ${toUpdate.length}` : ''}`);
       reset();
       onOpenChange(false);
