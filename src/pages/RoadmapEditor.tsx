@@ -146,7 +146,7 @@ const RoadmapEditor = () => {
             <div className="w-64 shrink-0 px-3 py-3 border-r border-white/10">Task</div>
             <div className="flex-1 flex">
               {columns.map(c => (
-                <div key={c.key} className="flex-1 min-w-[80px] px-2 py-3 text-center border-r border-white/10">
+                <div key={c.key} className="min-w-[80px] px-2 py-3 text-center border-r border-white/10" style={{ flexGrow: c.days, flexBasis: 0 }}>
                   <div>{c.label}</div>
                   {c.sublabel && <div className="text-[10px] font-normal opacity-80">{c.sublabel}</div>}
                 </div>
