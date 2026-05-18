@@ -10,7 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import {
   Loader2, FileDown, Image as ImageIcon,
-  CalendarIcon, Users, X, CheckCircle2, ChevronLeft, ChevronRight,
+  CalendarIcon, Users, X, CheckCircle2, ChevronLeft, ChevronRight, RefreshCw,
 } from 'lucide-react';
 import {
   format, startOfWeek, endOfWeek, startOfMonth, endOfMonth,
