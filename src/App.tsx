@@ -38,6 +38,8 @@ const lazyRetry = (importFn: () => Promise<any>) => {
 const Index = lazy(() => lazyRetry(() => import("./pages/Index")));
 const ProgressorWorkspace = lazy(() => lazyRetry(() => import("./pages/ProgressorWorkspace")));
 const ProgressorTeamView = lazy(() => lazyRetry(() => import("./pages/ProgressorTeamView")));
+const Roadmaps = lazy(() => lazyRetry(() => import("./pages/Roadmaps")));
+const RoadmapEditor = lazy(() => lazyRetry(() => import("./pages/RoadmapEditor")));
 
 const PageLoader = () => (
   <div className="min-h-screen flex items-center justify-center bg-background">
@@ -100,6 +102,20 @@ const App = () => (
                 <Suspense fallback={<PageLoader />}>
                   <ProgressorTeamView />
                 </Suspense>
+              } />
+              <Route path="/roadmaps" element={
+                <AdminRoute>
+                  <Suspense fallback={<PageLoader />}>
+                    <Roadmaps />
+                  </Suspense>
+                </AdminRoute>
+              } />
+              <Route path="/roadmaps/:id" element={
+                <AdminRoute>
+                  <Suspense fallback={<PageLoader />}>
+                    <RoadmapEditor />
+                  </Suspense>
+                </AdminRoute>
               } />
               <Route path="*" element={<NotFound />} />
             </>

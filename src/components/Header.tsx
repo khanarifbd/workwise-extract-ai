@@ -1,4 +1,4 @@
-import { FileDown, Moon, Sun, Settings, History, KeyRound, Users, LogOut, ChevronDown, CalendarDays, CheckCircle2, Briefcase, AlertTriangle, Mic, MessageSquare, StickyNote, MoreHorizontal, Package } from 'lucide-react';
+import { FileDown, Moon, Sun, Settings, History, KeyRound, Users, LogOut, ChevronDown, CalendarDays, CheckCircle2, Briefcase, AlertTriangle, Mic, MessageSquare, StickyNote, MoreHorizontal, Package, Workflow } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
@@ -153,6 +153,16 @@ export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount
                 </span>
               )}
             </button>
+
+            {/* Roadmaps */}
+            <Link
+              to="/roadmaps"
+              title="Project Roadmaps"
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            >
+              <Workflow className="w-3.5 h-3.5" />
+              <span className="hidden md:inline">Roadmap</span>
+            </Link>
 
             {/* Sign-off bell */}
             <SignOffNotificationBell onJobClick={onJobClick} />
