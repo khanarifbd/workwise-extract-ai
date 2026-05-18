@@ -219,6 +219,21 @@ const RoadmapEditor = () => {
         onSave={async (p) => { if (editing) { await updateItem(editing.id, p); toast.success('Task saved'); } }}
         onDelete={editing ? async () => { await removeItem(editing.id); toast.success('Task deleted'); } : undefined}
       />
+      <RoadmapPdfImportModal
+        open={importing}
+        onOpenChange={setImporting}
+        roadmap={roadmap}
+        existingItems={items}
+        onImport={async ({ toInsert, toUpdate, roadmapPatch }) => {
+          if (toInsert.length) {
+            const payload = toInsert.map(p => ({ ...p, roadmap_id: roadmap.id }));
+            const { error } = await supabase.from('roadmap_items').insert(payload as any);
+            if (error) throw error;
+          }
+          for (const u of toUpdate) await updateItem(u.id, u.patch);
+          if (roadmapPatch) await update(roadmap.id, roadmapPatch);
+        }}
+      />
     </div>
   );
 };
