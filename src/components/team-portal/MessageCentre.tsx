@@ -148,22 +148,25 @@ export const MessageCentre = ({ teamId, teamName }: MessageCentreProps) => {
 
       {/* Fullscreen message panel overlay */}
       {isOpen && (
-        <div className="fixed inset-0 z-[100] bg-background flex flex-col safe-area-bottom safe-area-left safe-area-right">
-          {/* Header — back button on its own row so it's never covered by title text */}
+        <div className="fixed inset-0 z-[2147483646] bg-background flex flex-col safe-area-bottom safe-area-left safe-area-right">
+          {/* Floating Back button — fixed position, max z-index, can never be covered */}
+          <button
+            type="button"
+            className="fixed left-3 z-[2147483647] h-11 min-w-[92px] px-4 flex items-center justify-center gap-1.5 rounded-full bg-black/80 hover:bg-black active:bg-black text-white shadow-lg backdrop-blur-sm font-semibold text-sm border border-white/20"
+            style={{ top: 'calc(env(safe-area-inset-top, 0px) + 0.5rem)' }}
+            onClick={() => setIsOpen(false)}
+            aria-label="Back to home"
+          >
+            <ArrowLeft className="h-5 w-5" />
+            <span>Back</span>
+          </button>
+
+          {/* Header — leaves room for the floating Back button on the left */}
           <div
             className="bg-gradient-to-r from-primary to-[hsl(38,92%,50%)] text-primary-foreground px-3 pb-3"
             style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.5rem)' }}
           >
-            <div className="flex items-center justify-between gap-2 mb-2">
-              <button
-                type="button"
-                className="h-11 min-w-[88px] px-3 flex items-center justify-center gap-1.5 rounded-full bg-white/20 active:bg-white/30 transition-colors shrink-0 font-semibold text-sm text-white"
-                onClick={() => setIsOpen(false)}
-                aria-label="Back to home"
-              >
-                <ArrowLeft className="h-5 w-5" />
-                <span>Back</span>
-              </button>
+            <div className="flex items-center justify-end gap-2 mb-2 pl-[108px] min-h-11">
               <span className="text-[10px] text-primary-foreground/70 pr-1">
                 {messages.length} message{messages.length !== 1 ? 's' : ''}
               </span>
