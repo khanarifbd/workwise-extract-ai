@@ -73,21 +73,36 @@ export const buildColumns = (start: string, end: string, unit: 'week' | 'day') =
   return cols;
 };
 
-/** Compute % offset+width for a bar inside a roadmap range. */
+/** Compute % offset+width for a bar inside a roadmap range.
+ *  When unit='week', the bar is snapped to the start of its starting week
+ *  and the end of its ending week, so bars cleanly clamp to week columns.
+ */
 export const barPosition = (
   itemStart: string,
   itemEnd: string,
   roadmapStart: string,
   roadmapEnd: string,
+  unit: 'week' | 'day' = 'day',
 ) => {
   const rs = parseLocalDate(roadmapStart);
   const re = parseLocalDate(roadmapEnd);
   let is = parseLocalDate(itemStart);
   let ie = parseLocalDate(itemEnd);
-  // Clamp to roadmap range
   if (is < rs) is = rs;
   if (ie > re) ie = re;
   if (ie < is) ie = is;
+
+  if (unit === 'week') {
+    // Snap to week boundaries derived from roadmapStart (each week = 7 days)
+    const sOffset = daysBetween(rs, is);
+    const eOffset = daysBetween(rs, ie);
+    const startWeek = Math.floor(sOffset / 7);
+    const endWeek = Math.floor(eOffset / 7);
+    is = new Date(rs); is.setDate(is.getDate() + startWeek * 7);
+    ie = new Date(rs); ie.setDate(ie.getDate() + endWeek * 7 + 6);
+    if (ie > re) ie = re;
+  }
+
   const total = Math.max(1, daysBetween(rs, re) + 1);
   const offset = Math.max(0, daysBetween(rs, is));
   const span = Math.max(1, daysBetween(is, ie) + 1);
