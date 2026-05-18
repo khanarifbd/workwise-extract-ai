@@ -176,7 +176,7 @@ export const RoadmapPdfImportModal = ({ open, onOpenChange, roadmap, existingIte
 
     setBusy(true);
     try {
-      await onImport({ toInsert, toUpdate, roadmapPatch });
+      await onImport({ toInsert, toUpdate, roadmapPatch: Object.keys(roadmapPatch).length ? roadmapPatch : undefined });
       toast.success(`Imported ${toInsert.length} new${toUpdate.length ? `, updated ${toUpdate.length}` : ''}`);
       reset();
       onOpenChange(false);
