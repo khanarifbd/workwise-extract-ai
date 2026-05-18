@@ -150,13 +150,28 @@ export const RoadmapPdfImportModal = ({ open, onOpenChange, roadmap, existingIte
       }
     });
 
+    // Auto-extend roadmap window so all extracted bars fit
+    const includedRows = rows.filter(r => r.include && r.action !== 'skip');
+    let minDate = parseLocalDate(roadmap.start_date);
+    let maxDate = parseLocalDate(roadmap.end_date);
+    includedRows.forEach(r => {
+      const s = parseLocalDate(r.item.start_date);
+      const e = parseLocalDate(r.item.end_date);
+      if (s < minDate) minDate = s;
+      if (e > maxDate) maxDate = e;
+    });
+    const roadmapPatch: Partial<Roadmap> = {};
+    const newStart = toISODate(minDate);
+    const newEnd = toISODate(maxDate);
+    if (newStart !== roadmap.start_date) roadmapPatch.start_date = newStart;
+    if (newEnd !== roadmap.end_date) roadmapPatch.end_date = newEnd;
+
     // Merge customer/address into roadmap notes (non-destructive)
-    let roadmapPatch: Partial<Roadmap> | undefined;
     const header: string[] = [];
     if (customer && !roadmap.notes.includes(customer)) header.push(`Customer: ${customer}`);
     if (address && !roadmap.notes.includes(address)) header.push(`Address: ${address}`);
     if (header.length) {
-      roadmapPatch = { notes: [header.join('\n'), roadmap.notes].filter(Boolean).join('\n\n') };
+      roadmapPatch.notes = [header.join('\n'), roadmap.notes].filter(Boolean).join('\n\n');
     }
 
     setBusy(true);
