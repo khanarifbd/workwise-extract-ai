@@ -5,10 +5,16 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ROADMAP_COLORS, ROADMAP_SYMBOLS } from '@/lib/roadmapUtils';
+import { ROADMAP_COLORS, ROADMAP_SYMBOLS, parseLocalDate, toISODate, daysBetween } from '@/lib/roadmapUtils';
 import { RoadmapItem } from '@/hooks/useRoadmaps';
 import { Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+const addDays = (iso: string, n: number) => {
+  const d = parseLocalDate(iso); d.setDate(d.getDate() + n); return toISODate(d);
+};
+const durationDays = (s?: string, e?: string) =>
+  s && e ? Math.max(1, daysBetween(parseLocalDate(s), parseLocalDate(e)) + 1) : 1;
 
 interface Props {
   open: boolean;
