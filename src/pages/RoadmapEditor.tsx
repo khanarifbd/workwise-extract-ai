@@ -71,6 +71,23 @@ const RoadmapEditor = () => {
               {roadmap.start_date} → {roadmap.end_date} · {roadmap.time_unit === 'week' ? 'Week view' : 'Day view'} · {items.length} tasks
             </p>
           </div>
+          <Button variant="outline" size="sm" onClick={async () => {
+            // Dedupe items with same normalised label + start_date + end_date — keep earliest created
+            const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
+            const seen = new Map<string, RoadmapItem>();
+            const dupes: RoadmapItem[] = [];
+            const sorted = [...items].sort((a, b) => (a as any).created_at?.localeCompare?.((b as any).created_at) || 0);
+            for (const it of sorted) {
+              const key = `${norm(it.label)}|${it.start_date}|${it.end_date}`;
+              if (seen.has(key)) dupes.push(it); else seen.set(key, it);
+            }
+            if (!dupes.length) { toast.info('No duplicates found'); return; }
+            if (!confirm(`Remove ${dupes.length} duplicate task${dupes.length > 1 ? 's' : ''}?`)) return;
+            const { error } = await supabase.from('roadmap_items').delete().in('id', dupes.map(d => d.id));
+            if (error) toast.error(error.message); else toast.success(`Removed ${dupes.length} duplicate${dupes.length > 1 ? 's' : ''}`);
+          }}>
+            <Copy className="w-4 h-4 mr-1" /> Dedupe
+          </Button>
           <Button variant="outline" size="sm" onClick={() => setShowSettings(s => !s)}>
             <Settings2 className="w-4 h-4 mr-1" /> Settings
           </Button>
