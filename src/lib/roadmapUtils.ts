@@ -82,13 +82,16 @@ export const barPosition = (
 ) => {
   const rs = parseLocalDate(roadmapStart);
   const re = parseLocalDate(roadmapEnd);
-  const is = parseLocalDate(itemStart);
-  const ie = parseLocalDate(itemEnd);
+  let is = parseLocalDate(itemStart);
+  let ie = parseLocalDate(itemEnd);
+  // Clamp to roadmap range
+  if (is < rs) is = rs;
+  if (ie > re) ie = re;
+  if (ie < is) ie = is;
   const total = Math.max(1, daysBetween(rs, re) + 1);
   const offset = Math.max(0, daysBetween(rs, is));
   const span = Math.max(1, daysBetween(is, ie) + 1);
-  return {
-    leftPct: (offset / total) * 100,
-    widthPct: Math.min(100 - (offset / total) * 100, (span / total) * 100),
-  };
+  const leftPct = (offset / total) * 100;
+  const widthPct = Math.max(0, Math.min(100 - leftPct, (span / total) * 100));
+  return { leftPct, widthPct };
 };
