@@ -92,8 +92,8 @@ const RoadmapEditor = () => {
               <span className="truncate">{item.label}</span>
             </button>
             <button
-              onClick={() => setAddingParent(item.id)}
-              className="opacity-0 group-hover:opacity-100 hover:opacity-100 p-0.5 hover:bg-muted rounded text-muted-foreground hover:text-foreground shrink-0"
+              onClick={(e) => { e.stopPropagation(); setAddingParent(item.id); }}
+              className="opacity-30 group-hover:opacity-100 p-0.5 hover:bg-muted rounded text-muted-foreground hover:text-foreground shrink-0 transition-opacity"
               title="Add sub-task"
             >
               <Plus className="w-3 h-3" />
