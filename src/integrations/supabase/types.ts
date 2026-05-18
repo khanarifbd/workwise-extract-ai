@@ -957,6 +957,137 @@ export type Database = {
           },
         ]
       }
+      roadmap_items: {
+        Row: {
+          assigned_team: string | null
+          color: string
+          created_at: string
+          depends_on: string | null
+          end_date: string
+          id: string
+          is_milestone: boolean
+          label: string
+          last_notified_at: string | null
+          notes: string
+          notify_lead_minutes: number
+          notify_on_end: boolean
+          notify_on_start: boolean
+          progress: number
+          roadmap_id: string
+          sort_order: number
+          start_date: string
+          symbol: string | null
+          updated_at: string
+        }
+        Insert: {
+          assigned_team?: string | null
+          color?: string
+          created_at?: string
+          depends_on?: string | null
+          end_date: string
+          id?: string
+          is_milestone?: boolean
+          label: string
+          last_notified_at?: string | null
+          notes?: string
+          notify_lead_minutes?: number
+          notify_on_end?: boolean
+          notify_on_start?: boolean
+          progress?: number
+          roadmap_id: string
+          sort_order?: number
+          start_date: string
+          symbol?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assigned_team?: string | null
+          color?: string
+          created_at?: string
+          depends_on?: string | null
+          end_date?: string
+          id?: string
+          is_milestone?: boolean
+          label?: string
+          last_notified_at?: string | null
+          notes?: string
+          notify_lead_minutes?: number
+          notify_on_end?: boolean
+          notify_on_start?: boolean
+          progress?: number
+          roadmap_id?: string
+          sort_order?: number
+          start_date?: string
+          symbol?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roadmap_items_depends_on_fkey"
+            columns: ["depends_on"]
+            isOneToOne: false
+            referencedRelation: "roadmap_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "roadmap_items_roadmap_id_fkey"
+            columns: ["roadmap_id"]
+            isOneToOne: false
+            referencedRelation: "roadmaps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      roadmaps: {
+        Row: {
+          category_id: string | null
+          created_at: string
+          created_by: string | null
+          end_date: string
+          id: string
+          job_id: string | null
+          name: string
+          notes: string
+          start_date: string
+          time_unit: string
+          updated_at: string
+        }
+        Insert: {
+          category_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          end_date: string
+          id?: string
+          job_id?: string | null
+          name: string
+          notes?: string
+          start_date: string
+          time_unit?: string
+          updated_at?: string
+        }
+        Update: {
+          category_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          end_date?: string
+          id?: string
+          job_id?: string | null
+          name?: string
+          notes?: string
+          start_date?: string
+          time_unit?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roadmaps_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_access_codes: {
         Row: {
           access_code: string
