@@ -76,7 +76,7 @@ const RoadmapEditor = () => {
     const hasKids = kids.length > 0;
     return (
       <div key={item.id}>
-        <div className={cn('flex border-b last:border-b-0 hover:bg-muted/40 transition', idx % 2 === 1 && 'bg-muted/10')}>
+        <div className={cn('group flex border-b last:border-b-0 hover:bg-muted/40 transition', idx % 2 === 1 && 'bg-muted/10')}>
           <div className="w-64 shrink-0 flex items-center gap-1 px-2 py-1 text-sm border-r" style={{ paddingLeft: 8 + depth * 14 }}>
             {hasKids ? (
               <button
