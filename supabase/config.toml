@@ -98,3 +98,6 @@ verify_jwt = true
 
 [functions.gauge-team-description]
 verify_jwt = false
+
+[functions.extract-roadmap-items]
+verify_jwt = true
