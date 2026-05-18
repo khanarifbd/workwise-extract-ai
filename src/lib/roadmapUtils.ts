@@ -38,7 +38,7 @@ export const daysBetween = (a: Date, b: Date): number =>
 export const buildColumns = (start: string, end: string, unit: 'week' | 'day') => {
   const s = parseLocalDate(start);
   const e = parseLocalDate(end);
-  const cols: { key: string; label: string; sublabel?: string; start: Date; end: Date }[] = [];
+  const cols: { key: string; label: string; sublabel?: string; start: Date; end: Date; days: number }[] = [];
   if (unit === 'week') {
     let i = 0;
     let cur = new Date(s);
@@ -52,6 +52,7 @@ export const buildColumns = (start: string, end: string, unit: 'week' | 'day') =
         sublabel: `${cur.toLocaleDateString(undefined,{day:'numeric',month:'short'})} – ${wkEnd.toLocaleDateString(undefined,{day:'numeric',month:'short'})}`,
         start: new Date(cur),
         end: new Date(wkEnd),
+        days: daysBetween(cur, wkEnd) + 1,
       });
       cur.setDate(cur.getDate() + 7);
     }
@@ -64,6 +65,7 @@ export const buildColumns = (start: string, end: string, unit: 'week' | 'day') =
         sublabel: cur.toLocaleDateString(undefined, { weekday: 'short', month: 'short' }),
         start: new Date(cur),
         end: new Date(cur),
+        days: 1,
       });
       cur.setDate(cur.getDate() + 1);
     }
@@ -80,13 +82,16 @@ export const barPosition = (
 ) => {
   const rs = parseLocalDate(roadmapStart);
   const re = parseLocalDate(roadmapEnd);
-  const is = parseLocalDate(itemStart);
-  const ie = parseLocalDate(itemEnd);
+  let is = parseLocalDate(itemStart);
+  let ie = parseLocalDate(itemEnd);
+  // Clamp to roadmap range
+  if (is < rs) is = rs;
+  if (ie > re) ie = re;
+  if (ie < is) ie = is;
   const total = Math.max(1, daysBetween(rs, re) + 1);
   const offset = Math.max(0, daysBetween(rs, is));
   const span = Math.max(1, daysBetween(is, ie) + 1);
-  return {
-    leftPct: (offset / total) * 100,
-    widthPct: Math.min(100 - (offset / total) * 100, (span / total) * 100),
-  };
+  const leftPct = (offset / total) * 100;
+  const widthPct = Math.max(0, Math.min(100 - leftPct, (span / total) * 100));
+  return { leftPct, widthPct };
 };
