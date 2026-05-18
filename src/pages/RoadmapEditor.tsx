@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Loader2, Plus, ArrowLeft, CalendarDays, Bell, Star, Diamond, Trash2, Settings2, FileUp } from 'lucide-react';
+import { Loader2, Plus, ArrowLeft, CalendarDays, Bell, Star, Diamond, Trash2, Settings2, FileUp, Copy } from 'lucide-react';
 import { useRoadmaps, useRoadmapItems, RoadmapItem } from '@/hooks/useRoadmaps';
 import { buildColumns, barPosition, parseLocalDate, toISODate } from '@/lib/roadmapUtils';
 import { Button } from '@/components/ui/button';
