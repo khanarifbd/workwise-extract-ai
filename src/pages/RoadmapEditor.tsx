@@ -23,6 +23,7 @@ const RoadmapEditor = () => {
   const [editing, setEditing] = useState<RoadmapItem | null>(null);
   const [adding, setAdding] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   useRoadmapAlerts(items);
 
