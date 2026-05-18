@@ -156,17 +156,26 @@ export function ProgressorPdfExportModal({ open, onOpenChange, jobs, verifyAccur
     local: 0, db: 0, ok: true, checking: false,
   });
 
-  const runAccuracyCheck = useCallback(async () => {
+  const runAccuracyCheck = useCallback(async (announce = false) => {
     if (!verifyAccuracy) return;
     setAccuracy(a => ({ ...a, checking: true }));
     try {
       const res = await verifyAccuracy();
       setAccuracy({ ...res, checking: false, checkedAt: Date.now() });
+      if (announce) {
+        toast({
+          title: res.ok ? 'Already in sync' : 'Resynced from database',
+          description: res.ok
+            ? `Local cache matches database (${res.db} jobs).`
+            : `Drift was: local ${res.local} → DB ${res.db}. Cache refreshed.`,
+        });
+      }
     } catch (e) {
       console.error('accuracy check failed', e);
       setAccuracy(a => ({ ...a, checking: false }));
+      if (announce) toast({ title: 'Resync failed', description: 'Could not reach database.', variant: 'destructive' });
     }
-  }, [verifyAccuracy]);
+  }, [verifyAccuracy, toast]);
 
   useEffect(() => {
     if (!open) return;
