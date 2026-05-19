@@ -211,7 +211,7 @@ const RoadmapEditor = () => {
                 className={cn(
                   "relative h-[18px] rounded flex items-center text-[10px] text-white font-semibold shadow-sm select-none mx-0",
                   dragging && "ring-2 ring-foreground/60 shadow-lg z-10",
-                  item.progress < 100 && !dragging && "animate-pulse",
+                  item.progress < 100 && !dragging && liveEnd < toISODate(new Date()) && "animate-pulse",
                 )}
                 style={{
                   gridColumn: `${startCol + 1} / ${endCol + 2}`,
