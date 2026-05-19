@@ -28,6 +28,9 @@ const RoadmapEditor = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [importing, setImporting] = useState(false);
 
+  const [openNotes, setOpenNotes] = useState<Set<string>>(new Set());
+  const toggleNotes = (id: string) => setOpenNotes(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+
   // --- Bar drag/resize state ---
   const timelineRef = useRef<HTMLDivElement | null>(null);
   const [drag, setDrag] = useState<null | {
