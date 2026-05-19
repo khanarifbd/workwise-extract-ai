@@ -328,15 +328,14 @@ const RoadmapEditor = () => {
           {/* Column headers */}
           <div className="flex bg-[#0a2540] text-white text-sm font-semibold">
             <div className="w-64 shrink-0 px-3 py-2.5 border-r border-white/10">Task</div>
-            <div className="flex-1 flex">
+            <div className="flex-1 grid" style={{ gridTemplateColumns: gridTemplateWeighted }}>
               {columns.map((c, i) => (
                 <div
                   key={c.key}
                   className={cn(
-                    'min-w-[70px] px-2 py-2.5 text-center',
+                    'px-2 py-2.5 text-center min-w-0',
                     i === columns.length - 1 ? '' : 'border-r border-white/30',
                   )}
-                  style={{ flexGrow: c.days, flexBasis: 0 }}
                 >
                   <div>{c.label}</div>
                   {c.sublabel && <div className="text-[10px] font-normal opacity-80">{c.sublabel}</div>}
@@ -349,15 +348,14 @@ const RoadmapEditor = () => {
           <div className="relative">
             <div ref={timelineRef} className="absolute top-0 bottom-0 left-64 right-0 pointer-events-none z-0">
               {/* Full-height week dividers */}
-              <div className="absolute inset-0 flex">
+              <div className="absolute inset-0 grid" style={{ gridTemplateColumns: gridTemplateWeighted }}>
                 {columns.map((c, i) => (
                   <div
                     key={c.key}
                     className={cn(
-                      'min-w-[70px] border-r',
+                      'border-r min-w-0',
                       i === columns.length - 1 ? 'border-transparent' : 'border-border',
                     )}
-                    style={{ flexGrow: c.days, flexBasis: 0 }}
                   />
                 ))}
               </div>
