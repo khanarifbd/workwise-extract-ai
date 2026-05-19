@@ -54,7 +54,9 @@ export function downloadPDF(doc: jsPDF, filename: string, options?: { targetWind
 
   const preOpenedWindow = options?.targetWindow ?? null;
 
-  if (isIOSLikeDevice()) {
+  const isIOS = isIOSLikeDevice();
+
+  if (isIOS) {
     const iosWindow = preOpenedWindow ?? window.open('', '_blank');
     if (!iosWindow) {
       throw new Error('Popup blocked before PDF could open on iOS');
@@ -67,19 +69,14 @@ export function downloadPDF(doc: jsPDF, filename: string, options?: { targetWind
     } catch (err) {
       console.warn('[downloadPDF] iOS data URL open failed, falling back to blob URL', err);
     }
+  } else if (preOpenedWindow && !preOpenedWindow.closed) {
+    // Non-iOS: a pre-opened blank tab would just hijack the download. Close it
+    // so the user doesn't see a stray empty tab, then fall through to the
+    // anchor-download path below.
+    try { preOpenedWindow.close(); } catch { /* ignore */ }
   }
 
   const url = URL.createObjectURL(blob);
-
-  if (preOpenedWindow && !preOpenedWindow.closed) {
-    try {
-      preOpenedWindow.location.replace(url);
-      setTimeout(() => URL.revokeObjectURL(url), 180000);
-      return;
-    } catch (err) {
-      console.warn('[downloadPDF] pre-opened window fallback failed', err);
-    }
-  }
 
   // Path A: anchor download (works on most desktop browsers, native apps)
   try {
