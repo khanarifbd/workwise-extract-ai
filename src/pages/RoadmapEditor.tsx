@@ -1,4 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
+import { Check, StickyNote } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Loader2, Plus, ArrowLeft, CalendarDays, Bell, Star, Diamond, Trash2, Settings2, FileUp, Copy, ChevronRight, ChevronDown, CornerDownRight } from 'lucide-react';
 import { useRoadmaps, useRoadmapItems, RoadmapItem } from '@/hooks/useRoadmaps';
@@ -25,6 +27,9 @@ const RoadmapEditor = () => {
   const [addingParent, setAddingParent] = useState<string | null | undefined>(undefined);
   const [showSettings, setShowSettings] = useState(false);
   const [importing, setImporting] = useState(false);
+
+  const [openNotes, setOpenNotes] = useState<Set<string>>(new Set());
+  const toggleNotes = (id: string) => setOpenNotes(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
   // --- Bar drag/resize state ---
   const timelineRef = useRef<HTMLDivElement | null>(null);
@@ -206,35 +211,80 @@ const RoadmapEditor = () => {
                 className={cn(
                   "relative h-[18px] rounded flex items-center text-[10px] text-white font-semibold shadow-sm select-none mx-0",
                   dragging && "ring-2 ring-foreground/60 shadow-lg z-10",
+                  item.progress < 100 && !dragging && "animate-pulse",
                 )}
                 style={{
                   gridColumn: `${startCol + 1} / ${endCol + 2}`,
                   background: item.color,
                   cursor: dragging ? 'grabbing' : 'grab',
                 }}
-                title={`${item.label} · ${liveStart} → ${liveEnd}`}
+                title={`${item.label} · ${liveStart} → ${liveEnd} · ${item.progress}%`}
                 onMouseDown={(e) => beginDrag(e, item, 'move')}
               >
                 <div
-                  className="absolute left-0 top-0 h-full w-1.5 cursor-ew-resize hover:bg-white/40 rounded-l"
+                  className="absolute left-0 top-0 h-full w-1.5 cursor-ew-resize hover:bg-white/40 rounded-l z-10"
                   onMouseDown={(e) => beginDrag(e, item, 'left')}
                 />
                 {item.progress > 0 && item.progress < 100 && (
-                  <div className="absolute inset-y-0 left-0 bg-black/25 pointer-events-none" style={{ width: `${item.progress}%` }} />
+                  <div className="absolute inset-y-0 left-0 bg-black/30 pointer-events-none rounded-l" style={{ width: `${item.progress}%` }} />
                 )}
-                <span className="relative truncate leading-none px-1.5 pointer-events-none w-full">
+                {/* checkbox */}
+                <button
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    updateItem(item.id, { progress: item.progress >= 100 ? 0 : 100 });
+                  }}
+                  title={item.progress >= 100 ? 'Mark incomplete' : 'Mark complete'}
+                  className={cn(
+                    "relative ml-1 shrink-0 w-3.5 h-3.5 rounded-sm border border-white/80 flex items-center justify-center hover:bg-white/20 transition",
+                    item.progress >= 100 && "bg-white/90 text-foreground",
+                  )}
+                >
+                  {item.progress >= 100 && <Check className="w-2.5 h-2.5" strokeWidth={3} />}
+                </button>
+                <span className="relative truncate leading-none px-1.5 pointer-events-none flex-1">
                   {item.symbol ? `${item.symbol} ` : ''}{item.label}
+                  <span className="ml-1 opacity-80">· {item.progress}%</span>
                   {dragging && <span className="ml-1 opacity-80">· {liveStart} → {liveEnd}</span>}
                 </span>
-                {(item.notify_on_start || item.notify_on_end) && <Bell className="w-2.5 h-2.5 mr-1 shrink-0 relative pointer-events-none" />}
+                {(item.notify_on_start || item.notify_on_end) && <Bell className="w-2.5 h-2.5 mr-0.5 shrink-0 relative pointer-events-none" />}
+                {/* notes toggle */}
+                <button
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => { e.stopPropagation(); toggleNotes(item.id); }}
+                  title={openNotes.has(item.id) ? 'Hide notes' : 'Show notes'}
+                  className={cn(
+                    "relative mr-1 shrink-0 w-3.5 h-3.5 rounded-sm flex items-center justify-center hover:bg-white/25 transition",
+                    item.notes?.trim() && "bg-white/20",
+                  )}
+                >
+                  <StickyNote className="w-2.5 h-2.5" />
+                </button>
                 <div
-                  className="absolute right-0 top-0 h-full w-1.5 cursor-ew-resize hover:bg-white/40 rounded-r"
+                  className="absolute right-0 top-0 h-full w-1.5 cursor-ew-resize hover:bg-white/40 rounded-r z-10"
                   onMouseDown={(e) => beginDrag(e, item, 'right')}
                 />
               </div>
             )}
           </div>
         </div>
+        {openNotes.has(item.id) && !item.is_milestone && (
+          <div className="flex border-b bg-muted/30 animate-accordion-down">
+            <div className="w-64 shrink-0 px-2 py-1.5 border-r text-[11px] text-muted-foreground flex items-center gap-1" style={{ paddingLeft: 8 + depth * 14 + 16 }}>
+              <StickyNote className="w-3 h-3" /> Notes · {item.progress}%
+            </div>
+            <div className="flex-1 px-2 py-1.5">
+              <Textarea
+                defaultValue={item.notes || ''}
+                placeholder="What needs to be done to complete this task?"
+                onBlur={(e) => { if (e.target.value !== (item.notes || '')) updateItem(item.id, { notes: e.target.value }); }}
+                onClick={(e) => e.stopPropagation()}
+                className="min-h-[60px] text-xs resize-y"
+              />
+            </div>
+          </div>
+        )}
         {hasKids && !item.collapsed && kids.map((k, i) => renderRow(k, depth + 1, idx + 1 + i))}
       </div>
     );
