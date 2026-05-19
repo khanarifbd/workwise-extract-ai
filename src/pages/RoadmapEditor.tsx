@@ -248,8 +248,9 @@ const RoadmapEditor = () => {
                 >
                   {item.progress >= 100 && <Check className="w-2.5 h-2.5" strokeWidth={3} />}
                 </button>
-                <span className="relative truncate leading-none px-1.5 pointer-events-none flex-1">
-                  {item.symbol ? `${item.symbol} ` : ''}{item.label}
+                <span className={cn("relative truncate leading-none px-1.5 pointer-events-none flex-1 flex items-center gap-1", isCertificate(item) && "uppercase tracking-wider")}>
+                  {isCertificate(item) && <Award className="w-3 h-3 shrink-0 text-amber-900" strokeWidth={2.5} />}
+                  <span className="truncate">{item.symbol ? `${item.symbol} ` : ''}{item.label}</span>
                   <span className="ml-1 opacity-80">· {item.progress}%</span>
                   {dragging && <span className="ml-1 opacity-80">· {liveStart} → {liveEnd}</span>}
                 </span>
