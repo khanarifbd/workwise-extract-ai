@@ -1,0 +1,1 @@
+DELETE FROM public.team_availability WHERE team_id='3' AND unavailable_date IN ('2026-05-19','2026-05-20','2026-05-21');

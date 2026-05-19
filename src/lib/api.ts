@@ -457,21 +457,16 @@ const syncLinkedChildJobs = async (parentDbJob: any) => {
 
   if (linkedIds.length === 0) return;
 
-  // Fields that should always mirror the parent
+  // Fields that should always mirror the parent (identity only).
+  // IMPORTANT: Do NOT sync booked_date / date_issued — linked trade jobs
+  // (Fans, Roofing, Flooring, Fire Door) are scheduled independently of
+  // the parent DM job. Booking the parent must not move the child's date.
   const syncFields: Record<string, any> = {
     name: parentDbJob.name,
     address: parentDbJob.address,
     phone_number: parentDbJob.phone_number,
     updated_at: new Date().toISOString(),
   };
-
-  // Sync booked_date + date_issued when parent is rebooked
-  if (parentDbJob.booked_date !== undefined) {
-    syncFields.booked_date = parentDbJob.booked_date;
-    if (parentDbJob.booked_date) {
-      syncFields.date_issued = parentDbJob.booked_date;
-    }
-  }
 
   for (const childId of linkedIds) {
     const { error } = await supabase
