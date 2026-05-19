@@ -82,10 +82,63 @@ const RoadmapEditor = () => {
     );
   }
 
+  const addDaysISO = (iso: string, n: number) => {
+    const d = parseLocalDate(iso); d.setDate(d.getDate() + n); return toISODate(d);
+  };
+
+  const beginDrag = (e: React.MouseEvent, item: RoadmapItem, mode: 'move' | 'left' | 'right') => {
+    if (!roadmap || item.is_milestone) return;
+    e.preventDefault(); e.stopPropagation();
+    const totalDays = Math.max(1, (parseLocalDate(roadmap.end_date).getTime() - parseLocalDate(roadmap.start_date).getTime()) / 86400000 + 1);
+    const widthPx = timelineRef.current?.getBoundingClientRect().width || 1;
+    const pxPerDay = widthPx / totalDays;
+    const snap = roadmap.time_unit === 'week' ? 7 : 1;
+    const startX = e.clientX;
+    const origStart = item.start_date;
+    const origEnd = item.end_date;
+    setDrag({ id: item.id, mode, startX, origStart, origEnd, newStart: origStart, newEnd: origEnd, moved: false });
+
+    const move = (ev: MouseEvent) => {
+      const dx = ev.clientX - startX;
+      let deltaDays = Math.round(dx / pxPerDay / snap) * snap;
+      let ns = origStart, ne = origEnd;
+      if (mode === 'move') {
+        ns = addDaysISO(origStart, deltaDays);
+        ne = addDaysISO(origEnd, deltaDays);
+        if (ns < roadmap.start_date) { const shift = daysBetween(parseLocalDate(ns), parseLocalDate(roadmap.start_date)); ns = addDaysISO(ns, shift); ne = addDaysISO(ne, shift); }
+        if (ne > roadmap.end_date) { const shift = daysBetween(parseLocalDate(roadmap.end_date), parseLocalDate(ne)); ns = addDaysISO(ns, -shift); ne = addDaysISO(ne, -shift); }
+      } else if (mode === 'left') {
+        ns = addDaysISO(origStart, deltaDays);
+        if (ns < roadmap.start_date) ns = roadmap.start_date;
+        if (ns > origEnd) ns = origEnd;
+      } else {
+        ne = addDaysISO(origEnd, deltaDays);
+        if (ne > roadmap.end_date) ne = roadmap.end_date;
+        if (ne < origStart) ne = origStart;
+      }
+      setDrag(d => d ? { ...d, newStart: ns, newEnd: ne, moved: Math.abs(dx) > 3 } : d);
+    };
+
+    const up = async () => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+      const d = dragRef.current;
+      setDrag(null);
+      if (d && d.moved && (d.newStart !== d.origStart || d.newEnd !== d.origEnd)) {
+        await updateItem(d.id, { start_date: d.newStart, end_date: d.newEnd });
+      }
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  };
+
   const renderRow = (item: RoadmapItem, depth: number, idx: number) => {
-    const pos = barPosition(item.start_date, item.end_date, roadmap.start_date, roadmap.end_date, roadmap.time_unit);
+    const liveStart = drag && drag.id === item.id ? drag.newStart : item.start_date;
+    const liveEnd = drag && drag.id === item.id ? drag.newEnd : item.end_date;
+    const pos = barPosition(liveStart, liveEnd, roadmap.start_date, roadmap.end_date, roadmap.time_unit);
     const kids = childrenOf[item.id] || [];
     const hasKids = kids.length > 0;
+    const dragging = drag?.id === item.id;
     return (
       <div key={item.id}>
         <div className={cn('group flex border-b last:border-b-0 hover:bg-muted/40 transition', idx % 2 === 1 && 'bg-muted/10')}>
@@ -111,24 +164,15 @@ const RoadmapEditor = () => {
               <Plus className="w-3 h-3" />
             </button>
           </div>
-          <div className="flex-1 relative min-h-[26px] group" onClick={() => setEditing(item)} role="button">
-            {/* week grid lines */}
-            <div className="absolute inset-0 flex pointer-events-none">
-              {columns.map((c, i) => (
-                <div
-                  key={c.key}
-                  className={cn(
-                    'border-r',
-                    i === columns.length - 1 ? 'border-transparent' : 'border-border/60',
-                  )}
-                  style={{ flexGrow: c.days, flexBasis: 0 }}
-                />
-              ))}
-            </div>
-            {/* today line */}
-            {todayPct !== null && (
-              <div className="absolute top-0 bottom-0 w-px bg-red-500/70 pointer-events-none" style={{ left: `${todayPct}%` }} />
-            )}
+          <div
+            className="flex-1 relative min-h-[26px]"
+            onClick={(e) => {
+              // ignore click if a drag just finished
+              if (dragRef.current) return;
+              setEditing(item);
+            }}
+            role="button"
+          >
             {/* bar */}
             {item.is_milestone ? (
               <div className="absolute top-1/2 -translate-y-1/2" style={{ left: `calc(${pos.leftPct}% - 8px)` }} title={item.label}>
@@ -138,17 +182,32 @@ const RoadmapEditor = () => {
               </div>
             ) : (
               <div
-                className="absolute top-1/2 -translate-y-1/2 h-[18px] rounded flex items-center px-1.5 text-[10px] text-white font-semibold shadow-sm overflow-hidden"
-                style={{ left: `${pos.leftPct}%`, width: `${pos.widthPct}%`, background: item.color }}
-                title={`${item.label} · ${item.start_date} → ${item.end_date}`}
-              >
-                {item.progress > 0 && item.progress < 100 && (
-                  <div className="absolute inset-y-0 left-0 bg-black/25" style={{ width: `${item.progress}%` }} />
+                className={cn(
+                  "absolute top-1/2 -translate-y-1/2 h-[18px] rounded flex items-center text-[10px] text-white font-semibold shadow-sm select-none",
+                  dragging && "ring-2 ring-foreground/60 shadow-lg z-10",
                 )}
-                <span className="relative truncate leading-none">
+                style={{ left: `${pos.leftPct}%`, width: `${pos.widthPct}%`, background: item.color, cursor: dragging ? 'grabbing' : 'grab' }}
+                title={`${item.label} · ${liveStart} → ${liveEnd}`}
+                onMouseDown={(e) => beginDrag(e, item, 'move')}
+              >
+                {/* left resize handle */}
+                <div
+                  className="absolute left-0 top-0 h-full w-1.5 cursor-ew-resize hover:bg-white/40 rounded-l"
+                  onMouseDown={(e) => beginDrag(e, item, 'left')}
+                />
+                {item.progress > 0 && item.progress < 100 && (
+                  <div className="absolute inset-y-0 left-0 bg-black/25 pointer-events-none" style={{ width: `${item.progress}%` }} />
+                )}
+                <span className="relative truncate leading-none px-1.5 pointer-events-none w-full">
                   {item.symbol ? `${item.symbol} ` : ''}{item.label}
+                  {dragging && <span className="ml-1 opacity-80">· {liveStart} → {liveEnd}</span>}
                 </span>
-                {(item.notify_on_start || item.notify_on_end) && <Bell className="w-2.5 h-2.5 ml-1 shrink-0 relative" />}
+                {(item.notify_on_start || item.notify_on_end) && <Bell className="w-2.5 h-2.5 mr-1 shrink-0 relative pointer-events-none" />}
+                {/* right resize handle */}
+                <div
+                  className="absolute right-0 top-0 h-full w-1.5 cursor-ew-resize hover:bg-white/40 rounded-r"
+                  onMouseDown={(e) => beginDrag(e, item, 'right')}
+                />
               </div>
             )}
           </div>
@@ -157,6 +216,7 @@ const RoadmapEditor = () => {
       </div>
     );
   };
+
 
   return (
     <div className="min-h-screen bg-background">
