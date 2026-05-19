@@ -331,7 +331,7 @@ const RoadmapEditor = () => {
                   <div
                     key={c.key}
                     className={cn(
-                      'border-r',
+                      'min-w-[70px] border-r',
                       i === columns.length - 1 ? 'border-transparent' : 'border-border',
                     )}
                     style={{ flexGrow: c.days, flexBasis: 0 }}
