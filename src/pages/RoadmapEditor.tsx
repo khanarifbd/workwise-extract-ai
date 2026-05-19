@@ -1,4 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
+import { Check, StickyNote } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Loader2, Plus, ArrowLeft, CalendarDays, Bell, Star, Diamond, Trash2, Settings2, FileUp, Copy, ChevronRight, ChevronDown, CornerDownRight } from 'lucide-react';
 import { useRoadmaps, useRoadmapItems, RoadmapItem } from '@/hooks/useRoadmaps';
