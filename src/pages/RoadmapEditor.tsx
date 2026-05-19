@@ -324,27 +324,26 @@ const RoadmapEditor = () => {
 
           {/* Rows with full-height grid overlay */}
           <div className="relative">
-            {/* Full-height week dividers — start after the 256px task column */}
-            <div className="absolute top-0 bottom-0 left-64 right-0 flex pointer-events-none z-0">
-              {columns.map((c, i) => (
-                <div
-                  key={c.key}
-                  className={cn(
-                    'border-r',
-                    i === columns.length - 1 ? 'border-transparent' : 'border-border',
-                  )}
-                  style={{ flexGrow: c.days, flexBasis: 0 }}
-                />
-              ))}
+            <div ref={timelineRef} className="absolute top-0 bottom-0 left-64 right-0 pointer-events-none z-0">
+              {/* Full-height week dividers */}
+              <div className="absolute inset-0 flex">
+                {columns.map((c, i) => (
+                  <div
+                    key={c.key}
+                    className={cn(
+                      'border-r',
+                      i === columns.length - 1 ? 'border-transparent' : 'border-border',
+                    )}
+                    style={{ flexGrow: c.days, flexBasis: 0 }}
+                  />
+                ))}
+              </div>
+              {/* Today line full-height */}
+              {todayPct !== null && (
+                <div className="absolute top-0 bottom-0 w-px bg-red-500/70" style={{ left: `${todayPct}%` }} />
+              )}
             </div>
-            {/* Today line full-height */}
-            {todayPct !== null && (
-              <div
-                className="absolute top-0 bottom-0 w-px bg-red-500/70 pointer-events-none z-0"
-                style={{ left: `calc(16rem + ${todayPct}% * (100% - 16rem) / 100)` }}
-              />
-            )}
-            <div ref={timelineRef} className="absolute top-0 bottom-0 left-64 right-0 pointer-events-none" />
+
             <div className="relative z-[1]">
               {isLoading ? (
                 <div className="p-10 text-center text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin inline" /></div>
