@@ -22,9 +22,19 @@ const RoadmapEditor = () => {
   const roadmap = roadmaps.find(r => r.id === id);
   const { items, create, update: updateItem, remove: removeItem, isLoading } = useRoadmapItems(id);
   const [editing, setEditing] = useState<RoadmapItem | null>(null);
-  const [addingParent, setAddingParent] = useState<string | null | undefined>(undefined); // undefined=closed, null=root, string=child of
+  const [addingParent, setAddingParent] = useState<string | null | undefined>(undefined);
   const [showSettings, setShowSettings] = useState(false);
   const [importing, setImporting] = useState(false);
+
+  // --- Bar drag/resize state ---
+  const timelineRef = useRef<HTMLDivElement | null>(null);
+  const [drag, setDrag] = useState<null | {
+    id: string; mode: 'move' | 'left' | 'right';
+    startX: number; origStart: string; origEnd: string;
+    newStart: string; newEnd: string; moved: boolean;
+  }>(null);
+  const dragRef = useRef(drag);
+  dragRef.current = drag;
 
   useRoadmapAlerts(items);
 
@@ -32,6 +42,7 @@ const RoadmapEditor = () => {
     if (!roadmap) return [];
     return buildColumns(roadmap.start_date, roadmap.end_date, roadmap.time_unit);
   }, [roadmap]);
+
 
   // Build hierarchy: roots + children-by-parent
   const { roots, childrenOf } = useMemo(() => {
