@@ -132,13 +132,31 @@ const RoadmapEditor = () => {
     window.addEventListener('mouseup', up);
   };
 
+  // Map an ISO date to the index of the column it falls within
+  const colIndexForDate = (iso: string): number => {
+    if (!columns.length) return 0;
+    const firstStart = toISODate(columns[0].start);
+    const lastEnd = toISODate(columns[columns.length - 1].end);
+    if (iso <= firstStart) return 0;
+    if (iso >= lastEnd) return columns.length - 1;
+    for (let i = 0; i < columns.length; i++) {
+      if (iso >= toISODate(columns[i].start) && iso <= toISODate(columns[i].end)) return i;
+    }
+    return columns.length - 1;
+  };
+
+  const gridTemplate = `repeat(${columns.length}, minmax(70px, ${'1fr'}))`;
+  // weight columns by day count so week/day columns stay proportional but min-clamp aligns with header
+  const gridTemplateWeighted = columns.map(c => `minmax(70px, ${c.days}fr)`).join(' ');
+
   const renderRow = (item: RoadmapItem, depth: number, idx: number) => {
     const liveStart = drag && drag.id === item.id ? drag.newStart : item.start_date;
     const liveEnd = drag && drag.id === item.id ? drag.newEnd : item.end_date;
-    const pos = barPosition(liveStart, liveEnd, roadmap.start_date, roadmap.end_date, roadmap.time_unit);
     const kids = childrenOf[item.id] || [];
     const hasKids = kids.length > 0;
     const dragging = drag?.id === item.id;
+    const startCol = colIndexForDate(liveStart);
+    const endCol = colIndexForDate(liveEnd);
     return (
       <div key={item.id}>
         <div className={cn('group flex border-b last:border-b-0 hover:bg-muted/40 transition', idx % 2 === 1 && 'bg-muted/10')}>
@@ -165,17 +183,20 @@ const RoadmapEditor = () => {
             </button>
           </div>
           <div
-            className="flex-1 relative min-h-[26px]"
+            className="flex-1 grid relative min-h-[26px] items-center"
+            style={{ gridTemplateColumns: gridTemplateWeighted }}
             onClick={(e) => {
-              // ignore click if a drag just finished
               if (dragRef.current) return;
               setEditing(item);
             }}
             role="button"
           >
-            {/* bar */}
             {item.is_milestone ? (
-              <div className="absolute top-1/2 -translate-y-1/2" style={{ left: `calc(${pos.leftPct}% - 8px)` }} title={item.label}>
+              <div
+                className="relative flex items-center justify-start pl-1"
+                style={{ gridColumn: `${startCol + 1} / ${startCol + 2}` }}
+                title={item.label}
+              >
                 <div className="w-4 h-4 rotate-45 rounded-sm shadow flex items-center justify-center text-white" style={{ background: item.color }}>
                   <Diamond className="w-2.5 h-2.5 -rotate-45" />
                 </div>
@@ -183,14 +204,17 @@ const RoadmapEditor = () => {
             ) : (
               <div
                 className={cn(
-                  "absolute top-1/2 -translate-y-1/2 h-[18px] rounded flex items-center text-[10px] text-white font-semibold shadow-sm select-none",
+                  "relative h-[18px] rounded flex items-center text-[10px] text-white font-semibold shadow-sm select-none mx-0",
                   dragging && "ring-2 ring-foreground/60 shadow-lg z-10",
                 )}
-                style={{ left: `${pos.leftPct}%`, width: `${pos.widthPct}%`, background: item.color, cursor: dragging ? 'grabbing' : 'grab' }}
+                style={{
+                  gridColumn: `${startCol + 1} / ${endCol + 2}`,
+                  background: item.color,
+                  cursor: dragging ? 'grabbing' : 'grab',
+                }}
                 title={`${item.label} · ${liveStart} → ${liveEnd}`}
                 onMouseDown={(e) => beginDrag(e, item, 'move')}
               >
-                {/* left resize handle */}
                 <div
                   className="absolute left-0 top-0 h-full w-1.5 cursor-ew-resize hover:bg-white/40 rounded-l"
                   onMouseDown={(e) => beginDrag(e, item, 'left')}
@@ -203,7 +227,6 @@ const RoadmapEditor = () => {
                   {dragging && <span className="ml-1 opacity-80">· {liveStart} → {liveEnd}</span>}
                 </span>
                 {(item.notify_on_start || item.notify_on_end) && <Bell className="w-2.5 h-2.5 mr-1 shrink-0 relative pointer-events-none" />}
-                {/* right resize handle */}
                 <div
                   className="absolute right-0 top-0 h-full w-1.5 cursor-ew-resize hover:bg-white/40 rounded-r"
                   onMouseDown={(e) => beginDrag(e, item, 'right')}
