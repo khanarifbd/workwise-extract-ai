@@ -20,6 +20,11 @@ const isIOSLikeDevice = () => {
  */
 export const preparePDFWindow = (): Window | null => {
   if (typeof window === 'undefined') return null;
+  // Only pre-open a tab on iOS-like devices, where Safari requires the window
+  // to be created synchronously inside the user gesture. On desktop and Android
+  // pre-opening a tab is harmful: it produces a blank popup that hijacks the
+  // download path and is silently blocked inside sandboxed iframes (Lovable preview).
+  if (!isIOSLikeDevice()) return null;
   try {
     const w = window.open('', '_blank');
     if (w) {
