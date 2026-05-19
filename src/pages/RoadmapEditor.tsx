@@ -1,10 +1,12 @@
 import { useMemo, useRef, useState } from 'react';
-import { Check, StickyNote } from 'lucide-react';
+import { Check, StickyNote, Award } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Loader2, Plus, ArrowLeft, CalendarDays, Bell, Star, Diamond, Trash2, Settings2, FileUp, Copy, ChevronRight, ChevronDown, CornerDownRight } from 'lucide-react';
 import { useRoadmaps, useRoadmapItems, RoadmapItem } from '@/hooks/useRoadmaps';
 import { buildColumns, barPosition, parseLocalDate, toISODate, daysBetween } from '@/lib/roadmapUtils';
+
+const isCertificate = (item: RoadmapItem) => /\bcert(ificate|s|ification)?\b|\bcerts?\b/i.test(item.label || '');
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -212,13 +214,16 @@ const RoadmapEditor = () => {
                   "relative h-[18px] rounded flex items-center text-[10px] text-white font-semibold shadow-sm select-none mx-0",
                   dragging && "ring-2 ring-foreground/60 shadow-lg z-10",
                   item.progress < 100 && !dragging && liveEnd < toISODate(new Date()) && "animate-pulse",
+                  isCertificate(item) && "h-[22px] rounded-none text-amber-950 font-bold ring-2 ring-amber-400 ring-offset-1 ring-offset-background shadow-[0_0_12px_rgba(251,191,36,0.55)] cert-ribbon",
                 )}
                 style={{
                   gridColumn: `${startCol + 1} / ${endCol + 2}`,
-                  background: item.color,
+                  background: isCertificate(item)
+                    ? 'repeating-linear-gradient(45deg, #fde68a 0 6px, #fbbf24 6px 12px)'
+                    : item.color,
                   cursor: dragging ? 'grabbing' : 'grab',
                 }}
-                title={`${item.label} · ${liveStart} → ${liveEnd} · ${item.progress}%`}
+                title={`${item.label} · ${liveStart} → ${liveEnd} · ${item.progress}%${isCertificate(item) ? ' · Certificate' : ''}`}
                 onMouseDown={(e) => beginDrag(e, item, 'move')}
               >
                 <div
@@ -243,8 +248,9 @@ const RoadmapEditor = () => {
                 >
                   {item.progress >= 100 && <Check className="w-2.5 h-2.5" strokeWidth={3} />}
                 </button>
-                <span className="relative truncate leading-none px-1.5 pointer-events-none flex-1">
-                  {item.symbol ? `${item.symbol} ` : ''}{item.label}
+                <span className={cn("relative truncate leading-none px-1.5 pointer-events-none flex-1 flex items-center gap-1", isCertificate(item) && "uppercase tracking-wider")}>
+                  {isCertificate(item) && <Award className="w-3 h-3 shrink-0 text-amber-900" strokeWidth={2.5} />}
+                  <span className="truncate">{item.symbol ? `${item.symbol} ` : ''}{item.label}</span>
                   <span className="ml-1 opacity-80">· {item.progress}%</span>
                   {dragging && <span className="ml-1 opacity-80">· {liveStart} → {liveEnd}</span>}
                 </span>

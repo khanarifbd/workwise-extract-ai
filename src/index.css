@@ -271,3 +271,8 @@
     padding-right: env(safe-area-inset-right, 0px);
   }
 }
+
+/* Certificate roadmap block - notched ribbon ends */
+.cert-ribbon {
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 0 100%, 8px 50%);
+}
