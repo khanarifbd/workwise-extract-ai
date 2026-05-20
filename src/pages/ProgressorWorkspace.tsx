@@ -328,8 +328,11 @@ const StreamColumn = ({
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
-      <ScrollArea className="flex-1">
-        <div className="p-2 space-y-2">
+      <div
+        className="flex-1 min-h-0 overflow-y-auto overscroll-contain"
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
+        <div className="p-2 space-y-2 pb-12">
           {isLoading && (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
@@ -355,7 +358,7 @@ const StreamColumn = ({
                     <span className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full bg-background text-muted-foreground">{monthCount}</span>
                   </button>
                 </CollapsibleTrigger>
-                <CollapsibleContent className="data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
+                <CollapsibleContent>
                   <div className="pl-1 pt-1 space-y-1.5">
                     {weeks.map(({ weekKey, weekLabel, days }) => {
                       const weekCount = days.reduce((a, [, l]) => a + l.length, 0);
@@ -369,7 +372,7 @@ const StreamColumn = ({
                               <span className="ml-auto text-[10px] font-semibold text-muted-foreground/80">{weekCount}</span>
                             </button>
                           </CollapsibleTrigger>
-                          <CollapsibleContent className="data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
+                          <CollapsibleContent>
                             <div className="pl-2 pt-1 space-y-2">
                               {days.map(([date, list]) => {
                                 const d = new Date(date);
@@ -398,7 +401,7 @@ const StreamColumn = ({
             );
           })}
         </div>
-      </ScrollArea>
+      </div>
     </div>
   );
 };
