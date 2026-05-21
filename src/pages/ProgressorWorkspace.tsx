@@ -366,10 +366,10 @@ const StreamColumn = ({
                       return (
                         <Collapsible key={weekKey} open={wOpen} onOpenChange={() => toggleWeek(weekKey)}>
                           <CollapsibleTrigger asChild>
-                            <button className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/50 transition-colors">
-                              <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 transition-transform text-muted-foreground", !wOpen && "-rotate-90")} />
-                              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Week · {weekLabel}</span>
-                              <span className="ml-auto text-[10px] font-semibold text-muted-foreground/80">{weekCount}</span>
+                            <button className="w-full flex items-center gap-2 px-2 py-1.5 rounded bg-sky-300/30 hover:bg-sky-300/40 border border-sky-400/40 transition-colors">
+                              <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 transition-transform text-sky-700 dark:text-sky-300", !wOpen && "-rotate-90")} />
+                              <span className="text-[11px] font-bold uppercase tracking-wider text-sky-800 dark:text-sky-200">Week · {weekLabel}</span>
+                              <span className="ml-auto text-[10px] font-semibold text-sky-700/80 dark:text-sky-300/80">{weekCount}</span>
                             </button>
                           </CollapsibleTrigger>
                           <CollapsibleContent>
@@ -421,11 +421,11 @@ const DayGroup = ({
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
       <CollapsibleTrigger asChild>
-        <button className="w-full flex items-baseline justify-between px-1.5 py-1 rounded bg-yellow-400/20 hover:bg-yellow-400/30 border border-yellow-500/40 group">
+        <button className="w-full flex items-baseline justify-between px-1.5 py-1 rounded bg-pink-300/30 hover:bg-pink-300/40 border border-pink-400/40 group">
           <div className="flex items-center gap-1.5">
-            <ChevronDown className={cn("h-3 w-3 text-yellow-700 dark:text-yellow-400 transition-transform", !open && "-rotate-90")} />
-            <h4 className="text-[11px] font-bold uppercase tracking-wider text-yellow-800 dark:text-yellow-300">{dateLabel}</h4>
-            <span className="text-[10px] font-semibold text-yellow-700/80 dark:text-yellow-400/80">· {list.length}</span>
+            <ChevronDown className={cn("h-3 w-3 text-pink-700 dark:text-pink-300 transition-transform", !open && "-rotate-90")} />
+            <h4 className="text-[11px] font-bold uppercase tracking-wider text-pink-800 dark:text-pink-200">{dateLabel}</h4>
+            <span className="text-[10px] font-semibold text-pink-700/80 dark:text-pink-300/80">· {list.length}</span>
           </div>
           <span className="text-[9px] text-destructive font-semibold">{overdueLabel}</span>
 
