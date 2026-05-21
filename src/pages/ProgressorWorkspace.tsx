@@ -421,11 +421,11 @@ const DayGroup = ({
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
       <CollapsibleTrigger asChild>
-        <button className="w-full flex items-baseline justify-between px-1.5 py-1 rounded bg-yellow-400/20 hover:bg-yellow-400/30 border border-yellow-500/40 group">
+        <button className="w-full flex items-baseline justify-between px-1.5 py-1 rounded bg-pink-300/30 hover:bg-pink-300/40 border border-pink-400/40 group">
           <div className="flex items-center gap-1.5">
-            <ChevronDown className={cn("h-3 w-3 text-yellow-700 dark:text-yellow-400 transition-transform", !open && "-rotate-90")} />
-            <h4 className="text-[11px] font-bold uppercase tracking-wider text-yellow-800 dark:text-yellow-300">{dateLabel}</h4>
-            <span className="text-[10px] font-semibold text-yellow-700/80 dark:text-yellow-400/80">· {list.length}</span>
+            <ChevronDown className={cn("h-3 w-3 text-pink-700 dark:text-pink-300 transition-transform", !open && "-rotate-90")} />
+            <h4 className="text-[11px] font-bold uppercase tracking-wider text-pink-800 dark:text-pink-200">{dateLabel}</h4>
+            <span className="text-[10px] font-semibold text-pink-700/80 dark:text-pink-300/80">· {list.length}</span>
           </div>
           <span className="text-[9px] text-destructive font-semibold">{overdueLabel}</span>
 
