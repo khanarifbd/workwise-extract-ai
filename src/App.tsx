@@ -37,7 +37,7 @@ const lazyRetry = (importFn: () => Promise<any>) => {
 
 const Index = lazy(() => lazyRetry(() => import("./pages/Index")));
 const ProgressorWorkspace = lazy(() => lazyRetry(() => import("./pages/ProgressorWorkspace")));
-const ProgressorTeamView = lazy(() => lazyRetry(() => import("./pages/ProgressorTeamView")));
+
 const Roadmaps = lazy(() => lazyRetry(() => import("./pages/Roadmaps")));
 const RoadmapEditor = lazy(() => lazyRetry(() => import("./pages/RoadmapEditor")));
 
@@ -98,11 +98,7 @@ const App = () => (
                 </AdminRoute>
               } />
               <Route path="/progressor-panel" element={<Navigate to="/progressor" replace />} />
-              <Route path="/team-progressor" element={
-                <Suspense fallback={<PageLoader />}>
-                  <ProgressorTeamView />
-                </Suspense>
-              } />
+              <Route path="/team-progressor" element={<Navigate to="/progressor" replace />} />
               <Route path="/roadmaps" element={
                 <AdminRoute>
                   <Suspense fallback={<PageLoader />}>
