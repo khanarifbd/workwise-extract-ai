@@ -20,7 +20,7 @@ import { KanbanBoard } from '@/components/KanbanBoard';
 import { CalendarView } from '@/components/CalendarView';
 import { MonthlyFolderTabs } from '@/components/MonthlyFolderTabs';
 import { BookedDateSidebar } from '@/components/BookedDateSidebar';
-import { ProgressorBookedSection } from '@/components/ProgressorBookedSection';
+
 import { Link } from 'react-router-dom';
 import { Workflow } from 'lucide-react';
 import { JobDetailsModal } from '@/components/JobDetailsModal';
@@ -1814,34 +1814,9 @@ const Index = () => {
                 <EODReportsPanel />
               ) : (
               <>
-              {/* Progressor Booked Section - shown above standard booked jobs */}
-              {activeDatabaseTab === 'booked' && viewType === 'table' && (
-                <ProgressorBookedSection
-                  jobs={displayedJobs}
-                  tradeBookings={tradeBookings}
-                  onJobClick={setSelectedJobForModal}
-                  onJobUpdate={(jobId, updates) => {
-                    refreshJobs();
-                  }}
-                  refreshJobs={refreshJobs}
-                  fanCategoryId={categories.find(c => c.name.toLowerCase().includes('fan'))?.id}
-                  currentCategoryId={activeCategory || undefined}
-                  selectedBookedDate={selectedBookedDate}
-                />
-              )}
               {viewType === 'table' ? (
                 <JobTable 
-                  jobs={activeDatabaseTab === 'booked' 
-                    ? displayedJobs.filter(j => {
-                        // Hide jobs that are rendered in the ProgressorBookedSection above
-                        // (those with at least one PENDING trade). Fully-completed trade-booked
-                        // jobs fall through to the main table so they remain visible (in green)
-                        // in their original Booked folder day.
-                        const info = tradeBookings.get(j.id);
-                        return !info || info.pendingTrades.length === 0;
-                      })
-                    : displayedJobs
-                  } 
+                  jobs={displayedJobs} 
                   onUpdateJob={canEdit ? handleUpdateJob : undefined}
                   onDeleteJob={canEdit ? handleDeleteJob : undefined}
                   onToggleComplete={canEdit ? handleToggleComplete : undefined}
