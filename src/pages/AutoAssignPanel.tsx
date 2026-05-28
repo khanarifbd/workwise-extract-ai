@@ -12,7 +12,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Sparkles, Loader2, CheckCircle2, MapPin, Briefcase, Wrench, Calendar, RefreshCw, ChevronDown, ChevronUp, Pencil, Save, X, History, ArrowRightLeft } from "lucide-react";
+import { ArrowLeft, Sparkles, Loader2, CheckCircle2, MapPin, Briefcase, Wrench, Calendar, RefreshCw, ChevronDown, ChevronUp, Pencil, Save, X, History, ArrowRightLeft, Users, Clock } from "lucide-react";
 import TeamSkillsManager from "@/components/TeamSkillsManager";
 import { cn } from "@/lib/utils";
 
@@ -20,7 +20,7 @@ interface TeamRow { teamId: string; teamName: string; }
 interface JobRow {
   id: string; job_number: string; name: string; address: string;
   description: string | null; summary_of_works: string | null;
-  booked_date: string | null; team: string | null; category_id: string | null;
+  booked_date: string | null; team: string | null; team2?: string | null; category_id: string | null;
   is_completed?: boolean | null; status?: string | null;
 }
 interface CurrentTeamAssessment {
@@ -28,11 +28,16 @@ interface CurrentTeamAssessment {
 }
 interface Assignment {
   jobId: string;
-  teamName: string;
+  teamName: string;            // primary (back-compat)
+  teamNames: string[];         // primary + extras
+  requiresMultipleTeams?: boolean;
+  jobSizeAssessment?: string;
+  tradesRequired?: string[];
   confidence: number;
   reasoning: string;
   similarJobsLast60Days?: number;
   currentTeam?: string | null;
+  currentTeam2?: string | null;
   currentTeamAssessment?: CurrentTeamAssessment;
 }
 
@@ -43,6 +48,7 @@ const AA_CATEGORY_ID = "a4a08b3b-70b6-4fa9-b54b-c173dcf07a33";
 
 const STREAM_LABEL: Record<Stream, string> = { dm: "DM Jobs", aa: "A & A" };
 const STREAM_CATEGORY: Record<Stream, string> = { dm: DM_CATEGORY_ID, aa: AA_CATEGORY_ID };
+const TEAMS_LS_KEY = (s: Stream) => `autoAssign.selectedTeams.${s}`;
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const isoDate = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
