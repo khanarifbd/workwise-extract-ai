@@ -138,11 +138,27 @@ export default function AutoAssignPanel() {
     [allTeams, stream]
   );
 
-  // Auto-select all teams for current stream when stream changes
+  // Restore per-stream tick state from localStorage; default to all-selected if no saved state.
+  // Unticked teams STAY unticked across page navigations until the user re-ticks them.
   useEffect(() => {
-    setSelectedTeams(new Set(streamTeams.map(t => t.teamId)));
+    if (!streamTeams.length) return;
+    const ids = streamTeams.map(t => t.teamId);
+    let next: Set<string>;
+    try {
+      const raw = localStorage.getItem(TEAMS_LS_KEY(stream));
+      if (raw) {
+        const saved: string[] = JSON.parse(raw);
+        // Intersect with currently-existing team ids
+        next = new Set(ids.filter(id => saved.includes(id)));
+      } else {
+        next = new Set(ids); // first visit: everyone ticked
+      }
+    } catch {
+      next = new Set(ids);
+    }
+    setSelectedTeams(next);
     setAssignments([]);
-  }, [stream, allTeams.length]);
+  }, [stream, allTeams.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch ALL booked jobs in this stream that fall on ANY of the 7 visible
   // days (LOCAL date). One source of truth — drives both the day-tab counts and the table.
