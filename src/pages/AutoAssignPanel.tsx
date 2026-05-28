@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -11,7 +12,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Sparkles, Loader2, CheckCircle2, MapPin, Briefcase, Wrench, Calendar, RefreshCw } from "lucide-react";
+import { ArrowLeft, Sparkles, Loader2, CheckCircle2, MapPin, Briefcase, Wrench, Calendar, RefreshCw, ChevronDown, ChevronUp, Pencil, Save, X, History, ArrowRightLeft } from "lucide-react";
 import TeamSkillsManager from "@/components/TeamSkillsManager";
 import { cn } from "@/lib/utils";
 
@@ -22,8 +23,17 @@ interface JobRow {
   booked_date: string | null; team: string | null; category_id: string | null;
   is_completed?: boolean | null; status?: string | null;
 }
+interface CurrentTeamAssessment {
+  teamName: string; fitScore: number; reasoning: string;
+}
 interface Assignment {
-  jobId: string; teamName: string; confidence: number; reasoning: string;
+  jobId: string;
+  teamName: string;
+  confidence: number;
+  reasoning: string;
+  similarJobsLast60Days?: number;
+  currentTeam?: string | null;
+  currentTeamAssessment?: CurrentTeamAssessment;
 }
 
 type Stream = "dm" | "aa";
@@ -82,6 +92,10 @@ export default function AutoAssignPanel() {
   const [skillsOpen, setSkillsOpen] = useState(false);
   const [skillsTeamId, setSkillsTeamId] = useState<string | undefined>();
   const [teamsWithSkills, setTeamsWithSkills] = useState<Set<string>>(new Set());
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [editing, setEditing] = useState<{ jobId: string; value: string } | null>(null);
+  const [savingDesc, setSavingDesc] = useState(false);
+  const [reassigning, setReassigning] = useState<string | null>(null);
 
   // Load teams & classify by stream (DM vs A+A inferred from past assignments to A&A category)
   useEffect(() => {
@@ -205,8 +219,14 @@ export default function AutoAssignPanel() {
     [windowJobs, targetDate]
   );
 
+  // Jobs eligible for AI auto-assignment (unassigned + active).
   const assignableJobs = useMemo(
     () => jobs.filter(j => !j.team && !j.is_completed && j.status !== "complete"),
+    [jobs]
+  );
+  // Jobs the AI analyses (everything visible for the day — assigned or not, but not completed).
+  const analysableJobs = useMemo(
+    () => jobs.filter(j => !j.is_completed && j.status !== "complete"),
     [jobs]
   );
 
@@ -216,6 +236,41 @@ export default function AutoAssignPanel() {
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
+  };
+
+  const toggleExpanded = (id: string) => {
+    setExpandedRows(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const startEdit = (job: JobRow) => {
+    setEditing({
+      jobId: job.id,
+      value: job.summary_of_works || job.description || "",
+    });
+    setExpandedRows(prev => new Set(prev).add(job.id));
+  };
+
+  const saveEdit = async () => {
+    if (!editing) return;
+    setSavingDesc(true);
+    try {
+      const { error } = await supabase
+        .from("jobs")
+        .update({ description: editing.value, updated_at: new Date().toISOString() })
+        .eq("id", editing.jobId);
+      if (error) throw error;
+      setWindowJobs(prev => prev.map(j => j.id === editing.jobId ? { ...j, description: editing.value } : j));
+      toast({ title: "Description updated" });
+      setEditing(null);
+    } catch (e: any) {
+      toast({ title: "Save failed", description: e.message, variant: "destructive" });
+    } finally {
+      setSavingDesc(false);
+    }
   };
 
   const eligibleTeams = useMemo(
@@ -228,8 +283,8 @@ export default function AutoAssignPanel() {
       toast({ title: "No teams selected", description: "Tick at least one available team.", variant: "destructive" });
       return;
     }
-    if (!assignableJobs.length) {
-      toast({ title: "No jobs to assign", description: "No unassigned jobs for that date.", variant: "destructive" });
+    if (!analysableJobs.length) {
+      toast({ title: "No jobs to analyse", description: "No active jobs for that date.", variant: "destructive" });
       return;
     }
     setRunning(true);
@@ -237,7 +292,7 @@ export default function AutoAssignPanel() {
       const { data, error } = await supabase.functions.invoke("auto-assign-jobs", {
         body: {
           teamIds: eligibleTeams.map(t => t.teamId),
-          jobIds: assignableJobs.map(j => j.id),
+          jobIds: analysableJobs.map(j => j.id),
           targetDate,
           stream,
         },
@@ -245,7 +300,7 @@ export default function AutoAssignPanel() {
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
       setAssignments((data as any).assignments || []);
-      toast({ title: "AI assignments ready", description: "Review and adjust before confirming." });
+      toast({ title: "AI analysis ready", description: "Reasoning + confidence shown per job." });
     } catch (e: any) {
       toast({ title: "Auto-assign failed", description: e.message || "Try again", variant: "destructive" });
     } finally {
@@ -257,24 +312,51 @@ export default function AutoAssignPanel() {
     setAssignments(prev => prev.map(a => a.jobId === jobId ? { ...a, teamName } : a));
   };
 
+  // Confirm only assigns currently-unassigned jobs to the AI's pick.
+  // Already-assigned jobs are advisory unless the user clicks "Reassign" per row.
   const confirmAll = async () => {
-    if (!assignments.length) return;
+    const toApply = assignments.filter(a => {
+      const job = jobs.find(j => j.id === a.jobId);
+      return job && !job.team;
+    });
+    if (!toApply.length) {
+      toast({ title: "Nothing to apply", description: "All visible jobs already have a team. Use Reassign on a specific row to override." });
+      return;
+    }
     setConfirming(true);
     try {
-      const results = await Promise.all(assignments.map(a =>
+      const results = await Promise.all(toApply.map(a =>
         supabase.from("jobs").update({ team: a.teamName, updated_at: new Date().toISOString() }).eq("id", a.jobId)
       ));
       const failed = results.filter(r => r.error).length;
       if (failed) throw new Error(`${failed} updates failed`);
-      toast({ title: "Assignments saved", description: `${assignments.length} jobs assigned.` });
-      setAssignments([]);
-      setRefreshTick(t => t + 1); // re-pull from DB so the panel mirrors the source of truth
+      toast({ title: "Assignments saved", description: `${toApply.length} jobs assigned.` });
+      setRefreshTick(t => t + 1);
     } catch (e: any) {
       toast({ title: "Save failed", description: e.message, variant: "destructive" });
     } finally {
       setConfirming(false);
     }
   };
+
+  const reassignOne = async (jobId: string, teamName: string) => {
+    setReassigning(jobId);
+    try {
+      const { error } = await supabase
+        .from("jobs")
+        .update({ team: teamName, updated_at: new Date().toISOString() })
+        .eq("id", jobId);
+      if (error) throw error;
+      toast({ title: "Job reassigned", description: `Now assigned to ${teamName}.` });
+      setRefreshTick(t => t + 1);
+    } catch (e: any) {
+      toast({ title: "Reassign failed", description: e.message, variant: "destructive" });
+    } finally {
+      setReassigning(null);
+    }
+  };
+
+
 
   const projectedWorkload = useMemo(() => {
     const base = { ...workloadByTeam };
@@ -438,15 +520,15 @@ export default function AutoAssignPanel() {
 
           <Button
             onClick={runAutoAssign}
-            disabled={running || loading || !assignableJobs.length}
+            disabled={running || loading || !analysableJobs.length}
             className="w-full"
             size="lg"
           >
-            {running ? <><Loader2 className="w-4 h-4 animate-spin" /> Analysing…</> : <><Sparkles className="w-4 h-4" /> Run Auto-Assign</>}
+            {running ? <><Loader2 className="w-4 h-4 animate-spin" /> Analysing…</> : <><Sparkles className="w-4 h-4" /> Analyse & Auto-Assign</>}
           </Button>
 
           <div className="text-[11px] text-muted-foreground p-3 rounded-lg bg-muted/50 leading-relaxed">
-            <strong>How it works:</strong> Pick a <em>stream</em> (DM or A&amp;A) and a <em>day</em>. The panel shows every booked job for that day from the database, while AI only assigns the jobs still unassigned and incomplete. Adjust any pick before confirming.
+            <strong>How it works:</strong> Pick a <em>stream</em> (DM or A&amp;A) and a <em>day</em>. AI analyses <strong>every</strong> visible job — assigned or not — and produces reasoning + a confidence score anchored to similar jobs each team has completed and signed off in the last 60 days. Confirm All only fills in the unassigned ones; use the row-level Reassign button to override an existing team.
           </div>
 
           <TeamSkillsManager
@@ -462,13 +544,13 @@ export default function AutoAssignPanel() {
           <div className="px-4 py-3 border-b border-border flex items-center justify-between">
             <h2 className="text-sm font-semibold">
               {assignments.length
-                ? `${assignments.length} AI suggestions`
+                ? `${assignments.length} AI analyses · ${jobs.length} visible jobs`
                 : `${jobs.length} booked ${STREAM_LABEL[stream]} jobs`}
             </h2>
             {assignments.length > 0 && (
               <Button onClick={confirmAll} disabled={confirming} variant="default">
                 {confirming ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                Confirm All
+                Apply to unassigned
               </Button>
             )}
           </div>
@@ -485,56 +567,157 @@ export default function AutoAssignPanel() {
                 <TableRow>
                   <TableHead className="w-24">Job #</TableHead>
                   <TableHead>Address / Description</TableHead>
-                  <TableHead className="w-44">Assigned Team</TableHead>
+                  <TableHead className="w-48">Team</TableHead>
                   <TableHead className="w-24">Confidence</TableHead>
-                  <TableHead>Reasoning</TableHead>
+                  <TableHead>AI Reasoning</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {jobs.map(job => {
                   const a = assignments.find(x => x.jobId === job.id);
-                  const isAssignable = !job.team && !job.is_completed && job.status !== "complete";
+                  const isExpanded = expandedRows.has(job.id);
+                  const isEditing = editing?.jobId === job.id;
+                  const fullDesc = job.summary_of_works || job.description || "";
+                  const isCompleted = !!(job.is_completed || job.status === "complete");
+                  const aiPicksDifferent = !!(a && job.team && a.teamName !== job.team);
+                  const cta = a?.currentTeamAssessment;
+
                   return (
-                    <TableRow key={job.id}>
-                      <TableCell className="font-mono text-xs">{job.job_number}</TableCell>
-                      <TableCell>
+                    <TableRow key={job.id} className="align-top">
+                      <TableCell className="font-mono text-xs pt-3">{job.job_number}</TableCell>
+                      <TableCell className="pt-3">
                         <div className="text-xs font-medium flex items-center gap-1">
                           <MapPin className="w-3 h-3 text-muted-foreground" />
                           {job.address || job.name}
                         </div>
-                        <div className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">
-                          {(job.summary_of_works || job.description || "").slice(0, 160)}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {a ? (
-                          <Select value={a.teamName} onValueChange={(v) => updateAssignment(job.id, v)}>
-                            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              {eligibleTeams.map(t => (
-                                <SelectItem key={t.teamId} value={t.teamName}>{t.teamName}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        ) : job.team ? (
-                          <Badge variant="secondary">{job.team}</Badge>
-                        ) : job.is_completed || job.status === "complete" ? (
-                          <Badge variant="secondary">Completed</Badge>
-                        ) : isAssignable ? (
-                          <span className="text-[11px] text-muted-foreground">Ready for AI</span>
+                        {isEditing ? (
+                          <div className="mt-1.5 space-y-1.5">
+                            <Textarea
+                              value={editing!.value}
+                              onChange={(e) => setEditing({ jobId: job.id, value: e.target.value })}
+                              className="min-h-[100px] text-[11px]"
+                              autoFocus
+                            />
+                            <div className="flex items-center gap-1.5">
+                              <Button size="sm" className="h-7 text-[11px] gap-1" onClick={saveEdit} disabled={savingDesc}>
+                                {savingDesc ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                                Save
+                              </Button>
+                              <Button size="sm" variant="ghost" className="h-7 text-[11px] gap-1" onClick={() => setEditing(null)}>
+                                <X className="w-3 h-3" /> Cancel
+                              </Button>
+                            </div>
+                          </div>
                         ) : (
-                          <span className="text-[11px] text-muted-foreground">—</span>
+                          <>
+                            <div
+                              className={cn(
+                                "text-[11px] text-muted-foreground mt-0.5 whitespace-pre-wrap",
+                                !isExpanded && "line-clamp-2"
+                              )}
+                            >
+                              {fullDesc || <span className="italic">No description</span>}
+                            </div>
+                            <div className="flex items-center gap-2 mt-1">
+                              {fullDesc.length > 160 && (
+                                <button
+                                  onClick={() => toggleExpanded(job.id)}
+                                  className="text-[10px] text-primary hover:underline flex items-center gap-0.5"
+                                >
+                                  {isExpanded ? <><ChevronUp className="w-3 h-3" /> Less</> : <><ChevronDown className="w-3 h-3" /> Expand</>}
+                                </button>
+                              )}
+                              <button
+                                onClick={() => startEdit(job)}
+                                className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-0.5"
+                              >
+                                <Pencil className="w-3 h-3" /> Edit
+                              </button>
+                            </div>
+                          </>
                         )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="pt-3">
+                        {isCompleted ? (
+                          <Badge variant="secondary">Completed</Badge>
+                        ) : (
+                          <div className="space-y-1.5">
+                            {job.team ? (
+                              <div className="flex flex-col gap-1">
+                                <Badge variant="secondary" className="w-fit">{job.team}</Badge>
+                                {aiPicksDifferent && (
+                                  <div className="flex items-center gap-1 text-[10px] text-amber-700 dark:text-amber-400">
+                                    <ArrowRightLeft className="w-3 h-3" />
+                                    AI suggests <strong>{a!.teamName}</strong>
+                                  </div>
+                                )}
+                              </div>
+                            ) : a ? (
+                              <Select value={a.teamName} onValueChange={(v) => updateAssignment(job.id, v)}>
+                                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  {eligibleTeams.map(t => (
+                                    <SelectItem key={t.teamId} value={t.teamName}>{t.teamName}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <span className="text-[11px] text-muted-foreground">Unassigned · Run AI</span>
+                            )}
+                            {aiPicksDifferent && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-6 text-[10px] gap-1 w-full"
+                                disabled={reassigning === job.id}
+                                onClick={() => reassignOne(job.id, a!.teamName)}
+                              >
+                                {reassigning === job.id
+                                  ? <Loader2 className="w-3 h-3 animate-spin" />
+                                  : <><ArrowRightLeft className="w-3 h-3" /> Reassign</>}
+                              </Button>
+                            )}
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell className="pt-3">
                         {a && (
-                          <Badge variant="secondary" className={confidenceColor(a.confidence)}>
-                            {a.confidence}%
-                          </Badge>
+                          <div className="space-y-1">
+                            <Badge variant="secondary" className={confidenceColor(a.confidence)}>
+                              {a.confidence}%
+                            </Badge>
+                            {typeof a.similarJobsLast60Days === "number" && (
+                              <div className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                                <History className="w-3 h-3" />
+                                {a.similarJobsLast60Days} similar / 60d
+                              </div>
+                            )}
+                          </div>
                         )}
                       </TableCell>
-                      <TableCell className="text-[11px] text-muted-foreground">
-                        {a?.reasoning}
+                      <TableCell className="text-[11px] pt-3">
+                        {a ? (
+                          <div className="space-y-1.5">
+                            <div className="text-foreground/90">{a.reasoning}</div>
+                            {cta && (
+                              <div className={cn(
+                                "rounded-md border px-2 py-1.5 text-[10px] leading-snug",
+                                cta.fitScore >= 70
+                                  ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-800 dark:text-emerald-300"
+                                  : cta.fitScore >= 50
+                                  ? "border-amber-500/30 bg-amber-500/5 text-amber-800 dark:text-amber-300"
+                                  : "border-rose-500/30 bg-rose-500/5 text-rose-800 dark:text-rose-300"
+                              )}>
+                                <div className="font-semibold mb-0.5">
+                                  Current team fit: {cta.teamName} · {cta.fitScore}%
+                                </div>
+                                <div>{cta.reasoning}</div>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground italic">Run Analyse to see reasoning</span>
+                        )}
                       </TableCell>
                     </TableRow>
                   );
@@ -543,6 +726,7 @@ export default function AutoAssignPanel() {
             </Table>
           )}
         </section>
+
       </main>
     </div>
   );
