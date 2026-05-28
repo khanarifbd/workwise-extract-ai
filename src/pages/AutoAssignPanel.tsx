@@ -219,8 +219,14 @@ export default function AutoAssignPanel() {
     [windowJobs, targetDate]
   );
 
+  // Jobs eligible for AI auto-assignment (unassigned + active).
   const assignableJobs = useMemo(
     () => jobs.filter(j => !j.team && !j.is_completed && j.status !== "complete"),
+    [jobs]
+  );
+  // Jobs the AI analyses (everything visible for the day — assigned or not, but not completed).
+  const analysableJobs = useMemo(
+    () => jobs.filter(j => !j.is_completed && j.status !== "complete"),
     [jobs]
   );
 
@@ -230,6 +236,41 @@ export default function AutoAssignPanel() {
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
+  };
+
+  const toggleExpanded = (id: string) => {
+    setExpandedRows(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const startEdit = (job: JobRow) => {
+    setEditing({
+      jobId: job.id,
+      value: job.summary_of_works || job.description || "",
+    });
+    setExpandedRows(prev => new Set(prev).add(job.id));
+  };
+
+  const saveEdit = async () => {
+    if (!editing) return;
+    setSavingDesc(true);
+    try {
+      const { error } = await supabase
+        .from("jobs")
+        .update({ description: editing.value, updated_at: new Date().toISOString() })
+        .eq("id", editing.jobId);
+      if (error) throw error;
+      setWindowJobs(prev => prev.map(j => j.id === editing.jobId ? { ...j, description: editing.value } : j));
+      toast({ title: "Description updated" });
+      setEditing(null);
+    } catch (e: any) {
+      toast({ title: "Save failed", description: e.message, variant: "destructive" });
+    } finally {
+      setSavingDesc(false);
+    }
   };
 
   const eligibleTeams = useMemo(
@@ -242,8 +283,8 @@ export default function AutoAssignPanel() {
       toast({ title: "No teams selected", description: "Tick at least one available team.", variant: "destructive" });
       return;
     }
-    if (!assignableJobs.length) {
-      toast({ title: "No jobs to assign", description: "No unassigned jobs for that date.", variant: "destructive" });
+    if (!analysableJobs.length) {
+      toast({ title: "No jobs to analyse", description: "No active jobs for that date.", variant: "destructive" });
       return;
     }
     setRunning(true);
@@ -251,7 +292,7 @@ export default function AutoAssignPanel() {
       const { data, error } = await supabase.functions.invoke("auto-assign-jobs", {
         body: {
           teamIds: eligibleTeams.map(t => t.teamId),
-          jobIds: assignableJobs.map(j => j.id),
+          jobIds: analysableJobs.map(j => j.id),
           targetDate,
           stream,
         },
@@ -259,7 +300,7 @@ export default function AutoAssignPanel() {
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
       setAssignments((data as any).assignments || []);
-      toast({ title: "AI assignments ready", description: "Review and adjust before confirming." });
+      toast({ title: "AI analysis ready", description: "Reasoning + confidence shown per job." });
     } catch (e: any) {
       toast({ title: "Auto-assign failed", description: e.message || "Try again", variant: "destructive" });
     } finally {
@@ -271,24 +312,51 @@ export default function AutoAssignPanel() {
     setAssignments(prev => prev.map(a => a.jobId === jobId ? { ...a, teamName } : a));
   };
 
+  // Confirm only assigns currently-unassigned jobs to the AI's pick.
+  // Already-assigned jobs are advisory unless the user clicks "Reassign" per row.
   const confirmAll = async () => {
-    if (!assignments.length) return;
+    const toApply = assignments.filter(a => {
+      const job = jobs.find(j => j.id === a.jobId);
+      return job && !job.team;
+    });
+    if (!toApply.length) {
+      toast({ title: "Nothing to apply", description: "All visible jobs already have a team. Use Reassign on a specific row to override." });
+      return;
+    }
     setConfirming(true);
     try {
-      const results = await Promise.all(assignments.map(a =>
+      const results = await Promise.all(toApply.map(a =>
         supabase.from("jobs").update({ team: a.teamName, updated_at: new Date().toISOString() }).eq("id", a.jobId)
       ));
       const failed = results.filter(r => r.error).length;
       if (failed) throw new Error(`${failed} updates failed`);
-      toast({ title: "Assignments saved", description: `${assignments.length} jobs assigned.` });
-      setAssignments([]);
-      setRefreshTick(t => t + 1); // re-pull from DB so the panel mirrors the source of truth
+      toast({ title: "Assignments saved", description: `${toApply.length} jobs assigned.` });
+      setRefreshTick(t => t + 1);
     } catch (e: any) {
       toast({ title: "Save failed", description: e.message, variant: "destructive" });
     } finally {
       setConfirming(false);
     }
   };
+
+  const reassignOne = async (jobId: string, teamName: string) => {
+    setReassigning(jobId);
+    try {
+      const { error } = await supabase
+        .from("jobs")
+        .update({ team: teamName, updated_at: new Date().toISOString() })
+        .eq("id", jobId);
+      if (error) throw error;
+      toast({ title: "Job reassigned", description: `Now assigned to ${teamName}.` });
+      setRefreshTick(t => t + 1);
+    } catch (e: any) {
+      toast({ title: "Reassign failed", description: e.message, variant: "destructive" });
+    } finally {
+      setReassigning(null);
+    }
+  };
+
+
 
   const projectedWorkload = useMemo(() => {
     const base = { ...workloadByTeam };
