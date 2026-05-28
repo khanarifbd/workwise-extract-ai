@@ -321,17 +321,18 @@ export default function AutoAssignPanel() {
           </div>
         </div>
 
-        {/* Day tabs */}
+        {/* Day tabs — each shows the LIVE count of unassigned jobs booked for that local day */}
         <div className="container mx-auto px-4 pb-3 flex items-center gap-2 overflow-x-auto">
           <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
           {days.map(d => {
             const active = d.iso === targetDate;
+            const count = dayCounts[d.iso] ?? 0;
             return (
               <button
                 key={d.iso}
                 onClick={() => setTargetDate(d.iso)}
                 className={cn(
-                  "shrink-0 px-3 py-1.5 rounded-md border text-xs font-medium transition-all flex flex-col items-center min-w-[68px]",
+                  "shrink-0 px-3 py-1.5 rounded-md border text-xs font-medium transition-all flex flex-col items-center min-w-[72px] relative",
                   active
                     ? "bg-primary text-primary-foreground border-primary shadow"
                     : "bg-card border-border text-foreground hover:bg-muted"
@@ -339,9 +340,35 @@ export default function AutoAssignPanel() {
               >
                 <span className="leading-tight">{d.label}</span>
                 <span className={cn("text-[10px] leading-tight", active ? "opacity-90" : "text-muted-foreground")}>{d.sub}</span>
+                <span className={cn(
+                  "absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1 rounded-full text-[10px] font-bold flex items-center justify-center",
+                  count > 0
+                    ? (active ? "bg-white text-primary" : "bg-violet-600 text-white")
+                    : "bg-muted text-muted-foreground border border-border"
+                )}>
+                  {count}
+                </span>
               </button>
             );
           })}
+          <div className="ml-auto flex items-center gap-2 shrink-0">
+            {lastSyncedAt && (
+              <span className="text-[10px] text-muted-foreground">
+                Synced {lastSyncedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+              </span>
+            )}
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 gap-1 text-[11px]"
+              onClick={() => setRefreshTick(t => t + 1)}
+              disabled={loading}
+              title="Re-pull from database"
+            >
+              <RefreshCw className={cn("w-3 h-3", loading && "animate-spin")} />
+              Refresh
+            </Button>
+          </div>
         </div>
       </header>
 
