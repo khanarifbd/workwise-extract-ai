@@ -1475,6 +1475,48 @@ export type Database = {
           },
         ]
       }
+      team_skills: {
+        Row: {
+          created_at: string
+          id: string
+          max_daily_jobs: number
+          notes: string
+          proficiency_level: string
+          skills: string[]
+          strengths: string
+          team_id: string
+          team_name: string
+          updated_at: string
+          weaknesses: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          max_daily_jobs?: number
+          notes?: string
+          proficiency_level?: string
+          skills?: string[]
+          strengths?: string
+          team_id: string
+          team_name: string
+          updated_at?: string
+          weaknesses?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          max_daily_jobs?: number
+          notes?: string
+          proficiency_level?: string
+          skills?: string[]
+          strengths?: string
+          team_id?: string
+          team_name?: string
+          updated_at?: string
+          weaknesses?: string
+        }
+        Relationships: []
+      }
       trade_companies: {
         Row: {
           contact_name: string | null
