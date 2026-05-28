@@ -620,7 +620,10 @@ export default function AutoAssignPanel() {
                   const isEditing = editing?.jobId === job.id;
                   const fullDesc = job.summary_of_works || job.description || "";
                   const isCompleted = !!(job.is_completed || job.status === "complete");
-                  const aiPicksDifferent = !!(a && job.team && a.teamName !== job.team);
+                  const aiNames = a?.teamNames?.length ? a.teamNames : (a ? [a.teamName] : []);
+                  const currentNames = [job.team, job.team2].filter(Boolean) as string[];
+                  const aiPicksDifferent = !!(a && currentNames.length > 0 &&
+                    (currentNames.join("|") !== aiNames.join("|")));
                   const cta = a?.currentTeamAssessment;
 
                   return (
@@ -683,25 +686,37 @@ export default function AutoAssignPanel() {
                           <Badge variant="secondary">Completed</Badge>
                         ) : (
                           <div className="space-y-1.5">
-                            {job.team ? (
+                            {currentNames.length > 0 ? (
                               <div className="flex flex-col gap-1">
-                                <Badge variant="secondary" className="w-fit">{job.team}</Badge>
+                                <div className="flex flex-wrap gap-1">
+                                  {currentNames.map(n => (
+                                    <Badge key={n} variant="secondary" className="w-fit">{n}</Badge>
+                                  ))}
+                                </div>
                                 {aiPicksDifferent && (
-                                  <div className="flex items-center gap-1 text-[10px] text-amber-700 dark:text-amber-400">
+                                  <div className="flex items-center gap-1 text-[10px] text-amber-700 dark:text-amber-400 flex-wrap">
                                     <ArrowRightLeft className="w-3 h-3" />
-                                    AI suggests <strong>{a!.teamName}</strong>
+                                    AI suggests <strong>{aiNames.join(" + ")}</strong>
                                   </div>
                                 )}
                               </div>
                             ) : a ? (
-                              <Select value={a.teamName} onValueChange={(v) => updateAssignment(job.id, v)}>
-                                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                  {eligibleTeams.map(t => (
-                                    <SelectItem key={t.teamId} value={t.teamName}>{t.teamName}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                              <div className="space-y-1">
+                                <Select value={a.teamName} onValueChange={(v) => updateAssignment(job.id, v)}>
+                                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    {eligibleTeams.map(t => (
+                                      <SelectItem key={t.teamId} value={t.teamName}>{t.teamName}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                {aiNames.length > 1 && (
+                                  <div className="flex items-center gap-1 text-[10px] text-violet-700 dark:text-violet-400">
+                                    <Users className="w-3 h-3" />
+                                    +{aiNames.slice(1).join(", ")} (same day)
+                                  </div>
+                                )}
+                              </div>
                             ) : (
                               <span className="text-[11px] text-muted-foreground">Unassigned · Run AI</span>
                             )}
@@ -711,11 +726,11 @@ export default function AutoAssignPanel() {
                                 variant="outline"
                                 className="h-6 text-[10px] gap-1 w-full"
                                 disabled={reassigning === job.id}
-                                onClick={() => reassignOne(job.id, a!.teamName)}
+                                onClick={() => reassignOne(job.id, aiNames)}
                               >
                                 {reassigning === job.id
                                   ? <Loader2 className="w-3 h-3 animate-spin" />
-                                  : <><ArrowRightLeft className="w-3 h-3" /> Reassign</>}
+                                  : <><ArrowRightLeft className="w-3 h-3" /> Apply AI</>}
                               </Button>
                             )}
                           </div>
