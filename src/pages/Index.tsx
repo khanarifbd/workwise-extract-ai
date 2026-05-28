@@ -1395,15 +1395,23 @@ const Index = () => {
           ) : (
             <StatsCards jobs={jobs} allJobs={jobs} tradeBookings={tradeBookings} />
           )}
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setShowMaterialsReport(true)}
-            className="shrink-0 gap-1.5"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-primary" />
-            Materials Report
-          </Button>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button asChild size="sm" className="gap-1.5 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white shadow-md">
+              <Link to="/auto-assign">
+                <Sparkles className="w-3.5 h-3.5" />
+                Auto-Assign
+              </Link>
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowMaterialsReport(true)}
+              className="gap-1.5"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-primary" />
+              Materials Report
+            </Button>
+          </div>
         </div>
 
         {/* Category Tabs - hide add/edit for viewers */}
