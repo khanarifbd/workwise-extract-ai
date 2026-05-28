@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -12,26 +11,56 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Sparkles, Loader2, CheckCircle2, MapPin, Briefcase, Wrench } from "lucide-react";
+import { ArrowLeft, Sparkles, Loader2, CheckCircle2, MapPin, Briefcase, Wrench, Calendar } from "lucide-react";
 import TeamSkillsManager from "@/components/TeamSkillsManager";
+import { cn } from "@/lib/utils";
 
 interface TeamRow { teamId: string; teamName: string; }
 interface JobRow {
   id: string; job_number: string; name: string; address: string;
   description: string | null; summary_of_works: string | null;
-  booked_date: string | null; team: string | null;
+  booked_date: string | null; team: string | null; category_id: string | null;
 }
 interface Assignment {
   jobId: string; teamName: string; confidence: number; reasoning: string;
 }
 
-const todayISO = () => new Date().toISOString().slice(0, 10);
+type Stream = "dm" | "aa";
+
+const DM_CATEGORY_ID = "e1563697-457a-4a67-aa9e-b0785dbc711d";
+const AA_CATEGORY_ID = "a4a08b3b-70b6-4fa9-b54b-c173dcf07a33";
+
+const STREAM_LABEL: Record<Stream, string> = { dm: "DM Jobs", aa: "A & A" };
+const STREAM_CATEGORY: Record<Stream, string> = { dm: DM_CATEGORY_ID, aa: AA_CATEGORY_ID };
+
+const pad = (n: number) => String(n).padStart(2, "0");
+const isoDate = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const todayISO = () => isoDate(new Date());
+
+interface DayOption { iso: string; label: string; sub: string; }
+const buildDays = (): DayOption[] => {
+  const out: DayOption[] = [];
+  const base = new Date();
+  base.setHours(0, 0, 0, 0);
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(base);
+    d.setDate(base.getDate() + i);
+    const label = i === 0 ? "Today" : i === 1 ? "Tomorrow"
+      : d.toLocaleDateString(undefined, { weekday: "short" });
+    const sub = d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+    out.push({ iso: isoDate(d), label, sub });
+  }
+  return out;
+};
 
 export default function AutoAssignPanel() {
   const { toast } = useToast();
-  const [teams, setTeams] = useState<TeamRow[]>([]);
-  const [selectedTeams, setSelectedTeams] = useState<Set<string>>(new Set());
+  const days = useMemo(buildDays, []);
+  const [stream, setStream] = useState<Stream>("dm");
   const [targetDate, setTargetDate] = useState<string>(todayISO());
+
+  const [allTeams, setAllTeams] = useState<Array<TeamRow & { stream: Stream }>>([]);
+  const [selectedTeams, setSelectedTeams] = useState<Set<string>>(new Set());
   const [jobs, setJobs] = useState<JobRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [running, setRunning] = useState(false);
@@ -43,35 +72,48 @@ export default function AutoAssignPanel() {
   const [skillsTeamId, setSkillsTeamId] = useState<string | undefined>();
   const [teamsWithSkills, setTeamsWithSkills] = useState<Set<string>>(new Set());
 
-  // Load teams (exclude ops managers) and workload counts
+  // Load teams & classify by stream (DM vs A+A inferred from past assignments to A&A category)
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
-        .from("team_access_codes")
-        .select("team_id, team_name, is_ops_manager")
-        .eq("is_active", true)
-        .order("team_name");
-      const filtered: TeamRow[] = (data || [])
-        .filter(t => !t.is_ops_manager)
-        .map(t => ({ teamId: t.team_id, teamName: t.team_name }));
-      setTeams(filtered);
-      setSelectedTeams(new Set(filtered.map(t => t.teamId)));
+      const [{ data: tac }, { data: aaJobs }, { data: skills }, { data: open }] = await Promise.all([
+        supabase.from("team_access_codes")
+          .select("team_id, team_name, is_ops_manager").eq("is_active", true).order("team_name"),
+        supabase.from("jobs").select("team").eq("category_id", AA_CATEGORY_ID).not("team", "is", null).limit(5000),
+        supabase.from("team_skills" as any).select("team_id"),
+        supabase.from("jobs").select("team").eq("is_completed", false),
+      ]);
 
-      // workload: open jobs per team
-      const { data: open } = await supabase
-        .from("jobs").select("team")
-        .eq("is_completed", false);
+      const aaTeamNames = new Set((aaJobs || []).map((j: any) => (j.team || "").trim()).filter(Boolean));
+      const rows: Array<TeamRow & { stream: Stream }> = (tac || [])
+        .filter((t: any) => !t.is_ops_manager)
+        .map((t: any) => ({
+          teamId: t.team_id,
+          teamName: t.team_name,
+          stream: aaTeamNames.has((t.team_name || "").trim()) ? "aa" : "dm",
+        }));
+      setAllTeams(rows);
+
       const counts: Record<string, number> = {};
-      (open || []).forEach(j => { if (j.team) counts[j.team] = (counts[j.team] || 0) + 1; });
+      (open || []).forEach((j: any) => { if (j.team) counts[j.team] = (counts[j.team] || 0) + 1; });
       setWorkloadByTeam(counts);
 
-      // teams that already have a skill profile (for the badge)
-      const { data: skills } = await supabase.from("team_skills" as any).select("team_id");
-      setTeamsWithSkills(new Set(((skills as any[]) || []).map(s => s.team_id)));
+      setTeamsWithSkills(new Set(((skills as any[]) || []).map((s: any) => s.team_id)));
     })();
   }, [skillsOpen]);
 
-  // Load unavailable teams and unassigned jobs for selected date
+  // Teams visible for the active stream
+  const streamTeams = useMemo(
+    () => allTeams.filter(t => t.stream === stream),
+    [allTeams, stream]
+  );
+
+  // Auto-select all teams for current stream when stream changes
+  useEffect(() => {
+    setSelectedTeams(new Set(streamTeams.map(t => t.teamId)));
+    setAssignments([]);
+  }, [stream, allTeams.length]);
+
+  // Load unavailable teams and unassigned jobs for selected date + stream
   useEffect(() => {
     (async () => {
       setLoading(true);
@@ -79,24 +121,24 @@ export default function AutoAssignPanel() {
         supabase.from("team_availability").select("team_id").eq("unavailable_date", targetDate),
         supabase
           .from("jobs")
-          .select("id, job_number, name, address, description, summary_of_works, booked_date, team")
+          .select("id, job_number, name, address, description, summary_of_works, booked_date, team, category_id")
           .is("team", null)
           .eq("is_completed", false)
+          .eq("category_id", STREAM_CATEGORY[stream])
           .or(`booked_date.gte.${targetDate}T00:00:00Z,booked_date.is.null`)
           .order("booked_date", { ascending: true, nullsFirst: false })
-          .limit(200),
+          .limit(300),
       ]);
-      setUnavailableTeams(new Set((unavail || []).map(u => u.team_id)));
-      // Filter to only jobs for the selected day OR unbooked
-      const filtered = (jobRows || []).filter(j => {
+      setUnavailableTeams(new Set((unavail || []).map((u: any) => u.team_id)));
+      const filtered = (jobRows || []).filter((j: any) => {
         if (!j.booked_date) return true;
         return j.booked_date.slice(0, 10) === targetDate;
       });
-      setJobs(filtered);
+      setJobs(filtered as JobRow[]);
       setAssignments([]);
       setLoading(false);
     })();
-  }, [targetDate]);
+  }, [targetDate, stream]);
 
   const toggleTeam = (id: string) => {
     setSelectedTeams(prev => {
@@ -107,8 +149,8 @@ export default function AutoAssignPanel() {
   };
 
   const eligibleTeams = useMemo(
-    () => teams.filter(t => selectedTeams.has(t.teamId) && !unavailableTeams.has(t.teamId)),
-    [teams, selectedTeams, unavailableTeams]
+    () => streamTeams.filter(t => selectedTeams.has(t.teamId) && !unavailableTeams.has(t.teamId)),
+    [streamTeams, selectedTeams, unavailableTeams]
   );
 
   const runAutoAssign = async () => {
@@ -127,6 +169,7 @@ export default function AutoAssignPanel() {
           teamIds: eligibleTeams.map(t => t.teamId),
           jobIds: jobs.map(j => j.id),
           targetDate,
+          stream,
         },
       });
       if (error) throw error;
@@ -154,7 +197,6 @@ export default function AutoAssignPanel() {
       const failed = results.filter(r => r.error).length;
       if (failed) throw new Error(`${failed} updates failed`);
       toast({ title: "Assignments saved", description: `${assignments.length} jobs assigned.` });
-      // refresh jobs list
       setAssignments([]);
       setJobs(prev => prev.filter(j => !assignments.find(a => a.jobId === j.id)));
     } catch (e: any) {
@@ -164,9 +206,6 @@ export default function AutoAssignPanel() {
     }
   };
 
-  const jobById = useMemo(() => new Map(jobs.map(j => [j.id, j])), [jobs]);
-
-  // Projected workload if confirmed
   const projectedWorkload = useMemo(() => {
     const base = { ...workloadByTeam };
     assignments.forEach(a => { base[a.teamName] = (base[a.teamName] || 0) + 1; });
@@ -181,7 +220,7 @@ export default function AutoAssignPanel() {
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-30 bg-background/90 backdrop-blur-xl border-b border-border">
-        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+        <div className="container mx-auto px-4 py-3 flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
             <Link to="/" className="text-muted-foreground hover:text-foreground">
               <ArrowLeft className="w-5 h-5" />
@@ -196,15 +235,47 @@ export default function AutoAssignPanel() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <label className="text-xs text-muted-foreground">Date</label>
-            <Input
-              type="date"
-              value={targetDate}
-              onChange={(e) => setTargetDate(e.target.value)}
-              className="h-9 w-40"
-            />
+
+          {/* Stream toggle */}
+          <div className="inline-flex rounded-lg border border-border bg-muted p-0.5">
+            {(["dm", "aa"] as Stream[]).map(s => (
+              <button
+                key={s}
+                onClick={() => setStream(s)}
+                className={cn(
+                  "px-4 py-1.5 text-xs font-semibold rounded-md transition-all",
+                  stream === s
+                    ? "bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {STREAM_LABEL[s]}
+              </button>
+            ))}
           </div>
+        </div>
+
+        {/* Day tabs */}
+        <div className="container mx-auto px-4 pb-3 flex items-center gap-2 overflow-x-auto">
+          <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
+          {days.map(d => {
+            const active = d.iso === targetDate;
+            return (
+              <button
+                key={d.iso}
+                onClick={() => setTargetDate(d.iso)}
+                className={cn(
+                  "shrink-0 px-3 py-1.5 rounded-md border text-xs font-medium transition-all flex flex-col items-center min-w-[68px]",
+                  active
+                    ? "bg-primary text-primary-foreground border-primary shadow"
+                    : "bg-card border-border text-foreground hover:bg-muted"
+                )}
+              >
+                <span className="leading-tight">{d.label}</span>
+                <span className={cn("text-[10px] leading-tight", active ? "opacity-90" : "text-muted-foreground")}>{d.sub}</span>
+              </button>
+            );
+          })}
         </div>
       </header>
 
@@ -214,7 +285,8 @@ export default function AutoAssignPanel() {
           <div className="rounded-lg border border-border bg-card p-4">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-semibold flex items-center gap-2">
-                <Briefcase className="w-4 h-4" /> Available Teams
+                <Briefcase className="w-4 h-4" /> {STREAM_LABEL[stream]} Teams
+                <Badge variant="secondary" className="ml-1 h-5">{streamTeams.length}</Badge>
               </h2>
               <Button
                 size="sm"
@@ -226,7 +298,12 @@ export default function AutoAssignPanel() {
               </Button>
             </div>
             <div className="space-y-2">
-              {teams.map(t => {
+              {streamTeams.length === 0 && (
+                <div className="text-[11px] text-muted-foreground py-3 text-center">
+                  No teams found for {STREAM_LABEL[stream]}.
+                </div>
+              )}
+              {streamTeams.map(t => {
                 const unavail = unavailableTeams.has(t.teamId);
                 const load = projectedWorkload[t.teamName] || 0;
                 const hasSkills = teamsWithSkills.has(t.teamId);
@@ -272,13 +349,13 @@ export default function AutoAssignPanel() {
           </Button>
 
           <div className="text-[11px] text-muted-foreground p-3 rounded-lg bg-muted/50 leading-relaxed">
-            <strong>How it works:</strong> AI combines each team's <em>manual skill profile</em> (click <Wrench className="w-3 h-3 inline" />) with their past completed jobs, then balances workload and groups nearby addresses. You can change any pick before confirming.
+            <strong>How it works:</strong> Pick a <em>stream</em> (DM or A&amp;A) and a <em>day</em>, then run. AI combines each team's manual skill profile with past completed jobs, balances workload and groups nearby addresses. Adjust any pick before confirming.
           </div>
 
           <TeamSkillsManager
             open={skillsOpen}
             onOpenChange={setSkillsOpen}
-            teams={teams}
+            teams={streamTeams}
             initialTeamId={skillsTeamId}
           />
         </aside>
@@ -287,7 +364,9 @@ export default function AutoAssignPanel() {
         <section className="rounded-lg border border-border bg-card overflow-hidden">
           <div className="px-4 py-3 border-b border-border flex items-center justify-between">
             <h2 className="text-sm font-semibold">
-              {assignments.length ? `${assignments.length} AI suggestions` : `${jobs.length} unassigned jobs`}
+              {assignments.length
+                ? `${assignments.length} AI suggestions`
+                : `${jobs.length} unassigned ${STREAM_LABEL[stream]} jobs`}
             </h2>
             {assignments.length > 0 && (
               <Button onClick={confirmAll} disabled={confirming} variant="default">
@@ -301,7 +380,7 @@ export default function AutoAssignPanel() {
             <div className="p-12 text-center text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin mx-auto" /></div>
           ) : !jobs.length ? (
             <div className="p-12 text-center text-muted-foreground text-sm">
-              No unassigned jobs for {targetDate}.
+              No unassigned {STREAM_LABEL[stream]} jobs for {targetDate}.
             </div>
           ) : (
             <Table>
