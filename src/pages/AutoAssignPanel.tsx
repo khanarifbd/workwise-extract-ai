@@ -256,6 +256,7 @@ export default function AutoAssignPanel() {
     setSelectedTeams(prev => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
+      try { localStorage.setItem(TEAMS_LS_KEY(stream), JSON.stringify(Array.from(next))); } catch { /* ignore */ }
       return next;
     });
   };
