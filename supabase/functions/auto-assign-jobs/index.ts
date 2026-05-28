@@ -59,7 +59,13 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 3. For each team: skillset from last 30 completed jobs + current workload
+    // 3. For each team: skillset from last 30 completed jobs + current workload + manual skill profile
+    const { data: skillRows } = await supabase
+      .from("team_skills")
+      .select("team_id, skills, strengths, weaknesses, proficiency_level, max_daily_jobs, notes")
+      .in("team_id", availableTeams.map(t => t.team_id));
+    const skillsByTeam = new Map((skillRows || []).map((s: any) => [s.team_id, s]));
+
     const teamProfiles = await Promise.all(availableTeams.map(async (t) => {
       const [{ data: completed }, { count: openCount }, { data: dayJobs }] = await Promise.all([
         supabase.from("jobs")
@@ -81,12 +87,19 @@ Deno.serve(async (req) => {
       const history = (completed || [])
         .map(c => `${c.summary_of_works || ""} ${c.description || ""}`.slice(0, 200))
         .filter(Boolean).join(" | ");
+      const profile: any = skillsByTeam.get(t.team_id) || {};
       return {
         teamId: t.team_id,
         teamName: t.team_name,
         historySnippet: history.slice(0, 2000),
         currentOpenJobs: openCount || 0,
         dayAddresses: (dayJobs || []).map(j => j.address).filter(Boolean),
+        manualSkills: profile.skills || [],
+        strengths: profile.strengths || "",
+        weaknesses: profile.weaknesses || "",
+        proficiency: profile.proficiency_level || "experienced",
+        maxDailyJobs: profile.max_daily_jobs ?? 3,
+        dispatcherNotes: profile.notes || "",
       };
     }));
 
@@ -117,8 +130,14 @@ Deno.serve(async (req) => {
     const teamSummary = teamProfiles.map(t => ({
       teamName: t.teamName,
       currentWorkload: t.currentOpenJobs,
-      pastWorkSample: t.historySnippet || "(no history yet)",
       jobsAlreadyOnThisDay: t.dayAddresses.length,
+      maxDailyJobs: t.maxDailyJobs,
+      proficiency: t.proficiency,
+      declaredSkills: t.manualSkills,
+      strengths: t.strengths,
+      weaknesses: t.weaknesses,
+      dispatcherNotes: t.dispatcherNotes,
+      pastWorkSample: t.historySnippet || "(no history yet)",
     }));
 
     const jobSummary = unassignedJobs.map(j => {
@@ -136,10 +155,12 @@ Deno.serve(async (req) => {
 
     const systemPrompt = `You are an expert dispatcher for a UK building/repair company.
 Assign each job to the best-suited team using these signals, in priority order:
-1) SKILL FIT — infer each team's strengths from "pastWorkSample" (plumbing, electrics, carpentry, tiling, plastering, decorating, roofing, etc.) and match to the job's required trade.
-2) WORKLOAD BALANCE — spread work evenly; prefer teams with lower currentWorkload + fewer jobsAlreadyOnThisDay.
-3) GEOGRAPHIC CLUSTERING — if jobs share nearby postcodes/areas, group them to the same team to reduce travel.
-Provide a confidence 0-100 and a short 1-line reasoning per assignment.
+1) SKILL FIT — first use the team's "declaredSkills" + "strengths" (manually curated by the dispatcher, HIGHEST authority). NEVER assign work listed in a team's "weaknesses". Use "pastWorkSample" only as supporting evidence when declaredSkills is empty.
+2) PROFICIENCY — prefer "expert" over "experienced" over "apprentice" for complex jobs.
+3) DISPATCHER NOTES — strictly follow any guidance in "dispatcherNotes".
+4) WORKLOAD BALANCE — spread work evenly; prefer teams with lower currentWorkload + fewer jobsAlreadyOnThisDay. Respect "maxDailyJobs" as a soft cap.
+5) GEOGRAPHIC CLUSTERING — if jobs share nearby postcodes/areas, group them to the same team to reduce travel.
+Provide a confidence 0-100 (lower it if you had to override a soft constraint) and a 1-line reasoning referencing which signal drove the pick (e.g. "Skill match: declaredSkills includes plumbing").
 Every job MUST be assigned to exactly one team from the provided list.`;
 
     const userPrompt = JSON.stringify({ teams: teamSummary, jobs: jobSummary });

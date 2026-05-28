@@ -12,7 +12,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Sparkles, Loader2, CheckCircle2, MapPin, Briefcase } from "lucide-react";
+import { ArrowLeft, Sparkles, Loader2, CheckCircle2, MapPin, Briefcase, Wrench } from "lucide-react";
+import TeamSkillsManager from "@/components/TeamSkillsManager";
 
 interface TeamRow { teamId: string; teamName: string; }
 interface JobRow {
@@ -38,6 +39,9 @@ export default function AutoAssignPanel() {
   const [confirming, setConfirming] = useState(false);
   const [workloadByTeam, setWorkloadByTeam] = useState<Record<string, number>>({});
   const [unavailableTeams, setUnavailableTeams] = useState<Set<string>>(new Set());
+  const [skillsOpen, setSkillsOpen] = useState(false);
+  const [skillsTeamId, setSkillsTeamId] = useState<string | undefined>();
+  const [teamsWithSkills, setTeamsWithSkills] = useState<Set<string>>(new Set());
 
   // Load teams (exclude ops managers) and workload counts
   useEffect(() => {
@@ -60,8 +64,12 @@ export default function AutoAssignPanel() {
       const counts: Record<string, number> = {};
       (open || []).forEach(j => { if (j.team) counts[j.team] = (counts[j.team] || 0) + 1; });
       setWorkloadByTeam(counts);
+
+      // teams that already have a skill profile (for the badge)
+      const { data: skills } = await supabase.from("team_skills" as any).select("team_id");
+      setTeamsWithSkills(new Set(((skills as any[]) || []).map(s => s.team_id)));
     })();
-  }, []);
+  }, [skillsOpen]);
 
   // Load unavailable teams and unassigned jobs for selected date
   useEffect(() => {
@@ -204,30 +212,51 @@ export default function AutoAssignPanel() {
         {/* Team selector */}
         <aside className="space-y-3">
           <div className="rounded-lg border border-border bg-card p-4">
-            <h2 className="text-sm font-semibold mb-3 flex items-center gap-2">
-              <Briefcase className="w-4 h-4" /> Available Teams
-            </h2>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold flex items-center gap-2">
+                <Briefcase className="w-4 h-4" /> Available Teams
+              </h2>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-[11px] gap-1"
+                onClick={() => { setSkillsTeamId(undefined); setSkillsOpen(true); }}
+              >
+                <Wrench className="w-3 h-3" /> Skills
+              </Button>
+            </div>
             <div className="space-y-2">
               {teams.map(t => {
                 const unavail = unavailableTeams.has(t.teamId);
                 const load = projectedWorkload[t.teamName] || 0;
+                const hasSkills = teamsWithSkills.has(t.teamId);
                 return (
-                  <label
+                  <div
                     key={t.teamId}
-                    className={`flex items-center gap-2 p-2 rounded-md cursor-pointer hover:bg-muted transition ${unavail ? "opacity-50" : ""}`}
+                    className={`flex items-center gap-2 p-2 rounded-md hover:bg-muted transition ${unavail ? "opacity-50" : ""}`}
                   >
                     <Checkbox
                       checked={selectedTeams.has(t.teamId)}
                       onCheckedChange={() => toggleTeam(t.teamId)}
                       disabled={unavail}
                     />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate">{t.teamName}</div>
+                    <div className="flex-1 min-w-0 cursor-pointer" onClick={() => !unavail && toggleTeam(t.teamId)}>
+                      <div className="text-sm font-medium truncate flex items-center gap-1.5">
+                        {t.teamName}
+                        {hasSkills && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" title="Skills profile set" />}
+                      </div>
                       <div className="text-[10px] text-muted-foreground">
                         {unavail ? "Unavailable" : `${load} open jobs`}
                       </div>
                     </div>
-                  </label>
+                    <button
+                      onClick={() => { setSkillsTeamId(t.teamId); setSkillsOpen(true); }}
+                      className="p-1 rounded hover:bg-background text-muted-foreground hover:text-foreground"
+                      title="Edit skills"
+                    >
+                      <Wrench className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 );
               })}
             </div>
@@ -243,8 +272,15 @@ export default function AutoAssignPanel() {
           </Button>
 
           <div className="text-[11px] text-muted-foreground p-3 rounded-lg bg-muted/50 leading-relaxed">
-            <strong>How it works:</strong> AI reads each team's past completed jobs to infer skillsets, then balances workload and groups nearby addresses. You can change any pick before confirming.
+            <strong>How it works:</strong> AI combines each team's <em>manual skill profile</em> (click <Wrench className="w-3 h-3 inline" />) with their past completed jobs, then balances workload and groups nearby addresses. You can change any pick before confirming.
           </div>
+
+          <TeamSkillsManager
+            open={skillsOpen}
+            onOpenChange={setSkillsOpen}
+            teams={teams}
+            initialTeamId={skillsTeamId}
+          />
         </aside>
 
         {/* Jobs / assignments */}
