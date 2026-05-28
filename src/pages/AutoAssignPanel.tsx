@@ -36,6 +36,14 @@ const STREAM_CATEGORY: Record<Stream, string> = { dm: DM_CATEGORY_ID, aa: AA_CAT
 const pad = (n: number) => String(n).padStart(2, "0");
 const isoDate = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const todayISO = () => isoDate(new Date());
+// Convert a timestamptz string from the DB to the LOCAL YYYY-MM-DD it falls on
+// (matches the rest of the app's bookedDate convention).
+const localDateOf = (ts: string | null): string | null => {
+  if (!ts) return null;
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return null;
+  return isoDate(d);
+};
 
 interface DayOption { iso: string; label: string; sub: string; }
 const buildDays = (): DayOption[] => {
