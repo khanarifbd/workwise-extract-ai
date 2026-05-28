@@ -272,8 +272,15 @@ export default function AutoAssignPanel() {
           </Button>
 
           <div className="text-[11px] text-muted-foreground p-3 rounded-lg bg-muted/50 leading-relaxed">
-            <strong>How it works:</strong> AI reads each team's past completed jobs to infer skillsets, then balances workload and groups nearby addresses. You can change any pick before confirming.
+            <strong>How it works:</strong> AI combines each team's <em>manual skill profile</em> (click <Wrench className="w-3 h-3 inline" />) with their past completed jobs, then balances workload and groups nearby addresses. You can change any pick before confirming.
           </div>
+
+          <TeamSkillsManager
+            open={skillsOpen}
+            onOpenChange={setSkillsOpen}
+            teams={teams}
+            initialTeamId={skillsTeamId}
+          />
         </aside>
 
         {/* Jobs / assignments */}
