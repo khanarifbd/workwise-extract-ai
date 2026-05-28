@@ -1849,9 +1849,13 @@ export const TeamJobDetail = ({
               <div className="flex items-start gap-3">
                 <CheckSquare className="h-6 w-6 text-success flex-shrink-0 mt-0.5" />
                 <div className="flex-1">
-                  <h3 className="font-semibold text-sm sm:text-base text-success">Sign Off Job</h3>
+                  <h3 className="font-semibold text-sm sm:text-base text-success">
+                    {alreadySignedOff ? 'Re-Sign Off Job' : 'Sign Off Job'}
+                  </h3>
                   <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                    Mark this job as complete to transfer all notes, photos, and documentation to admin.
+                    {alreadySignedOff
+                      ? 'This job has already been signed off. You can sign it off again to transfer additional photos, notes, or documentation to admin.'
+                      : 'Mark this job as complete to transfer all notes, photos, and documentation to admin.'}
                   </p>
                   <Button 
                     onClick={() => setShowSignOffModal(true)}
@@ -1859,8 +1863,9 @@ export const TeamJobDetail = ({
                     className="w-full mt-3 bg-success hover:bg-success/90 text-success-foreground"
                   >
                     <CheckCircle2 className="mr-2 h-4 w-4" />
-                    Complete & Sign Off Job
+                    {alreadySignedOff ? 'Re-Sign Off Job' : 'Complete & Sign Off Job'}
                   </Button>
+
                 </div>
               </div>
             </CardContent>
