@@ -123,11 +123,22 @@ export default function AutoAssignPanel() {
     setAssignments([]);
   }, [stream, allTeams.length]);
 
-  // Load unavailable teams and unassigned jobs for selected date + stream
+  // Fetch ALL unassigned, incomplete jobs in this stream that fall on ANY of the 7 visible
+  // days (LOCAL date). One source of truth — drives both the day-tab counts and the table.
   useEffect(() => {
+    let cancelled = false;
     (async () => {
       setLoading(true);
-      const [{ data: unavail }, { data: jobRows }] = await Promise.all([
+      const first = days[0].iso;
+      const last = days[days.length - 1].iso;
+      // Widen the UTC window by ±1 day so we catch any local-date conversion edge cases,
+      // then filter strictly by local date in JS.
+      const startUTC = new Date(`${first}T00:00:00`);
+      startUTC.setDate(startUTC.getDate() - 1);
+      const endUTC = new Date(`${last}T23:59:59`);
+      endUTC.setDate(endUTC.getDate() + 1);
+
+      const [{ data: unavail }, { data: jobRows, error }] = await Promise.all([
         supabase.from("team_availability").select("team_id").eq("unavailable_date", targetDate),
         supabase
           .from("jobs")
@@ -135,20 +146,65 @@ export default function AutoAssignPanel() {
           .is("team", null)
           .eq("is_completed", false)
           .eq("category_id", STREAM_CATEGORY[stream])
-          .or(`booked_date.gte.${targetDate}T00:00:00Z,booked_date.is.null`)
-          .order("booked_date", { ascending: true, nullsFirst: false })
-          .limit(300),
+          .not("booked_date", "is", null)
+          .gte("booked_date", startUTC.toISOString())
+          .lte("booked_date", endUTC.toISOString())
+          .order("booked_date", { ascending: true })
+          .limit(1000),
       ]);
+      if (cancelled) return;
+      if (error) {
+        toast({ title: "Failed to load jobs", description: error.message, variant: "destructive" });
+      }
       setUnavailableTeams(new Set((unavail || []).map((u: any) => u.team_id)));
-      const filtered = (jobRows || []).filter((j: any) => {
-        if (!j.booked_date) return true;
-        return j.booked_date.slice(0, 10) === targetDate;
-      });
-      setJobs(filtered as JobRow[]);
+      setWindowJobs((jobRows || []) as JobRow[]);
       setAssignments([]);
+      setLastSyncedAt(new Date());
       setLoading(false);
     })();
-  }, [targetDate, stream]);
+    return () => { cancelled = true; };
+  }, [targetDate, stream, refreshTick, days, toast]);
+
+  // Realtime: any change to jobs in this stream triggers a refresh so the panel
+  // stays perfectly aligned with the database.
+  useEffect(() => {
+    const channel = supabase
+      .channel(`auto-assign-jobs-${stream}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "jobs", filter: `category_id=eq.${STREAM_CATEGORY[stream]}` },
+        () => setRefreshTick(t => t + 1)
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [stream]);
+
+  // Refresh when the tab regains focus
+  useEffect(() => {
+    const onVis = () => { if (document.visibilityState === "visible") setRefreshTick(t => t + 1); };
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("focus", onVis);
+    return () => {
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("focus", onVis);
+    };
+  }, []);
+
+  // Derive per-day counts and the jobs visible for the active day (strict LOCAL match)
+  const dayCounts = useMemo(() => {
+    const m: Record<string, number> = {};
+    days.forEach(d => { m[d.iso] = 0; });
+    windowJobs.forEach(j => {
+      const k = localDateOf(j.booked_date);
+      if (k && k in m) m[k] += 1;
+    });
+    return m;
+  }, [windowJobs, days]);
+
+  const jobs = useMemo(
+    () => windowJobs.filter(j => localDateOf(j.booked_date) === targetDate),
+    [windowJobs, targetDate]
+  );
 
   const toggleTeam = (id: string) => {
     setSelectedTeams(prev => {
