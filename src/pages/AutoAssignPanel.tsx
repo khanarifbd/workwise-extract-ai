@@ -755,6 +755,31 @@ export default function AutoAssignPanel() {
                         {a ? (
                           <div className="space-y-1.5">
                             <div className="text-foreground/90">{a.reasoning}</div>
+                            {a.tradesRequired && a.tradesRequired.length > 0 && (
+                              <div className="flex flex-wrap gap-1">
+                                {a.tradesRequired.map((tr, i) => (
+                                  <Badge key={i} variant="outline" className="text-[9px] py-0 px-1.5 h-4">
+                                    <Wrench className="w-2.5 h-2.5 mr-0.5" />{tr}
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
+                            {a.jobSizeAssessment && (
+                              <div className={cn(
+                                "rounded-md border px-2 py-1 text-[10px] leading-snug flex items-start gap-1",
+                                a.requiresMultipleTeams
+                                  ? "border-violet-500/30 bg-violet-500/5 text-violet-800 dark:text-violet-300"
+                                  : "border-border bg-muted/30 text-foreground/80"
+                              )}>
+                                {a.requiresMultipleTeams
+                                  ? <Users className="w-3 h-3 mt-0.5 shrink-0" />
+                                  : <Clock className="w-3 h-3 mt-0.5 shrink-0" />}
+                                <span>
+                                  {a.requiresMultipleTeams && <strong>Multi-team day: </strong>}
+                                  {a.jobSizeAssessment}
+                                </span>
+                              </div>
+                            )}
                             {cta && (
                               <div className={cn(
                                 "rounded-md border px-2 py-1.5 text-[10px] leading-snug",
