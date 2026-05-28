@@ -69,8 +69,10 @@ export default function AutoAssignPanel() {
 
   const [allTeams, setAllTeams] = useState<Array<TeamRow & { stream: Stream }>>([]);
   const [selectedTeams, setSelectedTeams] = useState<Set<string>>(new Set());
-  const [jobs, setJobs] = useState<JobRow[]>([]);
+  const [windowJobs, setWindowJobs] = useState<JobRow[]>([]); // all unassigned jobs across the 7-day window for this stream
   const [loading, setLoading] = useState(false);
+  const [refreshTick, setRefreshTick] = useState(0);
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
   const [running, setRunning] = useState(false);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [confirming, setConfirming] = useState(false);
