@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -11,7 +12,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Sparkles, Loader2, CheckCircle2, MapPin, Briefcase, Wrench, Calendar, RefreshCw } from "lucide-react";
+import { ArrowLeft, Sparkles, Loader2, CheckCircle2, MapPin, Briefcase, Wrench, Calendar, RefreshCw, ChevronDown, ChevronUp, Pencil, Save, X, History, ArrowRightLeft } from "lucide-react";
 import TeamSkillsManager from "@/components/TeamSkillsManager";
 import { cn } from "@/lib/utils";
 
@@ -22,8 +23,17 @@ interface JobRow {
   booked_date: string | null; team: string | null; category_id: string | null;
   is_completed?: boolean | null; status?: string | null;
 }
+interface CurrentTeamAssessment {
+  teamName: string; fitScore: number; reasoning: string;
+}
 interface Assignment {
-  jobId: string; teamName: string; confidence: number; reasoning: string;
+  jobId: string;
+  teamName: string;
+  confidence: number;
+  reasoning: string;
+  similarJobsLast60Days?: number;
+  currentTeam?: string | null;
+  currentTeamAssessment?: CurrentTeamAssessment;
 }
 
 type Stream = "dm" | "aa";
