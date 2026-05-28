@@ -20,6 +20,7 @@ interface JobRow {
   id: string; job_number: string; name: string; address: string;
   description: string | null; summary_of_works: string | null;
   booked_date: string | null; team: string | null; category_id: string | null;
+  is_completed?: boolean | null; status?: string | null;
 }
 interface Assignment {
   jobId: string; teamName: string; confidence: number; reasoning: string;
@@ -69,7 +70,7 @@ export default function AutoAssignPanel() {
 
   const [allTeams, setAllTeams] = useState<Array<TeamRow & { stream: Stream }>>([]);
   const [selectedTeams, setSelectedTeams] = useState<Set<string>>(new Set());
-  const [windowJobs, setWindowJobs] = useState<JobRow[]>([]); // all unassigned jobs across the 7-day window for this stream
+  const [windowJobs, setWindowJobs] = useState<JobRow[]>([]); // all booked jobs across the 7-day window for this stream
   const [loading, setLoading] = useState(false);
   const [refreshTick, setRefreshTick] = useState(0);
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
@@ -123,7 +124,7 @@ export default function AutoAssignPanel() {
     setAssignments([]);
   }, [stream, allTeams.length]);
 
-  // Fetch ALL unassigned, incomplete jobs in this stream that fall on ANY of the 7 visible
+  // Fetch ALL booked jobs in this stream that fall on ANY of the 7 visible
   // days (LOCAL date). One source of truth — drives both the day-tab counts and the table.
   useEffect(() => {
     let cancelled = false;
@@ -142,9 +143,7 @@ export default function AutoAssignPanel() {
         supabase.from("team_availability").select("team_id").eq("unavailable_date", targetDate),
         supabase
           .from("jobs")
-          .select("id, job_number, name, address, description, summary_of_works, booked_date, team, category_id")
-          .is("team", null)
-          .eq("is_completed", false)
+          .select("id, job_number, name, address, description, summary_of_works, booked_date, team, category_id, is_completed, status")
           .eq("category_id", STREAM_CATEGORY[stream])
           .not("booked_date", "is", null)
           .gte("booked_date", startUTC.toISOString())
@@ -206,6 +205,11 @@ export default function AutoAssignPanel() {
     [windowJobs, targetDate]
   );
 
+  const assignableJobs = useMemo(
+    () => jobs.filter(j => !j.team && !j.is_completed && j.status !== "complete"),
+    [jobs]
+  );
+
   const toggleTeam = (id: string) => {
     setSelectedTeams(prev => {
       const next = new Set(prev);
@@ -224,7 +228,7 @@ export default function AutoAssignPanel() {
       toast({ title: "No teams selected", description: "Tick at least one available team.", variant: "destructive" });
       return;
     }
-    if (!jobs.length) {
+    if (!assignableJobs.length) {
       toast({ title: "No jobs to assign", description: "No unassigned jobs for that date.", variant: "destructive" });
       return;
     }
@@ -233,7 +237,7 @@ export default function AutoAssignPanel() {
       const { data, error } = await supabase.functions.invoke("auto-assign-jobs", {
         body: {
           teamIds: eligibleTeams.map(t => t.teamId),
-          jobIds: jobs.map(j => j.id),
+          jobIds: assignableJobs.map(j => j.id),
           targetDate,
           stream,
         },
