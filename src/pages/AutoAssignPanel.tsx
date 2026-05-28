@@ -212,30 +212,51 @@ export default function AutoAssignPanel() {
         {/* Team selector */}
         <aside className="space-y-3">
           <div className="rounded-lg border border-border bg-card p-4">
-            <h2 className="text-sm font-semibold mb-3 flex items-center gap-2">
-              <Briefcase className="w-4 h-4" /> Available Teams
-            </h2>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold flex items-center gap-2">
+                <Briefcase className="w-4 h-4" /> Available Teams
+              </h2>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-[11px] gap-1"
+                onClick={() => { setSkillsTeamId(undefined); setSkillsOpen(true); }}
+              >
+                <Wrench className="w-3 h-3" /> Skills
+              </Button>
+            </div>
             <div className="space-y-2">
               {teams.map(t => {
                 const unavail = unavailableTeams.has(t.teamId);
                 const load = projectedWorkload[t.teamName] || 0;
+                const hasSkills = teamsWithSkills.has(t.teamId);
                 return (
-                  <label
+                  <div
                     key={t.teamId}
-                    className={`flex items-center gap-2 p-2 rounded-md cursor-pointer hover:bg-muted transition ${unavail ? "opacity-50" : ""}`}
+                    className={`flex items-center gap-2 p-2 rounded-md hover:bg-muted transition ${unavail ? "opacity-50" : ""}`}
                   >
                     <Checkbox
                       checked={selectedTeams.has(t.teamId)}
                       onCheckedChange={() => toggleTeam(t.teamId)}
                       disabled={unavail}
                     />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate">{t.teamName}</div>
+                    <div className="flex-1 min-w-0 cursor-pointer" onClick={() => !unavail && toggleTeam(t.teamId)}>
+                      <div className="text-sm font-medium truncate flex items-center gap-1.5">
+                        {t.teamName}
+                        {hasSkills && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" title="Skills profile set" />}
+                      </div>
                       <div className="text-[10px] text-muted-foreground">
                         {unavail ? "Unavailable" : `${load} open jobs`}
                       </div>
                     </div>
-                  </label>
+                    <button
+                      onClick={() => { setSkillsTeamId(t.teamId); setSkillsOpen(true); }}
+                      className="p-1 rounded hover:bg-background text-muted-foreground hover:text-foreground"
+                      title="Edit skills"
+                    >
+                      <Wrench className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 );
               })}
             </div>
