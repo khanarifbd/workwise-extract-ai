@@ -1,7 +1,8 @@
 // Auto-assign jobs to teams using Lovable AI
-// Analyses team skillsets (from job history), workload, availability,
-// geo proximity AND past-completed-job similarity (last 60 days).
-// Now returns reasoning + confidence for EVERY job (assigned or not).
+// Analyses team skillsets, workload, availability, geo proximity AND past-completed-job similarity (last 60 days).
+// Returns reasoning + confidence for EVERY job (assigned or not).
+// NEW: can recommend MULTIPLE teams on the same job when trades differ (e.g. damp + roofing)
+//      or when the job is sized too large to finish in one day with a single team.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
@@ -50,7 +51,6 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
 
-    // 1. Selected teams
     const { data: teams } = await supabase
       .from("team_access_codes")
       .select("team_id, team_name")
@@ -63,7 +63,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 2. Availability for targetDate
     const { data: unavail } = await supabase
       .from("team_availability")
       .select("team_id, reason")
@@ -78,14 +77,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 3. Skill profiles
     const { data: skillRows } = await supabase
       .from("team_skills")
       .select("team_id, skills, strengths, weaknesses, proficiency_level, max_daily_jobs, notes")
       .in("team_id", availableTeams.map(t => t.team_id));
     const skillsByTeam = new Map((skillRows || []).map((s: any) => [s.team_id, s]));
 
-    // 4. Past 60-day completed jobs per team (for similarity-based confidence)
     const sixtyAgoIso = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
 
     const teamProfiles = await Promise.all(availableTeams.map(async (t) => {
@@ -138,10 +135,9 @@ Deno.serve(async (req) => {
       };
     }));
 
-    // 5. Jobs to analyse (ALL visible — assigned or not)
     const { data: jobs } = await supabase
       .from("jobs")
-      .select("id, job_number, name, address, description, summary_of_works, work_items, booked_date, team")
+      .select("id, job_number, name, address, description, summary_of_works, work_items, booked_date, team, team2")
       .in("id", body.jobIds);
 
     if (!jobs?.length) {
@@ -150,7 +146,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 6. Geocode lookup
     const addresses = [...new Set(jobs.map(j => j.address).filter(Boolean))];
     const geoMap = new Map<string, { lat: number; lng: number }>();
     if (addresses.length) {
@@ -160,11 +155,9 @@ Deno.serve(async (req) => {
       (geo || []).forEach((g: any) => { if (g.lat && g.lng) geoMap.set(g.address, { lat: g.lat, lng: g.lng }); });
     }
 
-    // 7. Per-job × per-team similarity to past 60-day completed jobs
-    //    similarCount = number of completed jobs sharing >= 3 distinctive tokens
     const jobSummary = jobs.map(j => {
       const workItems = Array.isArray(j.work_items)
-        ? (j.work_items as any[]).map(w => w?.description || "").join("; ").slice(0, 300)
+        ? (j.work_items as any[]).map(w => w?.description || "").join("; ").slice(0, 400)
         : "";
       const fullDesc = `${j.summary_of_works || ""} ${j.description || ""} ${workItems}`;
       const jobTokens = tokenize(fullDesc);
@@ -188,12 +181,12 @@ Deno.serve(async (req) => {
         address: j.address || "",
         geo: geoMap.get(j.address || "") || null,
         currentTeam: j.team || null,
-        description: fullDesc.slice(0, 600),
+        currentTeam2: (j as any).team2 || null,
+        description: fullDesc.slice(0, 800),
         teamFamiliarityLast60Days: teamFamiliarity,
       };
     });
 
-    // 8. Strip heavy token-sets from team summary (already used above)
     const teamSummary = teamProfiles.map(t => ({
       teamName: t.teamName,
       currentWorkload: t.currentOpenJobs,
@@ -208,30 +201,35 @@ Deno.serve(async (req) => {
       pastWorkSample: t.historySnippet || "(no history yet)",
     }));
 
-    const systemPrompt = `You are an expert dispatcher for a UK building/repair company.
+    const systemPrompt = `You are an expert UK building/repair dispatcher with deep trade knowledge.
 
-For EVERY job in the list (whether already assigned or not) produce an analysis. Use these signals in priority order:
-1) SKILL FIT — use the team's "declaredSkills" + "strengths" (manually curated, HIGHEST authority). NEVER recommend work listed in a team's "weaknesses". "pastWorkSample" is supporting evidence only.
-2) PROVEN EXPERIENCE — the "teamFamiliarityLast60Days[teamName].similarCount" tells you how many similar jobs that team has actually completed and signed off in the last 60 days. Higher = more proven. This is your main confidence anchor.
-3) PROFICIENCY — expert > experienced > apprentice for complex work.
-4) DISPATCHER NOTES — strictly follow.
-5) WORKLOAD BALANCE — prefer lower currentWorkload + fewer jobsAlreadyOnThisDay; respect maxDailyJobs as a soft cap.
-6) GEOGRAPHIC CLUSTERING — group nearby addresses to the same team.
+GOAL: Every job must be FULLY COMPLETED on its booked date. To do that, decide if a job needs ONE team or MULTIPLE teams working the same day.
+
+For EVERY job produce an analysis. Use these signals in priority order:
+1) TRADE COVERAGE — Read the description carefully and list EVERY distinct trade/skill the job requires (e.g. "damp & mould treatment", "roofing", "plastering", "carpentry", "electrical", "tiling", "plumbing"). Use real construction-industry knowledge: damp jobs often need roofing if leak source is the roof; bathroom refurbs need plumbing + tiling + sometimes electrical; ceiling collapses need plastering + sometimes electrical. If two or more clearly distinct trades are needed and no single team in the list covers them all, you MUST recommend MULTIPLE teams.
+2) JOB SIZE & TIMING — Estimate realistic duration using industry norms: plaster drying ~24h before paint, screed/concrete set times, silicone cure, two-coat paint with drying between, scaffolding erection time. If the work scope clearly cannot be finished by one team in one working day, recommend a second team to parallelise so it still completes on the booked day. If even multiple teams can't finish in one day (e.g. needs material drying overnight), say so in jobSizeAssessment and still recommend the best same-day split.
+3) SKILL FIT — match teams using their "declaredSkills" + "strengths" (HIGHEST authority). NEVER assign work listed in a team's "weaknesses". "pastWorkSample" is supporting evidence only.
+4) PROVEN EXPERIENCE — "teamFamiliarityLast60Days[teamName].similarCount" = how many similar jobs that team has actually completed and signed off in the last 60 days. Higher = more proven. This is the main confidence anchor.
+5) PROFICIENCY — expert > experienced > apprentice for complex work.
+6) DISPATCHER NOTES — strictly follow.
+7) WORKLOAD BALANCE — prefer lower currentWorkload + fewer jobsAlreadyOnThisDay; respect maxDailyJobs as a soft cap.
+8) GEOGRAPHIC CLUSTERING — group nearby addresses to the same team.
 
 For each job return:
-- suggestedTeamName: the BEST team from the provided list (even if a team is already assigned — recommend the optimum).
-- confidence (0–100): anchor it to similarCount for the suggested team:
+- teamNames: ARRAY of 1–3 team names (in order: primary, secondary, tertiary). Each team must be a DIFFERENT team from the provided list. ONLY include more than one team when distinct trades or sheer size genuinely require it — do NOT pad. Most jobs will be a single team.
+- requiresMultipleTeams: boolean. True ONLY when teamNames.length >= 2 because of trade coverage or size, not just preference.
+- jobSizeAssessment: one short sentence stating whether the job is small / medium / large and whether it is realistically completable on the booked day (and with how many teams). Mention material drying/set times if relevant.
+- tradesRequired: array of trade strings you identified from the description (e.g. ["damp & mould", "roofing"]).
+- confidence (0–100) for the PRIMARY team: anchor to similarCount for that team:
     similarCount >= 5 → 85–100
     similarCount 3–4  → 70–85
     similarCount 1–2  → 55–70
     similarCount 0    → 35–55 (rely on declaredSkills/strengths)
-  Reduce if you had to override a soft constraint.
-- reasoning (1–2 short sentences): cite the driver, e.g. "Strong fit: Team X has completed 7 similar fan-replacement jobs in the last 60 days and lists fans in declaredSkills."
-- currentTeamAssessment: if the job already has a currentTeam, evaluate that team specifically:
-    { teamName, fitScore (0–100), reasoning }
-    State plainly whether the currently-assigned team is well-suited, and why (or why not), referencing similarCount, skills, weaknesses, workload. If currentTeam is null, omit this field.
+  Reduce slightly if you had to override a soft constraint.
+- reasoning (1–3 short sentences): cite the drivers. If multiple teams, say WHY ("Damp work for Team A + roof leak source needs Team B's roofing crew same day").
+- currentTeamAssessment: if currentTeam is set, evaluate that team specifically: { teamName, fitScore (0–100), reasoning } — say plainly whether they are well-suited and why (or why not). Omit if currentTeam is null.
 
-Every job MUST be analysed exactly once.`;
+Every job MUST be analysed exactly once. teamNames must never be empty.`;
 
     const userPrompt = JSON.stringify({ teams: teamSummary, jobs: jobSummary });
 
@@ -261,7 +259,10 @@ Every job MUST be analysed exactly once.`;
                     type: "object",
                     properties: {
                       jobId: { type: "string" },
-                      teamName: { type: "string" },
+                      teamNames: { type: "array", items: { type: "string" }, minItems: 1, maxItems: 3 },
+                      requiresMultipleTeams: { type: "boolean" },
+                      jobSizeAssessment: { type: "string" },
+                      tradesRequired: { type: "array", items: { type: "string" } },
                       confidence: { type: "number" },
                       reasoning: { type: "string" },
                       similarJobsLast60Days: { type: "number" },
@@ -274,7 +275,7 @@ Every job MUST be analysed exactly once.`;
                         },
                       },
                     },
-                    required: ["jobId", "teamName", "confidence", "reasoning"],
+                    required: ["jobId", "teamNames", "confidence", "reasoning", "jobSizeAssessment"],
                   },
                 },
               },
@@ -308,18 +309,24 @@ Every job MUST be analysed exactly once.`;
     const parsed = JSON.parse(toolCall.function.arguments);
     const assignments: any[] = parsed.assignments || [];
 
-    // Enrich + validate team names
     const validNames = new Set(availableTeams.map(t => t.team_name));
     const jobById = new Map(jobs.map(j => [j.id, j]));
     const cleaned = assignments.map(a => {
       const job = jobById.get(a.jobId);
       const fallback = availableTeams[0].team_name;
-      const teamName = validNames.has(a.teamName) ? a.teamName : fallback;
-      const fam = jobSummary.find(j => j.jobId === a.jobId)?.teamFamiliarityLast60Days?.[teamName];
+      let teamNames: string[] = Array.isArray(a.teamNames) ? a.teamNames.filter((n: string) => validNames.has(n)) : [];
+      if (!teamNames.length) teamNames = [fallback];
+      // de-dupe while preserving order
+      teamNames = Array.from(new Set(teamNames)).slice(0, 3);
+      const primary = teamNames[0];
+      const fam = jobSummary.find(j => j.jobId === a.jobId)?.teamFamiliarityLast60Days?.[primary];
       return {
         ...a,
-        teamName,
+        teamNames,
+        teamName: primary, // backwards compat
+        requiresMultipleTeams: teamNames.length >= 2,
         currentTeam: job?.team || null,
+        currentTeam2: (job as any)?.team2 || null,
         similarJobsLast60Days: fam?.similarCount ?? a.similarJobsLast60Days ?? 0,
       };
     });
