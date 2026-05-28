@@ -92,6 +92,10 @@ export default function AutoAssignPanel() {
   const [skillsOpen, setSkillsOpen] = useState(false);
   const [skillsTeamId, setSkillsTeamId] = useState<string | undefined>();
   const [teamsWithSkills, setTeamsWithSkills] = useState<Set<string>>(new Set());
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [editing, setEditing] = useState<{ jobId: string; value: string } | null>(null);
+  const [savingDesc, setSavingDesc] = useState(false);
+  const [reassigning, setReassigning] = useState<string | null>(null);
 
   // Load teams & classify by stream (DM vs A+A inferred from past assignments to A&A category)
   useEffect(() => {
