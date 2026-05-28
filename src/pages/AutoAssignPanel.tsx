@@ -12,7 +12,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Sparkles, Loader2, CheckCircle2, MapPin, Briefcase } from "lucide-react";
+import { ArrowLeft, Sparkles, Loader2, CheckCircle2, MapPin, Briefcase, Wrench } from "lucide-react";
+import TeamSkillsManager from "@/components/TeamSkillsManager";
 
 interface TeamRow { teamId: string; teamName: string; }
 interface JobRow {
