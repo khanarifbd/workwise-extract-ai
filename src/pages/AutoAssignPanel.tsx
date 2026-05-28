@@ -64,8 +64,12 @@ export default function AutoAssignPanel() {
       const counts: Record<string, number> = {};
       (open || []).forEach(j => { if (j.team) counts[j.team] = (counts[j.team] || 0) + 1; });
       setWorkloadByTeam(counts);
+
+      // teams that already have a skill profile (for the badge)
+      const { data: skills } = await supabase.from("team_skills" as any).select("team_id");
+      setTeamsWithSkills(new Set(((skills as any[]) || []).map(s => s.team_id)));
     })();
-  }, []);
+  }, [skillsOpen]);
 
   // Load unavailable teams and unassigned jobs for selected date
   useEffect(() => {
