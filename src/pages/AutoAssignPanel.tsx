@@ -12,7 +12,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Sparkles, Loader2, CheckCircle2, MapPin, Briefcase, Wrench, Calendar, RefreshCw, ChevronDown, ChevronUp, Pencil, Save, X, History, ArrowRightLeft } from "lucide-react";
+import { ArrowLeft, Sparkles, Loader2, CheckCircle2, MapPin, Briefcase, Wrench, Calendar, RefreshCw, ChevronDown, ChevronUp, Pencil, Save, X, History, ArrowRightLeft, Users, Clock } from "lucide-react";
 import TeamSkillsManager from "@/components/TeamSkillsManager";
 import { cn } from "@/lib/utils";
 
@@ -20,7 +20,7 @@ interface TeamRow { teamId: string; teamName: string; }
 interface JobRow {
   id: string; job_number: string; name: string; address: string;
   description: string | null; summary_of_works: string | null;
-  booked_date: string | null; team: string | null; category_id: string | null;
+  booked_date: string | null; team: string | null; team2?: string | null; category_id: string | null;
   is_completed?: boolean | null; status?: string | null;
 }
 interface CurrentTeamAssessment {
@@ -28,11 +28,16 @@ interface CurrentTeamAssessment {
 }
 interface Assignment {
   jobId: string;
-  teamName: string;
+  teamName: string;            // primary (back-compat)
+  teamNames: string[];         // primary + extras
+  requiresMultipleTeams?: boolean;
+  jobSizeAssessment?: string;
+  tradesRequired?: string[];
   confidence: number;
   reasoning: string;
   similarJobsLast60Days?: number;
   currentTeam?: string | null;
+  currentTeam2?: string | null;
   currentTeamAssessment?: CurrentTeamAssessment;
 }
 
@@ -43,6 +48,7 @@ const AA_CATEGORY_ID = "a4a08b3b-70b6-4fa9-b54b-c173dcf07a33";
 
 const STREAM_LABEL: Record<Stream, string> = { dm: "DM Jobs", aa: "A & A" };
 const STREAM_CATEGORY: Record<Stream, string> = { dm: DM_CATEGORY_ID, aa: AA_CATEGORY_ID };
+const TEAMS_LS_KEY = (s: Stream) => `autoAssign.selectedTeams.${s}`;
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const isoDate = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -132,11 +138,27 @@ export default function AutoAssignPanel() {
     [allTeams, stream]
   );
 
-  // Auto-select all teams for current stream when stream changes
+  // Restore per-stream tick state from localStorage; default to all-selected if no saved state.
+  // Unticked teams STAY unticked across page navigations until the user re-ticks them.
   useEffect(() => {
-    setSelectedTeams(new Set(streamTeams.map(t => t.teamId)));
+    if (!streamTeams.length) return;
+    const ids = streamTeams.map(t => t.teamId);
+    let next: Set<string>;
+    try {
+      const raw = localStorage.getItem(TEAMS_LS_KEY(stream));
+      if (raw) {
+        const saved: string[] = JSON.parse(raw);
+        // Intersect with currently-existing team ids
+        next = new Set(ids.filter(id => saved.includes(id)));
+      } else {
+        next = new Set(ids); // first visit: everyone ticked
+      }
+    } catch {
+      next = new Set(ids);
+    }
+    setSelectedTeams(next);
     setAssignments([]);
-  }, [stream, allTeams.length]);
+  }, [stream, allTeams.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch ALL booked jobs in this stream that fall on ANY of the 7 visible
   // days (LOCAL date). One source of truth — drives both the day-tab counts and the table.
@@ -157,7 +179,7 @@ export default function AutoAssignPanel() {
         supabase.from("team_availability").select("team_id").eq("unavailable_date", targetDate),
         supabase
           .from("jobs")
-          .select("id, job_number, name, address, description, summary_of_works, booked_date, team, category_id, is_completed, status")
+          .select("id, job_number, name, address, description, summary_of_works, booked_date, team, team2, category_id, is_completed, status")
           .eq("category_id", STREAM_CATEGORY[stream])
           .not("booked_date", "is", null)
           .gte("booked_date", startUTC.toISOString())
@@ -234,6 +256,7 @@ export default function AutoAssignPanel() {
     setSelectedTeams(prev => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
+      try { localStorage.setItem(TEAMS_LS_KEY(stream), JSON.stringify(Array.from(next))); } catch { /* ignore */ }
       return next;
     });
   };
@@ -309,25 +332,34 @@ export default function AutoAssignPanel() {
   };
 
   const updateAssignment = (jobId: string, teamName: string) => {
-    setAssignments(prev => prev.map(a => a.jobId === jobId ? { ...a, teamName } : a));
+    setAssignments(prev => prev.map(a => {
+      if (a.jobId !== jobId) return a;
+      const rest = (a.teamNames || []).slice(1);
+      return { ...a, teamName, teamNames: [teamName, ...rest] };
+    }));
   };
 
-  // Confirm only assigns currently-unassigned jobs to the AI's pick.
-  // Already-assigned jobs are advisory unless the user clicks "Reassign" per row.
+  // Confirm only assigns currently-unassigned jobs (writes primary -> team, secondary -> team2).
+  // Already-assigned jobs are advisory unless the user clicks "Apply AI" per row.
   const confirmAll = async () => {
     const toApply = assignments.filter(a => {
       const job = jobs.find(j => j.id === a.jobId);
       return job && !job.team;
     });
     if (!toApply.length) {
-      toast({ title: "Nothing to apply", description: "All visible jobs already have a team. Use Reassign on a specific row to override." });
+      toast({ title: "Nothing to apply", description: "All visible jobs already have a team. Use the row Apply button to override." });
       return;
     }
     setConfirming(true);
     try {
-      const results = await Promise.all(toApply.map(a =>
-        supabase.from("jobs").update({ team: a.teamName, updated_at: new Date().toISOString() }).eq("id", a.jobId)
-      ));
+      const results = await Promise.all(toApply.map(a => {
+        const names = a.teamNames?.length ? a.teamNames : [a.teamName];
+        return supabase.from("jobs").update({
+          team: names[0],
+          team2: names[1] || null,
+          updated_at: new Date().toISOString(),
+        }).eq("id", a.jobId);
+      }));
       const failed = results.filter(r => r.error).length;
       if (failed) throw new Error(`${failed} updates failed`);
       toast({ title: "Assignments saved", description: `${toApply.length} jobs assigned.` });
@@ -339,15 +371,24 @@ export default function AutoAssignPanel() {
     }
   };
 
-  const reassignOne = async (jobId: string, teamName: string) => {
+  const reassignOne = async (jobId: string, teamNames: string[]) => {
     setReassigning(jobId);
     try {
       const { error } = await supabase
         .from("jobs")
-        .update({ team: teamName, updated_at: new Date().toISOString() })
+        .update({
+          team: teamNames[0],
+          team2: teamNames[1] || null,
+          updated_at: new Date().toISOString(),
+        })
         .eq("id", jobId);
       if (error) throw error;
-      toast({ title: "Job reassigned", description: `Now assigned to ${teamName}.` });
+      toast({
+        title: "Job reassigned",
+        description: teamNames.length > 1
+          ? `Assigned to ${teamNames.join(" + ")}.`
+          : `Now assigned to ${teamNames[0]}.`,
+      });
       setRefreshTick(t => t + 1);
     } catch (e: any) {
       toast({ title: "Reassign failed", description: e.message, variant: "destructive" });
@@ -579,7 +620,10 @@ export default function AutoAssignPanel() {
                   const isEditing = editing?.jobId === job.id;
                   const fullDesc = job.summary_of_works || job.description || "";
                   const isCompleted = !!(job.is_completed || job.status === "complete");
-                  const aiPicksDifferent = !!(a && job.team && a.teamName !== job.team);
+                  const aiNames = a?.teamNames?.length ? a.teamNames : (a ? [a.teamName] : []);
+                  const currentNames = [job.team, job.team2].filter(Boolean) as string[];
+                  const aiPicksDifferent = !!(a && currentNames.length > 0 &&
+                    (currentNames.join("|") !== aiNames.join("|")));
                   const cta = a?.currentTeamAssessment;
 
                   return (
@@ -642,25 +686,37 @@ export default function AutoAssignPanel() {
                           <Badge variant="secondary">Completed</Badge>
                         ) : (
                           <div className="space-y-1.5">
-                            {job.team ? (
+                            {currentNames.length > 0 ? (
                               <div className="flex flex-col gap-1">
-                                <Badge variant="secondary" className="w-fit">{job.team}</Badge>
+                                <div className="flex flex-wrap gap-1">
+                                  {currentNames.map(n => (
+                                    <Badge key={n} variant="secondary" className="w-fit">{n}</Badge>
+                                  ))}
+                                </div>
                                 {aiPicksDifferent && (
-                                  <div className="flex items-center gap-1 text-[10px] text-amber-700 dark:text-amber-400">
+                                  <div className="flex items-center gap-1 text-[10px] text-amber-700 dark:text-amber-400 flex-wrap">
                                     <ArrowRightLeft className="w-3 h-3" />
-                                    AI suggests <strong>{a!.teamName}</strong>
+                                    AI suggests <strong>{aiNames.join(" + ")}</strong>
                                   </div>
                                 )}
                               </div>
                             ) : a ? (
-                              <Select value={a.teamName} onValueChange={(v) => updateAssignment(job.id, v)}>
-                                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                  {eligibleTeams.map(t => (
-                                    <SelectItem key={t.teamId} value={t.teamName}>{t.teamName}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                              <div className="space-y-1">
+                                <Select value={a.teamName} onValueChange={(v) => updateAssignment(job.id, v)}>
+                                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    {eligibleTeams.map(t => (
+                                      <SelectItem key={t.teamId} value={t.teamName}>{t.teamName}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                {aiNames.length > 1 && (
+                                  <div className="flex items-center gap-1 text-[10px] text-violet-700 dark:text-violet-400">
+                                    <Users className="w-3 h-3" />
+                                    +{aiNames.slice(1).join(", ")} (same day)
+                                  </div>
+                                )}
+                              </div>
                             ) : (
                               <span className="text-[11px] text-muted-foreground">Unassigned · Run AI</span>
                             )}
@@ -670,11 +726,11 @@ export default function AutoAssignPanel() {
                                 variant="outline"
                                 className="h-6 text-[10px] gap-1 w-full"
                                 disabled={reassigning === job.id}
-                                onClick={() => reassignOne(job.id, a!.teamName)}
+                                onClick={() => reassignOne(job.id, aiNames)}
                               >
                                 {reassigning === job.id
                                   ? <Loader2 className="w-3 h-3 animate-spin" />
-                                  : <><ArrowRightLeft className="w-3 h-3" /> Reassign</>}
+                                  : <><ArrowRightLeft className="w-3 h-3" /> Apply AI</>}
                               </Button>
                             )}
                           </div>
@@ -699,6 +755,31 @@ export default function AutoAssignPanel() {
                         {a ? (
                           <div className="space-y-1.5">
                             <div className="text-foreground/90">{a.reasoning}</div>
+                            {a.tradesRequired && a.tradesRequired.length > 0 && (
+                              <div className="flex flex-wrap gap-1">
+                                {a.tradesRequired.map((tr, i) => (
+                                  <Badge key={i} variant="outline" className="text-[9px] py-0 px-1.5 h-4">
+                                    <Wrench className="w-2.5 h-2.5 mr-0.5" />{tr}
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
+                            {a.jobSizeAssessment && (
+                              <div className={cn(
+                                "rounded-md border px-2 py-1 text-[10px] leading-snug flex items-start gap-1",
+                                a.requiresMultipleTeams
+                                  ? "border-violet-500/30 bg-violet-500/5 text-violet-800 dark:text-violet-300"
+                                  : "border-border bg-muted/30 text-foreground/80"
+                              )}>
+                                {a.requiresMultipleTeams
+                                  ? <Users className="w-3 h-3 mt-0.5 shrink-0" />
+                                  : <Clock className="w-3 h-3 mt-0.5 shrink-0" />}
+                                <span>
+                                  {a.requiresMultipleTeams && <strong>Multi-team day: </strong>}
+                                  {a.jobSizeAssessment}
+                                </span>
+                              </div>
+                            )}
                             {cta && (
                               <div className={cn(
                                 "rounded-md border px-2 py-1.5 text-[10px] leading-snug",
