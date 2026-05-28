@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -102,6 +102,7 @@ export default function AutoAssignPanel() {
   const [editing, setEditing] = useState<{ jobId: string; value: string } | null>(null);
   const [savingDesc, setSavingDesc] = useState(false);
   const [reassigning, setReassigning] = useState<string | null>(null);
+  const autoRanRef = useRef<string>("");
 
   // Load teams & classify by stream (DM vs A+A inferred from past assignments to A&A category)
   useEffect(() => {
@@ -330,6 +331,22 @@ export default function AutoAssignPanel() {
       setRunning(false);
     }
   };
+
+  // Auto-run analysis when the day/stream/jobs/teams settle so reasoning + confidence
+  // are visible without the user needing to click "Analyse".
+  useEffect(() => {
+    if (loading || running) return;
+    if (!analysableJobs.length || !eligibleTeams.length) return;
+    if (assignments.length > 0) return;
+    const jobSig = analysableJobs.map(j => j.id).sort().join(",");
+    const teamSig = eligibleTeams.map(t => t.teamId).sort().join(",");
+    const key = `${stream}|${targetDate}|${jobSig}|${teamSig}`;
+    if (autoRanRef.current === key) return;
+    autoRanRef.current = key;
+    runAutoAssign();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [analysableJobs, eligibleTeams, loading, targetDate, stream]);
+
 
   const updateAssignment = (jobId: string, teamName: string) => {
     setAssignments(prev => prev.map(a => {
@@ -688,13 +705,16 @@ export default function AutoAssignPanel() {
                           <div className="space-y-1.5">
                             {currentNames.length > 0 ? (
                               <div className="flex flex-col gap-1">
+                                <div className="text-[9px] uppercase tracking-wide text-muted-foreground font-semibold">
+                                  Currently assigned (from database)
+                                </div>
                                 <div className="flex flex-wrap gap-1">
                                   {currentNames.map(n => (
-                                    <Badge key={n} variant="secondary" className="w-fit">{n}</Badge>
+                                    <Badge key={n} variant="secondary" className="w-fit" title="Existing assignment in the database — not a new AI pick">{n}</Badge>
                                   ))}
                                 </div>
                                 {aiPicksDifferent && (
-                                  <div className="flex items-center gap-1 text-[10px] text-amber-700 dark:text-amber-400 flex-wrap">
+                                  <div className="flex items-center gap-1 text-[10px] text-amber-700 dark:text-amber-400 flex-wrap mt-0.5">
                                     <ArrowRightLeft className="w-3 h-3" />
                                     AI suggests <strong>{aiNames.join(" + ")}</strong>
                                   </div>
