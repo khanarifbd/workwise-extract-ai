@@ -332,25 +332,34 @@ export default function AutoAssignPanel() {
   };
 
   const updateAssignment = (jobId: string, teamName: string) => {
-    setAssignments(prev => prev.map(a => a.jobId === jobId ? { ...a, teamName } : a));
+    setAssignments(prev => prev.map(a => {
+      if (a.jobId !== jobId) return a;
+      const rest = (a.teamNames || []).slice(1);
+      return { ...a, teamName, teamNames: [teamName, ...rest] };
+    }));
   };
 
-  // Confirm only assigns currently-unassigned jobs to the AI's pick.
-  // Already-assigned jobs are advisory unless the user clicks "Reassign" per row.
+  // Confirm only assigns currently-unassigned jobs (writes primary -> team, secondary -> team2).
+  // Already-assigned jobs are advisory unless the user clicks "Apply AI" per row.
   const confirmAll = async () => {
     const toApply = assignments.filter(a => {
       const job = jobs.find(j => j.id === a.jobId);
       return job && !job.team;
     });
     if (!toApply.length) {
-      toast({ title: "Nothing to apply", description: "All visible jobs already have a team. Use Reassign on a specific row to override." });
+      toast({ title: "Nothing to apply", description: "All visible jobs already have a team. Use the row Apply button to override." });
       return;
     }
     setConfirming(true);
     try {
-      const results = await Promise.all(toApply.map(a =>
-        supabase.from("jobs").update({ team: a.teamName, updated_at: new Date().toISOString() }).eq("id", a.jobId)
-      ));
+      const results = await Promise.all(toApply.map(a => {
+        const names = a.teamNames?.length ? a.teamNames : [a.teamName];
+        return supabase.from("jobs").update({
+          team: names[0],
+          team2: names[1] || null,
+          updated_at: new Date().toISOString(),
+        }).eq("id", a.jobId);
+      }));
       const failed = results.filter(r => r.error).length;
       if (failed) throw new Error(`${failed} updates failed`);
       toast({ title: "Assignments saved", description: `${toApply.length} jobs assigned.` });
@@ -362,15 +371,24 @@ export default function AutoAssignPanel() {
     }
   };
 
-  const reassignOne = async (jobId: string, teamName: string) => {
+  const reassignOne = async (jobId: string, teamNames: string[]) => {
     setReassigning(jobId);
     try {
       const { error } = await supabase
         .from("jobs")
-        .update({ team: teamName, updated_at: new Date().toISOString() })
+        .update({
+          team: teamNames[0],
+          team2: teamNames[1] || null,
+          updated_at: new Date().toISOString(),
+        })
         .eq("id", jobId);
       if (error) throw error;
-      toast({ title: "Job reassigned", description: `Now assigned to ${teamName}.` });
+      toast({
+        title: "Job reassigned",
+        description: teamNames.length > 1
+          ? `Assigned to ${teamNames.join(" + ")}.`
+          : `Now assigned to ${teamNames[0]}.`,
+      });
       setRefreshTick(t => t + 1);
     } catch (e: any) {
       toast({ title: "Reassign failed", description: e.message, variant: "destructive" });
