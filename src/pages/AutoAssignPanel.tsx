@@ -688,13 +688,16 @@ export default function AutoAssignPanel() {
                           <div className="space-y-1.5">
                             {currentNames.length > 0 ? (
                               <div className="flex flex-col gap-1">
+                                <div className="text-[9px] uppercase tracking-wide text-muted-foreground font-semibold">
+                                  Currently assigned (from database)
+                                </div>
                                 <div className="flex flex-wrap gap-1">
                                   {currentNames.map(n => (
-                                    <Badge key={n} variant="secondary" className="w-fit">{n}</Badge>
+                                    <Badge key={n} variant="secondary" className="w-fit" title="Existing assignment in the database — not a new AI pick">{n}</Badge>
                                   ))}
                                 </div>
                                 {aiPicksDifferent && (
-                                  <div className="flex items-center gap-1 text-[10px] text-amber-700 dark:text-amber-400 flex-wrap">
+                                  <div className="flex items-center gap-1 text-[10px] text-amber-700 dark:text-amber-400 flex-wrap mt-0.5">
                                     <ArrowRightLeft className="w-3 h-3" />
                                     AI suggests <strong>{aiNames.join(" + ")}</strong>
                                   </div>
