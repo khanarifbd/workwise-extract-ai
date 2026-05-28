@@ -39,6 +39,9 @@ export default function AutoAssignPanel() {
   const [confirming, setConfirming] = useState(false);
   const [workloadByTeam, setWorkloadByTeam] = useState<Record<string, number>>({});
   const [unavailableTeams, setUnavailableTeams] = useState<Set<string>>(new Set());
+  const [skillsOpen, setSkillsOpen] = useState(false);
+  const [skillsTeamId, setSkillsTeamId] = useState<string | undefined>();
+  const [teamsWithSkills, setTeamsWithSkills] = useState<Set<string>>(new Set());
 
   // Load teams (exclude ops managers) and workload counts
   useEffect(() => {
