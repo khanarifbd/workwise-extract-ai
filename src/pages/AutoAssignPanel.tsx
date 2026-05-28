@@ -179,7 +179,7 @@ export default function AutoAssignPanel() {
         supabase.from("team_availability").select("team_id").eq("unavailable_date", targetDate),
         supabase
           .from("jobs")
-          .select("id, job_number, name, address, description, summary_of_works, booked_date, team, category_id, is_completed, status")
+          .select("id, job_number, name, address, description, summary_of_works, booked_date, team, team2, category_id, is_completed, status")
           .eq("category_id", STREAM_CATEGORY[stream])
           .not("booked_date", "is", null)
           .gte("booked_date", startUTC.toISOString())
