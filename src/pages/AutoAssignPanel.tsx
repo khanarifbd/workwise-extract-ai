@@ -264,7 +264,7 @@ export default function AutoAssignPanel() {
       if (failed) throw new Error(`${failed} updates failed`);
       toast({ title: "Assignments saved", description: `${assignments.length} jobs assigned.` });
       setAssignments([]);
-      setJobs(prev => prev.filter(j => !assignments.find(a => a.jobId === j.id)));
+      setRefreshTick(t => t + 1); // re-pull from DB so the panel mirrors the source of truth
     } catch (e: any) {
       toast({ title: "Save failed", description: e.message, variant: "destructive" });
     } finally {
