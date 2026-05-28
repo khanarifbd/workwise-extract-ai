@@ -102,6 +102,7 @@ export default function AutoAssignPanel() {
   const [editing, setEditing] = useState<{ jobId: string; value: string } | null>(null);
   const [savingDesc, setSavingDesc] = useState(false);
   const [reassigning, setReassigning] = useState<string | null>(null);
+  const autoRanRef = useRef<string>("");
 
   // Load teams & classify by stream (DM vs A+A inferred from past assignments to A&A category)
   useEffect(() => {
