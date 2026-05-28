@@ -220,8 +220,9 @@ export const TeamJobDetail = ({
     },
   });
 
-  // Check if job is not already complete
-  const canSignOff = status !== 'complete' && !job.isCompleted;
+  // Always allow sign-off (teams may need to re-sign with additional photos/notes)
+  const canSignOff = true;
+  const alreadySignedOff = status === 'complete' || job.isCompleted;
 
   // Auto-save draft
   const autoSaveDraft = useCallback(async () => {
