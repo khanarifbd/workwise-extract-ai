@@ -325,7 +325,7 @@ export default function AutoAssignPanel() {
           </div>
         </div>
 
-        {/* Day tabs — each shows the LIVE count of unassigned jobs booked for that local day */}
+        {/* Day tabs — each shows the LIVE count of all booked jobs for that local day */}
         <div className="container mx-auto px-4 pb-3 flex items-center gap-2 overflow-x-auto">
           <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
           {days.map(d => {
@@ -438,7 +438,7 @@ export default function AutoAssignPanel() {
 
           <Button
             onClick={runAutoAssign}
-            disabled={running || loading || !jobs.length}
+            disabled={running || loading || !assignableJobs.length}
             className="w-full"
             size="lg"
           >
@@ -446,7 +446,7 @@ export default function AutoAssignPanel() {
           </Button>
 
           <div className="text-[11px] text-muted-foreground p-3 rounded-lg bg-muted/50 leading-relaxed">
-            <strong>How it works:</strong> Pick a <em>stream</em> (DM or A&amp;A) and a <em>day</em>, then run. AI combines each team's manual skill profile with past completed jobs, balances workload and groups nearby addresses. Adjust any pick before confirming.
+            <strong>How it works:</strong> Pick a <em>stream</em> (DM or A&amp;A) and a <em>day</em>. The panel shows every booked job for that day from the database, while AI only assigns the jobs still unassigned and incomplete. Adjust any pick before confirming.
           </div>
 
           <TeamSkillsManager
@@ -463,7 +463,7 @@ export default function AutoAssignPanel() {
             <h2 className="text-sm font-semibold">
               {assignments.length
                 ? `${assignments.length} AI suggestions`
-                : `${jobs.length} unassigned ${STREAM_LABEL[stream]} jobs`}
+                : `${jobs.length} booked ${STREAM_LABEL[stream]} jobs`}
             </h2>
             {assignments.length > 0 && (
               <Button onClick={confirmAll} disabled={confirming} variant="default">
@@ -477,7 +477,7 @@ export default function AutoAssignPanel() {
             <div className="p-12 text-center text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin mx-auto" /></div>
           ) : !jobs.length ? (
             <div className="p-12 text-center text-muted-foreground text-sm">
-              No unassigned {STREAM_LABEL[stream]} jobs for {targetDate}.
+              No booked {STREAM_LABEL[stream]} jobs for {targetDate}.
             </div>
           ) : (
             <Table>
@@ -493,6 +493,7 @@ export default function AutoAssignPanel() {
               <TableBody>
                 {jobs.map(job => {
                   const a = assignments.find(x => x.jobId === job.id);
+                  const isAssignable = !job.team && !job.is_completed && job.status !== "complete";
                   return (
                     <TableRow key={job.id}>
                       <TableCell className="font-mono text-xs">{job.job_number}</TableCell>
@@ -515,6 +516,12 @@ export default function AutoAssignPanel() {
                               ))}
                             </SelectContent>
                           </Select>
+                        ) : job.team ? (
+                          <Badge variant="secondary">{job.team}</Badge>
+                        ) : job.is_completed || job.status === "complete" ? (
+                          <Badge variant="secondary">Completed</Badge>
+                        ) : isAssignable ? (
+                          <span className="text-[11px] text-muted-foreground">Ready for AI</span>
                         ) : (
                           <span className="text-[11px] text-muted-foreground">—</span>
                         )}
