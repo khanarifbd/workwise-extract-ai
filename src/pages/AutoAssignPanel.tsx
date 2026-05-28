@@ -331,6 +331,22 @@ export default function AutoAssignPanel() {
     }
   };
 
+  // Auto-run analysis when the day/stream/jobs/teams settle so reasoning + confidence
+  // are visible without the user needing to click "Analyse".
+  useEffect(() => {
+    if (loading || running) return;
+    if (!analysableJobs.length || !eligibleTeams.length) return;
+    if (assignments.length > 0) return;
+    const jobSig = analysableJobs.map(j => j.id).sort().join(",");
+    const teamSig = eligibleTeams.map(t => t.teamId).sort().join(",");
+    const key = `${stream}|${targetDate}|${jobSig}|${teamSig}`;
+    if (autoRanRef.current === key) return;
+    autoRanRef.current = key;
+    runAutoAssign();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [analysableJobs, eligibleTeams, loading, targetDate, stream]);
+
+
   const updateAssignment = (jobId: string, teamName: string) => {
     setAssignments(prev => prev.map(a => {
       if (a.jobId !== jobId) return a;
