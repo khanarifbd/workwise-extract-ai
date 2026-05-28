@@ -59,7 +59,13 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 3. For each team: skillset from last 30 completed jobs + current workload
+    // 3. For each team: skillset from last 30 completed jobs + current workload + manual skill profile
+    const { data: skillRows } = await supabase
+      .from("team_skills")
+      .select("team_id, skills, strengths, weaknesses, proficiency_level, max_daily_jobs, notes")
+      .in("team_id", availableTeams.map(t => t.team_id));
+    const skillsByTeam = new Map((skillRows || []).map((s: any) => [s.team_id, s]));
+
     const teamProfiles = await Promise.all(availableTeams.map(async (t) => {
       const [{ data: completed }, { count: openCount }, { data: dayJobs }] = await Promise.all([
         supabase.from("jobs")
@@ -81,12 +87,19 @@ Deno.serve(async (req) => {
       const history = (completed || [])
         .map(c => `${c.summary_of_works || ""} ${c.description || ""}`.slice(0, 200))
         .filter(Boolean).join(" | ");
+      const profile: any = skillsByTeam.get(t.team_id) || {};
       return {
         teamId: t.team_id,
         teamName: t.team_name,
         historySnippet: history.slice(0, 2000),
         currentOpenJobs: openCount || 0,
         dayAddresses: (dayJobs || []).map(j => j.address).filter(Boolean),
+        manualSkills: profile.skills || [],
+        strengths: profile.strengths || "",
+        weaknesses: profile.weaknesses || "",
+        proficiency: profile.proficiency_level || "experienced",
+        maxDailyJobs: profile.max_daily_jobs ?? 3,
+        dispatcherNotes: profile.notes || "",
       };
     }));
 
