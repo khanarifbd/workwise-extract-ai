@@ -277,9 +277,35 @@ const TeamPortal = () => {
               notes: item.payload.notes,
             });
             await markSynced(item.id);
+          } else if (item.actionType === 'job_complete') {
+            // Full sign-off payload queued from TeamJobDetail when offline.
+            // Forward the complete data package so the edge function records
+            // team_sign_offs + flips the job to complete in the DB.
+            const p = item.payload || {};
+            await updateTeamJob(p.id || p.jobId, {
+              status: p.status ?? 'complete',
+              progress: p.progress ?? 100,
+              notes: p.notes,
+              photos: p.photos,
+              videos: p.videos,
+              documents: p.documents,
+              workItemUpdates: p.workItemUpdates,
+              isCompletion: true,
+            });
+            await markSynced(item.id);
+          } else if (item.actionType === 'file_upload') {
+            await updateTeamJob(item.payload.jobId || item.payload.id, {
+              photos: item.payload.photos,
+              videos: item.payload.videos,
+              documents: item.payload.documents,
+              notes: item.payload.notes,
+            });
+            await markSynced(item.id);
+          } else {
+            console.warn('[sync] Unknown queued actionType, skipping:', item.actionType);
           }
         } catch (err) {
-          console.error('Error syncing item:', err);
+          console.error('Error syncing item:', err, 'actionType:', (item as any).actionType);
         }
       }
 
