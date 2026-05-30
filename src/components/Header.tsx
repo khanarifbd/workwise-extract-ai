@@ -180,13 +180,6 @@ export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-52">
                 <DropdownMenuItem asChild>
-                  <Link to="/auto-assign" className="flex items-center gap-2 cursor-pointer font-semibold text-violet-600 dark:text-violet-400">
-                    <Sparkles className="w-4 h-4" />
-                    Auto-Assign (AI)
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
                   <Link to="/team" className="flex items-center gap-2 cursor-pointer">
                     <Users className="w-4 h-4" />
                     Team Portal
