@@ -214,6 +214,15 @@ export function ProgressorJobExpandedContent({
   };
 
   const handleJobSignOff = async () => {
+    if (!hasCompletedControl) {
+      toast({
+        title: 'CONTROL required',
+        description: 'Open the CONTROL tab and mark a record as Completed before closing this job.',
+        variant: 'destructive',
+      });
+      setActiveTab('control');
+      return;
+    }
     if (!confirm(`Sign off job #${job.jobNumber} - ${job.name} as COMPLETE? This will move it to the Completed folder.`)) return;
     try {
       const { error } = await supabase
