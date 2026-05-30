@@ -154,15 +154,6 @@ export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount
               )}
             </button>
 
-            {/* Auto-Assign — AI dispatcher */}
-            <Link
-              to="/auto-assign"
-              title="AI Auto-Assign Panel"
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold text-white bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 shadow-md hover:shadow-lg transition-all"
-            >
-              <Sparkles className="w-4 h-4" />
-              <span className="hidden md:inline">Auto-Assign</span>
-            </Link>
 
             {/* Roadmaps — prominent CTA */}
             <Link
@@ -188,13 +179,6 @@ export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-52">
-                <DropdownMenuItem asChild>
-                  <Link to="/auto-assign" className="flex items-center gap-2 cursor-pointer font-semibold text-violet-600 dark:text-violet-400">
-                    <Sparkles className="w-4 h-4" />
-                    Auto-Assign (AI)
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
                   <Link to="/team" className="flex items-center gap-2 cursor-pointer">
                     <Users className="w-4 h-4" />
@@ -251,6 +235,12 @@ export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount
                 <DropdownMenuItem onClick={onExport} className="flex items-center gap-2 cursor-pointer">
                   <FileDown className="w-4 h-4" />
                   Export
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/auto-assign" className="flex items-center gap-2 cursor-pointer font-semibold text-violet-600 dark:text-violet-400">
+                    <Sparkles className="w-4 h-4" />
+                    Auto-Assign (AI)
+                  </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setShowMaterialsReport(true)} className="flex items-center gap-2 cursor-pointer">
                   <Package className="w-4 h-4" />
