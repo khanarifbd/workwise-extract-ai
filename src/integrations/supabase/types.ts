@@ -326,6 +326,51 @@ export type Database = {
         }
         Relationships: []
       }
+      job_control_records: {
+        Row: {
+          action_details: string
+          assigned_to: string
+          created_at: string
+          created_by: string | null
+          deadline: string | null
+          id: string
+          job_id: string
+          next_action: string
+          problem_description: string
+          problem_type: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          action_details?: string
+          assigned_to: string
+          created_at?: string
+          created_by?: string | null
+          deadline?: string | null
+          id?: string
+          job_id: string
+          next_action: string
+          problem_description?: string
+          problem_type: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          action_details?: string
+          assigned_to?: string
+          created_at?: string
+          created_by?: string | null
+          deadline?: string | null
+          id?: string
+          job_id?: string
+          next_action?: string
+          problem_description?: string
+          problem_type?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       job_sub_tasks: {
         Row: {
           assigned_team: string | null
