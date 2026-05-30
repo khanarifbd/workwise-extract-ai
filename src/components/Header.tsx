@@ -154,15 +154,6 @@ export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount
               )}
             </button>
 
-            {/* Auto-Assign — AI dispatcher */}
-            <Link
-              to="/auto-assign"
-              title="AI Auto-Assign Panel"
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold text-white bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 shadow-md hover:shadow-lg transition-all"
-            >
-              <Sparkles className="w-4 h-4" />
-              <span className="hidden md:inline">Auto-Assign</span>
-            </Link>
 
             {/* Roadmaps — prominent CTA */}
             <Link
