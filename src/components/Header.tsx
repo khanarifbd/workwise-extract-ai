@@ -236,6 +236,12 @@ export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount
                   <FileDown className="w-4 h-4" />
                   Export
                 </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/auto-assign" className="flex items-center gap-2 cursor-pointer font-semibold text-violet-600 dark:text-violet-400">
+                    <Sparkles className="w-4 h-4" />
+                    Auto-Assign (AI)
+                  </Link>
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setShowMaterialsReport(true)} className="flex items-center gap-2 cursor-pointer">
                   <Package className="w-4 h-4" />
                   Materials Report
