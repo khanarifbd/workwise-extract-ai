@@ -19,7 +19,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { BookedDateCell } from '@/components/BookedDateCell';
+import { ControlPanelTab } from '@/components/progressor/ControlPanelTab';
 import { extractFansWithAI, createLinkedFanJob, syncLinkedFanJob } from '@/lib/api';
 import {
   AlertTriangle, Phone, MapPin, User, Flag, Plus, MessageSquare,
@@ -86,6 +88,8 @@ export function ProgressorJobExpandedContent({
   const [addressDraft, setAddressDraft] = useState('');
   const [isScanningFans, setIsScanningFans] = useState(false);
   const [fanBookingDialogData, setFanBookingDialogData] = useState<{ fanInfo: FanInfo[]; totalFanCount: number } | null>(null);
+  const [activeTab, setActiveTab] = useState<'details' | 'control'>('details');
+  const [hasCompletedControl, setHasCompletedControl] = useState(false);
 
   const fanCategoryId = categories.find(c => c.name.toLowerCase().includes('fan'))?.id;
   const expectedDatePast = job.expectedCompletionDate && isPast(job.expectedCompletionDate);
@@ -210,6 +214,15 @@ export function ProgressorJobExpandedContent({
   };
 
   const handleJobSignOff = async () => {
+    if (!hasCompletedControl) {
+      toast({
+        title: 'CONTROL required',
+        description: 'Open the CONTROL tab and mark a record as Completed before closing this job.',
+        variant: 'destructive',
+      });
+      setActiveTab('control');
+      return;
+    }
     if (!confirm(`Sign off job #${job.jobNumber} - ${job.name} as COMPLETE? This will move it to the Completed folder.`)) return;
     try {
       const { error } = await supabase
@@ -292,6 +305,19 @@ export function ProgressorJobExpandedContent({
 
   return (
     <div className="border-t">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'details' | 'control')}>
+        <div className="px-4 pt-3 bg-muted/20 border-b">
+          <TabsList className="h-9">
+            <TabsTrigger value="details" className="text-xs">Details</TabsTrigger>
+            <TabsTrigger value="control" className="text-xs data-[state=active]:bg-red-600 data-[state=active]:text-white">
+              🔴 CONTROL{hasCompletedControl ? ' ✓' : ''}
+            </TabsTrigger>
+          </TabsList>
+        </div>
+        <TabsContent value="control" className="mt-0 px-4 py-3 bg-muted/20">
+          <ControlPanelTab jobId={job.id} jobNumber={job.jobNumber} onCompletedChange={setHasCompletedControl} />
+        </TabsContent>
+        <TabsContent value="details" className="mt-0">
       <div className="px-4 py-3 bg-muted/20 space-y-3">
         {/* Key info row */}
         <div className="grid grid-cols-2 md:grid-cols-6 gap-3 text-xs">
@@ -889,6 +915,9 @@ export function ProgressorJobExpandedContent({
           </div>
         )}
       </div>
+        </TabsContent>
+      </Tabs>
+
 
       {/* Fan Booking Date Dialog */}
       {fanBookingDialogData && (
