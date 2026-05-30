@@ -305,6 +305,19 @@ export function ProgressorJobExpandedContent({
 
   return (
     <div className="border-t">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'details' | 'control')}>
+        <div className="px-4 pt-3 bg-muted/20 border-b">
+          <TabsList className="h-9">
+            <TabsTrigger value="details" className="text-xs">Details</TabsTrigger>
+            <TabsTrigger value="control" className="text-xs data-[state=active]:bg-red-600 data-[state=active]:text-white">
+              🔴 CONTROL{hasCompletedControl ? ' ✓' : ''}
+            </TabsTrigger>
+          </TabsList>
+        </div>
+        <TabsContent value="control" className="mt-0 px-4 py-3 bg-muted/20">
+          <ControlPanelTab jobId={job.id} jobNumber={job.jobNumber} onCompletedChange={setHasCompletedControl} />
+        </TabsContent>
+        <TabsContent value="details" className="mt-0">
       <div className="px-4 py-3 bg-muted/20 space-y-3">
         {/* Key info row */}
         <div className="grid grid-cols-2 md:grid-cols-6 gap-3 text-xs">
