@@ -915,6 +915,9 @@ export function ProgressorJobExpandedContent({
           </div>
         )}
       </div>
+        </TabsContent>
+      </Tabs>
+
 
       {/* Fan Booking Date Dialog */}
       {fanBookingDialogData && (
