@@ -31,7 +31,7 @@ import { useJobClosureChecks } from '@/hooks/useJobClosureChecks';
 import { extractFansWithAI, createLinkedFanJob, syncLinkedFanJob } from '@/lib/api';
 import {
   AlertTriangle, Phone, MapPin, User, Flag, Plus, MessageSquare,
-  Wrench, Users, Trash2, CalendarCheck, CheckCircle, CalendarClock, CornerDownRight, X, Fan, Pencil, Loader2, Wand2,
+  Wrench, Users, Trash2, CalendarCheck, CheckCircle, CheckCircle2, AlertOctagon, CalendarClock, CornerDownRight, X, Fan, Pencil, Loader2, Wand2,
 } from 'lucide-react';
 import { format, differenceInHours, isPast } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
@@ -332,19 +332,38 @@ export function ProgressorJobExpandedContent({
   return (
     <div className="border-t">
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'details' | 'control')}>
-        <div className="px-4 pt-3 bg-muted/20 border-b flex items-center justify-between gap-2">
+        <div className="px-4 pt-3 bg-muted/20 border-b flex items-center justify-between gap-3 flex-wrap">
           <TabsList className="h-9">
             <TabsTrigger value="details" className="text-xs">Details</TabsTrigger>
-            <TabsTrigger
-              value="control"
-              className={cn(
-                'text-xs data-[state=active]:bg-red-600 data-[state=active]:text-white',
-                roleMode === 'daniella' && 'ring-2 ring-rose-500 ring-offset-1 animate-pulse font-extrabold',
-              )}
-            >
-              🔴 CONTROL{hasCompletedControl ? ' ✓' : ''}
-            </TabsTrigger>
           </TabsList>
+
+          <TabsTrigger
+            value="control"
+            className={cn(
+              // Stand-out closure CTA — bold red pill, separated from the regular tab list
+              'group inline-flex items-center gap-2 rounded-full px-5 py-2 text-sm font-extrabold uppercase tracking-wide',
+              'bg-red-600 text-white shadow-lg shadow-red-600/40 ring-2 ring-red-300',
+              'hover:bg-red-700 hover:scale-[1.02] active:scale-[0.98] transition-all',
+              'data-[state=active]:bg-red-700 data-[state=active]:ring-red-400 data-[state=active]:shadow-red-700/50',
+              hasCompletedControl
+                ? 'bg-emerald-600 ring-emerald-300 shadow-emerald-600/40 hover:bg-emerald-700'
+                : 'animate-pulse',
+              roleMode === 'daniella' && !hasCompletedControl && 'ring-4 ring-rose-400 ring-offset-2',
+            )}
+          >
+            {hasCompletedControl ? (
+              <>
+                <CheckCircle2 className="h-4 w-4" />
+                Control · Resolved
+              </>
+            ) : (
+              <>
+                <AlertOctagon className="h-4 w-4" />
+                Control · Close Job
+              </>
+            )}
+          </TabsTrigger>
+
           {roleMode === 'daniella' && (
             <span className="text-[10px] font-bold uppercase tracking-wide text-rose-600 flex items-center gap-1">
               ✦ Daniella Mode — Closure focus
