@@ -72,7 +72,7 @@ interface ControlPanelTabProps {
 
 type DraftRecord = Partial<ControlRecord> & { isNew?: boolean };
 
-export function ControlPanelTab({ jobId, jobNumber, onCompletedChange }: ControlPanelTabProps) {
+export function ControlPanelTab({ jobId, jobNumber, jobName = '', jobAddress = '', onCompletedChange }: ControlPanelTabProps) {
   const [records, setRecords] = useState<ControlRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
