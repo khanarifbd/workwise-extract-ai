@@ -123,6 +123,7 @@ const ProgressorWorkspace = () => {
   const aaFiltered = useMemo(() => filterJobsBySearch(aaJobs, search), [aaJobs, search]);
   const allFilteredIds = useMemo(() => [...dmFiltered, ...aaFiltered].map(j => j.id), [dmFiltered, aaFiltered]);
   const { getSignOffStatus } = useSignOffStatus(allFilteredIds);
+  const { get: getControlSummary } = useJobControlSummary(allFilteredIds);
 
   const selected = useMemo(
     () => [...dmJobs, ...aaJobs].find(j => j.id === selectedId) || null,
