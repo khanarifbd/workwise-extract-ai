@@ -355,6 +355,8 @@ export function ProgressorJobExpandedContent({
         </TabsContent>
         <TabsContent value="details" className="mt-0">
       <div className="px-4 py-3 bg-muted/20 space-y-3">
+        {/* SLA / Job Timer Strip (AWAB'S LAW) */}
+        <JobTimerStrip job={job} categoryName={categories.find(c => c.id === job.categoryId)?.name} />
         {/* Key info row */}
         <div className="grid grid-cols-2 md:grid-cols-6 gap-3 text-xs">
           <div>
