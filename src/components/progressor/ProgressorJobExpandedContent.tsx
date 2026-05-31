@@ -376,6 +376,7 @@ export function ProgressorJobExpandedContent({
         <TabsContent value="details" className="mt-0">
       <div className="px-4 py-3 bg-muted/20 space-y-3">
         {/* SLA / Job Timer Strip (AWAB'S LAW) */}
+        <AutoFlagsBar job={job} categoryName={job.isOngoing ? 'ongoing' : undefined} />
         <JobTimerStrip job={job} categoryName={job.isOngoing ? 'ongoing' : undefined} />
         {roleMode === 'nav' && (
           <div className="rounded-lg border-2 border-indigo-400 bg-indigo-50 dark:bg-indigo-950/30 px-3 py-2 text-xs space-y-1">
