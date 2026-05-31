@@ -76,6 +76,30 @@ export function ControlPanelTab({ jobId, jobNumber, jobName = '', jobAddress = '
   const [saving, setSaving] = useState<string | null>(null);
   const [draft, setDraft] = useState<DraftRecord | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [assignedTeams, setAssignedTeams] = useState<string[]>([]);
+
+  const loadAssigned = async () => {
+    const { data } = await supabase
+      .from('job_sub_tasks')
+      .select('trade, assigned_team')
+      .eq('parent_job_id', jobId);
+    const names = Array.from(new Set(
+      ((data as any[]) || [])
+        .map(r => r.assigned_team || r.trade)
+        .filter(Boolean)
+    ));
+    setAssignedTeams(names);
+  };
+
+  useEffect(() => {
+    loadAssigned();
+    const channel = supabase
+      .channel(`control-assigned-${jobId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'job_sub_tasks', filter: `parent_job_id=eq.${jobId}` }, () => loadAssigned())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobId]);
 
   const load = async () => {
     setLoading(true);
@@ -230,6 +254,7 @@ export function ControlPanelTab({ jobId, jobNumber, jobName = '', jobAddress = '
               jobNumber={jobNumber}
               jobName={jobName}
               jobAddress={jobAddress}
+              assignedTeams={assignedTeams}
               isExpanded={expanded[r.id] ?? false}
               onToggle={() => setExpanded((p) => ({ ...p, [r.id]: !p[r.id] }))}
               saving={saving === r.id}
@@ -355,6 +380,7 @@ function RecordCard({
   jobNumber,
   jobName,
   jobAddress,
+  assignedTeams,
   isExpanded,
   onToggle,
   saving,
@@ -368,6 +394,7 @@ function RecordCard({
   jobNumber: string;
   jobName: string;
   jobAddress: string;
+  assignedTeams: string[];
   isExpanded: boolean;
   onToggle: () => void;
   saving: boolean;
@@ -413,6 +440,11 @@ function RecordCard({
         </span>
         <span className="text-base font-extrabold uppercase tracking-wide text-red-800 dark:text-red-200 truncate">
           {title}
+          {assignedTeams.length > 0 && (
+            <span className="ml-2 text-xs font-semibold normal-case tracking-normal text-progressor">
+              → {assignedTeams.join(', ')}
+            </span>
+          )}
         </span>
         <Badge className={cn('text-xs ml-auto shrink-0', STATUS_COLOR[local.status] || 'bg-muted')}>
           {local.status}
