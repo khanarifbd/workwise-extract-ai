@@ -198,6 +198,16 @@ export function ControlPanelTab({ jobId, jobNumber, jobName = '', jobAddress = '
         )}
       </div>
 
+      {/* Team assignment (replaces Trades feature) */}
+      <ControlTeamAssignment
+        jobId={jobId}
+        jobNumber={jobNumber}
+        jobName={jobName}
+        jobAddress={jobAddress}
+      />
+
+
+
       {/* Draft new */}
       {draft && (
         <DraftEditor
