@@ -34,7 +34,7 @@ import { ProgressorDiaryPanel } from '@/components/progressor/ProgressorDiaryPan
 import { ProgressorPdfExportModal } from '@/components/progressor/ProgressorPdfExportModal';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown } from 'lucide-react';
-import { SUB_TASK_STATUS_OPTIONS } from '@/types/subTask';
+
 import { cn } from '@/lib/utils';
 import {
   RenderWithProgressor, wrapProgressorText, detectJobPriority, JobPriority,
