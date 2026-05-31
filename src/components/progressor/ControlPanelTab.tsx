@@ -380,6 +380,7 @@ function RecordCard({
   jobNumber,
   jobName,
   jobAddress,
+  assignedTeams,
   isExpanded,
   onToggle,
   saving,
@@ -393,6 +394,7 @@ function RecordCard({
   jobNumber: string;
   jobName: string;
   jobAddress: string;
+  assignedTeams: string[];
   isExpanded: boolean;
   onToggle: () => void;
   saving: boolean;
