@@ -118,14 +118,7 @@ export function JobTimerStrip({ job, categoryName }: JobTimerStripProps) {
           </span>
         </div>
       )}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-background border">
-          <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-          <div className="text-[11px] leading-tight">
-            <div className="text-muted-foreground">Days Open</div>
-            <div className="font-bold">{metrics.daysSinceCreated}d</div>
-          </div>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
         <div
           className={cn(
             'flex items-center gap-2 px-3 py-2 rounded-lg border',
@@ -144,18 +137,13 @@ export function JobTimerStrip({ job, categoryName }: JobTimerStripProps) {
             </div>
           </div>
         </div>
-        <div className={cn('flex items-center gap-2 px-3 py-2 rounded-lg border col-span-2 md:col-span-1', deadlineTone)}>
+        <div className={cn('flex items-center gap-2 px-3 py-2 rounded-lg border', deadlineTone)}>
           <CalendarClock className="h-3.5 w-3.5" />
           <div className="text-[11px] leading-tight">
             <div className="opacity-80">Deadline</div>
             <div className="font-bold">{formatDeadline()}</div>
           </div>
         </div>
-        {metrics.atRisk && (
-          <Badge className="bg-amber-600 text-white text-[10px] h-auto px-2 py-1.5 flex items-center justify-center gap-1">
-            <AlertTriangle className="h-3 w-3" /> AT RISK — No update 48h+
-          </Badge>
-        )}
       </div>
     </div>
   );
