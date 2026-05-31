@@ -958,6 +958,23 @@ export function ProgressorJobExpandedContent({
                             </SelectContent>
                           </Select>
                         </td>
+                        <td className="px-3 py-2">
+                          {(() => {
+                            const isComp = st.status === 'completed_signed_off';
+                            const anchor = st.bookedDate ? new Date(st.bookedDate) : new Date(st.createdAt);
+                            const end = isComp && st.completionDate ? new Date(st.completionDate) : new Date();
+                            const days = Math.max(0, Math.floor((end.getTime() - anchor.getTime()) / 86400000));
+                            const alert = !isComp && !st.bookedDate && days >= 2;
+                            return (
+                              <Badge className={cn(
+                                "text-[10px] px-1.5",
+                                alert ? "bg-red-600 text-white" : isComp ? "bg-emerald-600 text-white" : "bg-amber-500 text-white"
+                              )}>
+                                {days}d
+                              </Badge>
+                            );
+                          })()}
+                        </td>
                         <td className="px-3 py-2 text-center">
                           <Checkbox checked={st.portalUpdated} onCheckedChange={(v) => onSubTaskUpdate(st, 'portalUpdated', !!v)} className="h-4 w-4" />
                         </td>
