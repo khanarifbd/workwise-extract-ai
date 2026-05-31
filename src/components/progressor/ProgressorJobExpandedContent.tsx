@@ -336,8 +336,22 @@ export function ProgressorJobExpandedContent({
             </TabsTrigger>
           </TabsList>
         </div>
-        <TabsContent value="control" className="mt-0 px-4 py-3 bg-muted/20">
+        <TabsContent value="control" className="mt-0 px-4 py-3 bg-muted/20 space-y-3">
           <ControlPanelTab jobId={job.id} jobNumber={job.jobNumber} onCompletedChange={setHasCompletedControl} />
+          <CompletionChecklist checks={closureChecks} />
+          <TenantSignaturePad
+            jobId={job.id}
+            jobNumber={job.jobNumber}
+            existingUrl={signatureUrl}
+            existingName={signatureName}
+            signedAt={signatureSignedAt}
+            onSaved={(url, name, signedAt) => {
+              setSignatureUrl(url);
+              setSignatureName(name);
+              setSignatureSignedAt(new Date(signedAt));
+              setClosureRefreshKey((k) => k + 1);
+            }}
+          />
         </TabsContent>
         <TabsContent value="details" className="mt-0">
       <div className="px-4 py-3 bg-muted/20 space-y-3">
