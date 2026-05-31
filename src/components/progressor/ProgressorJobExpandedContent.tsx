@@ -31,7 +31,7 @@ import { useJobClosureChecks } from '@/hooks/useJobClosureChecks';
 import { extractFansWithAI, createLinkedFanJob, syncLinkedFanJob } from '@/lib/api';
 import {
   AlertTriangle, Phone, MapPin, User, Flag, Plus, MessageSquare,
-  Wrench, Users, Trash2, CalendarCheck, CheckCircle, CalendarClock, CornerDownRight, X, Fan, Pencil, Loader2, Wand2,
+  Wrench, Users, Trash2, CalendarCheck, CheckCircle, CheckCircle2, AlertOctagon, CalendarClock, CornerDownRight, X, Fan, Pencil, Loader2, Wand2,
 } from 'lucide-react';
 import { format, differenceInHours, isPast } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
