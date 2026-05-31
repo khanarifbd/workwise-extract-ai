@@ -738,7 +738,14 @@ export function ProgressorJobExpandedContent({
           )}
 
           {/* Media Upload */}
-          <ProgressorMediaUpload jobId={job.id} jobNumber={job.jobNumber} onUploaded={onRefresh} />
+          <ProgressorMediaUpload
+            jobId={job.id}
+            jobNumber={job.jobNumber}
+            onUploaded={() => { onRefresh(); setClosureRefreshKey((k) => k + 1); }}
+          />
+
+          {/* Completion Lock checklist (always visible above sign-off) */}
+          <CompletionChecklist checks={closureChecks} />
 
           {/* Expected Completion Date + Actions */}
           <div className="flex items-center justify-between gap-3 bg-background border rounded-lg p-2.5">
@@ -770,16 +777,35 @@ export function ProgressorJobExpandedContent({
               >
                 <CornerDownRight className="h-3.5 w-3.5 mr-1" /> Refer to NPH
               </Button>
-              <Button
-                size="sm"
-                className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
-                onClick={(e) => { e.stopPropagation(); handleJobSignOff(); }}
-              >
-                <CheckCircle className="h-3.5 w-3.5 mr-1" /> Sign Off Complete
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <Button
+                      size="sm"
+                      disabled={!canCloseJob}
+                      className={cn(
+                        "text-xs text-white",
+                        canCloseJob
+                          ? "bg-emerald-600 hover:bg-emerald-700"
+                          : "bg-muted text-muted-foreground cursor-not-allowed",
+                      )}
+                      onClick={(e) => { e.stopPropagation(); handleJobSignOff(); }}
+                    >
+                      <CheckCircle className="h-3.5 w-3.5 mr-1" />
+                      {canCloseJob ? 'Close Job' : 'Close Job (locked)'}
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {!canCloseJob && (
+                  <TooltipContent>
+                    Complete every required check (see checklist) before closing.
+                  </TooltipContent>
+                )}
+              </Tooltip>
             </div>
           </div>
         </div>
+
 
         {/* Refer back info */}
         {job.referBack && (
