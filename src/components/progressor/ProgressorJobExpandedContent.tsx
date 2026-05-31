@@ -831,7 +831,24 @@ export function ProgressorJobExpandedContent({
 
       {/* Sub-Task / Trade Section */}
       <div className="mx-2 mb-2 rounded-xl border-2 border-amber-400 dark:border-amber-500 bg-amber-50/80 dark:bg-amber-950/30 shadow-lg shadow-amber-200/30 dark:shadow-amber-900/20">
-        <div className="flex items-center justify-between px-4 py-2.5 bg-amber-100/80 dark:bg-amber-900/40 rounded-t-xl border-b border-amber-300 dark:border-amber-700">
+        {(() => {
+          // Trade Delay Alert: any trade required but not booked within 48h of creation
+          const delayed = jobSubTasks.filter(st => {
+            if (st.status === 'completed_signed_off' || st.bookedDate) return false;
+            const ageHrs = (Date.now() - new Date(st.createdAt).getTime()) / 36e5;
+            return ageHrs >= 48;
+          });
+          if (delayed.length === 0) return null;
+          return (
+            <div className="px-4 py-2 bg-red-600 text-white rounded-t-xl flex items-center gap-2 animate-pulse">
+              <AlertTriangle className="h-4 w-4" />
+              <span className="text-xs font-bold uppercase tracking-wide">
+                🔴 Trade Delay Alert — {delayed.length} trade{delayed.length > 1 ? 's' : ''} unbooked &gt; 48h
+              </span>
+            </div>
+          );
+        })()}
+        <div className="flex items-center justify-between px-4 py-2.5 bg-amber-100/80 dark:bg-amber-900/40 border-b border-amber-300 dark:border-amber-700">
           <div className="flex items-center gap-2">
             <Wrench className="h-4.5 w-4.5 text-amber-700 dark:text-amber-400" />
             <span className="font-bold text-sm text-amber-800 dark:text-amber-300 uppercase tracking-wide">
@@ -853,6 +870,7 @@ export function ProgressorJobExpandedContent({
             </div>
           )}
         </div>
+
 
         {jobSubTasks.length > 0 ? (
           <>
