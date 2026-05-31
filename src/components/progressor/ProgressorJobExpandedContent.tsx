@@ -331,13 +331,29 @@ export function ProgressorJobExpandedContent({
   return (
     <div className="border-t">
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'details' | 'control')}>
-        <div className="px-4 pt-3 bg-muted/20 border-b">
+        <div className="px-4 pt-3 bg-muted/20 border-b flex items-center justify-between gap-2">
           <TabsList className="h-9">
             <TabsTrigger value="details" className="text-xs">Details</TabsTrigger>
-            <TabsTrigger value="control" className="text-xs data-[state=active]:bg-red-600 data-[state=active]:text-white">
+            <TabsTrigger
+              value="control"
+              className={cn(
+                'text-xs data-[state=active]:bg-red-600 data-[state=active]:text-white',
+                roleMode === 'daniella' && 'ring-2 ring-rose-500 ring-offset-1 animate-pulse font-extrabold',
+              )}
+            >
               🔴 CONTROL{hasCompletedControl ? ' ✓' : ''}
             </TabsTrigger>
           </TabsList>
+          {roleMode === 'daniella' && (
+            <span className="text-[10px] font-bold uppercase tracking-wide text-rose-600 flex items-center gap-1">
+              ✦ Daniella Mode — Closure focus
+            </span>
+          )}
+          {roleMode === 'nav' && (
+            <span className="text-[10px] font-bold uppercase tracking-wide text-indigo-600 flex items-center gap-1">
+              📊 Nav Mode — Performance focus
+            </span>
+          )}
         </div>
         <TabsContent value="control" className="mt-0 px-4 py-3 bg-muted/20 space-y-3">
           <ControlPanelTab jobId={job.id} jobNumber={job.jobNumber} onCompletedChange={setHasCompletedControl} />
