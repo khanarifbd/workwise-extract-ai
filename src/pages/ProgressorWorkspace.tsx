@@ -127,6 +127,11 @@ const ProgressorWorkspace = () => {
   const dmFiltered = useMemo(() => filterJobsBySearch(dmJobs, search), [dmJobs, search]);
   const aaFiltered = useMemo(() => filterJobsBySearch(aaJobs, search), [aaJobs, search]);
   const allFilteredIds = useMemo(() => [...dmFiltered, ...aaFiltered].map(j => j.id), [dmFiltered, aaFiltered]);
+  const firstVisibleJobId = useMemo(() => {
+    const primary = activeStream === 'dm' ? dmFiltered : aaFiltered;
+    const secondary = activeStream === 'dm' ? aaFiltered : dmFiltered;
+    return primary[0]?.id ?? secondary[0]?.id ?? null;
+  }, [activeStream, dmFiltered, aaFiltered]);
   const { getSignOffStatus } = useSignOffStatus(allFilteredIds);
   const { get: getControlSummary } = useJobControlSummary(allFilteredIds);
 
@@ -134,6 +139,19 @@ const ProgressorWorkspace = () => {
     () => [...dmJobs, ...aaJobs].find(j => j.id === selectedId) || null,
     [dmJobs, aaJobs, selectedId],
   );
+
+  useEffect(() => {
+    if (jobsLoading || !firstVisibleJobId) return;
+
+    if (!selectedId) {
+      setSelectedId(firstVisibleJobId);
+      return;
+    }
+
+    if (!allFilteredIds.includes(selectedId)) {
+      setSelectedId(firstVisibleJobId);
+    }
+  }, [jobsLoading, selectedId, firstVisibleJobId, allFilteredIds]);
 
   // Auto-switch to the stream of the selected job (e.g. when jumping from diary).
   useEffect(() => {
