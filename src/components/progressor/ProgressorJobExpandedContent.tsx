@@ -24,6 +24,7 @@ import { BookedDateCell } from '@/components/BookedDateCell';
 import { ControlPanelTab } from '@/components/progressor/ControlPanelTab';
 import { TenantSignaturePad } from '@/components/progressor/TenantSignaturePad';
 import { CompletionChecklist, ClosureCheck } from '@/components/progressor/CompletionChecklist';
+import { JobTimerStrip } from '@/components/progressor/JobTimerStrip';
 import { useJobClosureChecks } from '@/hooks/useJobClosureChecks';
 import { extractFansWithAI, createLinkedFanJob, syncLinkedFanJob } from '@/lib/api';
 import {
