@@ -386,6 +386,14 @@ export const createJob = async (job: Omit<Job, 'id'>, categoryId?: string): Prom
     .single();
 
   if (error) {
+    // 23505 = unique_violation (jobs_job_number_active_unique partial index)
+    if ((error as any).code === '23505') {
+      const dup = new Error(`Duplicate job number: ${job.jobNumber} already exists in the database.`);
+      (dup as any).code = 'DUPLICATE_JOB_NUMBER';
+      (dup as any).jobNumber = job.jobNumber;
+      console.warn('Duplicate job blocked at DB level:', job.jobNumber);
+      throw dup;
+    }
     console.error('Error creating job:', error);
     throw error;
   }
