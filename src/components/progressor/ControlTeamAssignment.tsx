@@ -47,7 +47,9 @@ export function ControlTeamAssignment({ jobId, jobNumber, jobName, jobAddress }:
         .order('team_name');
       const rows = (data as any[]) || [];
       setDmTeams(rows.filter(t => t.team_type === 'dm' || !t.team_type).map(t => t.team_name));
-      setAaTeams(rows.filter(t => t.team_type === 'aa').map(t => t.team_name));
+      const aaFromDb = rows.filter(t => t.team_type === 'aa').map(t => t.team_name);
+      // Fallback to standard trade list when no dedicated A&A teams are configured
+      setAaTeams(aaFromDb.length > 0 ? aaFromDb : [...DEFAULT_TRADES].filter(t => t !== 'Other'));
     })();
   }, []);
 
