@@ -40,7 +40,7 @@ import {
   RenderWithProgressor, wrapProgressorText, detectJobPriority, JobPriority,
 } from '@/lib/progressorMarkup';
 import {
-  Search, Calendar as CalendarIcon, X, BookOpenCheck, Wrench,
+  Search, Calendar as CalendarIcon, X, BookOpenCheck,
   LogOut, Loader2, Save, Edit3, FileText, MessageSquare, Image as ImageIcon,
   CheckCircle2, Plus, Building2, Siren, Zap, Star, Phone, FileDown,
 } from 'lucide-react';
