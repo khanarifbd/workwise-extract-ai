@@ -275,7 +275,7 @@ export default ProgressorWorkspace;
 
 /* ───────────────────── Stream Column (DM or A&A) ───────────────────── */
 const StreamColumn = ({
-  title, tone, jobs, isLoading, selectedId, onSelect, getSignOffStatus,
+  title, tone, jobs, isLoading, selectedId, onSelect, getSignOffStatus, getControlSummary,
 }: {
   title: string;
   tone: string;
@@ -284,6 +284,7 @@ const StreamColumn = ({
   selectedId: string | null;
   onSelect: (id: string) => void;
   getSignOffStatus: (id: string, t1: string | null, t2: string | null) => any;
+  getControlSummary: (id: string) => ControlSummary;
 }) => {
   // Group [date,jobs][] by Month → Week → Day
   type WeekBucket = { weekKey: string; weekLabel: string; days: [string, IncompleteJob[]][] };
