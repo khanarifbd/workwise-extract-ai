@@ -611,8 +611,6 @@ const JobDetailPanel = ({
           <TabsTrigger value="notes"><MessageSquare className="h-3.5 w-3.5 mr-1" /> Notes</TabsTrigger>
           <TabsTrigger value="calls"><Phone className="h-3.5 w-3.5 mr-1" /> Call Log</TabsTrigger>
           <TabsTrigger value="media"><ImageIcon className="h-3.5 w-3.5 mr-1" /> Media</TabsTrigger>
-          
-          <TabsTrigger value="tasks"><CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Tasks</TabsTrigger>
           <TabsTrigger
             value="control"
             className={cn(
