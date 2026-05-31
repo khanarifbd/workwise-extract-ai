@@ -582,6 +582,22 @@ const JobDetailPanel = ({
         </div>
       </div>
 
+      {/* Phase 6 auto flags + SLA timers */}
+      <div className="px-5 pt-3 space-y-2">
+        <AutoFlagsBar job={jobLike as any} />
+        <JobTimerStrip job={jobLike as any} />
+        {roleMode === 'daniella' && (
+          <div className="text-[11px] font-semibold text-rose-600 bg-rose-500/10 border border-rose-500/30 rounded px-2 py-1">
+            ✦ Daniella Mode — Closure focus: open CONTROL tab to clear blockers.
+          </div>
+        )}
+        {roleMode === 'nav' && (
+          <div className="text-[11px] font-semibold text-indigo-600 bg-indigo-500/10 border border-indigo-500/30 rounded px-2 py-1">
+            📊 Nav Mode — Trades: {subTasks.length} · Teams: {[job.team, job.team2].filter(Boolean).join(', ') || 'unassigned'}
+          </div>
+        )}
+      </div>
+
       <Tabs value={tab} onValueChange={setTab} className="flex-1 flex flex-col min-h-0">
         <TabsList className="mx-5 mt-3 self-start">
           <TabsTrigger value="description"><FileText className="h-3.5 w-3.5 mr-1" /> Description</TabsTrigger>
@@ -590,6 +606,15 @@ const JobDetailPanel = ({
           <TabsTrigger value="media"><ImageIcon className="h-3.5 w-3.5 mr-1" /> Media</TabsTrigger>
           <TabsTrigger value="trades"><Wrench className="h-3.5 w-3.5 mr-1" /> Trades ({subTasks.length})</TabsTrigger>
           <TabsTrigger value="tasks"><CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Tasks</TabsTrigger>
+          <TabsTrigger
+            value="control"
+            className={cn(
+              'data-[state=active]:bg-rose-600 data-[state=active]:text-white',
+              roleMode === 'daniella' && 'ring-2 ring-rose-500 animate-pulse',
+            )}
+          >
+            <ShieldAlert className="h-3.5 w-3.5 mr-1" /> CONTROL
+          </TabsTrigger>
         </TabsList>
 
         <ScrollArea className="flex-1 mt-2">
