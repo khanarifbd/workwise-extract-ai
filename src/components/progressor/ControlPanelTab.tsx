@@ -210,6 +210,10 @@ export function ControlPanelTab({ jobId, jobNumber, jobName = '', jobAddress = '
           onSave={saveDraft}
           onCancel={() => setDraft(null)}
           saving={saving === 'draft'}
+          jobId={jobId}
+          jobNumber={jobNumber}
+          jobName={jobName}
+          jobAddress={jobAddress}
         />
       )}
 
@@ -259,12 +263,20 @@ function DraftEditor({
   onSave,
   onCancel,
   saving,
+  jobId,
+  jobNumber,
+  jobName,
+  jobAddress,
 }: {
   draft: DraftRecord;
   setDraft: (d: DraftRecord) => void;
   onSave: () => void;
   onCancel: () => void;
   saving: boolean;
+  jobId: string;
+  jobNumber: string;
+  jobName: string;
+  jobAddress: string;
 }) {
   const set = (patch: Partial<DraftRecord>) => setDraft({ ...draft, ...patch });
   return (
@@ -326,9 +338,12 @@ function DraftEditor({
           </SelectContent>
         </Select>
       </div>
-      <div className="rounded-md bg-muted/40 border border-dashed p-2 text-[11px] text-muted-foreground">
-        Team assignment is configured below after the entry is saved.
-      </div>
+      <ControlTeamAssignment
+        jobId={jobId}
+        jobNumber={jobNumber}
+        jobName={jobName}
+        jobAddress={jobAddress}
+      />
       <div className="flex justify-end gap-2 pt-1">
         <Button size="sm" variant="ghost" onClick={onCancel} disabled={saving}>Cancel</Button>
         <Button size="sm" onClick={onSave} disabled={saving}>
