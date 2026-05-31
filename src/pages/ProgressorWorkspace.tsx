@@ -640,53 +640,8 @@ const JobDetailPanel = ({
             <TabsContent value="media" className="m-0">
               <MediaTab job={job} onChanged={onChanged} />
             </TabsContent>
-            <TabsContent value="trades" className="m-0 space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold">Trade & DM Bookings</h3>
-                <Button size="sm" className="bg-progressor hover:bg-progressor/90 text-progressor-foreground" onClick={() => setShowAddTrade(true)}>
-                  <Plus className="h-4 w-4 mr-1" /> Book trade
-                </Button>
-              </div>
-              {subTasks.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No trades booked yet.</p>
-              ) : (
-                <div className="space-y-2">
-                  {subTasks.map(s => {
-                    const opt = SUB_TASK_STATUS_OPTIONS.find(o => o.value === s.status);
-                    return (
-                      <div key={s.id} className="border rounded-lg p-3 bg-card">
-                        <div className="flex items-center justify-between mb-1.5">
-                          <div className="flex items-center gap-2">
-                            <Wrench className="h-3.5 w-3.5 text-progressor" />
-                            <span className="text-sm font-semibold">{s.trade}</span>
-                            {s.assignedTeam && <Badge variant="outline" className="text-[10px]">{s.assignedTeam}</Badge>}
-                          </div>
-                          <select
-                            value={s.status}
-                            onChange={(e) => updateSubTask(s.id, { status: e.target.value }).then(onChanged)}
-                            className="text-[11px] rounded-md border border-input bg-background px-2 py-1"
-                            style={{ color: opt?.color }}
-                          >
-                            {SUB_TASK_STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                          </select>
-                        </div>
-                        <div className="flex flex-wrap gap-3 text-[11px] text-muted-foreground">
-                          {s.bookedDate && <span><CalendarIcon className="h-3 w-3 inline mr-0.5" /> Booked {format(s.bookedDate, 'dd MMM yyyy')}</span>}
-                          {s.deadlineDate && <span>Deadline {format(s.deadlineDate, 'dd MMM yyyy')}</span>}
-                        </div>
-                        {s.notes && <p className="text-xs mt-1.5 text-progressor font-medium whitespace-pre-wrap">{s.notes}</p>}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-              <AddSubTaskModal
-                open={showAddTrade}
-                onOpenChange={setShowAddTrade}
-                job={{ id: job.id, jobNumber: job.jobNumber, name: job.name, address: job.address || '' }}
-                onCreated={() => { onChanged(); setShowAddTrade(false); }}
-              />
-            </TabsContent>
+
+
             <TabsContent value="tasks" className="m-0">
               <ProgressorTodoList jobId={job.id} />
             </TabsContent>
