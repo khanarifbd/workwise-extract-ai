@@ -235,10 +235,11 @@ export function ProgressorJobExpandedContent({
   };
 
   const handleJobSignOff = async () => {
-    if (!hasCompletedControl) {
+    if (!canCloseJob) {
+      const missing = closureChecks.filter((c) => !c.ok).map((c) => c.label).join(', ');
       toast({
-        title: 'CONTROL required',
-        description: 'Open the CONTROL tab and mark a record as Completed before closing this job.',
+        title: '🔴 Job cannot be closed — incomplete data',
+        description: `Missing: ${missing}`,
         variant: 'destructive',
       });
       setActiveTab('control');
