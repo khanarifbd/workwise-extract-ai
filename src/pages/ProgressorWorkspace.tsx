@@ -445,8 +445,8 @@ const DayGroup = ({
             const so = getSignOffStatus(j.id, j.team, j.team2);
             const priority = detectJobPriority(j.description, j.privateNotes);
             const ctrl = getControlSummary(j.id);
-            const daysOpen = j.dateIssued
-              ? Math.max(0, differenceInCalendarDays(new Date(), new Date(j.dateIssued)))
+            const daysOpen = j.bookedDate
+              ? Math.max(0, differenceInCalendarDays(new Date(), new Date(j.bookedDate)))
               : null;
             return (
               <button
