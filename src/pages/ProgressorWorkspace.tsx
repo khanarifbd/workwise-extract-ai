@@ -227,14 +227,14 @@ const ProgressorWorkspace = () => {
                 </TabsTrigger>
               </TabsList>
             </div>
-            <TabsContent value="dm" className="flex-1 min-h-0 mt-0 data-[state=inactive]:hidden">
+            <TabsContent value="dm" className="flex-1 min-h-0 mt-0 data-[state=inactive]:hidden flex flex-col">
               <StreamColumn
                 title="DM" tone="bg-progressor" jobs={dmFiltered} isLoading={jobsLoading}
                 selectedId={selectedId} onSelect={setSelectedId} getSignOffStatus={getSignOffStatus}
                 getControlSummary={getControlSummary}
               />
             </TabsContent>
-            <TabsContent value="aa" className="flex-1 min-h-0 mt-0 data-[state=inactive]:hidden">
+            <TabsContent value="aa" className="flex-1 min-h-0 mt-0 data-[state=inactive]:hidden flex flex-col">
               <StreamColumn
                 title="A & A" tone="bg-emerald-600" jobs={aaFiltered} isLoading={jobsLoading}
                 selectedId={selectedId} onSelect={setSelectedId} getSignOffStatus={getSignOffStatus}
