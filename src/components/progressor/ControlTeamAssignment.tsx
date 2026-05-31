@@ -9,7 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/hooks/use-toast';
 import { useSubTasks } from '@/hooks/useSubTasks';
-import { SUB_TASK_STATUS_OPTIONS } from '@/types/subTask';
+import { SUB_TASK_STATUS_OPTIONS, DEFAULT_TRADES } from '@/types/subTask';
 import {
   Loader2, Plus, Users, Calendar as CalendarIcon, Trash2, X, UserPlus,
 } from 'lucide-react';
@@ -47,7 +47,9 @@ export function ControlTeamAssignment({ jobId, jobNumber, jobName, jobAddress }:
         .order('team_name');
       const rows = (data as any[]) || [];
       setDmTeams(rows.filter(t => t.team_type === 'dm' || !t.team_type).map(t => t.team_name));
-      setAaTeams(rows.filter(t => t.team_type === 'aa').map(t => t.team_name));
+      const aaFromDb = rows.filter(t => t.team_type === 'aa').map(t => t.team_name);
+      // Fallback to standard trade list when no dedicated A&A teams are configured
+      setAaTeams(aaFromDb.length > 0 ? aaFromDb : [...DEFAULT_TRADES].filter(t => t !== 'Other'));
     })();
   }, []);
 
