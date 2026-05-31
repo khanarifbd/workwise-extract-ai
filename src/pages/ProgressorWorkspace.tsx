@@ -542,8 +542,6 @@ const JobDetailPanel = ({
 }: { job: IncompleteJob; progressorName: string; onChanged: () => void }) => {
   const { mode: roleMode } = useRoleMode();
   const [tab, setTab] = useState(roleMode === 'daniella' ? 'control' : 'description');
-  const [showAddTrade, setShowAddTrade] = useState(false);
-  const { subTasks, updateSubTask } = useSubTasks(job.id);
   const { linked: linkedTrades } = useLinkedTradeJobs(job.id);
   const priority = detectJobPriority(job.description, job.privateNotes);
   // Adapter so AutoFlagsBar / JobTimerStrip (typed against Job) can use IncompleteJob.
