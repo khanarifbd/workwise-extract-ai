@@ -24,6 +24,7 @@ import { BookedDateCell } from '@/components/BookedDateCell';
 import { ControlPanelTab } from '@/components/progressor/ControlPanelTab';
 import { TenantSignaturePad } from '@/components/progressor/TenantSignaturePad';
 import { CompletionChecklist, ClosureCheck } from '@/components/progressor/CompletionChecklist';
+import { JobTimerStrip } from '@/components/progressor/JobTimerStrip';
 import { useJobClosureChecks } from '@/hooks/useJobClosureChecks';
 import { extractFansWithAI, createLinkedFanJob, syncLinkedFanJob } from '@/lib/api';
 import {
@@ -355,6 +356,8 @@ export function ProgressorJobExpandedContent({
         </TabsContent>
         <TabsContent value="details" className="mt-0">
       <div className="px-4 py-3 bg-muted/20 space-y-3">
+        {/* SLA / Job Timer Strip (AWAB'S LAW) */}
+        <JobTimerStrip job={job} categoryName={job.isOngoing ? 'ongoing' : undefined} />
         {/* Key info row */}
         <div className="grid grid-cols-2 md:grid-cols-6 gap-3 text-xs">
           <div>
