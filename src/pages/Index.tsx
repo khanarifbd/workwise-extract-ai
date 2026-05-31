@@ -746,15 +746,11 @@ const Index = () => {
     }
   }, [jobs, editJob, toast]);
 
-  // Duplicate check helper - checks ALL categories in database
+  // Duplicate check helper - ALWAYS hits DB so old-month / other-category jobs are never missed.
+  // (Local cache only covers the current month/category and would yield false negatives.)
   const findDuplicateJobAsync = useCallback(async (jobNumber: string): Promise<Job | null> => {
-    // First check local jobs for quick response
-    const localMatch = jobs.find(j => j.jobNumber.toLowerCase() === jobNumber.toLowerCase());
-    if (localMatch) return localMatch;
-    
-    // Then check database for jobs in other categories
     return await checkDuplicateJobNumber(jobNumber);
-  }, [jobs]);
+  }, []);
 
   const handleBulkJobsExtracted = useCallback(async (newJobs: Omit<Job, 'id'>[]) => {
     const remaining = [...newJobs];
