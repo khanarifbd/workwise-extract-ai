@@ -28,7 +28,7 @@ import { JobTimerStrip } from '@/components/progressor/JobTimerStrip';
 import { useRoleMode } from '@/contexts/RoleModeContext';
 import { ShieldAlert } from 'lucide-react';
 import { ProgressorTodoList } from '@/components/progressor/ProgressorTodoList';
-import { AddSubTaskModal } from '@/components/progressor/AddSubTaskModal';
+
 import { TradeCompaniesModal } from '@/components/progressor/TradeCompaniesModal';
 import { ProgressorDiaryPanel } from '@/components/progressor/ProgressorDiaryPanel';
 import { ProgressorPdfExportModal } from '@/components/progressor/ProgressorPdfExportModal';
