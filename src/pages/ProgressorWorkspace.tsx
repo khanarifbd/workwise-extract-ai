@@ -393,6 +393,7 @@ const StreamColumn = ({
                                     selectedId={selectedId}
                                     onSelect={onSelect}
                                     getSignOffStatus={getSignOffStatus}
+                                    getControlSummary={getControlSummary}
                                   />
                                 );
                               })}
