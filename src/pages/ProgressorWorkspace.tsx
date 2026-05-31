@@ -11,6 +11,8 @@ import {
 } from '@/hooks/useProgressorIncompleteJobs';
 import { useSubTasks } from '@/hooks/useSubTasks';
 import { useSignOffStatus } from '@/hooks/useSignOffStatus';
+import { useJobControlSummary, ControlSummary } from '@/hooks/useJobControlSummary';
+import { ProblemTypeBadge } from '@/components/progressor/ProblemTypeBadge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
