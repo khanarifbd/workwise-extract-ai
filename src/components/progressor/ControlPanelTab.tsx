@@ -263,12 +263,20 @@ function DraftEditor({
   onSave,
   onCancel,
   saving,
+  jobId,
+  jobNumber,
+  jobName,
+  jobAddress,
 }: {
   draft: DraftRecord;
   setDraft: (d: DraftRecord) => void;
   onSave: () => void;
   onCancel: () => void;
   saving: boolean;
+  jobId: string;
+  jobNumber: string;
+  jobName: string;
+  jobAddress: string;
 }) {
   const set = (patch: Partial<DraftRecord>) => setDraft({ ...draft, ...patch });
   return (
