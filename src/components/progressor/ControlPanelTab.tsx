@@ -76,6 +76,30 @@ export function ControlPanelTab({ jobId, jobNumber, jobName = '', jobAddress = '
   const [saving, setSaving] = useState<string | null>(null);
   const [draft, setDraft] = useState<DraftRecord | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [assignedTeams, setAssignedTeams] = useState<string[]>([]);
+
+  const loadAssigned = async () => {
+    const { data } = await supabase
+      .from('job_sub_tasks')
+      .select('trade, assigned_team')
+      .eq('parent_job_id', jobId);
+    const names = Array.from(new Set(
+      ((data as any[]) || [])
+        .map(r => r.assigned_team || r.trade)
+        .filter(Boolean)
+    ));
+    setAssignedTeams(names);
+  };
+
+  useEffect(() => {
+    loadAssigned();
+    const channel = supabase
+      .channel(`control-assigned-${jobId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'job_sub_tasks', filter: `parent_job_id=eq.${jobId}` }, () => loadAssigned())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobId]);
 
   const load = async () => {
     setLoading(true);
