@@ -884,6 +884,7 @@ export function ProgressorJobExpandedContent({
                     <th className="px-3 py-2 text-left text-xs font-bold text-amber-800 dark:text-amber-300">Deadline</th>
                     <th className="px-3 py-2 text-left text-xs font-bold text-amber-800 dark:text-amber-300">Completion</th>
                     <th className="px-3 py-2 text-left text-xs font-bold text-amber-800 dark:text-amber-300">Status</th>
+                    <th className="px-3 py-2 text-left text-xs font-bold text-amber-800 dark:text-amber-300">Days Waiting</th>
                     <th className="px-3 py-2 text-left text-xs font-bold text-amber-800 dark:text-amber-300">Portal</th>
                     <th className="px-3 py-2 text-left text-xs font-bold text-amber-800 dark:text-amber-300">Notes</th>
                     <th className="px-3 py-2 text-center text-xs font-bold text-amber-800 dark:text-amber-300">Actions</th>
