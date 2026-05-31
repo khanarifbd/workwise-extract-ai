@@ -604,17 +604,8 @@ const JobDetailPanel = ({
       <div className="px-5 pt-3 space-y-2">
         <AutoFlagsBar job={jobLike as any} />
         <JobTimerStrip job={jobLike as any} />
-        {roleMode === 'daniella' && (
-          <div className="text-[11px] font-semibold text-rose-600 bg-rose-500/10 border border-rose-500/30 rounded px-2 py-1">
-            ✦ Daniella Mode — Closure focus: open CONTROL tab to clear blockers.
-          </div>
-        )}
-        {roleMode === 'nav' && (
-          <div className="text-[11px] font-semibold text-indigo-600 bg-indigo-500/10 border border-indigo-500/30 rounded px-2 py-1">
-            📊 Nav Mode — Trades: {subTasks.length} · Teams: {[job.team, job.team2].filter(Boolean).join(', ') || 'unassigned'}
-          </div>
-        )}
       </div>
+
 
       <Tabs value={tab} onValueChange={setTab} className="flex-1 flex flex-col min-h-0">
         <TabsList className="mx-5 mt-3 self-start">
