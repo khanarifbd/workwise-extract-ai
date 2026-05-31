@@ -522,11 +522,22 @@ const DayGroup = ({
 const JobDetailPanel = ({
   job, progressorName, onChanged,
 }: { job: IncompleteJob; progressorName: string; onChanged: () => void }) => {
-  const [tab, setTab] = useState('description');
+  const { mode: roleMode } = useRoleMode();
+  const [tab, setTab] = useState(roleMode === 'daniella' ? 'control' : 'description');
   const [showAddTrade, setShowAddTrade] = useState(false);
   const { subTasks, updateSubTask } = useSubTasks(job.id);
   const { linked: linkedTrades } = useLinkedTradeJobs(job.id);
   const priority = detectJobPriority(job.description, job.privateNotes);
+  // Adapter so AutoFlagsBar / JobTimerStrip (typed against Job) can use IncompleteJob.
+  const jobLike = useMemo(() => ({
+    id: job.id,
+    isCompleted: job.isCompleted,
+    status: job.status,
+    progress: job.isCompleted ? 100 : 0,
+    dateIssued: new Date(job.updatedAt),
+    bookedDate: job.bookedDate ? new Date(job.bookedDate) : null,
+    expectedCompletionDate: null,
+  }), [job]);
 
   return (
     <div className="h-full flex flex-col min-h-0">
