@@ -440,6 +440,11 @@ function RecordCard({
         </span>
         <span className="text-base font-extrabold uppercase tracking-wide text-red-800 dark:text-red-200 truncate">
           {title}
+          {assignedTeams.length > 0 && (
+            <span className="ml-2 text-xs font-semibold normal-case tracking-normal text-progressor">
+              → {assignedTeams.join(', ')}
+            </span>
+          )}
         </span>
         <Badge className={cn('text-xs ml-auto shrink-0', STATUS_COLOR[local.status] || 'bg-muted')}>
           {local.status}
