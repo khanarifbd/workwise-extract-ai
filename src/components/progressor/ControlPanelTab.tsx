@@ -210,6 +210,10 @@ export function ControlPanelTab({ jobId, jobNumber, jobName = '', jobAddress = '
           onSave={saveDraft}
           onCancel={() => setDraft(null)}
           saving={saving === 'draft'}
+          jobId={jobId}
+          jobNumber={jobNumber}
+          jobName={jobName}
+          jobAddress={jobAddress}
         />
       )}
 
