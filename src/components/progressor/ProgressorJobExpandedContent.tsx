@@ -376,6 +376,22 @@ export function ProgressorJobExpandedContent({
       <div className="px-4 py-3 bg-muted/20 space-y-3">
         {/* SLA / Job Timer Strip (AWAB'S LAW) */}
         <JobTimerStrip job={job} categoryName={job.isOngoing ? 'ongoing' : undefined} />
+        {roleMode === 'nav' && (
+          <div className="rounded-lg border-2 border-indigo-400 bg-indigo-50 dark:bg-indigo-950/30 px-3 py-2 text-xs space-y-1">
+            <div className="font-bold text-indigo-700 dark:text-indigo-300 uppercase tracking-wide text-[10px]">
+              📊 Nav Mode — Team Performance Snapshot
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px]">
+              <div><span className="text-muted-foreground">Assigned:</span> <span className="font-bold">{job.team || '—'}</span>{job.team2 ? <span className="font-bold"> + {job.team2}</span> : null}</div>
+              <div><span className="text-muted-foreground">Sub-tasks:</span> <span className="font-bold">{jobSubTasks.length}</span></div>
+              <div><span className="text-muted-foreground">Contacts:</span> <span className="font-bold">{jobContacts.length}</span></div>
+              <div><span className="text-muted-foreground">Repeats:</span> <span className="font-bold">{jobContacts.length >= 3 ? `⚠ ${jobContacts.length}` : jobContacts.length}</span></div>
+            </div>
+            {jobContacts.length >= 3 && (
+              <div className="text-[10px] font-bold text-amber-700 dark:text-amber-400">⚠ Training indicator — 3+ contact attempts on this job</div>
+            )}
+          </div>
+        )}
         {/* Key info row */}
         <div className="grid grid-cols-2 md:grid-cols-6 gap-3 text-xs">
           <div>
