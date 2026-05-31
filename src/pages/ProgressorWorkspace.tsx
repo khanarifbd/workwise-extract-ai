@@ -172,6 +172,7 @@ const ProgressorWorkspace = () => {
         <Button variant="outline" size="sm" onClick={() => setTradesOpen(true)}>
           <Building2 className="h-4 w-4 mr-1.5" /> Trades
         </Button>
+        <RoleModeSwitcher />
         <Button variant="outline" size="sm" onClick={() => setExportOpen(true)}>
           <FileDown className="h-4 w-4 mr-1.5" /> Export PDF
         </Button>
@@ -271,7 +272,16 @@ const ProgressorWorkspace = () => {
   );
 };
 
-export default ProgressorWorkspace;
+import { RoleModeProvider } from '@/contexts/RoleModeContext';
+import { RoleModeSwitcher } from '@/components/progressor/RoleModeSwitcher';
+
+const ProgressorWorkspaceWithRoleMode = () => (
+  <RoleModeProvider>
+    <ProgressorWorkspace />
+  </RoleModeProvider>
+);
+
+export default ProgressorWorkspaceWithRoleMode;
 
 /* ───────────────────── Stream Column (DM or A&A) ───────────────────── */
 const StreamColumn = ({
