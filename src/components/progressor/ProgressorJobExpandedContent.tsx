@@ -22,6 +22,9 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { BookedDateCell } from '@/components/BookedDateCell';
 import { ControlPanelTab } from '@/components/progressor/ControlPanelTab';
+import { TenantSignaturePad } from '@/components/progressor/TenantSignaturePad';
+import { CompletionChecklist, ClosureCheck } from '@/components/progressor/CompletionChecklist';
+import { useJobClosureChecks } from '@/hooks/useJobClosureChecks';
 import { extractFansWithAI, createLinkedFanJob, syncLinkedFanJob } from '@/lib/api';
 import {
   AlertTriangle, Phone, MapPin, User, Flag, Plus, MessageSquare,
