@@ -93,7 +93,8 @@ export function ProgressorJobExpandedContent({
   const [addressDraft, setAddressDraft] = useState('');
   const [isScanningFans, setIsScanningFans] = useState(false);
   const [fanBookingDialogData, setFanBookingDialogData] = useState<{ fanInfo: FanInfo[]; totalFanCount: number } | null>(null);
-  const [activeTab, setActiveTab] = useState<'details' | 'control'>('details');
+  const { mode: roleMode } = useRoleMode();
+  const [activeTab, setActiveTab] = useState<'details' | 'control'>(roleMode === 'daniella' ? 'control' : 'details');
   const [hasCompletedControl, setHasCompletedControl] = useState(false);
   const [closureRefreshKey, setClosureRefreshKey] = useState(0);
 
