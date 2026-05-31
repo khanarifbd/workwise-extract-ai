@@ -22,6 +22,11 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useToast } from '@/hooks/use-toast';
 import { ProgressorMediaUpload } from '@/components/progressor/ProgressorMediaUpload';
+import { ControlPanelTab } from '@/components/progressor/ControlPanelTab';
+import { AutoFlagsBar } from '@/components/progressor/AutoFlagsBar';
+import { JobTimerStrip } from '@/components/progressor/JobTimerStrip';
+import { useRoleMode } from '@/contexts/RoleModeContext';
+import { ShieldAlert } from 'lucide-react';
 import { ProgressorTodoList } from '@/components/progressor/ProgressorTodoList';
 import { AddSubTaskModal } from '@/components/progressor/AddSubTaskModal';
 import { TradeCompaniesModal } from '@/components/progressor/TradeCompaniesModal';
@@ -517,11 +522,22 @@ const DayGroup = ({
 const JobDetailPanel = ({
   job, progressorName, onChanged,
 }: { job: IncompleteJob; progressorName: string; onChanged: () => void }) => {
-  const [tab, setTab] = useState('description');
+  const { mode: roleMode } = useRoleMode();
+  const [tab, setTab] = useState(roleMode === 'daniella' ? 'control' : 'description');
   const [showAddTrade, setShowAddTrade] = useState(false);
   const { subTasks, updateSubTask } = useSubTasks(job.id);
   const { linked: linkedTrades } = useLinkedTradeJobs(job.id);
   const priority = detectJobPriority(job.description, job.privateNotes);
+  // Adapter so AutoFlagsBar / JobTimerStrip (typed against Job) can use IncompleteJob.
+  const jobLike = useMemo(() => ({
+    id: job.id,
+    isCompleted: job.isCompleted,
+    status: job.status,
+    progress: job.isCompleted ? 100 : 0,
+    dateIssued: new Date(job.updatedAt),
+    bookedDate: job.bookedDate ? new Date(job.bookedDate) : null,
+    expectedCompletionDate: null,
+  }), [job]);
 
   return (
     <div className="h-full flex flex-col min-h-0">
@@ -566,6 +582,22 @@ const JobDetailPanel = ({
         </div>
       </div>
 
+      {/* Phase 6 auto flags + SLA timers */}
+      <div className="px-5 pt-3 space-y-2">
+        <AutoFlagsBar job={jobLike as any} />
+        <JobTimerStrip job={jobLike as any} />
+        {roleMode === 'daniella' && (
+          <div className="text-[11px] font-semibold text-rose-600 bg-rose-500/10 border border-rose-500/30 rounded px-2 py-1">
+            ✦ Daniella Mode — Closure focus: open CONTROL tab to clear blockers.
+          </div>
+        )}
+        {roleMode === 'nav' && (
+          <div className="text-[11px] font-semibold text-indigo-600 bg-indigo-500/10 border border-indigo-500/30 rounded px-2 py-1">
+            📊 Nav Mode — Trades: {subTasks.length} · Teams: {[job.team, job.team2].filter(Boolean).join(', ') || 'unassigned'}
+          </div>
+        )}
+      </div>
+
       <Tabs value={tab} onValueChange={setTab} className="flex-1 flex flex-col min-h-0">
         <TabsList className="mx-5 mt-3 self-start">
           <TabsTrigger value="description"><FileText className="h-3.5 w-3.5 mr-1" /> Description</TabsTrigger>
@@ -574,6 +606,15 @@ const JobDetailPanel = ({
           <TabsTrigger value="media"><ImageIcon className="h-3.5 w-3.5 mr-1" /> Media</TabsTrigger>
           <TabsTrigger value="trades"><Wrench className="h-3.5 w-3.5 mr-1" /> Trades ({subTasks.length})</TabsTrigger>
           <TabsTrigger value="tasks"><CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Tasks</TabsTrigger>
+          <TabsTrigger
+            value="control"
+            className={cn(
+              'data-[state=active]:bg-rose-600 data-[state=active]:text-white',
+              roleMode === 'daniella' && 'ring-2 ring-rose-500 animate-pulse',
+            )}
+          >
+            <ShieldAlert className="h-3.5 w-3.5 mr-1" /> CONTROL
+          </TabsTrigger>
         </TabsList>
 
         <ScrollArea className="flex-1 mt-2">
@@ -639,6 +680,9 @@ const JobDetailPanel = ({
             </TabsContent>
             <TabsContent value="tasks" className="m-0">
               <ProgressorTodoList jobId={job.id} />
+            </TabsContent>
+            <TabsContent value="control" className="m-0">
+              <ControlPanelTab jobId={job.id} jobNumber={job.jobNumber} onCompletedChange={onChanged} />
             </TabsContent>
           </div>
         </ScrollArea>
