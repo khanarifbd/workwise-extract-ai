@@ -271,7 +271,16 @@ const ProgressorWorkspace = () => {
   );
 };
 
-export default ProgressorWorkspace;
+import { RoleModeProvider } from '@/contexts/RoleModeContext';
+import { RoleModeSwitcher } from '@/components/progressor/RoleModeSwitcher';
+
+const ProgressorWorkspaceWithRoleMode = () => (
+  <RoleModeProvider>
+    <ProgressorWorkspace />
+  </RoleModeProvider>
+);
+
+export default ProgressorWorkspaceWithRoleMode;
 
 /* ───────────────────── Stream Column (DM or A&A) ───────────────────── */
 const StreamColumn = ({
