@@ -681,6 +681,9 @@ const JobDetailPanel = ({
             <TabsContent value="tasks" className="m-0">
               <ProgressorTodoList jobId={job.id} />
             </TabsContent>
+            <TabsContent value="control" className="m-0">
+              <ControlPanelTab jobId={job.id} jobNumber={job.jobNumber} onCompletedChange={onChanged} />
+            </TabsContent>
           </div>
         </ScrollArea>
       </Tabs>
