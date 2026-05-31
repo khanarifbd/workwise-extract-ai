@@ -9,7 +9,7 @@ import {
   IncompleteJob,
   ProgStream,
 } from '@/hooks/useProgressorIncompleteJobs';
-import { useSubTasks } from '@/hooks/useSubTasks';
+
 import { useSignOffStatus } from '@/hooks/useSignOffStatus';
 import { useJobControlSummary, ControlSummary } from '@/hooks/useJobControlSummary';
 import { ProblemTypeBadge } from '@/components/progressor/ProblemTypeBadge';
@@ -28,19 +28,19 @@ import { JobTimerStrip } from '@/components/progressor/JobTimerStrip';
 import { useRoleMode } from '@/contexts/RoleModeContext';
 import { ShieldAlert } from 'lucide-react';
 import { ProgressorTodoList } from '@/components/progressor/ProgressorTodoList';
-import { AddSubTaskModal } from '@/components/progressor/AddSubTaskModal';
+
 import { TradeCompaniesModal } from '@/components/progressor/TradeCompaniesModal';
 import { ProgressorDiaryPanel } from '@/components/progressor/ProgressorDiaryPanel';
 import { ProgressorPdfExportModal } from '@/components/progressor/ProgressorPdfExportModal';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown } from 'lucide-react';
-import { SUB_TASK_STATUS_OPTIONS } from '@/types/subTask';
+
 import { cn } from '@/lib/utils';
 import {
   RenderWithProgressor, wrapProgressorText, detectJobPriority, JobPriority,
 } from '@/lib/progressorMarkup';
 import {
-  Search, Calendar as CalendarIcon, X, BookOpenCheck, Wrench,
+  Search, Calendar as CalendarIcon, X, BookOpenCheck,
   LogOut, Loader2, Save, Edit3, FileText, MessageSquare, Image as ImageIcon,
   CheckCircle2, Plus, Building2, Siren, Zap, Star, Phone, FileDown,
 } from 'lucide-react';
@@ -542,8 +542,6 @@ const JobDetailPanel = ({
 }: { job: IncompleteJob; progressorName: string; onChanged: () => void }) => {
   const { mode: roleMode } = useRoleMode();
   const [tab, setTab] = useState(roleMode === 'daniella' ? 'control' : 'description');
-  const [showAddTrade, setShowAddTrade] = useState(false);
-  const { subTasks, updateSubTask } = useSubTasks(job.id);
   const { linked: linkedTrades } = useLinkedTradeJobs(job.id);
   const priority = detectJobPriority(job.description, job.privateNotes);
   // Adapter so AutoFlagsBar / JobTimerStrip (typed against Job) can use IncompleteJob.
@@ -604,17 +602,8 @@ const JobDetailPanel = ({
       <div className="px-5 pt-3 space-y-2">
         <AutoFlagsBar job={jobLike as any} />
         <JobTimerStrip job={jobLike as any} />
-        {roleMode === 'daniella' && (
-          <div className="text-[11px] font-semibold text-rose-600 bg-rose-500/10 border border-rose-500/30 rounded px-2 py-1">
-            ✦ Daniella Mode — Closure focus: open CONTROL tab to clear blockers.
-          </div>
-        )}
-        {roleMode === 'nav' && (
-          <div className="text-[11px] font-semibold text-indigo-600 bg-indigo-500/10 border border-indigo-500/30 rounded px-2 py-1">
-            📊 Nav Mode — Trades: {subTasks.length} · Teams: {[job.team, job.team2].filter(Boolean).join(', ') || 'unassigned'}
-          </div>
-        )}
       </div>
+
 
       <Tabs value={tab} onValueChange={setTab} className="flex-1 flex flex-col min-h-0">
         <TabsList className="mx-5 mt-3 self-start">
@@ -622,7 +611,7 @@ const JobDetailPanel = ({
           <TabsTrigger value="notes"><MessageSquare className="h-3.5 w-3.5 mr-1" /> Notes</TabsTrigger>
           <TabsTrigger value="calls"><Phone className="h-3.5 w-3.5 mr-1" /> Call Log</TabsTrigger>
           <TabsTrigger value="media"><ImageIcon className="h-3.5 w-3.5 mr-1" /> Media</TabsTrigger>
-          <TabsTrigger value="trades"><Wrench className="h-3.5 w-3.5 mr-1" /> Trades ({subTasks.length})</TabsTrigger>
+          
           <TabsTrigger value="tasks"><CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Tasks</TabsTrigger>
           <TabsTrigger
             value="control"
@@ -649,58 +638,19 @@ const JobDetailPanel = ({
             <TabsContent value="media" className="m-0">
               <MediaTab job={job} onChanged={onChanged} />
             </TabsContent>
-            <TabsContent value="trades" className="m-0 space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold">Trade & DM Bookings</h3>
-                <Button size="sm" className="bg-progressor hover:bg-progressor/90 text-progressor-foreground" onClick={() => setShowAddTrade(true)}>
-                  <Plus className="h-4 w-4 mr-1" /> Book trade
-                </Button>
-              </div>
-              {subTasks.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No trades booked yet.</p>
-              ) : (
-                <div className="space-y-2">
-                  {subTasks.map(s => {
-                    const opt = SUB_TASK_STATUS_OPTIONS.find(o => o.value === s.status);
-                    return (
-                      <div key={s.id} className="border rounded-lg p-3 bg-card">
-                        <div className="flex items-center justify-between mb-1.5">
-                          <div className="flex items-center gap-2">
-                            <Wrench className="h-3.5 w-3.5 text-progressor" />
-                            <span className="text-sm font-semibold">{s.trade}</span>
-                            {s.assignedTeam && <Badge variant="outline" className="text-[10px]">{s.assignedTeam}</Badge>}
-                          </div>
-                          <select
-                            value={s.status}
-                            onChange={(e) => updateSubTask(s.id, { status: e.target.value }).then(onChanged)}
-                            className="text-[11px] rounded-md border border-input bg-background px-2 py-1"
-                            style={{ color: opt?.color }}
-                          >
-                            {SUB_TASK_STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                          </select>
-                        </div>
-                        <div className="flex flex-wrap gap-3 text-[11px] text-muted-foreground">
-                          {s.bookedDate && <span><CalendarIcon className="h-3 w-3 inline mr-0.5" /> Booked {format(s.bookedDate, 'dd MMM yyyy')}</span>}
-                          {s.deadlineDate && <span>Deadline {format(s.deadlineDate, 'dd MMM yyyy')}</span>}
-                        </div>
-                        {s.notes && <p className="text-xs mt-1.5 text-progressor font-medium whitespace-pre-wrap">{s.notes}</p>}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-              <AddSubTaskModal
-                open={showAddTrade}
-                onOpenChange={setShowAddTrade}
-                job={{ id: job.id, jobNumber: job.jobNumber, name: job.name, address: job.address || '' }}
-                onCreated={() => { onChanged(); setShowAddTrade(false); }}
-              />
-            </TabsContent>
+
+
             <TabsContent value="tasks" className="m-0">
               <ProgressorTodoList jobId={job.id} />
             </TabsContent>
             <TabsContent value="control" className="m-0">
-              <ControlPanelTab jobId={job.id} jobNumber={job.jobNumber} onCompletedChange={onChanged} />
+              <ControlPanelTab
+                jobId={job.id}
+                jobNumber={job.jobNumber}
+                jobName={job.name}
+                jobAddress={job.address || ''}
+                onCompletedChange={onChanged}
+              />
             </TabsContent>
           </div>
         </ScrollArea>

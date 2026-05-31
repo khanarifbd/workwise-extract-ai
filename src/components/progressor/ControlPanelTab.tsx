@@ -59,16 +59,20 @@ export interface ControlRecord {
   updated_at: string;
 }
 
+import { ControlTeamAssignment } from './ControlTeamAssignment';
+
 interface ControlPanelTabProps {
   jobId: string;
   jobNumber: string;
+  jobName?: string;
+  jobAddress?: string;
   /** When at least one record is in 'Completed' status, the parent job is allowed to be closed */
   onCompletedChange?: (hasCompleted: boolean) => void;
 }
 
 type DraftRecord = Partial<ControlRecord> & { isNew?: boolean };
 
-export function ControlPanelTab({ jobId, jobNumber, onCompletedChange }: ControlPanelTabProps) {
+export function ControlPanelTab({ jobId, jobNumber, jobName = '', jobAddress = '', onCompletedChange }: ControlPanelTabProps) {
   const [records, setRecords] = useState<ControlRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
@@ -193,6 +197,16 @@ export function ControlPanelTab({ jobId, jobNumber, onCompletedChange }: Control
           </Button>
         )}
       </div>
+
+      {/* Team assignment (replaces Trades feature) */}
+      <ControlTeamAssignment
+        jobId={jobId}
+        jobNumber={jobNumber}
+        jobName={jobName}
+        jobAddress={jobAddress}
+      />
+
+
 
       {/* Draft new */}
       {draft && (
