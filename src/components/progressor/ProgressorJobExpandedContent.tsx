@@ -93,6 +93,24 @@ export function ProgressorJobExpandedContent({
   const [fanBookingDialogData, setFanBookingDialogData] = useState<{ fanInfo: FanInfo[]; totalFanCount: number } | null>(null);
   const [activeTab, setActiveTab] = useState<'details' | 'control'>('details');
   const [hasCompletedControl, setHasCompletedControl] = useState(false);
+  const [closureRefreshKey, setClosureRefreshKey] = useState(0);
+
+  // Local mirror of tenant-signature fields so the UI updates instantly after capture
+  const [signatureUrl, setSignatureUrl] = useState<string | null>((job as any).tenantSignatureUrl ?? null);
+  const [signatureName, setSignatureName] = useState<string | null>((job as any).tenantSignatureName ?? null);
+  const [signatureSignedAt, setSignatureSignedAt] = useState<Date | null>(
+    (job as any).tenantSignatureSignedAt ? new Date((job as any).tenantSignatureSignedAt) : null,
+  );
+
+  const closure = useJobClosureChecks(job.id, job.progressNotes, signatureUrl, closureRefreshKey);
+  const closureChecks: ClosureCheck[] = [
+    { key: 'before', label: 'Before Photos uploaded', ok: closure.hasBeforePhotos },
+    { key: 'after', label: 'After Photos uploaded', ok: closure.hasAfterPhotos },
+    { key: 'notes', label: 'Notes added', ok: closure.hasNotes },
+    { key: 'signature', label: 'Tenant signature recorded', ok: closure.hasSignature },
+    { key: 'control', label: 'CONTROL record marked Completed', ok: hasCompletedControl },
+  ];
+  const canCloseJob = closureChecks.every((c) => c.ok);
 
   const fanCategoryId = categories.find(c => c.name.toLowerCase().includes('fan'))?.id;
   const expectedDatePast = job.expectedCompletionDate && isPast(job.expectedCompletionDate);
