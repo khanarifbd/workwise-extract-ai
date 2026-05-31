@@ -254,6 +254,7 @@ export function ControlPanelTab({ jobId, jobNumber, jobName = '', jobAddress = '
               jobNumber={jobNumber}
               jobName={jobName}
               jobAddress={jobAddress}
+              assignedTeams={assignedTeams}
               isExpanded={expanded[r.id] ?? false}
               onToggle={() => setExpanded((p) => ({ ...p, [r.id]: !p[r.id] }))}
               saving={saving === r.id}
