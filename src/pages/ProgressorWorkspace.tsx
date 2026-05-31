@@ -11,6 +11,8 @@ import {
 } from '@/hooks/useProgressorIncompleteJobs';
 import { useSubTasks } from '@/hooks/useSubTasks';
 import { useSignOffStatus } from '@/hooks/useSignOffStatus';
+import { useJobControlSummary, ControlSummary } from '@/hooks/useJobControlSummary';
+import { ProblemTypeBadge } from '@/components/progressor/ProblemTypeBadge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -121,6 +123,7 @@ const ProgressorWorkspace = () => {
   const aaFiltered = useMemo(() => filterJobsBySearch(aaJobs, search), [aaJobs, search]);
   const allFilteredIds = useMemo(() => [...dmFiltered, ...aaFiltered].map(j => j.id), [dmFiltered, aaFiltered]);
   const { getSignOffStatus } = useSignOffStatus(allFilteredIds);
+  const { get: getControlSummary } = useJobControlSummary(allFilteredIds);
 
   const selected = useMemo(
     () => [...dmJobs, ...aaJobs].find(j => j.id === selectedId) || null,
@@ -204,12 +207,14 @@ const ProgressorWorkspace = () => {
               <StreamColumn
                 title="DM" tone="bg-progressor" jobs={dmFiltered} isLoading={jobsLoading}
                 selectedId={selectedId} onSelect={setSelectedId} getSignOffStatus={getSignOffStatus}
+                getControlSummary={getControlSummary}
               />
             </TabsContent>
             <TabsContent value="aa" className="flex-1 min-h-0 mt-0 data-[state=inactive]:hidden">
               <StreamColumn
                 title="A & A" tone="bg-emerald-600" jobs={aaFiltered} isLoading={jobsLoading}
                 selectedId={selectedId} onSelect={setSelectedId} getSignOffStatus={getSignOffStatus}
+                getControlSummary={getControlSummary}
               />
             </TabsContent>
           </Tabs>
@@ -270,7 +275,7 @@ export default ProgressorWorkspace;
 
 /* ───────────────────── Stream Column (DM or A&A) ───────────────────── */
 const StreamColumn = ({
-  title, tone, jobs, isLoading, selectedId, onSelect, getSignOffStatus,
+  title, tone, jobs, isLoading, selectedId, onSelect, getSignOffStatus, getControlSummary,
 }: {
   title: string;
   tone: string;
@@ -279,6 +284,7 @@ const StreamColumn = ({
   selectedId: string | null;
   onSelect: (id: string) => void;
   getSignOffStatus: (id: string, t1: string | null, t2: string | null) => any;
+  getControlSummary: (id: string) => ControlSummary;
 }) => {
   // Group [date,jobs][] by Month → Week → Day
   type WeekBucket = { weekKey: string; weekLabel: string; days: [string, IncompleteJob[]][] };
@@ -387,6 +393,7 @@ const StreamColumn = ({
                                     selectedId={selectedId}
                                     onSelect={onSelect}
                                     getSignOffStatus={getSignOffStatus}
+                                    getControlSummary={getControlSummary}
                                   />
                                 );
                               })}
@@ -408,7 +415,7 @@ const StreamColumn = ({
 
 /* ───────────────────── Day Group (collapsible) ───────────────────── */
 const DayGroup = ({
-  dateLabel, overdueLabel, list, selectedId, onSelect, getSignOffStatus,
+  dateLabel, overdueLabel, list, selectedId, onSelect, getSignOffStatus, getControlSummary,
 }: {
   dateLabel: string;
   overdueLabel: string;
@@ -416,6 +423,7 @@ const DayGroup = ({
   selectedId: string | null;
   onSelect: (id: string) => void;
   getSignOffStatus: (id: string, t1: string | null, t2: string | null) => any;
+  getControlSummary: (id: string) => ControlSummary;
 }) => {
   const [open, setOpen] = useState(false);
   return (
@@ -436,6 +444,10 @@ const DayGroup = ({
           {list.map(j => {
             const so = getSignOffStatus(j.id, j.team, j.team2);
             const priority = detectJobPriority(j.description, j.privateNotes);
+            const ctrl = getControlSummary(j.id);
+            const daysOpen = j.dateIssued
+              ? Math.max(0, differenceInCalendarDays(new Date(), new Date(j.dateIssued)))
+              : null;
             return (
               <button
                 key={j.id}
@@ -449,7 +461,10 @@ const DayGroup = ({
               >
                 <div className="flex items-start justify-between gap-2 mb-0.5">
                   <span className="text-xs font-bold font-mono">#{j.jobNumber}</span>
-                  {priority && <PriorityPill priority={priority} />}
+                  <div className="flex items-center gap-1">
+                    <ProblemTypeBadge problemType={ctrl.problemType} status={ctrl.latestStatus} />
+                    {priority && <PriorityPill priority={priority} />}
+                  </div>
                 </div>
                 <p className="text-sm font-medium truncate leading-tight">{j.name}</p>
                 <p className="text-[11px] text-muted-foreground truncate">{j.address}</p>
@@ -465,6 +480,11 @@ const DayGroup = ({
                 <div className="flex items-center gap-1 mt-1 flex-wrap">
                   {j.team && <Badge variant="secondary" className="text-[9px] px-1.5 py-0">{j.team}</Badge>}
                   {j.team2 && <Badge variant="secondary" className="text-[9px] px-1.5 py-0">{j.team2}</Badge>}
+                  {daysOpen !== null && (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 font-medium">
+                      {daysOpen}d open
+                    </span>
+                  )}
                   {so?.totalAssigned > 0 && (
                     <span className={cn(
                       "text-[9px] ml-auto px-1.5 py-0.5 rounded-full font-medium",

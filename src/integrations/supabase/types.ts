@@ -494,6 +494,9 @@ export type Database = {
           summary_of_works: string | null
           team: string | null
           team2: string | null
+          tenant_signature_name: string | null
+          tenant_signature_signed_at: string | null
+          tenant_signature_url: string | null
           updated_at: string
           work_items: Json | null
         }
@@ -545,6 +548,9 @@ export type Database = {
           summary_of_works?: string | null
           team?: string | null
           team2?: string | null
+          tenant_signature_name?: string | null
+          tenant_signature_signed_at?: string | null
+          tenant_signature_url?: string | null
           updated_at?: string
           work_items?: Json | null
         }
@@ -596,6 +602,9 @@ export type Database = {
           summary_of_works?: string | null
           team?: string | null
           team2?: string | null
+          tenant_signature_name?: string | null
+          tenant_signature_signed_at?: string | null
+          tenant_signature_url?: string | null
           updated_at?: string
           work_items?: Json | null
         }

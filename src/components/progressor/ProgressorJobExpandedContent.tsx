@@ -22,6 +22,9 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { BookedDateCell } from '@/components/BookedDateCell';
 import { ControlPanelTab } from '@/components/progressor/ControlPanelTab';
+import { TenantSignaturePad } from '@/components/progressor/TenantSignaturePad';
+import { CompletionChecklist, ClosureCheck } from '@/components/progressor/CompletionChecklist';
+import { useJobClosureChecks } from '@/hooks/useJobClosureChecks';
 import { extractFansWithAI, createLinkedFanJob, syncLinkedFanJob } from '@/lib/api';
 import {
   AlertTriangle, Phone, MapPin, User, Flag, Plus, MessageSquare,
@@ -90,6 +93,24 @@ export function ProgressorJobExpandedContent({
   const [fanBookingDialogData, setFanBookingDialogData] = useState<{ fanInfo: FanInfo[]; totalFanCount: number } | null>(null);
   const [activeTab, setActiveTab] = useState<'details' | 'control'>('details');
   const [hasCompletedControl, setHasCompletedControl] = useState(false);
+  const [closureRefreshKey, setClosureRefreshKey] = useState(0);
+
+  // Local mirror of tenant-signature fields so the UI updates instantly after capture
+  const [signatureUrl, setSignatureUrl] = useState<string | null>((job as any).tenantSignatureUrl ?? null);
+  const [signatureName, setSignatureName] = useState<string | null>((job as any).tenantSignatureName ?? null);
+  const [signatureSignedAt, setSignatureSignedAt] = useState<Date | null>(
+    (job as any).tenantSignatureSignedAt ? new Date((job as any).tenantSignatureSignedAt) : null,
+  );
+
+  const closure = useJobClosureChecks(job.id, job.progressNotes, signatureUrl, closureRefreshKey);
+  const closureChecks: ClosureCheck[] = [
+    { key: 'before', label: 'Before Photos uploaded', ok: closure.hasBeforePhotos },
+    { key: 'after', label: 'After Photos uploaded', ok: closure.hasAfterPhotos },
+    { key: 'notes', label: 'Notes added', ok: closure.hasNotes },
+    { key: 'signature', label: 'Tenant signature recorded', ok: closure.hasSignature },
+    { key: 'control', label: 'CONTROL record marked Completed', ok: hasCompletedControl },
+  ];
+  const canCloseJob = closureChecks.every((c) => c.ok);
 
   const fanCategoryId = categories.find(c => c.name.toLowerCase().includes('fan'))?.id;
   const expectedDatePast = job.expectedCompletionDate && isPast(job.expectedCompletionDate);
@@ -214,10 +235,11 @@ export function ProgressorJobExpandedContent({
   };
 
   const handleJobSignOff = async () => {
-    if (!hasCompletedControl) {
+    if (!canCloseJob) {
+      const missing = closureChecks.filter((c) => !c.ok).map((c) => c.label).join(', ');
       toast({
-        title: 'CONTROL required',
-        description: 'Open the CONTROL tab and mark a record as Completed before closing this job.',
+        title: '🔴 Job cannot be closed — incomplete data',
+        description: `Missing: ${missing}`,
         variant: 'destructive',
       });
       setActiveTab('control');
@@ -314,8 +336,22 @@ export function ProgressorJobExpandedContent({
             </TabsTrigger>
           </TabsList>
         </div>
-        <TabsContent value="control" className="mt-0 px-4 py-3 bg-muted/20">
+        <TabsContent value="control" className="mt-0 px-4 py-3 bg-muted/20 space-y-3">
           <ControlPanelTab jobId={job.id} jobNumber={job.jobNumber} onCompletedChange={setHasCompletedControl} />
+          <CompletionChecklist checks={closureChecks} />
+          <TenantSignaturePad
+            jobId={job.id}
+            jobNumber={job.jobNumber}
+            existingUrl={signatureUrl}
+            existingName={signatureName}
+            signedAt={signatureSignedAt}
+            onSaved={(url, name, signedAt) => {
+              setSignatureUrl(url);
+              setSignatureName(name);
+              setSignatureSignedAt(new Date(signedAt));
+              setClosureRefreshKey((k) => k + 1);
+            }}
+          />
         </TabsContent>
         <TabsContent value="details" className="mt-0">
       <div className="px-4 py-3 bg-muted/20 space-y-3">
@@ -702,7 +738,14 @@ export function ProgressorJobExpandedContent({
           )}
 
           {/* Media Upload */}
-          <ProgressorMediaUpload jobId={job.id} jobNumber={job.jobNumber} onUploaded={onRefresh} />
+          <ProgressorMediaUpload
+            jobId={job.id}
+            jobNumber={job.jobNumber}
+            onUploaded={() => { onRefresh(); setClosureRefreshKey((k) => k + 1); }}
+          />
+
+          {/* Completion Lock checklist (always visible above sign-off) */}
+          <CompletionChecklist checks={closureChecks} />
 
           {/* Expected Completion Date + Actions */}
           <div className="flex items-center justify-between gap-3 bg-background border rounded-lg p-2.5">
@@ -734,16 +777,35 @@ export function ProgressorJobExpandedContent({
               >
                 <CornerDownRight className="h-3.5 w-3.5 mr-1" /> Refer to NPH
               </Button>
-              <Button
-                size="sm"
-                className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
-                onClick={(e) => { e.stopPropagation(); handleJobSignOff(); }}
-              >
-                <CheckCircle className="h-3.5 w-3.5 mr-1" /> Sign Off Complete
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <Button
+                      size="sm"
+                      disabled={!canCloseJob}
+                      className={cn(
+                        "text-xs text-white",
+                        canCloseJob
+                          ? "bg-emerald-600 hover:bg-emerald-700"
+                          : "bg-muted text-muted-foreground cursor-not-allowed",
+                      )}
+                      onClick={(e) => { e.stopPropagation(); handleJobSignOff(); }}
+                    >
+                      <CheckCircle className="h-3.5 w-3.5 mr-1" />
+                      {canCloseJob ? 'Close Job' : 'Close Job (locked)'}
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {!canCloseJob && (
+                  <TooltipContent>
+                    Complete every required check (see checklist) before closing.
+                  </TooltipContent>
+                )}
+              </Tooltip>
             </div>
           </div>
         </div>
+
 
         {/* Refer back info */}
         {job.referBack && (
