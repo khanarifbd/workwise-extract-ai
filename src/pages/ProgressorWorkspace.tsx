@@ -27,7 +27,7 @@ import { AutoFlagsBar } from '@/components/progressor/AutoFlagsBar';
 import { JobTimerStrip } from '@/components/progressor/JobTimerStrip';
 import { useRoleMode } from '@/contexts/RoleModeContext';
 import { ShieldAlert } from 'lucide-react';
-import { ProgressorTodoList } from '@/components/progressor/ProgressorTodoList';
+
 
 import { TradeCompaniesModal } from '@/components/progressor/TradeCompaniesModal';
 import { ProgressorDiaryPanel } from '@/components/progressor/ProgressorDiaryPanel';
@@ -611,8 +611,6 @@ const JobDetailPanel = ({
           <TabsTrigger value="notes"><MessageSquare className="h-3.5 w-3.5 mr-1" /> Notes</TabsTrigger>
           <TabsTrigger value="calls"><Phone className="h-3.5 w-3.5 mr-1" /> Call Log</TabsTrigger>
           <TabsTrigger value="media"><ImageIcon className="h-3.5 w-3.5 mr-1" /> Media</TabsTrigger>
-          
-          <TabsTrigger value="tasks"><CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Tasks</TabsTrigger>
           <TabsTrigger
             value="control"
             className={cn(
@@ -640,9 +638,7 @@ const JobDetailPanel = ({
             </TabsContent>
 
 
-            <TabsContent value="tasks" className="m-0">
-              <ProgressorTodoList jobId={job.id} />
-            </TabsContent>
+
             <TabsContent value="control" className="m-0">
               <ControlPanelTab
                 jobId={job.id}

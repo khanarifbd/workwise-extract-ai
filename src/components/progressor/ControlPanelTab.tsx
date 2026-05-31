@@ -181,28 +181,25 @@ export function ControlPanelTab({ jobId, jobNumber, jobName = '', jobAddress = '
 
   return (
     <div className="space-y-3">
-      {/* Header */}
-      <div className="flex items-center justify-between rounded-lg border-2 border-red-500 bg-red-50 dark:bg-red-950/30 px-4 py-2.5">
+      {/* Slim header */}
+      <div className="flex items-center justify-between gap-2 border-b pb-2">
         <div className="flex items-center gap-2">
-          <AlertOctagon className="h-5 w-5 text-red-600" />
-          <span className="font-bold uppercase tracking-wide text-sm text-red-700 dark:text-red-300">
-            Control — Master Resolution
-          </span>
-          <Badge variant="outline" className="ml-2 text-xs">{records.length} record{records.length === 1 ? '' : 's'}</Badge>
+          <AlertOctagon className="h-4 w-4 text-rose-600" />
+          <span className="font-semibold text-sm">Control</span>
+          <Badge variant="secondary" className="text-[10px] h-5">{records.length}</Badge>
           {hasCompleted && (
-            <Badge className="bg-emerald-600 text-white text-xs flex items-center gap-1">
+            <Badge className="bg-emerald-600 text-white text-[10px] h-5 flex items-center gap-1">
               <CheckCircle2 className="h-3 w-3" /> Resolved
             </Badge>
           )}
         </div>
         {!draft && (
           <Button size="sm" onClick={startNew} className="h-7">
-            <Plus className="h-3.5 w-3.5 mr-1" /> Add Control Entry
+            <Plus className="h-3.5 w-3.5 mr-1" /> New Entry
           </Button>
         )}
       </div>
 
-      {/* Draft new */}
       {draft && (
         <DraftEditor
           draft={draft}
@@ -217,17 +214,12 @@ export function ControlPanelTab({ jobId, jobNumber, jobName = '', jobAddress = '
         />
       )}
 
-      {/* Existing records */}
       {loading ? (
-        <div className="flex items-center justify-center py-8 text-muted-foreground text-sm">
-          <Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading control records…
+        <div className="flex items-center justify-center py-6 text-muted-foreground text-xs">
+          <Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading…
         </div>
-      ) : records.length === 0 && !draft ? (
-        <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-          No CONTROL record yet. A job cannot be closed until a Control entry is added and marked Completed.
-        </div>
-      ) : (
-        <div className="max-h-[70vh] overflow-y-auto pr-1 space-y-3 scroll-smooth">
+      ) : records.length > 0 ? (
+        <div className="max-h-[70vh] overflow-y-auto pr-1 space-y-2 scroll-smooth">
           {records.map((r, idx) => (
             <RecordCard
               key={r.id}
@@ -246,7 +238,7 @@ export function ControlPanelTab({ jobId, jobNumber, jobName = '', jobAddress = '
             />
           ))}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
