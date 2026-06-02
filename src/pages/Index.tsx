@@ -1836,6 +1836,8 @@ const Index = () => {
                   onFlooringJobCreated={canEdit ? refreshJobs : undefined}
                   fireDoorCategoryId={categories.find(c => c.slug === 'firedoor')?.id}
                   onFireDoorJobCreated={canEdit ? refreshJobs : undefined}
+                  insulationCategoryId={categories.find(c => c.slug === 'insulation')?.id}
+                  onInsulationJobCreated={canEdit ? refreshJobs : undefined}
                   isFanCategory={isFanCategory}
                   currentCategoryId={activeCategory || undefined}
                   categories={categories.map(c => ({ id: c.id, name: c.name, color: c.color }))}

@@ -1446,8 +1446,66 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                         </Button>
                       )}
                     </div>
-                  </td>
-                  {/* Fire Door Column */}
+                   </td>
+                   {/* Insulation Column */}
+                   <td onClick={(e) => e.stopPropagation()}>
+                     <div className="flex flex-col gap-1">
+                       <InsulationEditor
+                         insulationInfo={job.insulationInfo}
+                         onUpdate={(insulationInfo) => onUpdateJob({ ...job, insulationInfo })}
+                         job={job}
+                         insulationCategoryId={insulationCategoryId}
+                         onJobUpdated={(updates) => {
+                           onUpdateJob({ ...job, ...updates });
+                           if ((updates as any)?.linkedInsulationJobId) {
+                             onInsulationJobCreated?.();
+                           }
+                         }}
+                       />
+                       {job.linkedInsulationJobId && (
+                         <Badge variant="outline" className="text-xs bg-green-500/10 text-green-700 dark:text-green-400">
+                           Linked
+                         </Badge>
+                       )}
+                       {!hasActualInsulation(job.insulationInfo) && (
+                         <Button
+                           variant="ghost"
+                           size="sm"
+                           className="h-5 px-1.5 text-xs text-muted-foreground hover:text-primary"
+                           onClick={() => handleScanForInsulation(job.id)}
+                           disabled={scanningInsulationJobId === job.id}
+                         >
+                           {scanningInsulationJobId === job.id ? (
+                             <Loader2 className="w-3 h-3 animate-spin" />
+                           ) : (
+                             <>
+                               <Wand2 className="w-3 h-3 mr-0.5" />
+                               AI Scan
+                             </>
+                           )}
+                         </Button>
+                       )}
+                       {hasActualInsulation(job.insulationInfo) && (
+                         <Button
+                           variant="ghost"
+                           size="sm"
+                           className="h-5 px-1.5 text-xs text-muted-foreground hover:text-primary"
+                           onClick={() => handleScanForInsulation(job.id)}
+                           disabled={scanningInsulationJobId === job.id}
+                         >
+                           {scanningInsulationJobId === job.id ? (
+                             <Loader2 className="w-3 h-3 animate-spin" />
+                           ) : (
+                             <>
+                               <Wand2 className="w-3 h-3 mr-0.5" />
+                               Re-scan
+                             </>
+                           )}
+                         </Button>
+                       )}
+                     </div>
+                   </td>
+                   {/* Fire Door Column */}
                   <td onClick={(e) => e.stopPropagation()}>
                     <div className="flex flex-col gap-1">
                       <FireDoorEditor
@@ -1896,6 +1954,20 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
           flooringInfo={flooringBookingDialogData.flooringInfo}
           totalFlooringCount={flooringBookingDialogData.totalFlooringCount}
           onConfirm={handleFlooringBookingConfirm}
+        />
+      )}
+
+      {/* Insulation Booking Date Dialog */}
+      {insulationBookingDialogData && (
+        <InsulationBookingDateDialog
+          open={!!insulationBookingDialogData}
+          onOpenChange={(open) => {
+            if (!open) setInsulationBookingDialogData(null);
+          }}
+          job={insulationBookingDialogData.job}
+          insulationInfo={insulationBookingDialogData.insulationInfo}
+          totalInsulationCount={insulationBookingDialogData.totalInsulationCount}
+          onConfirm={handleInsulationBookingConfirm}
         />
       )}
     </>
