@@ -353,6 +353,81 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
     return !wasScannedNoFlooring(flooringInfo);
   };
 
+  // Insulation scan helpers
+  const wasScannedNoInsulation = (insulationInfo: InsulationInfo[] | null): boolean => {
+    if (!insulationInfo || insulationInfo.length === 0) return false;
+    return insulationInfo.length === 1 && insulationInfo[0].type === '__SCANNED_NO_INSULATION__';
+  };
+
+  const hasActualInsulation = (insulationInfo: InsulationInfo[] | null): boolean => {
+    if (!insulationInfo || insulationInfo.length === 0) return false;
+    return !wasScannedNoInsulation(insulationInfo);
+  };
+
+  const handleScanForInsulation = async (jobId: string, forceOverride: boolean = false) => {
+    const job = jobs.find(j => j.id === jobId);
+    if (!job) return;
+    const hasManualOverride = job.insulationInfo?.some(i => i.manualOverride);
+    if (hasManualOverride && !forceOverride) {
+      toast({ title: 'Manual Override Active', description: 'This job has a manually set insulation count.' });
+      return;
+    }
+    setScanningInsulationJobId(jobId);
+    try {
+      const result = await extractInsulationWithAI(job.description || job.summaryOfWorks || '', job.workItems);
+      if (result) {
+        const insulationInfoToSave: InsulationInfo[] = result.hasInsulation && result.insulation.length > 0
+          ? result.insulation
+          : [{ type: '__SCANNED_NO_INSULATION__', quantity: 0, location: '' }];
+        onUpdateJob({ ...job, insulationInfo: insulationInfoToSave });
+        if (result.hasInsulation && result.insulation.length > 0) {
+          if (insulationCategoryId) {
+            setInsulationBookingDialogData({
+              job: { ...job, insulationInfo: insulationInfoToSave },
+              insulationInfo: result.insulation,
+              totalInsulationCount: result.totalInsulationCount,
+              isUpdate: !!job.linkedInsulationJobId,
+            });
+          } else {
+            toast({ title: 'Insulation Found!', description: `Found ${result.totalInsulationCount} insulation unit(s).` });
+          }
+        } else {
+          toast({ title: 'No Insulation Found', description: 'Scan complete - no insulation detected.' });
+        }
+      } else {
+        onUpdateJob({ ...job, insulationInfo: [{ type: '__SCANNED_NO_INSULATION__', quantity: 0, location: '' }] });
+        toast({ title: 'No Insulation Found', description: 'Scan complete - no insulation detected.' });
+      }
+    } catch (error) {
+      console.error('Error scanning for insulation:', error);
+      toast({ title: 'Scan Failed', description: 'Could not scan for insulation.', variant: 'destructive' });
+    } finally {
+      setScanningInsulationJobId(null);
+    }
+  };
+
+  const handleInsulationBookingConfirm = async (bookedDate: Date | null) => {
+    if (!insulationBookingDialogData || !insulationCategoryId) return;
+    const { job, insulationInfo, totalInsulationCount, isUpdate } = insulationBookingDialogData;
+    try {
+      if (isUpdate && job.linkedInsulationJobId) {
+        await syncLinkedInsulationJob(job, insulationInfo, insulationCategoryId, bookedDate);
+        onInsulationJobCreated?.();
+        toast({ title: 'Insulation Job Updated!', description: `${totalInsulationCount} unit(s) updated${bookedDate ? ` - booked for ${bookedDate.toLocaleDateString()}` : ''}.` });
+      } else {
+        await createLinkedInsulationJob(job, insulationInfo, insulationCategoryId, bookedDate);
+        onInsulationJobCreated?.();
+        toast({ title: 'Insulation Job Created!', description: `${totalInsulationCount} unit(s) linked${bookedDate ? ` - booked for ${bookedDate.toLocaleDateString()}` : ''}.` });
+      }
+    } catch (error) {
+      console.error('Failed to create/update linked insulation job:', error);
+      toast({ title: 'Error', description: 'Failed to create/update insulation job.', variant: 'destructive' });
+      throw error;
+    }
+  };
+
+
+
   const handleStatusChange = (jobId: string, status: JobStatus, isComplete: boolean) => {
     const job = jobs.find(j => j.id === jobId);
     if (job) {
