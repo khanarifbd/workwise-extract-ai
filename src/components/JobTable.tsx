@@ -140,6 +140,7 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
   const [scanningFanJobId, setScanningFanJobId] = useState<string | null>(null);
   const [scanningRoofingJobId, setScanningRoofingJobId] = useState<string | null>(null);
   const [scanningFlooringJobId, setScanningFlooringJobId] = useState<string | null>(null);
+  const [scanningInsulationJobId, setScanningInsulationJobId] = useState<string | null>(null);
   const [isBulkScanning, setIsBulkScanning] = useState(false);
   const [duplicateActionJob, setDuplicateActionJob] = useState<Job | null>(null);
   const [signOffHistoryJob, setSignOffHistoryJob] = useState<Job | null>(null);
