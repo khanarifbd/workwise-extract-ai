@@ -133,6 +133,41 @@ export const extractFansWithAI = async (description: string, workItems: WorkItem
   });
 };
 
+// Extract insulation from job description (single-job AI scan, paralleling extractFansWithAI)
+export const extractInsulationWithAI = async (
+  description: string,
+  workItems: WorkItem[]
+): Promise<{ hasInsulation: boolean; insulation: InsulationInfo[]; totalInsulationCount: number } | null> => {
+  const hasDescription = description && description.trim().length > 0;
+  const hasWorkItems = workItems && workItems.length > 0;
+
+  if (!hasDescription && !hasWorkItems) {
+    return { hasInsulation: false, insulation: [], totalInsulationCount: 0 };
+  }
+
+  return withRetry(async () => {
+    const headers = await getAuthHeaders();
+    const { data, error } = await supabase.functions.invoke('extract-insulation', {
+      body: {
+        ...(hasDescription ? { description } : {}),
+        ...(hasWorkItems ? { workItems } : {}),
+      },
+      headers,
+    });
+
+    if (error) {
+      console.error('Error calling extract-insulation function:', error);
+      throw error;
+    }
+
+    if (!data?.success) {
+      throw new Error(data?.error || 'Failed to extract insulation');
+    }
+
+    return data.data;
+  });
+};
+
 export const extractPDFWithAI = async (pdfText: string): Promise<Partial<Job> | null> => {
   return withRetry(async () => {
     const headers = await getAuthHeaders();
@@ -1142,11 +1177,92 @@ export const syncLinkedFanJob = async (
   return { linkedFanJobId: data.id, created: true };
 };
 
+// Create a linked insulation job from an existing job (paralleling createLinkedFanJob)
+export const createLinkedInsulationJob = async (
+  sourceJob: Job,
+  insulationInfo: InsulationInfo[],
+  insulationCategoryId: string,
+  bookedDate?: Date | null
+): Promise<Job> => {
+  const insulationDescription = insulationInfo.map(unit =>
+    `${unit.type} x${unit.quantity}${unit.location ? ` - ${unit.location}` : ''}${unit.thickness ? ` (${unit.thickness})` : ''}`
+  ).join('\n');
+
+  const insulationJob: Omit<Job, 'id'> = {
+    jobNumber: `${sourceJob.jobNumber}-INSUL`,
+    name: sourceJob.name,
+    address: sourceJob.address,
+    phoneNumber: sourceJob.phoneNumber,
+    summaryOfWorks: `Loft Insulation from ${sourceJob.jobNumber}`,
+    description: insulationDescription,
+    workItems: [],
+    additionalWorks: [],
+    team: null,
+    team2: null,
+    progress: 0,
+    progressNotes: '',
+    isCompleted: false,
+    isOngoing: false,
+    ongoingReason: '',
+    scheduledTrades: [],
+    createdAt: new Date(),
+    dateIssued: bookedDate || new Date(),
+    bookedDate: bookedDate || null,
+    isFlexibleBooking: false,
+    bookingNotes: '',
+    completionDate: null,
+    attachments: [],
+    status: 'pending',
+    fanInfo: null,
+    linkedFanJobId: null,
+    insulationInfo: insulationInfo,
+    linkedInsulationJobId: null,
+    roofingInfo: null,
+    linkedRoofingJobId: null,
+    flooringInfo: null,
+    linkedFlooringJobId: null,
+    fireDoorInfo: null,
+    linkedFireDoorJobId: null,
+    costs: null,
+    privateNotes: '',
+    referBack: false,
+    referBackReason: '',
+    referBackDate: null,
+    expectedCompletionDate: null,
+    blockerType: null,
+    blockerNotes: '',
+    blockerSetAt: null,
+    blockerChaseDate: null,
+  };
+
+  const dbJob = mapJobToDatabase(insulationJob);
+  dbJob.category_id = insulationCategoryId;
+
+  const { data, error } = await supabase
+    .from('jobs')
+    .insert(dbJob)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating linked insulation job:', error);
+    throw error;
+  }
+
+  await supabase
+    .from('jobs')
+    .update({ linked_insulation_job_id: data.id })
+    .eq('id', sourceJob.id);
+
+  return mapDatabaseJobToJob(data);
+};
+
 // Sync (create or update) a linked insulation job based on manual edits
 export const syncLinkedInsulationJob = async (
   sourceJob: Job,
   insulationInfo: InsulationInfo[],
-  insulationCategoryId: string
+  insulationCategoryId: string,
+  bookedDate?: Date | null
 ): Promise<{ linkedInsulationJobId: string; created: boolean }> => {
   const insulationDescription = insulationInfo.map(unit => 
     `${unit.type} x${unit.quantity}${unit.location ? ` - ${unit.location}` : ''}${unit.thickness ? ` (${unit.thickness})` : ''}`
@@ -1154,13 +1270,18 @@ export const syncLinkedInsulationJob = async (
 
   // Check if a linked insulation job already exists
   if (sourceJob.linkedInsulationJobId) {
-    // Update existing insulation job
+    const updateData: any = {
+      insulation_info: insulationInfo as unknown as Json,
+      description: insulationDescription,
+    };
+    if (bookedDate !== undefined) {
+      updateData.booked_date = bookedDate ? formatDateOnly(bookedDate) : null;
+      if (bookedDate) updateData.date_issued = formatDateOnly(bookedDate);
+    }
+
     const { error } = await supabase
       .from('jobs')
-      .update({
-        insulation_info: insulationInfo as unknown as Json,
-        description: insulationDescription,
-      })
+      .update(updateData)
       .eq('id', sourceJob.linkedInsulationJobId);
 
     if (error) {
@@ -1179,11 +1300,11 @@ export const syncLinkedInsulationJob = async (
 
   // Create new insulation job
   const insulationJob: Omit<Job, 'id'> = {
-    jobNumber: `${sourceJob.jobNumber}-INS`,
+    jobNumber: `${sourceJob.jobNumber}-INSUL`,
     name: sourceJob.name,
     address: sourceJob.address,
     phoneNumber: sourceJob.phoneNumber,
-    summaryOfWorks: `Insulation from ${sourceJob.jobNumber}`,
+    summaryOfWorks: `Loft Insulation from ${sourceJob.jobNumber}`,
     description: insulationDescription,
     workItems: [],
     additionalWorks: [],
@@ -1196,8 +1317,8 @@ export const syncLinkedInsulationJob = async (
     ongoingReason: '',
     scheduledTrades: [],
     createdAt: new Date(),
-    dateIssued: new Date(),
-    bookedDate: null,
+    dateIssued: bookedDate || new Date(),
+    bookedDate: bookedDate || null,
     isFlexibleBooking: false,
     bookingNotes: '',
     completionDate: null,
@@ -1250,6 +1371,7 @@ export const syncLinkedInsulationJob = async (
 
   return { linkedInsulationJobId: data.id, created: true };
 };
+
 
 // Extract roofing from job description using AI
 export const extractRoofingWithAI = async (description: string, workItems: WorkItem[]): Promise<{ hasRoofing: boolean; roofing: RoofingInfo[]; totalRoofingCount: number } | null> => {

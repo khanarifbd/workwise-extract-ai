@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, forwardRef, useCallback } from 'react';
 import { BulkTeamAssignModal } from './BulkTeamAssignModal';
 import { Job, JobStatus, FanInfo, RoofingInfo, FlooringInfo, FireDoorInfo, Team } from '@/types/job';
+import { InsulationInfo } from '@/types/insulation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -42,12 +43,14 @@ import { RoofingBookingDateDialog } from './RoofingBookingDateDialog';
 import { FlooringEditor } from './FlooringEditor';
 import { FlooringBookingDateDialog } from './FlooringBookingDateDialog';
 import { FireDoorEditor } from './FireDoorEditor';
+import { InsulationEditor } from './InsulationEditor';
+import { InsulationBookingDateDialog } from './InsulationBookingDateDialog';
 import { OngoingNotesEditor } from './OngoingNotesEditor';
 import { ContactCell } from './ContactCell';
 import { BookedDateCell } from './BookedDateCell';
 import { SignOffStatusIndicator } from './SignOffStatusIndicator';
 import { SignOffHistoryModal } from './SignOffHistoryModal';
-import { extractFansWithAI, createLinkedFanJob, syncLinkedFanJob, extractRoofingWithAI, createLinkedRoofingJob, syncLinkedRoofingJob, extractFlooringWithAI, createLinkedFlooringJob, syncLinkedFlooringJob, deleteLinkedJob } from '@/lib/api';
+import { extractFansWithAI, createLinkedFanJob, syncLinkedFanJob, extractRoofingWithAI, createLinkedRoofingJob, syncLinkedRoofingJob, extractFlooringWithAI, createLinkedFlooringJob, syncLinkedFlooringJob, extractInsulationWithAI, createLinkedInsulationJob, syncLinkedInsulationJob, deleteLinkedJob } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { useTeamSettings } from '@/hooks/useTeamSettings';
 import { useTeamAvailability } from '@/hooks/useTeamAvailability';
@@ -91,6 +94,8 @@ interface JobTableProps {
   onFlooringJobCreated?: () => void;
   fireDoorCategoryId?: string;
   onFireDoorJobCreated?: () => void;
+  insulationCategoryId?: string;
+  onInsulationJobCreated?: () => void;
   isFanCategory?: boolean;
   currentCategoryId?: string;
   categories?: { id: string; name: string; color: string }[];
@@ -125,7 +130,7 @@ const findDuplicates = (jobs: Job[]): Set<string> => {
   return duplicates;
 };
 
-export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onBatchUpdateTeam, onTransferJob, onDuplicateToCategory, onReferBack, fanCategoryId, onFanJobCreated, roofingCategoryId, onRoofingJobCreated, flooringCategoryId, onFlooringJobCreated, fireDoorCategoryId, onFireDoorJobCreated, isFanCategory = false, currentCategoryId, categories = [], readOnly = false, searchTerm, tradeBookings = new Map(), onOpenAdminNotes, getSignOffStatus: getSignOffStatusProp }, ref) => {
+export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onBatchUpdateTeam, onTransferJob, onDuplicateToCategory, onReferBack, fanCategoryId, onFanJobCreated, roofingCategoryId, onRoofingJobCreated, flooringCategoryId, onFlooringJobCreated, fireDoorCategoryId, onFireDoorJobCreated, insulationCategoryId, onInsulationJobCreated, isFanCategory = false, currentCategoryId, categories = [], readOnly = false, searchTerm, tradeBookings = new Map(), onOpenAdminNotes, getSignOffStatus: getSignOffStatusProp }, ref) => {
   const [showTeamSelector, setShowTeamSelector] = useState<string | null>(null);
   const [showTransferModal, setShowTransferModal] = useState<Job | null>(null);
   const [showJobDetails, setShowJobDetails] = useState<Job | null>(null);
@@ -135,6 +140,7 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
   const [scanningFanJobId, setScanningFanJobId] = useState<string | null>(null);
   const [scanningRoofingJobId, setScanningRoofingJobId] = useState<string | null>(null);
   const [scanningFlooringJobId, setScanningFlooringJobId] = useState<string | null>(null);
+  const [scanningInsulationJobId, setScanningInsulationJobId] = useState<string | null>(null);
   const [isBulkScanning, setIsBulkScanning] = useState(false);
   const [duplicateActionJob, setDuplicateActionJob] = useState<Job | null>(null);
   const [signOffHistoryJob, setSignOffHistoryJob] = useState<Job | null>(null);
@@ -158,6 +164,13 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
     job: Job;
     flooringInfo: FlooringInfo[];
     totalFlooringCount: number;
+    isUpdate: boolean;
+  } | null>(null);
+  // Insulation booking date dialog state
+  const [insulationBookingDialogData, setInsulationBookingDialogData] = useState<{
+    job: Job;
+    insulationInfo: InsulationInfo[];
+    totalInsulationCount: number;
     isUpdate: boolean;
   } | null>(null);
   const { toast } = useToast();
@@ -339,6 +352,81 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
     if (!flooringInfo || flooringInfo.length === 0) return false;
     return !wasScannedNoFlooring(flooringInfo);
   };
+
+  // Insulation scan helpers
+  const wasScannedNoInsulation = (insulationInfo: InsulationInfo[] | null): boolean => {
+    if (!insulationInfo || insulationInfo.length === 0) return false;
+    return insulationInfo.length === 1 && insulationInfo[0].type === '__SCANNED_NO_INSULATION__';
+  };
+
+  const hasActualInsulation = (insulationInfo: InsulationInfo[] | null): boolean => {
+    if (!insulationInfo || insulationInfo.length === 0) return false;
+    return !wasScannedNoInsulation(insulationInfo);
+  };
+
+  const handleScanForInsulation = async (jobId: string, forceOverride: boolean = false) => {
+    const job = jobs.find(j => j.id === jobId);
+    if (!job) return;
+    const hasManualOverride = job.insulationInfo?.some(i => i.manualOverride);
+    if (hasManualOverride && !forceOverride) {
+      toast({ title: 'Manual Override Active', description: 'This job has a manually set insulation count.' });
+      return;
+    }
+    setScanningInsulationJobId(jobId);
+    try {
+      const result = await extractInsulationWithAI(job.description || job.summaryOfWorks || '', job.workItems);
+      if (result) {
+        const insulationInfoToSave: InsulationInfo[] = result.hasInsulation && result.insulation.length > 0
+          ? result.insulation
+          : [{ type: '__SCANNED_NO_INSULATION__', quantity: 0, location: '' }];
+        onUpdateJob({ ...job, insulationInfo: insulationInfoToSave });
+        if (result.hasInsulation && result.insulation.length > 0) {
+          if (insulationCategoryId) {
+            setInsulationBookingDialogData({
+              job: { ...job, insulationInfo: insulationInfoToSave },
+              insulationInfo: result.insulation,
+              totalInsulationCount: result.totalInsulationCount,
+              isUpdate: !!job.linkedInsulationJobId,
+            });
+          } else {
+            toast({ title: 'Insulation Found!', description: `Found ${result.totalInsulationCount} insulation unit(s).` });
+          }
+        } else {
+          toast({ title: 'No Insulation Found', description: 'Scan complete - no insulation detected.' });
+        }
+      } else {
+        onUpdateJob({ ...job, insulationInfo: [{ type: '__SCANNED_NO_INSULATION__', quantity: 0, location: '' }] });
+        toast({ title: 'No Insulation Found', description: 'Scan complete - no insulation detected.' });
+      }
+    } catch (error) {
+      console.error('Error scanning for insulation:', error);
+      toast({ title: 'Scan Failed', description: 'Could not scan for insulation.', variant: 'destructive' });
+    } finally {
+      setScanningInsulationJobId(null);
+    }
+  };
+
+  const handleInsulationBookingConfirm = async (bookedDate: Date | null) => {
+    if (!insulationBookingDialogData || !insulationCategoryId) return;
+    const { job, insulationInfo, totalInsulationCount, isUpdate } = insulationBookingDialogData;
+    try {
+      if (isUpdate && job.linkedInsulationJobId) {
+        await syncLinkedInsulationJob(job, insulationInfo, insulationCategoryId, bookedDate);
+        onInsulationJobCreated?.();
+        toast({ title: 'Insulation Job Updated!', description: `${totalInsulationCount} unit(s) updated${bookedDate ? ` - booked for ${bookedDate.toLocaleDateString()}` : ''}.` });
+      } else {
+        await createLinkedInsulationJob(job, insulationInfo, insulationCategoryId, bookedDate);
+        onInsulationJobCreated?.();
+        toast({ title: 'Insulation Job Created!', description: `${totalInsulationCount} unit(s) linked${bookedDate ? ` - booked for ${bookedDate.toLocaleDateString()}` : ''}.` });
+      }
+    } catch (error) {
+      console.error('Failed to create/update linked insulation job:', error);
+      toast({ title: 'Error', description: 'Failed to create/update insulation job.', variant: 'destructive' });
+      throw error;
+    }
+  };
+
+
 
   const handleStatusChange = (jobId: string, status: JobStatus, isComplete: boolean) => {
     const job = jobs.find(j => j.id === jobId);
@@ -889,6 +977,7 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
               <th className="w-24">Fan</th>
               <th className="w-24">Roof</th>
               <th className="w-24">Floor</th>
+              <th className="w-24">Insul</th>
               <th className="w-24">Door</th>
               <th className="w-40">Ongoing Notes</th>
               {showExtraColumns && <th className="w-36">Booked/End</th>}
