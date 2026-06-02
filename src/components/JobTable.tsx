@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, forwardRef, useCallback } from 'react';
 import { BulkTeamAssignModal } from './BulkTeamAssignModal';
 import { Job, JobStatus, FanInfo, RoofingInfo, FlooringInfo, FireDoorInfo, Team } from '@/types/job';
+import { InsulationInfo } from '@/types/insulation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
