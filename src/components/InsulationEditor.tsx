@@ -103,7 +103,7 @@ export const InsulationEditor = ({
           ) : (
             <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
               <Home className="w-3 h-3 mr-1" />
-              Add
+              Loft
             </Button>
           )}
         </button>
