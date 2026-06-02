@@ -1898,6 +1898,20 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
           onConfirm={handleFlooringBookingConfirm}
         />
       )}
+
+      {/* Insulation Booking Date Dialog */}
+      {insulationBookingDialogData && (
+        <InsulationBookingDateDialog
+          open={!!insulationBookingDialogData}
+          onOpenChange={(open) => {
+            if (!open) setInsulationBookingDialogData(null);
+          }}
+          job={insulationBookingDialogData.job}
+          insulationInfo={insulationBookingDialogData.insulationInfo}
+          totalInsulationCount={insulationBookingDialogData.totalInsulationCount}
+          onConfirm={handleInsulationBookingConfirm}
+        />
+      )}
     </>
   );
 });
