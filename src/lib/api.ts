@@ -133,6 +133,41 @@ export const extractFansWithAI = async (description: string, workItems: WorkItem
   });
 };
 
+// Extract insulation from job description (single-job AI scan, paralleling extractFansWithAI)
+export const extractInsulationWithAI = async (
+  description: string,
+  workItems: WorkItem[]
+): Promise<{ hasInsulation: boolean; insulation: InsulationInfo[]; totalInsulationCount: number } | null> => {
+  const hasDescription = description && description.trim().length > 0;
+  const hasWorkItems = workItems && workItems.length > 0;
+
+  if (!hasDescription && !hasWorkItems) {
+    return { hasInsulation: false, insulation: [], totalInsulationCount: 0 };
+  }
+
+  return withRetry(async () => {
+    const headers = await getAuthHeaders();
+    const { data, error } = await supabase.functions.invoke('extract-insulation', {
+      body: {
+        ...(hasDescription ? { description } : {}),
+        ...(hasWorkItems ? { workItems } : {}),
+      },
+      headers,
+    });
+
+    if (error) {
+      console.error('Error calling extract-insulation function:', error);
+      throw error;
+    }
+
+    if (!data?.success) {
+      throw new Error(data?.error || 'Failed to extract insulation');
+    }
+
+    return data.data;
+  });
+};
+
 export const extractPDFWithAI = async (pdfText: string): Promise<Partial<Job> | null> => {
   return withRetry(async () => {
     const headers = await getAuthHeaders();
