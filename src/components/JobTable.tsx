@@ -166,6 +166,13 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
     totalFlooringCount: number;
     isUpdate: boolean;
   } | null>(null);
+  // Insulation booking date dialog state
+  const [insulationBookingDialogData, setInsulationBookingDialogData] = useState<{
+    job: Job;
+    insulationInfo: InsulationInfo[];
+    totalInsulationCount: number;
+    isUpdate: boolean;
+  } | null>(null);
   const { toast } = useToast();
   const { settings: teamSettings } = useTeamSettings();
   const { hasAvailabilityConflict } = useTeamAvailability();
