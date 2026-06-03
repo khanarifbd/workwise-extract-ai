@@ -1,0 +1,2 @@
+UPDATE public.jobs SET is_completed = false, status = 'started', completion_date = NULL, progress = 50, updated_at = now() WHERE id = '2b9219b3-7671-48b0-9553-889c384b03b4';
+DELETE FROM public.team_sign_offs WHERE job_id = '2b9219b3-7671-48b0-9553-889c384b03b4';
