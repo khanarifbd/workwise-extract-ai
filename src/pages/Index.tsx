@@ -1856,6 +1856,8 @@ const Index = () => {
                   readOnly={!canEdit}
                   searchTerm={debouncedSearch}
                   getSignOffStatus={getSignOffStatus}
+                  getSignOffRows={getSignOffRows}
+                  getExternalAssignees={getExternalAssignees}
                   tradeBookings={tradeBookings}
                   onOpenAdminNotes={(jobId) => { setAdminNotesJobId(jobId); setAdminNotesAdmin('Helen'); setShowAdminNotes(true); }}
                 />
