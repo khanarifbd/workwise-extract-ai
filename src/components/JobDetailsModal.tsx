@@ -24,6 +24,7 @@ import { PhotoFolderUpload } from './PhotoFolderUpload';
 import { SortableWorkItem } from './SortableWorkItem';
 import { TeamUpdatesSection } from './TeamUpdatesSection';
 import { TeamSignOffNotesBox } from './TeamSignOffNotesBox';
+import { ExternalAssigneesPanel } from './ExternalAssigneesPanel';
 import { searchSORCodes, SORCode } from '@/data/sorCodes';
 import {
   DndContext,
