@@ -87,6 +87,7 @@ export const DMJobFilters = ({
         hasBookedDate: filters.hasBookedDate,
         phoneNumber: filters.phoneNumber,
         signOffStatus: filters.signOffStatus,
+        hasExternalAssignee: filters.hasExternalAssignee,
       },
     };
     savePresets([...presets, newPreset]);
