@@ -119,6 +119,7 @@ export const DMJobFilters = ({
     filters.hasBookedDate,
     filters.phoneNumber,
     filters.signOffStatus,
+    filters.hasExternalAssignee,
   ].filter(Boolean).length;
 
   return (
