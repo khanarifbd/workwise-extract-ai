@@ -107,12 +107,36 @@ export const SignOffHistoryModal = ({
   const signedOffTeams = signOffs.map(s => s.team_name);
   const pendingTeams = assignedTeams.filter(t => !signedOffTeams.includes(t));
 
+  const assignedTeams = [team1, team2].filter(Boolean) as string[];
+  const signedOffTeams = signOffs.filter(s => (s.on_behalf_of ?? 'team') === 'team').map(s => s.team_name);
+  const pendingTeams = assignedTeams.filter(t => !signedOffTeams.includes(t));
+
+  const signedOffExternalIds = new Set(
+    signOffs.filter(s => s.on_behalf_of === 'external' && s.external_assignee_id).map(s => s.external_assignee_id as string)
+  );
+  const pendingExternals = externalAssignees.filter(a => !signedOffExternalIds.has(a.id));
+
+  const checkAndMarkComplete = async () => {
+    // Use server-side derive to be safe
+    const { data } = await supabase.rpc('derive_job_completion_state', { _job_id: jobId });
+    if (data === 'complete') {
+      await supabase.from('jobs').update({
+        is_completed: true,
+        status: 'complete',
+        progress: 100,
+        completion_date: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }).eq('id', jobId);
+      return true;
+    }
+    return false;
+  };
+
   // Admin sign-off on behalf of a pending team
   const handleAdminSignOff = useCallback(async (teamName: string) => {
     if (!canEdit) return;
     setSigningOffTeam(teamName);
     try {
-      // Look up team_id from team_access_codes (fallback to team name slug)
       const { data: codeRow } = await supabase
         .from('team_access_codes')
         .select('team_id')
@@ -122,8 +146,8 @@ export const SignOffHistoryModal = ({
 
       const teamId = codeRow?.team_id || teamName.toLowerCase().replace(/\s+/g, '_');
       const adminLabel = user?.email ? `Admin (${user.email})` : 'Admin';
+      const reason = (reasonByTeam[teamName] || '').trim();
 
-      // 1. Insert sign-off on behalf of the team
       const { error: signOffErr } = await supabase
         .from('team_sign_offs')
         .insert({
@@ -135,11 +159,14 @@ export const SignOffHistoryModal = ({
           documents_count: 0,
           work_items_total: 0,
           work_items_modified: 0,
-          progress_notes: `Signed off by ${adminLabel} on behalf of ${teamName} (admin override).`,
+          progress_notes: `Signed off by ${adminLabel} on behalf of ${teamName} (admin override)${reason ? ` — ${reason}` : ''}.`,
+          signed_off_by_admin: true,
+          admin_user_id: user?.id ?? null,
+          override_reason: reason || null,
+          on_behalf_of: 'team',
         });
       if (signOffErr) throw signOffErr;
 
-      // 2. Notify dashboard
       await supabase.from('team_sign_off_notifications').insert({
         job_id: jobId,
         job_number: jobNumber,
@@ -151,28 +178,16 @@ export const SignOffHistoryModal = ({
         documents_count: 0,
         work_items_total: 0,
         work_items_modified: 0,
-        progress_notes: `Admin sign-off on behalf of ${teamName}`,
+        progress_notes: `Admin sign-off on behalf of ${teamName}${reason ? ` — ${reason}` : ''}`,
       });
 
-      // 3. If this completes ALL teams → mark the job complete
-      const remainingPending = pendingTeams.filter(t => t !== teamName);
-      if (remainingPending.length === 0) {
-        await supabase
-          .from('jobs')
-          .update({
-            is_completed: true,
-            status: 'complete',
-            progress: 100,
-            completion_date: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', jobId);
-      }
+      const completed = await checkAndMarkComplete();
 
       toast({
         title: 'Sign-off recorded ✓',
-        description: `${teamName} signed off by admin${remainingPending.length === 0 ? ' — job marked complete' : ''}.`,
+        description: `${teamName} signed off by admin${completed ? ' — job marked complete' : ''}.`,
       });
+      setReasonByTeam(prev => { const n = { ...prev }; delete n[teamName]; return n; });
       await fetchSignOffs();
     } catch (err: any) {
       console.error('Admin sign-off failed:', err);
