@@ -229,6 +229,11 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
     allSignedOff: false,
     pending: false,
   }));
+  const getSignOffRows = getSignOffRowsProp || ((_jobId: string) => [] as SignOffRow[]);
+  const getExternalAssignees = getExternalAssigneesProp || ((_jobId: string) => [] as BulkExternalAssignee[]);
+
+  // Inline external-assignee picker popover state (Assign column)
+  const [externalPickerJobId, setExternalPickerJobId] = useState<string | null>(null);
   
   // Build dynamic teams list from settings - include ALL teams for bulk assign
   // All teams should be available for assignment regardless of category
