@@ -1,8 +1,9 @@
-import { FileDown, Moon, Sun, Settings, History, KeyRound, Users, LogOut, ChevronDown, CalendarDays, CheckCircle2, Briefcase, AlertTriangle, Mic, MessageSquare, StickyNote, MoreHorizontal, Package, Workflow, Sparkles } from 'lucide-react';
+import { FileDown, Moon, Sun, Settings, History, KeyRound, Users, LogOut, ChevronDown, CalendarDays, CheckCircle2, Briefcase, AlertTriangle, Mic, MessageSquare, StickyNote, MoreHorizontal, Package, Workflow, Sparkles, HardHat } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { TeamSettingsModal } from './TeamSettingsModal';
+import { SubcontractorsModal } from './SubcontractorsModal';
 import { NotificationHistoryModal } from './NotificationHistoryModal';
 import { TeamAccessCodesModal } from './TeamAccessCodesModal';
 import { TeamAvailabilityModal } from './TeamAvailabilityModal';
@@ -51,6 +52,7 @@ export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount
   const [showOpsNotes, setShowOpsNotes] = useState(false);
   const [showSendMessage, setShowSendMessage] = useState(false);
   const [opsNotesCount, setOpsNotesCount] = useState(0);
+  const [showSubcontractors, setShowSubcontractors] = useState(false);
   const { signOut, user } = useAdminAuth();
 
   useEffect(() => {
@@ -211,6 +213,10 @@ export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount
                   <KeyRound className="w-4 h-4" />
                   Access Codes
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowSubcontractors(true)} className="flex items-center gap-2 cursor-pointer">
+                  <HardHat className="w-4 h-4" />
+                  Sub-Contractors
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setShowTeamSettings(true)} className="flex items-center gap-2 cursor-pointer">
                   <Settings className="w-4 h-4" />
                   Settings
@@ -262,6 +268,8 @@ export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount
       </div>
 
       {showTeamSettings && <TeamSettingsModal onClose={() => setShowTeamSettings(false)} />}
+      <SubcontractorsModal open={showSubcontractors} onOpenChange={setShowSubcontractors} />
+
       {showNotificationHistory && <NotificationHistoryModal onClose={() => setShowNotificationHistory(false)} />}
       {showAccessCodes && <TeamAccessCodesModal onClose={() => setShowAccessCodes(false)} />}
       <TeamAvailabilityModal open={showAvailability} onOpenChange={setShowAvailability} />
