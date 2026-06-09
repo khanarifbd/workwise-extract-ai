@@ -104,10 +104,6 @@ export const SignOffHistoryModal = ({
   const hasMore = displayCount < signOffs.length;
 
   const assignedTeams = [team1, team2].filter(Boolean) as string[];
-  const signedOffTeams = signOffs.map(s => s.team_name);
-  const pendingTeams = assignedTeams.filter(t => !signedOffTeams.includes(t));
-
-  const assignedTeams = [team1, team2].filter(Boolean) as string[];
   const signedOffTeams = signOffs.filter(s => (s.on_behalf_of ?? 'team') === 'team').map(s => s.team_name);
   const pendingTeams = assignedTeams.filter(t => !signedOffTeams.includes(t));
 
