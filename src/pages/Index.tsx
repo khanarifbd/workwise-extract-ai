@@ -54,6 +54,7 @@ import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { useCategories } from '@/hooks/useCategories';
 import { useSignOffStatus } from '@/hooks/useSignOffStatus';
 import { useJobsWithExternalAssignees } from '@/hooks/useJobExternalAssignees';
+import { useJobsExternalAssigneesBulk } from '@/hooks/useJobsExternalAssigneesBulk';
 import { useFuzzySearch } from '@/hooks/useFuzzySearch';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { useTradeBookedJobs, TradeBookingInfo } from '@/hooks/useTradeBookedJobs';
@@ -100,8 +101,9 @@ const Index = () => {
   
   // Get job IDs for sign-off status
   const jobIds = useMemo(() => jobs.map(j => j.id), [jobs]);
-  const { getSignOffStatus, getLatestSignOffDate } = useSignOffStatus(jobIds);
+  const { getSignOffStatus, getLatestSignOffDate, getSignOffRows } = useSignOffStatus(jobIds);
   const { jobIds: jobsWithExternalSet } = useJobsWithExternalAssignees();
+  const { getExternals: getExternalAssignees } = useJobsExternalAssigneesBulk(jobIds);
   
   // Contact history for refer back PDF is now fetched on-demand inside ReferBackPDFButton
 
@@ -1854,6 +1856,8 @@ const Index = () => {
                   readOnly={!canEdit}
                   searchTerm={debouncedSearch}
                   getSignOffStatus={getSignOffStatus}
+                  getSignOffRows={getSignOffRows}
+                  getExternalAssignees={getExternalAssignees}
                   tradeBookings={tradeBookings}
                   onOpenAdminNotes={(jobId) => { setAdminNotesJobId(jobId); setAdminNotesAdmin('Helen'); setShowAdminNotes(true); }}
                 />

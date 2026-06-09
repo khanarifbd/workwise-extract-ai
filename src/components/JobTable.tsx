@@ -49,7 +49,13 @@ import { OngoingNotesEditor } from './OngoingNotesEditor';
 import { ContactCell } from './ContactCell';
 import { BookedDateCell } from './BookedDateCell';
 import { SignOffStatusIndicator } from './SignOffStatusIndicator';
+import { SignOffStatusPanel } from './SignOffStatusPanel';
 import { SignOffHistoryModal } from './SignOffHistoryModal';
+import { ExternalAssigneesPanel } from './ExternalAssigneesPanel';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Briefcase, UserPlus } from 'lucide-react';
+import type { BulkExternalAssignee } from '@/hooks/useJobsExternalAssigneesBulk';
+import type { SignOffRow } from '@/hooks/useSignOffStatus';
 import { extractFansWithAI, createLinkedFanJob, syncLinkedFanJob, extractRoofingWithAI, createLinkedRoofingJob, syncLinkedRoofingJob, extractFlooringWithAI, createLinkedFlooringJob, syncLinkedFlooringJob, extractInsulationWithAI, createLinkedInsulationJob, syncLinkedInsulationJob, deleteLinkedJob } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { useTeamSettings } from '@/hooks/useTeamSettings';
@@ -110,6 +116,8 @@ interface JobTableProps {
     allSignedOff: boolean;
     pending: boolean;
   };
+  getSignOffRows?: (jobId: string) => SignOffRow[];
+  getExternalAssignees?: (jobId: string) => BulkExternalAssignee[];
 }
 
 const ROWS_PER_PAGE = 50;
@@ -130,7 +138,7 @@ const findDuplicates = (jobs: Job[]): Set<string> => {
   return duplicates;
 };
 
-export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onBatchUpdateTeam, onTransferJob, onDuplicateToCategory, onReferBack, fanCategoryId, onFanJobCreated, roofingCategoryId, onRoofingJobCreated, flooringCategoryId, onFlooringJobCreated, fireDoorCategoryId, onFireDoorJobCreated, insulationCategoryId, onInsulationJobCreated, isFanCategory = false, currentCategoryId, categories = [], readOnly = false, searchTerm, tradeBookings = new Map(), onOpenAdminNotes, getSignOffStatus: getSignOffStatusProp }, ref) => {
+export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpdateJob, onDeleteJob, onToggleComplete, onBatchUpdateTeam, onTransferJob, onDuplicateToCategory, onReferBack, fanCategoryId, onFanJobCreated, roofingCategoryId, onRoofingJobCreated, flooringCategoryId, onFlooringJobCreated, fireDoorCategoryId, onFireDoorJobCreated, insulationCategoryId, onInsulationJobCreated, isFanCategory = false, currentCategoryId, categories = [], readOnly = false, searchTerm, tradeBookings = new Map(), onOpenAdminNotes, getSignOffStatus: getSignOffStatusProp, getSignOffRows: getSignOffRowsProp, getExternalAssignees: getExternalAssigneesProp }, ref) => {
   const [showTeamSelector, setShowTeamSelector] = useState<string | null>(null);
   const [showTransferModal, setShowTransferModal] = useState<Job | null>(null);
   const [showJobDetails, setShowJobDetails] = useState<Job | null>(null);
@@ -221,6 +229,11 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
     allSignedOff: false,
     pending: false,
   }));
+  const getSignOffRows = getSignOffRowsProp || ((_jobId: string) => [] as SignOffRow[]);
+  const getExternalAssignees = getExternalAssigneesProp || ((_jobId: string) => [] as BulkExternalAssignee[]);
+
+  // Inline external-assignee picker popover state (Assign column)
+  const [externalPickerJobId, setExternalPickerJobId] = useState<string | null>(null);
   
   // Build dynamic teams list from settings - include ALL teams for bulk assign
   // All teams should be available for assignment regardless of category
@@ -1172,68 +1185,104 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                       onReferBack={onReferBack ? (reason) => onReferBack(job, reason) : undefined}
                     />
                   </td>
-                  {/* Assigned Column */}
+                  {/* Assigned Column (teams + external sub-contractors) */}
                   <td onClick={(e) => e.stopPropagation()} className="relative z-20">
                     <div className="relative">
                       {(() => {
                         const bookedDateStr = job.bookedDate instanceof Date 
                           ? job.bookedDate.toISOString() 
                           : job.bookedDate;
-                        // Check conflicts for both teams
+                        const externals = getExternalAssignees(job.id);
                         const hasConflict = hasAvailabilityConflict(job.team, bookedDateStr) || 
                                            (job.team2 && hasAvailabilityConflict(job.team2, bookedDateStr));
+                        const hasAnyAssignment = !!job.team || externals.length > 0;
                         
                         return (
-                          <>
-                            {job.team ? (
-                              <div className="flex flex-col gap-1">
-                                <div className="flex items-center gap-1">
-                                  {hasConflict && (
-                                    <AlertTriangle className="w-4 h-4 text-red-500 animate-pulse flex-shrink-0" />
-                                  )}
-                                  <Badge 
-                                    className={cn(
-                                      "cursor-pointer text-xs",
-                                      hasAvailabilityConflict(job.team, bookedDateStr) && "animate-pulse ring-2 ring-red-500"
-                                    )}
-                                    style={{ backgroundColor: getTeamColor(job.team), color: 'white' }}
-                                    onClick={() => setShowTeamSelector(job.id)}
-                                    title={hasAvailabilityConflict(job.team, bookedDateStr) ? 'Team unavailable on booked date!' : undefined}
-                                  >
-                                    <Users className="w-3.5 h-3.5 mr-1" />
-                                    {job.team}
-                                  </Badge>
-                                </div>
-                                {/* Show second team if assigned */}
-                                {job.team2 && (
-                                  <div className="flex items-center gap-1">
-                                    <Badge 
-                                      className={cn(
-                                        "cursor-pointer text-xs",
-                                        hasAvailabilityConflict(job.team2, bookedDateStr) && "animate-pulse ring-2 ring-red-500"
-                                      )}
-                                      style={{ backgroundColor: getTeamColor(job.team2), color: 'white' }}
-                                      onClick={() => setShowTeamSelector(job.id)}
-                                      title={hasAvailabilityConflict(job.team2, bookedDateStr) ? 'Team unavailable on booked date!' : undefined}
-                                    >
-                                      <Users className="w-3.5 h-3.5 mr-1" />
-                                      {job.team2}
-                                    </Badge>
-                                  </div>
+                          <div className="flex flex-col gap-1">
+                            {/* Team 1 */}
+                            {job.team && (
+                              <div className="flex items-center gap-1">
+                                {hasConflict && (
+                                  <AlertTriangle className="w-4 h-4 text-red-500 animate-pulse flex-shrink-0" />
                                 )}
+                                <Badge 
+                                  className={cn(
+                                    "cursor-pointer text-xs",
+                                    hasAvailabilityConflict(job.team, bookedDateStr) && "animate-pulse ring-2 ring-red-500"
+                                  )}
+                                  style={{ backgroundColor: getTeamColor(job.team), color: 'white' }}
+                                  onClick={() => setShowTeamSelector(job.id)}
+                                  title={hasAvailabilityConflict(job.team, bookedDateStr) ? 'Team unavailable on booked date!' : undefined}
+                                >
+                                  <Users className="w-3.5 h-3.5 mr-1" />
+                                  {job.team}
+                                </Badge>
                               </div>
-                            ) : (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-6 text-xs px-2"
-                                onClick={() => setShowTeamSelector(job.id)}
-                              >
-                                <Users className="w-3 h-3 mr-1" />
-                                Assign
-                              </Button>
                             )}
-                          </>
+                            {/* Team 2 */}
+                            {job.team2 && (
+                              <div className="flex items-center gap-1">
+                                <Badge 
+                                  className={cn(
+                                    "cursor-pointer text-xs",
+                                    hasAvailabilityConflict(job.team2, bookedDateStr) && "animate-pulse ring-2 ring-red-500"
+                                  )}
+                                  style={{ backgroundColor: getTeamColor(job.team2), color: 'white' }}
+                                  onClick={() => setShowTeamSelector(job.id)}
+                                  title={hasAvailabilityConflict(job.team2, bookedDateStr) ? 'Team unavailable on booked date!' : undefined}
+                                >
+                                  <Users className="w-3.5 h-3.5 mr-1" />
+                                  {job.team2}
+                                </Badge>
+                              </div>
+                            )}
+                            {/* External sub-contractors */}
+                            {externals.map(ext => (
+                              <div key={ext.id} className="flex items-center gap-1">
+                                <Badge
+                                  variant="outline"
+                                  className="cursor-pointer text-xs border-slate-400/60 bg-slate-100 dark:bg-slate-800/60 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700"
+                                  onClick={() => setExternalPickerJobId(job.id)}
+                                  title={`External: ${ext.name}${ext.company ? ` · ${ext.company}` : ''}${ext.trade ? ` · ${ext.trade}` : ''}${ext.phone ? ` · ${ext.phone}` : ''}`}
+                                >
+                                  <Briefcase className="w-3 h-3 mr-1" />
+                                  <span className="truncate max-w-[110px]">{ext.name}</span>
+                                </Badge>
+                              </div>
+                            ))}
+                            {/* Action buttons */}
+                            <div className="flex items-center gap-1 flex-wrap">
+                              {!hasAnyAssignment ? (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-6 text-xs px-2"
+                                  onClick={() => setShowTeamSelector(job.id)}
+                                >
+                                  <Users className="w-3 h-3 mr-1" />
+                                  Assign
+                                </Button>
+                              ) : null}
+                              <Popover
+                                open={externalPickerJobId === job.id}
+                                onOpenChange={(o) => setExternalPickerJobId(o ? job.id : null)}
+                              >
+                                <PopoverTrigger asChild>
+                                  <button
+                                    type="button"
+                                    className="inline-flex items-center gap-0.5 h-5 px-1.5 rounded text-[10px] font-medium border border-dashed border-slate-400/60 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                                    title="Assign external sub-contractor"
+                                  >
+                                    <UserPlus className="h-2.5 w-2.5" />
+                                    Ext
+                                  </button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-80 p-3" align="start">
+                                  <ExternalAssigneesPanel jobId={job.id} />
+                                </PopoverContent>
+                              </Popover>
+                            </div>
+                          </div>
                         );
                       })()}
                       {showTeamSelector === job.id && (
@@ -1251,17 +1300,27 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                       )}
                     </div>
                   </td>
-                  {/* Status Column - Booked date or UnBooked */}
+                  {/* Status Column - Booked date / UnBooked + per-party sign-off state */}
                   <td onClick={(e) => e.stopPropagation()} className="relative z-20">
-                    <BookedDateCell
-                      bookedDate={job.bookedDate}
-                      bookingNotes={job.bookingNotes || ''}
-                      teamName={job.team}
-                      isFlexible={job.isFlexibleBooking}
-                      onDateChange={(date) => handleBookedDateChange(job.id, date)}
-                      onNotesChange={(notes) => onUpdateJob({ ...job, bookingNotes: notes })}
-                    />
+                    <div className="flex flex-col gap-0.5">
+                      <BookedDateCell
+                        bookedDate={job.bookedDate}
+                        bookingNotes={job.bookingNotes || ''}
+                        teamName={job.team}
+                        isFlexible={job.isFlexibleBooking}
+                        onDateChange={(date) => handleBookedDateChange(job.id, date)}
+                        onNotesChange={(notes) => onUpdateJob({ ...job, bookingNotes: notes })}
+                      />
+                      <SignOffStatusPanel
+                        team1={job.team}
+                        team2={job.team2}
+                        externals={getExternalAssignees(job.id)}
+                        signOffRows={getSignOffRows(job.id)}
+                        onClick={() => setSignOffHistoryJob(job)}
+                      />
+                    </div>
                   </td>
+
                   <td onClick={(e) => e.stopPropagation()} className="relative z-20">
                     <InlineDescriptionEditor
                       description={description}
