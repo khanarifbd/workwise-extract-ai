@@ -541,14 +541,17 @@ export const JobDetailsModal = forwardRef<HTMLDivElement, JobDetailsModalProps>(
               </div>
             </TabsContent>
 
-            <TabsContent value="team" className="space-y-4">
-              <TeamUpdatesSection
-                jobId={editedJob.id}
-                attachments={editedJob.attachments}
-                workItems={editedJob.workItems}
-                team1={editedJob.team}
-                team2={editedJob.team2}
-              />
+            <TabsContent value="team" className="space-y-6">
+              <ExternalAssigneesPanel jobId={editedJob.id} />
+              <div className="border-t border-border pt-4">
+                <TeamUpdatesSection
+                  jobId={editedJob.id}
+                  attachments={editedJob.attachments}
+                  workItems={editedJob.workItems}
+                  team1={editedJob.team}
+                  team2={editedJob.team2}
+                />
+              </div>
             </TabsContent>
           </Tabs>
         </div>
