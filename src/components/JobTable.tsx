@@ -116,6 +116,8 @@ interface JobTableProps {
     allSignedOff: boolean;
     pending: boolean;
   };
+  getSignOffRows?: (jobId: string) => SignOffRow[];
+  getExternalAssignees?: (jobId: string) => BulkExternalAssignee[];
 }
 
 const ROWS_PER_PAGE = 50;
