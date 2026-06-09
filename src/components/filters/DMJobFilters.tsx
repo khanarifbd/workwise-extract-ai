@@ -429,6 +429,18 @@ export const DMJobFilters = ({
               <SelectItem value="complete">All Signed Off</SelectItem>
             </SelectContent>
           </Select>
+
+          {/* External Assignee Filter */}
+          <Select value={filters.hasExternalAssignee} onValueChange={(v) => updateFilter('hasExternalAssignee', v)}>
+            <SelectTrigger className="w-40 h-9 text-sm">
+              <SelectValue placeholder="External" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Jobs</SelectItem>
+              <SelectItem value="with">👤 With External</SelectItem>
+              <SelectItem value="without">No External</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       )}
     </div>
