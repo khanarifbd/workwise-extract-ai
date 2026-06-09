@@ -56,8 +56,12 @@ export const SignOffHistoryModal = ({
   const [displayCount, setDisplayCount] = useState(INITIAL_LIMIT);
   const [totalCount, setTotalCount] = useState(0);
   const [signingOffTeam, setSigningOffTeam] = useState<string | null>(null);
+  const [signingOffExternalId, setSigningOffExternalId] = useState<string | null>(null);
+  const [reasonByTeam, setReasonByTeam] = useState<Record<string, string>>({});
+  const [reasonByExternal, setReasonByExternal] = useState<Record<string, string>>({});
   const { toast } = useToast();
   const { canEdit, user } = useAdminAuth();
+  const { items: externalAssignees } = useJobExternalAssignees(isOpen ? jobId : null);
 
   useEffect(() => {
     if (isOpen && jobId) {
