@@ -54,6 +54,7 @@ import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { useCategories } from '@/hooks/useCategories';
 import { useSignOffStatus } from '@/hooks/useSignOffStatus';
 import { useJobsWithExternalAssignees } from '@/hooks/useJobExternalAssignees';
+import { useJobsExternalAssigneesBulk } from '@/hooks/useJobsExternalAssigneesBulk';
 import { useFuzzySearch } from '@/hooks/useFuzzySearch';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { useTradeBookedJobs, TradeBookingInfo } from '@/hooks/useTradeBookedJobs';
