@@ -3,11 +3,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import { CheckCircle2, Image, Video, FileText, Wrench, Clock, User, ChevronDown, ShieldCheck, Loader2 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { CheckCircle2, Image, Video, FileText, Wrench, Clock, User, ChevronDown, ShieldCheck, Loader2, UserCircle2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
+import { useJobExternalAssignees } from '@/hooks/useJobExternalAssignees';
 
 interface SignOff {
   id: string;
@@ -21,6 +23,10 @@ interface SignOff {
   work_items_modified: number;
   work_items_total: number;
   progress_notes: string | null;
+  signed_off_by_admin?: boolean | null;
+  override_reason?: string | null;
+  on_behalf_of?: string | null;
+  external_assignee_id?: string | null;
 }
 
 interface SignOffHistoryModalProps {
