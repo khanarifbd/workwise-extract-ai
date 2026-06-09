@@ -65,6 +65,7 @@ export const DMJobFilters = ({
       hasBookedDate: '',
       phoneNumber: '',
       signOffStatus: '',
+      hasExternalAssignee: '',
     });
   };
 
