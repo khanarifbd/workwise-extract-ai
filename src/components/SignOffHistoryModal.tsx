@@ -195,7 +195,58 @@ export const SignOffHistoryModal = ({
     } finally {
       setSigningOffTeam(null);
     }
-  }, [canEdit, user, jobId, jobNumber, jobName, pendingTeams, toast]);
+  }, [canEdit, user, jobId, jobNumber, jobName, reasonByTeam, toast]);
+
+  // Admin sign-off on behalf of an external assignee
+  const handleExternalSignOff = useCallback(async (assigneeId: string, label: string) => {
+    if (!canEdit) return;
+    setSigningOffExternalId(assigneeId);
+    try {
+      const adminLabel = user?.email ? `Admin (${user.email})` : 'Admin';
+      const reason = (reasonByExternal[assigneeId] || '').trim();
+      const externalTeamId = `external_${assigneeId.slice(0, 8)}`;
+
+      const { error: signOffErr } = await supabase
+        .from('team_sign_offs')
+        .insert({
+          job_id: jobId,
+          team_id: externalTeamId,
+          team_name: `External: ${label}`,
+          photos_count: 0,
+          videos_count: 0,
+          documents_count: 0,
+          work_items_total: 0,
+          work_items_modified: 0,
+          progress_notes: `Signed off by ${adminLabel} on behalf of external assignee ${label}${reason ? ` — ${reason}` : ''}.`,
+          signed_off_by_admin: true,
+          admin_user_id: user?.id ?? null,
+          override_reason: reason || null,
+          on_behalf_of: 'external',
+          external_assignee_id: assigneeId,
+        });
+      if (signOffErr) throw signOffErr;
+
+      const completed = await checkAndMarkComplete();
+
+      toast({
+        title: 'External sign-off recorded ✓',
+        description: `${label} signed off by admin${completed ? ' — job marked complete' : ''}.`,
+      });
+      setReasonByExternal(prev => { const n = { ...prev }; delete n[assigneeId]; return n; });
+      await fetchSignOffs();
+    } catch (err: any) {
+      console.error('External sign-off failed:', err);
+      toast({
+        title: 'Sign-off failed',
+        description: err.message || 'Unable to record sign-off',
+        variant: 'destructive',
+      });
+    } finally {
+      setSigningOffExternalId(null);
+    }
+  }, [canEdit, user, jobId, reasonByExternal, toast]);
+
+
 
 
   return (
