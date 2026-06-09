@@ -64,6 +64,7 @@ export const FanJobFilters = ({
       hasBookedDate: '',
       phoneNumber: '',
       signOffStatus: '',
+      hasExternalAssignee: '',
     });
   };
 
