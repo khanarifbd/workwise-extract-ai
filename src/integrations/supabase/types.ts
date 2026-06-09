@@ -371,6 +371,51 @@ export type Database = {
         }
         Relationships: []
       }
+      job_external_assignees: {
+        Row: {
+          assigned_by: string | null
+          assignment_notes: string | null
+          created_at: string
+          id: string
+          job_id: string
+          subcontractor_id: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_by?: string | null
+          assignment_notes?: string | null
+          created_at?: string
+          id?: string
+          job_id: string
+          subcontractor_id: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_by?: string | null
+          assignment_notes?: string | null
+          created_at?: string
+          id?: string
+          job_id?: string
+          subcontractor_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_external_assignees_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_external_assignees_subcontractor_id_fkey"
+            columns: ["subcontractor_id"]
+            isOneToOne: false
+            referencedRelation: "subcontractors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_sub_tasks: {
         Row: {
           assigned_team: string | null
@@ -1155,6 +1200,48 @@ export type Database = {
           },
         ]
       }
+      subcontractors: {
+        Row: {
+          company: string | null
+          created_at: string
+          created_by: string | null
+          email: string | null
+          id: string
+          is_active: boolean
+          name: string
+          notes: string | null
+          phone: string | null
+          trade: string | null
+          updated_at: string
+        }
+        Insert: {
+          company?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          phone?: string | null
+          trade?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          trade?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       team_access_codes: {
         Row: {
           access_code: string
@@ -1478,13 +1565,18 @@ export type Database = {
       }
       team_sign_offs: {
         Row: {
+          admin_user_id: string | null
           created_at: string
           documents_count: number
+          external_assignee_id: string | null
           id: string
           job_id: string
+          on_behalf_of: string
+          override_reason: string | null
           photos_count: number
           progress_notes: string | null
           signed_off_at: string
+          signed_off_by_admin: boolean
           team_id: string
           team_name: string
           videos_count: number
@@ -1492,13 +1584,18 @@ export type Database = {
           work_items_total: number
         }
         Insert: {
+          admin_user_id?: string | null
           created_at?: string
           documents_count?: number
+          external_assignee_id?: string | null
           id?: string
           job_id: string
+          on_behalf_of?: string
+          override_reason?: string | null
           photos_count?: number
           progress_notes?: string | null
           signed_off_at?: string
+          signed_off_by_admin?: boolean
           team_id: string
           team_name: string
           videos_count?: number
@@ -1506,13 +1603,18 @@ export type Database = {
           work_items_total?: number
         }
         Update: {
+          admin_user_id?: string | null
           created_at?: string
           documents_count?: number
+          external_assignee_id?: string | null
           id?: string
           job_id?: string
+          on_behalf_of?: string
+          override_reason?: string | null
           photos_count?: number
           progress_notes?: string | null
           signed_off_at?: string
+          signed_off_by_admin?: boolean
           team_id?: string
           team_name?: string
           videos_count?: number
@@ -1520,6 +1622,13 @@ export type Database = {
           work_items_total?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "team_sign_offs_external_assignee_id_fkey"
+            columns: ["external_assignee_id"]
+            isOneToOne: false
+            referencedRelation: "job_external_assignees"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "team_sign_offs_job_id_fkey"
             columns: ["job_id"]
@@ -1663,6 +1772,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      derive_job_completion_state: {
+        Args: { _job_id: string }
+        Returns: string
+      }
       has_admin_access: { Args: { _user_id: string }; Returns: boolean }
       has_role: {
         Args: {
