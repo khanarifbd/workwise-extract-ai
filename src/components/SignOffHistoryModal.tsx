@@ -293,31 +293,98 @@ export const SignOffHistoryModal = ({
                 Awaiting sign-off from: {pendingTeams.join(', ')}
               </p>
               {canEdit && (
-                <div className="flex flex-col gap-1.5 pt-1">
+                <div className="flex flex-col gap-2 pt-1">
                   <p className="text-[11px] text-muted-foreground">
                     Admin override — sign off on behalf of pending team(s):
                   </p>
                   {pendingTeams.map(team => (
-                    <Button
-                      key={team}
-                      size="sm"
-                      variant="outline"
-                      className="justify-start gap-2 h-8 border-amber-500/40 bg-background hover:bg-amber-500/10"
-                      disabled={signingOffTeam !== null}
-                      onClick={() => handleAdminSignOff(team)}
-                    >
-                      {signingOffTeam === team ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <ShieldCheck className="h-3.5 w-3.5 text-success" />
-                      )}
-                      <span className="text-xs">Sign off as <strong>{team}</strong></span>
-                    </Button>
+                    <div key={team} className="space-y-1">
+                      <Input
+                        placeholder="Optional reason (e.g. confirmed by phone)…"
+                        value={reasonByTeam[team] || ''}
+                        onChange={(e) => setReasonByTeam(p => ({ ...p, [team]: e.target.value }))}
+                        className="h-7 text-xs"
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="justify-start gap-2 h-8 w-full border-amber-500/40 bg-background hover:bg-amber-500/10"
+                        disabled={signingOffTeam !== null}
+                        onClick={() => handleAdminSignOff(team)}
+                      >
+                        {signingOffTeam === team ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <ShieldCheck className="h-3.5 w-3.5 text-success" />
+                        )}
+                        <span className="text-xs">Admin sign-off as <strong>{team}</strong></span>
+                      </Button>
+                    </div>
                   ))}
                 </div>
               )}
             </div>
           )}
+
+          {/* External Assignees */}
+          {externalAssignees.length > 0 && (
+            <div className="p-3 bg-slate-500/10 border border-slate-400/30 rounded-lg space-y-2">
+              <p className="text-sm font-medium flex items-center gap-1.5">
+                <UserCircle2 className="h-4 w-4" />
+                External assignees ({externalAssignees.length - pendingExternals.length}/{externalAssignees.length} signed off)
+              </p>
+              <div className="flex flex-col gap-2">
+                {externalAssignees.map(a => {
+                  const signed = signedOffExternalIds.has(a.id);
+                  const label = a.subcontractor?.name ?? 'External';
+                  const sub = a.subcontractor?.company ? ` — ${a.subcontractor.company}` : '';
+                  return (
+                    <div key={a.id} className="space-y-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs">
+                          👤 <strong>{label}</strong>{sub}
+                        </span>
+                        {signed ? (
+                          <Badge className="bg-success text-success-foreground text-[10px] h-5">
+                            <CheckCircle2 className="h-3 w-3 mr-1" />Signed
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-[10px] h-5 text-muted-foreground">
+                            <Clock className="h-3 w-3 mr-1" />Pending
+                          </Badge>
+                        )}
+                      </div>
+                      {!signed && canEdit && (
+                        <>
+                          <Input
+                            placeholder="Optional reason…"
+                            value={reasonByExternal[a.id] || ''}
+                            onChange={(e) => setReasonByExternal(p => ({ ...p, [a.id]: e.target.value }))}
+                            className="h-7 text-xs"
+                          />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="justify-start gap-2 h-8 w-full border-slate-400/50 bg-background hover:bg-slate-500/10"
+                            disabled={signingOffExternalId !== null}
+                            onClick={() => handleExternalSignOff(a.id, label)}
+                          >
+                            {signingOffExternalId === a.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <ShieldCheck className="h-3.5 w-3.5 text-success" />
+                            )}
+                            <span className="text-xs">Admin sign-off for <strong>{label}</strong></span>
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
 
           {/* Sign-Off Records */}
           <ScrollArea className="max-h-[400px]">
