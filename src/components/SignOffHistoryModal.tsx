@@ -3,11 +3,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import { CheckCircle2, Image, Video, FileText, Wrench, Clock, User, ChevronDown, ShieldCheck, Loader2 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { CheckCircle2, Image, Video, FileText, Wrench, Clock, User, ChevronDown, ShieldCheck, Loader2, UserCircle2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
+import { useJobExternalAssignees } from '@/hooks/useJobExternalAssignees';
 
 interface SignOff {
   id: string;
@@ -21,6 +23,10 @@ interface SignOff {
   work_items_modified: number;
   work_items_total: number;
   progress_notes: string | null;
+  signed_off_by_admin?: boolean | null;
+  override_reason?: string | null;
+  on_behalf_of?: string | null;
+  external_assignee_id?: string | null;
 }
 
 interface SignOffHistoryModalProps {
@@ -50,8 +56,12 @@ export const SignOffHistoryModal = ({
   const [displayCount, setDisplayCount] = useState(INITIAL_LIMIT);
   const [totalCount, setTotalCount] = useState(0);
   const [signingOffTeam, setSigningOffTeam] = useState<string | null>(null);
+  const [signingOffExternalId, setSigningOffExternalId] = useState<string | null>(null);
+  const [reasonByTeam, setReasonByTeam] = useState<Record<string, string>>({});
+  const [reasonByExternal, setReasonByExternal] = useState<Record<string, string>>({});
   const { toast } = useToast();
   const { canEdit, user } = useAdminAuth();
+  const { items: externalAssignees } = useJobExternalAssignees(isOpen ? jobId : null);
 
   useEffect(() => {
     if (isOpen && jobId) {
@@ -94,15 +104,35 @@ export const SignOffHistoryModal = ({
   const hasMore = displayCount < signOffs.length;
 
   const assignedTeams = [team1, team2].filter(Boolean) as string[];
-  const signedOffTeams = signOffs.map(s => s.team_name);
+  const signedOffTeams = signOffs.filter(s => (s.on_behalf_of ?? 'team') === 'team').map(s => s.team_name);
   const pendingTeams = assignedTeams.filter(t => !signedOffTeams.includes(t));
+
+  const signedOffExternalIds = new Set(
+    signOffs.filter(s => s.on_behalf_of === 'external' && s.external_assignee_id).map(s => s.external_assignee_id as string)
+  );
+  const pendingExternals = externalAssignees.filter(a => !signedOffExternalIds.has(a.id));
+
+  const checkAndMarkComplete = async () => {
+    // Use server-side derive to be safe
+    const { data } = await supabase.rpc('derive_job_completion_state', { _job_id: jobId });
+    if (data === 'complete') {
+      await supabase.from('jobs').update({
+        is_completed: true,
+        status: 'complete',
+        progress: 100,
+        completion_date: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }).eq('id', jobId);
+      return true;
+    }
+    return false;
+  };
 
   // Admin sign-off on behalf of a pending team
   const handleAdminSignOff = useCallback(async (teamName: string) => {
     if (!canEdit) return;
     setSigningOffTeam(teamName);
     try {
-      // Look up team_id from team_access_codes (fallback to team name slug)
       const { data: codeRow } = await supabase
         .from('team_access_codes')
         .select('team_id')
@@ -112,8 +142,8 @@ export const SignOffHistoryModal = ({
 
       const teamId = codeRow?.team_id || teamName.toLowerCase().replace(/\s+/g, '_');
       const adminLabel = user?.email ? `Admin (${user.email})` : 'Admin';
+      const reason = (reasonByTeam[teamName] || '').trim();
 
-      // 1. Insert sign-off on behalf of the team
       const { error: signOffErr } = await supabase
         .from('team_sign_offs')
         .insert({
@@ -125,11 +155,14 @@ export const SignOffHistoryModal = ({
           documents_count: 0,
           work_items_total: 0,
           work_items_modified: 0,
-          progress_notes: `Signed off by ${adminLabel} on behalf of ${teamName} (admin override).`,
+          progress_notes: `Signed off by ${adminLabel} on behalf of ${teamName} (admin override)${reason ? ` — ${reason}` : ''}.`,
+          signed_off_by_admin: true,
+          admin_user_id: user?.id ?? null,
+          override_reason: reason || null,
+          on_behalf_of: 'team',
         });
       if (signOffErr) throw signOffErr;
 
-      // 2. Notify dashboard
       await supabase.from('team_sign_off_notifications').insert({
         job_id: jobId,
         job_number: jobNumber,
@@ -141,28 +174,16 @@ export const SignOffHistoryModal = ({
         documents_count: 0,
         work_items_total: 0,
         work_items_modified: 0,
-        progress_notes: `Admin sign-off on behalf of ${teamName}`,
+        progress_notes: `Admin sign-off on behalf of ${teamName}${reason ? ` — ${reason}` : ''}`,
       });
 
-      // 3. If this completes ALL teams → mark the job complete
-      const remainingPending = pendingTeams.filter(t => t !== teamName);
-      if (remainingPending.length === 0) {
-        await supabase
-          .from('jobs')
-          .update({
-            is_completed: true,
-            status: 'complete',
-            progress: 100,
-            completion_date: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', jobId);
-      }
+      const completed = await checkAndMarkComplete();
 
       toast({
         title: 'Sign-off recorded ✓',
-        description: `${teamName} signed off by admin${remainingPending.length === 0 ? ' — job marked complete' : ''}.`,
+        description: `${teamName} signed off by admin${completed ? ' — job marked complete' : ''}.`,
       });
+      setReasonByTeam(prev => { const n = { ...prev }; delete n[teamName]; return n; });
       await fetchSignOffs();
     } catch (err: any) {
       console.error('Admin sign-off failed:', err);
@@ -174,7 +195,58 @@ export const SignOffHistoryModal = ({
     } finally {
       setSigningOffTeam(null);
     }
-  }, [canEdit, user, jobId, jobNumber, jobName, pendingTeams, toast]);
+  }, [canEdit, user, jobId, jobNumber, jobName, reasonByTeam, toast]);
+
+  // Admin sign-off on behalf of an external assignee
+  const handleExternalSignOff = useCallback(async (assigneeId: string, label: string) => {
+    if (!canEdit) return;
+    setSigningOffExternalId(assigneeId);
+    try {
+      const adminLabel = user?.email ? `Admin (${user.email})` : 'Admin';
+      const reason = (reasonByExternal[assigneeId] || '').trim();
+      const externalTeamId = `external_${assigneeId.slice(0, 8)}`;
+
+      const { error: signOffErr } = await supabase
+        .from('team_sign_offs')
+        .insert({
+          job_id: jobId,
+          team_id: externalTeamId,
+          team_name: `External: ${label}`,
+          photos_count: 0,
+          videos_count: 0,
+          documents_count: 0,
+          work_items_total: 0,
+          work_items_modified: 0,
+          progress_notes: `Signed off by ${adminLabel} on behalf of external assignee ${label}${reason ? ` — ${reason}` : ''}.`,
+          signed_off_by_admin: true,
+          admin_user_id: user?.id ?? null,
+          override_reason: reason || null,
+          on_behalf_of: 'external',
+          external_assignee_id: assigneeId,
+        });
+      if (signOffErr) throw signOffErr;
+
+      const completed = await checkAndMarkComplete();
+
+      toast({
+        title: 'External sign-off recorded ✓',
+        description: `${label} signed off by admin${completed ? ' — job marked complete' : ''}.`,
+      });
+      setReasonByExternal(prev => { const n = { ...prev }; delete n[assigneeId]; return n; });
+      await fetchSignOffs();
+    } catch (err: any) {
+      console.error('External sign-off failed:', err);
+      toast({
+        title: 'Sign-off failed',
+        description: err.message || 'Unable to record sign-off',
+        variant: 'destructive',
+      });
+    } finally {
+      setSigningOffExternalId(null);
+    }
+  }, [canEdit, user, jobId, reasonByExternal, toast]);
+
+
 
 
   return (
@@ -221,31 +293,98 @@ export const SignOffHistoryModal = ({
                 Awaiting sign-off from: {pendingTeams.join(', ')}
               </p>
               {canEdit && (
-                <div className="flex flex-col gap-1.5 pt-1">
+                <div className="flex flex-col gap-2 pt-1">
                   <p className="text-[11px] text-muted-foreground">
                     Admin override — sign off on behalf of pending team(s):
                   </p>
                   {pendingTeams.map(team => (
-                    <Button
-                      key={team}
-                      size="sm"
-                      variant="outline"
-                      className="justify-start gap-2 h-8 border-amber-500/40 bg-background hover:bg-amber-500/10"
-                      disabled={signingOffTeam !== null}
-                      onClick={() => handleAdminSignOff(team)}
-                    >
-                      {signingOffTeam === team ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <ShieldCheck className="h-3.5 w-3.5 text-success" />
-                      )}
-                      <span className="text-xs">Sign off as <strong>{team}</strong></span>
-                    </Button>
+                    <div key={team} className="space-y-1">
+                      <Input
+                        placeholder="Optional reason (e.g. confirmed by phone)…"
+                        value={reasonByTeam[team] || ''}
+                        onChange={(e) => setReasonByTeam(p => ({ ...p, [team]: e.target.value }))}
+                        className="h-7 text-xs"
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="justify-start gap-2 h-8 w-full border-amber-500/40 bg-background hover:bg-amber-500/10"
+                        disabled={signingOffTeam !== null}
+                        onClick={() => handleAdminSignOff(team)}
+                      >
+                        {signingOffTeam === team ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <ShieldCheck className="h-3.5 w-3.5 text-success" />
+                        )}
+                        <span className="text-xs">Admin sign-off as <strong>{team}</strong></span>
+                      </Button>
+                    </div>
                   ))}
                 </div>
               )}
             </div>
           )}
+
+          {/* External Assignees */}
+          {externalAssignees.length > 0 && (
+            <div className="p-3 bg-slate-500/10 border border-slate-400/30 rounded-lg space-y-2">
+              <p className="text-sm font-medium flex items-center gap-1.5">
+                <UserCircle2 className="h-4 w-4" />
+                External assignees ({externalAssignees.length - pendingExternals.length}/{externalAssignees.length} signed off)
+              </p>
+              <div className="flex flex-col gap-2">
+                {externalAssignees.map(a => {
+                  const signed = signedOffExternalIds.has(a.id);
+                  const label = a.subcontractor?.name ?? 'External';
+                  const sub = a.subcontractor?.company ? ` — ${a.subcontractor.company}` : '';
+                  return (
+                    <div key={a.id} className="space-y-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs">
+                          👤 <strong>{label}</strong>{sub}
+                        </span>
+                        {signed ? (
+                          <Badge className="bg-success text-success-foreground text-[10px] h-5">
+                            <CheckCircle2 className="h-3 w-3 mr-1" />Signed
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-[10px] h-5 text-muted-foreground">
+                            <Clock className="h-3 w-3 mr-1" />Pending
+                          </Badge>
+                        )}
+                      </div>
+                      {!signed && canEdit && (
+                        <>
+                          <Input
+                            placeholder="Optional reason…"
+                            value={reasonByExternal[a.id] || ''}
+                            onChange={(e) => setReasonByExternal(p => ({ ...p, [a.id]: e.target.value }))}
+                            className="h-7 text-xs"
+                          />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="justify-start gap-2 h-8 w-full border-slate-400/50 bg-background hover:bg-slate-500/10"
+                            disabled={signingOffExternalId !== null}
+                            onClick={() => handleExternalSignOff(a.id, label)}
+                          >
+                            {signingOffExternalId === a.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <ShieldCheck className="h-3.5 w-3.5 text-success" />
+                            )}
+                            <span className="text-xs">Admin sign-off for <strong>{label}</strong></span>
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
 
           {/* Sign-Off Records */}
           <ScrollArea className="max-h-[400px]">

@@ -64,6 +64,7 @@ export const FanJobFilters = ({
       hasBookedDate: '',
       phoneNumber: '',
       signOffStatus: '',
+      hasExternalAssignee: '',
     });
   };
 
@@ -85,6 +86,7 @@ export const FanJobFilters = ({
         hasBookedDate: filters.hasBookedDate,
         phoneNumber: '',
         signOffStatus: filters.signOffStatus,
+        hasExternalAssignee: filters.hasExternalAssignee,
       },
     };
     savePresets([...presets, newPreset]);

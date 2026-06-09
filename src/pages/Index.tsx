@@ -53,6 +53,7 @@ import { useJobs } from '@/hooks/useJobs';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { useCategories } from '@/hooks/useCategories';
 import { useSignOffStatus } from '@/hooks/useSignOffStatus';
+import { useJobsWithExternalAssignees } from '@/hooks/useJobExternalAssignees';
 import { useFuzzySearch } from '@/hooks/useFuzzySearch';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { useTradeBookedJobs, TradeBookingInfo } from '@/hooks/useTradeBookedJobs';
@@ -100,6 +101,7 @@ const Index = () => {
   // Get job IDs for sign-off status
   const jobIds = useMemo(() => jobs.map(j => j.id), [jobs]);
   const { getSignOffStatus, getLatestSignOffDate } = useSignOffStatus(jobIds);
+  const { jobIds: jobsWithExternalSet } = useJobsWithExternalAssignees();
   
   // Contact history for refer back PDF is now fetched on-demand inside ReferBackPDFButton
 
@@ -1007,6 +1009,14 @@ const Index = () => {
         if (filters.signOffStatus === 'complete' && !signOffData.allSignedOff) return false;
       }
 
+      // External assignee filter
+      if (filters.hasExternalAssignee && filters.hasExternalAssignee !== 'all') {
+        const hasExt = jobsWithExternalSet.has(job.id);
+        if (filters.hasExternalAssignee === 'with' && !hasExt) return false;
+        if (filters.hasExternalAssignee === 'without' && hasExt) return false;
+      }
+
+
       return true;
     });
     
@@ -1037,7 +1047,7 @@ const Index = () => {
     }
     
     return result;
-  }, [jobs, filters, isFanCategory, activeMonthFolder, activeDatabaseTab, bookedSortOrder, completedSortOrder, selectedBookedDate, getSignOffStatus, getLatestSignOffDate, tradeBookings, completionDateFrom, completionDateTo]);
+  }, [jobs, filters, isFanCategory, activeMonthFolder, activeDatabaseTab, bookedSortOrder, completedSortOrder, selectedBookedDate, getSignOffStatus, getLatestSignOffDate, tradeBookings, completionDateFrom, completionDateTo, jobsWithExternalSet]);
 
   // Apply fuzzy search on pre-filtered jobs using debounced search term
   const { matches: fuzzyFilteredJobs, hasSearch } = useFuzzySearch(
