@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.derive_job_completion_state(uuid) FROM anon;
