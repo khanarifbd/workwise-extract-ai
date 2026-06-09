@@ -1009,6 +1009,14 @@ const Index = () => {
         if (filters.signOffStatus === 'complete' && !signOffData.allSignedOff) return false;
       }
 
+      // External assignee filter
+      if (filters.hasExternalAssignee && filters.hasExternalAssignee !== 'all') {
+        const hasExt = jobsWithExternalSet.has(job.id);
+        if (filters.hasExternalAssignee === 'with' && !hasExt) return false;
+        if (filters.hasExternalAssignee === 'without' && hasExt) return false;
+      }
+
+
       return true;
     });
     
