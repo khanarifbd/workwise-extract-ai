@@ -243,7 +243,24 @@ export default function TeamArchive() {
     setLoginError(null);
     try {
       const { data, error } = await supabase.functions.invoke('validate-team-code', { body: { accessCode } });
-      if (error || !data?.success || !data?.session) {
+
+      // supabase-js throws on non-2xx and puts the Response on error.context.
+      // Parse it so we surface the real "Invalid access code" message instead
+      // of a generic runtime error.
+      if (error) {
+        let msg = 'Invalid access code. Please try again.';
+        try {
+          const ctx: any = (error as any).context;
+          if (ctx && typeof ctx.json === 'function') {
+            const body = await ctx.json();
+            if (body?.error) msg = body.error;
+          }
+        } catch { /* ignore */ }
+        setLoginError(msg);
+        return false;
+      }
+
+      if (!data?.success || !data?.session) {
         setLoginError(data?.error || 'Invalid access code.');
         return false;
       }
