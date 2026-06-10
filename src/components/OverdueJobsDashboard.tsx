@@ -47,10 +47,7 @@ export const OverdueJobsDashboard = ({
   useEffect(() => {
     const fetchOverdueJobs = async () => {
       try {
-        const [catRes, signOffRes] = await Promise.all([
-          supabase.from('categories').select('id').eq('slug', 'dm-jobs').single(),
-          supabase.from('team_sign_offs').select('job_id'),
-        ]);
+        const catRes = await supabase.from('categories').select('id').eq('slug', 'dm-jobs').single();
         if (!catRes.data) return;
 
         const { data: jobsData } = await supabase
@@ -61,9 +58,25 @@ export const OverdueJobsDashboard = ({
           .eq('is_completed', false)
           .eq('refer_back', false);
 
-        const signedOffIds = new Set((signOffRes.data || []).map(s => s.job_id));
+        // Scope sign-off lookup to the DM jobs we actually care about
+        // (was a full-table SELECT — biggest hot query in the project).
+        const dmJobIds = (jobsData || []).map(j => j.id);
+        let signedOffIds = new Set<string>();
+        if (dmJobIds.length > 0) {
+          // Chunk to avoid oversized IN clauses
+          const chunkSize = 200;
+          for (let i = 0; i < dmJobIds.length; i += chunkSize) {
+            const chunk = dmJobIds.slice(i, i + chunkSize);
+            const { data: soData } = await supabase
+              .from('team_sign_offs')
+              .select('job_id')
+              .in('job_id', chunk);
+            (soData || []).forEach(r => signedOffIds.add(r.job_id));
+          }
+        }
         const now = getGMTNow();
         const result: OverdueJob[] = [];
+
 
         for (const job of (jobsData || [])) {
           if (job.status === 'complete' || job.progress === 100) continue;

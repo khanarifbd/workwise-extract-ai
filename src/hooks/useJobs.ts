@@ -184,7 +184,9 @@ export const useJobs = (categoryId?: string) => {
       } catch { /* silent */ }
     };
 
-    integrityIntervalRef.current = setInterval(runIntegrityCheck, 30000);
+    // Run integrity check every 3 minutes (was 30s — too aggressive, caused ~50k
+     // count queries/day and contributed to statement timeouts under load).
+    integrityIntervalRef.current = setInterval(runIntegrityCheck, 180000);
 
     // Re-check when the tab regains focus so users always see fresh counts
     // when they come back to the genie (fixes stale day-click counts).
