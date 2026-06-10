@@ -683,7 +683,7 @@ function JobEditSheet({ job, session, onClose, onSaved }: JobEditSheetProps) {
 
   return (
     <Sheet open={!!job} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent side="right" className="w-full sm:max-w-xl p-0 flex flex-col">
+      <SheetContent side="right" className="w-full sm:max-w-3xl lg:max-w-4xl xl:max-w-5xl p-0 flex flex-col">
         {job && (
           <>
             <SheetHeader className="p-4 border-b">
