@@ -138,8 +138,12 @@ function buildTree(jobs: CompletedJob[]): YearBucket[] {
   const weekMeta = new Map<string, { isoYear: number; isoWeek: number }>();
 
   for (const j of jobs) {
-    const iso = j.signed_off_at;
+    // Group by date_issued (the Genie's source of truth for monthly folders),
+    // falling back to completion_date / signed_off_at so nothing disappears.
+    const iso = j.bucket_date ?? j.signed_off_at;
     if (!iso) continue;
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) continue;
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) continue;
     const year = d.getFullYear();
