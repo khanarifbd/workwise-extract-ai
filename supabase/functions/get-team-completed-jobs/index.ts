@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
     }
 
     const { teamId } = body;
-    const limit = Math.min(Math.max(body.limit ?? 500, 1), 2000);
+    const limit = Math.min(Math.max(body.limit ?? 2000, 1), 5000);
     const offset = Math.max(body.offset ?? 0, 0);
     const search = (body.search ?? "").trim().toLowerCase();
 
@@ -67,112 +67,124 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fetch all sign-offs by this team
-    const { data: signOffs, error: soErr } = await supabase
-      .from("team_sign_offs")
-      .select(
-        "job_id, signed_off_at, photos_count, videos_count, documents_count, work_items_modified, work_items_total, progress_notes, on_behalf_of",
-      )
-      .eq("team_id", teamId)
-      .eq("on_behalf_of", "team")
-      .order("signed_off_at", { ascending: false });
+    const teamName = teamRow.team_name as string;
 
-    if (soErr) {
-      console.error("sign_offs query failed", soErr);
-      return new Response(JSON.stringify({ error: "Failed to load sign-offs" }), {
+    // SOURCE OF TRUTH: the main jobs table. We must mirror the Genie exactly.
+    // A "completed job for this team" = a non-deleted job that is fully complete
+    // (is_completed=true OR status='complete') AND the team is assigned as
+    // either `team` or `team2`. This matches how the admin Genie groups
+    // completed jobs into monthly folders by `date_issued`.
+    const jobSelect =
+      "id, job_number, name, address, phone_number, summary_of_works, description, work_items, attachments, status, is_completed, completion_date, date_issued, booked_date, progress_notes, team, team2, category_id";
+
+    const [primaryRes, secondaryRes] = await Promise.all([
+      supabase
+        .from("jobs")
+        .select(jobSelect)
+        .is("deleted_at", null)
+        .or("is_completed.eq.true,status.eq.complete")
+        .eq("team", teamName)
+        .order("date_issued", { ascending: false })
+        .limit(5000),
+      supabase
+        .from("jobs")
+        .select(jobSelect)
+        .is("deleted_at", null)
+        .or("is_completed.eq.true,status.eq.complete")
+        .eq("team2", teamName)
+        .order("date_issued", { ascending: false })
+        .limit(5000),
+    ]);
+
+    if (primaryRes.error || secondaryRes.error) {
+      console.error("jobs query failed", primaryRes.error || secondaryRes.error);
+      return new Response(JSON.stringify({ error: "Failed to load jobs" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    if (!signOffs || signOffs.length === 0) {
-      return new Response(
-        JSON.stringify({ success: true, jobs: [], total: 0 }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
-    const jobIds = Array.from(new Set(signOffs.map((s) => s.job_id)));
-
-    // Chunked fetch for joined jobs to avoid URL length limits
-    const chunkSize = 200;
     const jobsById = new Map<string, any>();
-    for (let i = 0; i < jobIds.length; i += chunkSize) {
-      const slice = jobIds.slice(i, i + chunkSize);
-      const { data: jobsChunk, error: jobsErr } = await supabase
-        .from("jobs")
-        .select(
-          "id, job_number, name, address, phone_number, summary_of_works, description, work_items, attachments, status, is_completed, completion_date, date_issued, booked_date, progress_notes, team, team2, category_id",
-        )
-        .in("id", slice)
-        .is("deleted_at", null);
+    for (const j of primaryRes.data ?? []) jobsById.set(j.id, j);
+    for (const j of secondaryRes.data ?? []) if (!jobsById.has(j.id)) jobsById.set(j.id, j);
 
-      if (jobsErr) {
-        console.error("jobs fetch failed", jobsErr);
-        return new Response(JSON.stringify({ error: "Failed to load jobs" }), {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+    const jobIds = Array.from(jobsById.keys());
+
+    // Fetch matching sign-off metadata (optional — many older jobs may not have one)
+    const signOffByJobId = new Map<string, any>();
+    if (jobIds.length > 0) {
+      const chunkSize = 200;
+      for (let i = 0; i < jobIds.length; i += chunkSize) {
+        const slice = jobIds.slice(i, i + chunkSize);
+        const { data: sos } = await supabase
+          .from("team_sign_offs")
+          .select(
+            "job_id, signed_off_at, photos_count, videos_count, documents_count, work_items_modified, work_items_total, progress_notes, team_id, on_behalf_of",
+          )
+          .in("job_id", slice)
+          .eq("team_id", teamId)
+          .eq("on_behalf_of", "team");
+        for (const s of sos ?? []) {
+          // Latest wins
+          const existing = signOffByJobId.get(s.job_id);
+          if (!existing || new Date(s.signed_off_at) > new Date(existing.signed_off_at)) {
+            signOffByJobId.set(s.job_id, s);
+          }
+        }
       }
-      for (const j of jobsChunk ?? []) jobsById.set(j.id, j);
     }
 
-    // Categories lookup (small table)
-    const { data: cats } = await supabase
-      .from("categories")
-      .select("id, name, color");
+    // Categories lookup
+    const { data: cats } = await supabase.from("categories").select("id, name, color");
     const catsById = new Map((cats ?? []).map((c: any) => [c.id, c]));
 
-    // Combine and filter
-    let combined = signOffs
-      .map((s) => {
-        const job = jobsById.get(s.job_id);
-        if (!job) return null;
-        const cat = job.category_id ? catsById.get(job.category_id) : null;
-        const fullyComplete =
-          job.is_completed === true || job.status === "complete";
-        return {
-          job_id: job.id,
-          job_number: job.job_number,
-          name: job.name,
-          address: job.address,
-          phone_number: job.phone_number,
-          summary_of_works: job.summary_of_works,
-          description: job.description,
-          work_items: job.work_items,
-          attachments: job.attachments,
-          status: job.status,
-          is_completed: job.is_completed,
-          fully_complete: fullyComplete,
-          completion_date: job.completion_date,
-          date_issued: job.date_issued,
-          booked_date: job.booked_date,
-          progress_notes: s.progress_notes ?? job.progress_notes,
-          team: job.team,
-          team2: job.team2,
-          category_id: job.category_id,
-          category_name: cat?.name ?? null,
-          category_color: cat?.color ?? null,
-          signed_off_at: s.signed_off_at,
-          photos_count: s.photos_count,
-          videos_count: s.videos_count,
-          documents_count: s.documents_count,
-          work_items_modified: s.work_items_modified,
-          work_items_total: s.work_items_total,
-        };
-      })
-      .filter((x): x is NonNullable<typeof x> => x !== null);
+    let combined = Array.from(jobsById.values()).map((job: any) => {
+      const cat = job.category_id ? catsById.get(job.category_id) : null;
+      const s = signOffByJobId.get(job.id);
+      return {
+        job_id: job.id,
+        job_number: job.job_number,
+        name: job.name,
+        address: job.address,
+        phone_number: job.phone_number,
+        summary_of_works: job.summary_of_works,
+        description: job.description,
+        work_items: job.work_items,
+        attachments: job.attachments,
+        status: job.status,
+        is_completed: job.is_completed,
+        fully_complete: true,
+        completion_date: job.completion_date,
+        date_issued: job.date_issued,
+        booked_date: job.booked_date,
+        progress_notes: s?.progress_notes ?? job.progress_notes,
+        team: job.team,
+        team2: job.team2,
+        category_id: job.category_id,
+        category_name: cat?.name ?? null,
+        category_color: cat?.color ?? null,
+        // Prefer date_issued for archive grouping so it mirrors the Genie's monthly folders
+        signed_off_at: s?.signed_off_at ?? job.completion_date ?? job.date_issued,
+        bucket_date: job.date_issued ?? job.completion_date ?? s?.signed_off_at ?? null,
+        photos_count: s?.photos_count ?? 0,
+        videos_count: s?.videos_count ?? 0,
+        documents_count: s?.documents_count ?? 0,
+        work_items_modified: s?.work_items_modified ?? 0,
+        work_items_total: s?.work_items_total ?? 0,
+        has_sign_off: !!s,
+      };
+    });
+
+    // Sort by date_issued desc to match Genie order
+    combined.sort((a, b) => {
+      const da = a.bucket_date ? new Date(a.bucket_date).getTime() : 0;
+      const db = b.bucket_date ? new Date(b.bucket_date).getTime() : 0;
+      return db - da;
+    });
 
     if (search) {
       combined = combined.filter((j) => {
-        const hay = [
-          j.job_number,
-          j.name,
-          j.address,
-          j.summary_of_works,
-          j.description,
-          j.category_name,
-        ]
+        const hay = [j.job_number, j.name, j.address, j.summary_of_works, j.description, j.category_name]
           .filter(Boolean)
           .join(" ")
           .toLowerCase();
