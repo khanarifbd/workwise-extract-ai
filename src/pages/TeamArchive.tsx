@@ -25,6 +25,11 @@ import {
   X,
   FileText,
   Plus,
+  ChevronRight,
+  Folder,
+  FolderOpen,
+  ListChecks,
+  Phone,
 } from 'lucide-react';
 
 interface ArchiveSession {
@@ -41,15 +46,26 @@ interface CompletedJob {
   phone_number: string | null;
   summary_of_works: string | null;
   description: string | null;
+  work_items: any;
   attachments: any;
+  status: string | null;
+  is_completed: boolean | null;
   fully_complete: boolean;
   completion_date: string | null;
+  date_issued: string | null;
   booked_date: string | null;
   progress_notes: string | null;
+  team: string | null;
+  team2: string | null;
+  category_id: string | null;
   category_name: string | null;
   category_color: string | null;
   signed_off_at: string;
   photos_count: number;
+  videos_count?: number;
+  documents_count?: number;
+  work_items_modified?: number;
+  work_items_total?: number;
 }
 
 interface HistoryEntry {
@@ -84,6 +100,110 @@ const fileToDataUrl = (file: File): Promise<string> =>
     r.readAsDataURL(file);
   });
 
+const MONTH_NAMES = [
+  'January','February','March','April','May','June',
+  'July','August','September','October','November','December',
+];
+const DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+function isoWeek(d: Date): { isoYear: number; isoWeek: number } {
+  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const day = t.getUTCDay() || 7;
+  t.setUTCDate(t.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+  const week = Math.ceil((((t.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+  return { isoYear: t.getUTCFullYear(), isoWeek: week };
+}
+
+function weekRange(isoYearVal: number, isoWeekVal: number) {
+  const simple = new Date(Date.UTC(isoYearVal, 0, 1 + (isoWeekVal - 1) * 7));
+  const dow = simple.getUTCDay() || 7;
+  const monday = new Date(simple);
+  monday.setUTCDate(simple.getUTCDate() - dow + 1);
+  const sunday = new Date(monday);
+  sunday.setUTCDate(monday.getUTCDate() + 6);
+  const fmt = (d: Date) => d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+  return `${fmt(monday)} – ${fmt(sunday)}`;
+}
+
+type DayBucket = { key: string; date: Date; label: string; jobs: CompletedJob[] };
+type WeekBucket = { key: string; isoWeek: number; label: string; range: string; days: DayBucket[]; count: number };
+type MonthBucket = { key: string; month: number; label: string; weeks: WeekBucket[]; count: number };
+type YearBucket = { key: string; year: number; months: MonthBucket[]; count: number };
+
+function buildTree(jobs: CompletedJob[]): YearBucket[] {
+  const years = new Map<number, Map<number, Map<string, Map<string, DayBucket>>>>();
+  const weekMeta = new Map<string, { isoYear: number; isoWeek: number }>();
+
+  for (const j of jobs) {
+    const iso = j.signed_off_at;
+    if (!iso) continue;
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) continue;
+    const year = d.getFullYear();
+    const month = d.getMonth();
+    const { isoYear, isoWeek: wk } = isoWeek(d);
+    const weekKey = `${isoYear}-W${String(wk).padStart(2, '0')}`;
+    weekMeta.set(weekKey, { isoYear, isoWeek: wk });
+    const dayKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+    if (!years.has(year)) years.set(year, new Map());
+    const months = years.get(year)!;
+    if (!months.has(month)) months.set(month, new Map());
+    const weeks = months.get(month)!;
+    if (!weeks.has(weekKey)) weeks.set(weekKey, new Map());
+    const days = weeks.get(weekKey)!;
+    if (!days.has(dayKey)) {
+      days.set(dayKey, {
+        key: dayKey,
+        date: new Date(year, month, d.getDate()),
+        label: `${DAY_NAMES[d.getDay()]}, ${d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}`,
+        jobs: [],
+      });
+    }
+    days.get(dayKey)!.jobs.push(j);
+  }
+
+  const out: YearBucket[] = [];
+  for (const [year, months] of years) {
+    const mArr: MonthBucket[] = [];
+    for (const [month, weeks] of months) {
+      const wArr: WeekBucket[] = [];
+      for (const [weekKey, days] of weeks) {
+        const meta = weekMeta.get(weekKey)!;
+        const dArr = Array.from(days.values()).sort((a, b) => b.date.getTime() - a.date.getTime());
+        const count = dArr.reduce((s, d) => s + d.jobs.length, 0);
+        wArr.push({
+          key: weekKey,
+          isoWeek: meta.isoWeek,
+          label: `Week ${meta.isoWeek}`,
+          range: weekRange(meta.isoYear, meta.isoWeek),
+          days: dArr,
+          count,
+        });
+      }
+      wArr.sort((a, b) => b.isoWeek - a.isoWeek);
+      const count = wArr.reduce((s, w) => s + w.count, 0);
+      mArr.push({
+        key: `${year}-${String(month + 1).padStart(2, '0')}`,
+        month,
+        label: MONTH_NAMES[month],
+        weeks: wArr,
+        count,
+      });
+    }
+    mArr.sort((a, b) => b.month - a.month);
+    out.push({
+      key: String(year),
+      year,
+      months: mArr,
+      count: mArr.reduce((s, m) => s + m.count, 0),
+    });
+  }
+  out.sort((a, b) => b.year - a.year);
+  return out;
+}
+
 export default function TeamArchive() {
   const [session, setSession] = useState<ArchiveSession | null>(null);
   const [isInitialising, setIsInitialising] = useState(true);
@@ -93,6 +213,15 @@ export default function TeamArchive() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [activeJob, setActiveJob] = useState<CompletedJob | null>(null);
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+  const [expandInitialised, setExpandInitialised] = useState(false);
+  const toggleNode = useCallback((key: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     const stored = localStorage.getItem(SESSION_KEY);
@@ -164,6 +293,39 @@ export default function TeamArchive() {
         .filter(Boolean).join(' ').toLowerCase().includes(t),
     );
   }, [jobs, search]);
+
+  const tree = useMemo(() => buildTree(filtered), [filtered]);
+
+  // Auto-expand current year + current month + most-recent week on first load
+  useEffect(() => {
+    if (expandInitialised || tree.length === 0) return;
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = now.getMonth();
+    const yk = String(y);
+    const mk = `${y}-${String(m + 1).padStart(2, '0')}`;
+    const next = new Set<string>();
+    const yearNode = tree.find((yn) => yn.year === y) ?? tree[0];
+    if (yearNode) {
+      next.add(String(yearNode.year));
+      const monthNode = yearNode.months.find((mn) => mn.month === m) ?? yearNode.months[0];
+      if (monthNode) {
+        next.add(monthNode.key);
+        if (monthNode.weeks[0]) next.add(monthNode.weeks[0].key);
+      }
+    }
+    // Preserve hints just in case current period exists
+    next.add(yk); next.add(mk);
+    setExpanded(next);
+    setExpandInitialised(true);
+  }, [tree, expandInitialised]);
+
+  // When user searches, auto-expand everything so matches are visible
+  const searchActive = search.trim().length > 0;
+  const renderTree = useMemo(() => {
+    if (!searchActive) return tree;
+    return tree;
+  }, [tree, searchActive]);
 
   if (isInitialising) {
     return (
@@ -241,55 +403,159 @@ export default function TeamArchive() {
           </div>
         )}
 
-        <ul className="space-y-2">
-          {filtered.map((job) => (
-            <li key={`${job.job_id}-${job.signed_off_at}`}>
-              <button
-                type="button"
-                onClick={() => setActiveJob(job)}
-                className="w-full text-left bg-background hover:bg-accent/40 transition-colors rounded-xl border p-3.5 flex items-start gap-3 min-h-[72px]"
-              >
-                <div className={`mt-1 shrink-0 w-2.5 h-2.5 rounded-full ${job.fully_complete ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-mono font-bold text-sm">{job.job_number}</span>
-                    {job.category_name && (
-                      <Badge
-                        variant="outline"
-                        className="text-[10px] px-1.5 py-0 h-4"
-                        style={job.category_color ? { borderColor: job.category_color, color: job.category_color } : undefined}
-                      >
-                        {job.category_name}
-                      </Badge>
-                    )}
+        {!isLoadingJobs && filtered.length > 0 && (
+          <div className="flex items-center gap-2 -mt-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => {
+                const all = new Set<string>();
+                for (const y of tree) {
+                  all.add(y.key);
+                  for (const m of y.months) {
+                    all.add(m.key);
+                    for (const w of m.weeks) all.add(w.key);
+                  }
+                }
+                setExpanded(all);
+              }}
+            >
+              Expand all
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => setExpanded(new Set())}
+            >
+              Collapse all
+            </Button>
+          </div>
+        )}
+
+        <div className="space-y-2">
+          {renderTree.map((yearNode) => {
+            const yOpen = searchActive || expanded.has(yearNode.key);
+            return (
+              <section key={yearNode.key} className="bg-background rounded-xl border overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => toggleNode(yearNode.key)}
+                  className="w-full flex items-center gap-2 px-3.5 py-3 hover:bg-accent/40 transition-colors text-left"
+                >
+                  <ChevronRight className={`h-4 w-4 text-muted-foreground shrink-0 transition-transform ${yOpen ? 'rotate-90' : ''}`} />
+                  {yOpen ? <FolderOpen className="h-4 w-4 text-primary" /> : <Folder className="h-4 w-4 text-muted-foreground" />}
+                  <span className="font-semibold text-base">{yearNode.year}</span>
+                  <Badge variant="secondary" className="ml-auto text-[10px]">{yearNode.count}</Badge>
+                </button>
+                {yOpen && (
+                  <div className="border-t bg-muted/20">
+                    {yearNode.months.map((monthNode) => {
+                      const mOpen = searchActive || expanded.has(monthNode.key);
+                      return (
+                        <div key={monthNode.key} className="border-b last:border-b-0">
+                          <button
+                            type="button"
+                            onClick={() => toggleNode(monthNode.key)}
+                            className="w-full flex items-center gap-2 pl-7 pr-3.5 py-2.5 hover:bg-accent/40 transition-colors text-left"
+                          >
+                            <ChevronRight className={`h-3.5 w-3.5 text-muted-foreground shrink-0 transition-transform ${mOpen ? 'rotate-90' : ''}`} />
+                            <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="font-medium text-sm">{monthNode.label}</span>
+                            <Badge variant="secondary" className="ml-auto text-[10px]">{monthNode.count}</Badge>
+                          </button>
+                          {mOpen && (
+                            <div className="bg-background">
+                              {monthNode.weeks.map((weekNode) => {
+                                const wOpen = searchActive || expanded.has(weekNode.key);
+                                return (
+                                  <div key={weekNode.key} className="border-t">
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleNode(weekNode.key)}
+                                      className="w-full flex items-center gap-2 pl-12 pr-3.5 py-2 hover:bg-accent/40 transition-colors text-left"
+                                    >
+                                      <ChevronRight className={`h-3 w-3 text-muted-foreground shrink-0 transition-transform ${wOpen ? 'rotate-90' : ''}`} />
+                                      <span className="text-xs font-medium">{weekNode.label}</span>
+                                      <span className="text-[10px] text-muted-foreground">{weekNode.range}</span>
+                                      <Badge variant="secondary" className="ml-auto text-[10px]">{weekNode.count}</Badge>
+                                    </button>
+                                    {wOpen && (
+                                      <div className="bg-muted/10 px-3 pb-2.5 pt-1 space-y-2">
+                                        {weekNode.days.map((dayNode) => (
+                                          <div key={dayNode.key}>
+                                            <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold px-1.5 py-1.5 flex items-center gap-1.5">
+                                              <Calendar className="h-3 w-3" /> {dayNode.label}
+                                              <span className="text-muted-foreground/70 normal-case tracking-normal">· {dayNode.jobs.length}</span>
+                                            </div>
+                                            <ul className="space-y-1.5">
+                                              {dayNode.jobs.map((job) => (
+                                                <li key={`${job.job_id}-${job.signed_off_at}`}>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => setActiveJob(job)}
+                                                    className="w-full text-left bg-background hover:bg-accent/40 transition-colors rounded-lg border p-3 flex items-start gap-3 min-h-[64px]"
+                                                  >
+                                                    <div className={`mt-1 shrink-0 w-2.5 h-2.5 rounded-full ${job.fully_complete ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                                                    <div className="min-w-0 flex-1">
+                                                      <div className="flex items-center gap-2 flex-wrap">
+                                                        <span className="font-mono font-bold text-sm">{job.job_number}</span>
+                                                        {job.category_name && (
+                                                          <Badge
+                                                            variant="outline"
+                                                            className="text-[10px] px-1.5 py-0 h-4"
+                                                            style={job.category_color ? { borderColor: job.category_color, color: job.category_color } : undefined}
+                                                          >
+                                                            {job.category_name}
+                                                          </Badge>
+                                                        )}
+                                                      </div>
+                                                      <div className="text-sm font-medium truncate mt-0.5">{job.name}</div>
+                                                      <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                                                        <MapPin className="h-3 w-3 shrink-0" />
+                                                        <span className="truncate">{job.address}</span>
+                                                      </div>
+                                                      <div className="text-[11px] text-muted-foreground mt-1.5 flex items-center gap-3 flex-wrap">
+                                                        <span className="flex items-center gap-1">
+                                                          <CheckCircle2 className="h-3 w-3" />
+                                                          {formatDate(job.signed_off_at)}
+                                                        </span>
+                                                        {job.photos_count > 0 && (
+                                                          <span className="flex items-center gap-1">
+                                                            <ImageIcon className="h-3 w-3" />
+                                                            {job.photos_count}
+                                                          </span>
+                                                        )}
+                                                        {!job.fully_complete && (
+                                                          <span className="flex items-center gap-1 text-amber-600">
+                                                            <Clock className="h-3 w-3" /> Awaiting others
+                                                          </span>
+                                                        )}
+                                                      </div>
+                                                    </div>
+                                                  </button>
+                                                </li>
+                                              ))}
+                                            </ul>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
-                  <div className="text-sm font-medium truncate mt-0.5">{job.name}</div>
-                  <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                    <MapPin className="h-3 w-3 shrink-0" />
-                    <span className="truncate">{job.address}</span>
-                  </div>
-                  <div className="text-[11px] text-muted-foreground mt-1.5 flex items-center gap-3 flex-wrap">
-                    <span className="flex items-center gap-1">
-                      <CheckCircle2 className="h-3 w-3" />
-                      {formatDate(job.signed_off_at)}
-                    </span>
-                    {job.photos_count > 0 && (
-                      <span className="flex items-center gap-1">
-                        <ImageIcon className="h-3 w-3" />
-                        {job.photos_count}
-                      </span>
-                    )}
-                    {!job.fully_complete && (
-                      <span className="flex items-center gap-1 text-amber-600">
-                        <Clock className="h-3 w-3" /> Awaiting others
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </button>
-            </li>
-          ))}
-        </ul>
+                )}
+              </section>
+            );
+          })}
+        </div>
       </main>
 
       <JobEditSheet
@@ -427,14 +693,51 @@ function JobEditSheet({ job, session, onClose, onSaved }: JobEditSheetProps) {
                 <ScrollArea className="h-full px-4 pb-6">
                   <div className="space-y-4 text-sm">
                     <Row icon={<MapPin className="h-3.5 w-3.5" />} label="Address" value={job.address} />
+                    {job.phone_number && (
+                      <Row icon={<Phone className="h-3.5 w-3.5" />} label="Phone" value={job.phone_number} />
+                    )}
                     <Row icon={<Calendar className="h-3.5 w-3.5" />} label="Signed off" value={formatDateTime(job.signed_off_at)} />
+                    {job.completion_date && (
+                      <Row icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="Completed" value={formatDateTime(job.completion_date)} />
+                    )}
                     {job.booked_date && (
                       <Row icon={<Calendar className="h-3.5 w-3.5" />} label="Booked" value={formatDate(job.booked_date)} />
+                    )}
+                    {job.date_issued && (
+                      <Row icon={<Calendar className="h-3.5 w-3.5" />} label="Date issued" value={formatDate(job.date_issued)} />
+                    )}
+                    {(job.team || job.team2) && (
+                      <Row icon={<FileText className="h-3.5 w-3.5" />} label="Teams" value={[job.team, job.team2].filter(Boolean).join(' + ')} />
                     )}
                     {job.summary_of_works && (
                       <div>
                         <Label>Summary of works</Label>
                         <p className="text-sm whitespace-pre-wrap mt-1">{job.summary_of_works}</p>
+                      </div>
+                    )}
+                    {job.description && job.description !== job.summary_of_works && (
+                      <div>
+                        <Label>Description</Label>
+                        <p className="text-sm whitespace-pre-wrap mt-1">{job.description}</p>
+                      </div>
+                    )}
+                    {Array.isArray(job.work_items) && job.work_items.length > 0 && (
+                      <div>
+                        <Label>Work items ({job.work_items.length})</Label>
+                        <ul className="mt-1.5 space-y-1.5">
+                          {job.work_items.map((wi: any, i: number) => (
+                            <li key={i} className="flex items-start gap-2 text-xs bg-muted/40 rounded-lg p-2.5">
+                              <ListChecks className="h-3.5 w-3.5 mt-0.5 shrink-0 text-muted-foreground" />
+                              <div className="min-w-0 flex-1">
+                                {wi.code && <span className="font-mono font-semibold mr-1.5">{wi.code}</span>}
+                                <span className="whitespace-pre-wrap">{wi.description || wi.name || wi.title || ''}</span>
+                                {wi.quantity != null && (
+                                  <span className="text-muted-foreground ml-1.5">× {wi.quantity}</span>
+                                )}
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
                       </div>
                     )}
                     {job.progress_notes && (
