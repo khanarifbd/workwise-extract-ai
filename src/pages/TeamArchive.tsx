@@ -61,6 +61,8 @@ interface CompletedJob {
   category_name: string | null;
   category_color: string | null;
   signed_off_at: string;
+  bucket_date?: string | null;
+  has_sign_off?: boolean;
   photos_count: number;
   videos_count?: number;
   documents_count?: number;
@@ -136,7 +138,9 @@ function buildTree(jobs: CompletedJob[]): YearBucket[] {
   const weekMeta = new Map<string, { isoYear: number; isoWeek: number }>();
 
   for (const j of jobs) {
-    const iso = j.signed_off_at;
+    // Group by date_issued (the Genie's source of truth for monthly folders),
+    // falling back to completion_date / signed_off_at so nothing disappears.
+    const iso = j.bucket_date ?? j.signed_off_at;
     if (!iso) continue;
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) continue;
