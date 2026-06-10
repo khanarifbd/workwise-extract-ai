@@ -61,6 +61,8 @@ interface CompletedJob {
   category_name: string | null;
   category_color: string | null;
   signed_off_at: string;
+  bucket_date?: string | null;
+  has_sign_off?: boolean;
   photos_count: number;
   videos_count?: number;
   documents_count?: number;
