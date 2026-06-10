@@ -100,6 +100,110 @@ const fileToDataUrl = (file: File): Promise<string> =>
     r.readAsDataURL(file);
   });
 
+const MONTH_NAMES = [
+  'January','February','March','April','May','June',
+  'July','August','September','October','November','December',
+];
+const DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+function isoWeek(d: Date): { isoYear: number; isoWeek: number } {
+  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const day = t.getUTCDay() || 7;
+  t.setUTCDate(t.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+  const week = Math.ceil((((t.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+  return { isoYear: t.getUTCFullYear(), isoWeek: week };
+}
+
+function weekRange(isoYearVal: number, isoWeekVal: number) {
+  const simple = new Date(Date.UTC(isoYearVal, 0, 1 + (isoWeekVal - 1) * 7));
+  const dow = simple.getUTCDay() || 7;
+  const monday = new Date(simple);
+  monday.setUTCDate(simple.getUTCDate() - dow + 1);
+  const sunday = new Date(monday);
+  sunday.setUTCDate(monday.getUTCDate() + 6);
+  const fmt = (d: Date) => d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+  return `${fmt(monday)} – ${fmt(sunday)}`;
+}
+
+type DayBucket = { key: string; date: Date; label: string; jobs: CompletedJob[] };
+type WeekBucket = { key: string; isoWeek: number; label: string; range: string; days: DayBucket[]; count: number };
+type MonthBucket = { key: string; month: number; label: string; weeks: WeekBucket[]; count: number };
+type YearBucket = { key: string; year: number; months: MonthBucket[]; count: number };
+
+function buildTree(jobs: CompletedJob[]): YearBucket[] {
+  const years = new Map<number, Map<number, Map<string, Map<string, DayBucket>>>>();
+  const weekMeta = new Map<string, { isoYear: number; isoWeek: number }>();
+
+  for (const j of jobs) {
+    const iso = j.signed_off_at;
+    if (!iso) continue;
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) continue;
+    const year = d.getFullYear();
+    const month = d.getMonth();
+    const { isoYear, isoWeek: wk } = isoWeek(d);
+    const weekKey = `${isoYear}-W${String(wk).padStart(2, '0')}`;
+    weekMeta.set(weekKey, { isoYear, isoWeek: wk });
+    const dayKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+    if (!years.has(year)) years.set(year, new Map());
+    const months = years.get(year)!;
+    if (!months.has(month)) months.set(month, new Map());
+    const weeks = months.get(month)!;
+    if (!weeks.has(weekKey)) weeks.set(weekKey, new Map());
+    const days = weeks.get(weekKey)!;
+    if (!days.has(dayKey)) {
+      days.set(dayKey, {
+        key: dayKey,
+        date: new Date(year, month, d.getDate()),
+        label: `${DAY_NAMES[d.getDay()]}, ${d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}`,
+        jobs: [],
+      });
+    }
+    days.get(dayKey)!.jobs.push(j);
+  }
+
+  const out: YearBucket[] = [];
+  for (const [year, months] of years) {
+    const mArr: MonthBucket[] = [];
+    for (const [month, weeks] of months) {
+      const wArr: WeekBucket[] = [];
+      for (const [weekKey, days] of weeks) {
+        const meta = weekMeta.get(weekKey)!;
+        const dArr = Array.from(days.values()).sort((a, b) => b.date.getTime() - a.date.getTime());
+        const count = dArr.reduce((s, d) => s + d.jobs.length, 0);
+        wArr.push({
+          key: weekKey,
+          isoWeek: meta.isoWeek,
+          label: `Week ${meta.isoWeek}`,
+          range: weekRange(meta.isoYear, meta.isoWeek),
+          days: dArr,
+          count,
+        });
+      }
+      wArr.sort((a, b) => b.isoWeek - a.isoWeek);
+      const count = wArr.reduce((s, w) => s + w.count, 0);
+      mArr.push({
+        key: `${year}-${String(month + 1).padStart(2, '0')}`,
+        month,
+        label: MONTH_NAMES[month],
+        weeks: wArr,
+        count,
+      });
+    }
+    mArr.sort((a, b) => b.month - a.month);
+    out.push({
+      key: String(year),
+      year,
+      months: mArr,
+      count: mArr.reduce((s, m) => s + m.count, 0),
+    });
+  }
+  out.sort((a, b) => b.year - a.year);
+  return out;
+}
+
 export default function TeamArchive() {
   const [session, setSession] = useState<ArchiveSession | null>(null);
   const [isInitialising, setIsInitialising] = useState(true);
