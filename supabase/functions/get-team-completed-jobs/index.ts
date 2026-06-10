@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
     const jobSelect =
       "id, job_number, name, address, phone_number, summary_of_works, description, work_items, attachments, status, is_completed, completion_date, date_issued, booked_date, progress_notes, team, team2, category_id";
 
-    const [primaryRes, secondaryRes] = await Promise.all([
+    const [primaryRes, secondaryRes, signOffJobsRes] = await Promise.all([
       supabase
         .from("jobs")
         .select(jobSelect)
@@ -94,6 +94,13 @@ Deno.serve(async (req) => {
         .eq("team2", teamName)
         .order("date_issued", { ascending: false })
         .limit(5000),
+      // Also include any completed job this team has signed off on,
+      // even if they aren't currently assigned as team/team2 (e.g. after reassignment).
+      supabase
+        .from("team_sign_offs")
+        .select("job_id")
+        .eq("team_id", teamId)
+        .limit(5000),
     ]);
 
     if (primaryRes.error || secondaryRes.error) {
@@ -107,6 +114,24 @@ Deno.serve(async (req) => {
     const jobsById = new Map<string, any>();
     for (const j of primaryRes.data ?? []) jobsById.set(j.id, j);
     for (const j of secondaryRes.data ?? []) if (!jobsById.has(j.id)) jobsById.set(j.id, j);
+
+    // Pull in completed jobs this team signed off on but isn't currently assigned to
+    const extraSignedJobIds = Array.from(
+      new Set((signOffJobsRes.data ?? []).map((s: any) => s.job_id).filter(Boolean)),
+    ).filter((id) => !jobsById.has(id));
+    if (extraSignedJobIds.length > 0) {
+      const chunk = 200;
+      for (let i = 0; i < extraSignedJobIds.length; i += chunk) {
+        const slice = extraSignedJobIds.slice(i, i + chunk);
+        const { data: extra } = await supabase
+          .from("jobs")
+          .select(jobSelect)
+          .is("deleted_at", null)
+          .or("is_completed.eq.true,status.eq.complete")
+          .in("id", slice);
+        for (const j of extra ?? []) if (!jobsById.has(j.id)) jobsById.set(j.id, j);
+      }
+    }
 
     const jobIds = Array.from(jobsById.keys());
 

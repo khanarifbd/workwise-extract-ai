@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
   // Validate team
   const { data: teamRow } = await supabase
     .from("team_access_codes")
-    .select("team_id, is_active")
+    .select("team_id, team_name, is_active")
     .eq("team_id", teamId)
     .eq("is_active", true)
     .maybeSingle();
@@ -56,14 +56,28 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
+  const teamName = teamRow.team_name as string;
 
-  // Verify team is assigned to this job (sign-off is optional - team may not have signed off)
+  // Authorize: team is assigned by NAME on the job (team or team2),
+  // OR this team has a sign-off record for the job.
   const { data: jobRow } = await supabase
     .from("jobs")
     .select("id, team, team2, is_completed, status")
     .eq("id", jobId)
     .maybeSingle();
-  if (!jobRow || (jobRow.team !== teamId && jobRow.team2 !== teamId)) {
+
+  let authorized = !!jobRow && (jobRow.team === teamName || jobRow.team2 === teamName);
+  if (!authorized) {
+    const { data: anySignOff } = await supabase
+      .from("team_sign_offs")
+      .select("id")
+      .eq("job_id", jobId)
+      .eq("team_id", teamId)
+      .limit(1)
+      .maybeSingle();
+    authorized = !!anySignOff;
+  }
+  if (!jobRow || !authorized) {
     return new Response(JSON.stringify({ error: "Not authorized for this job" }), {
       status: 403,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
