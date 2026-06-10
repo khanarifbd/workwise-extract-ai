@@ -7,6 +7,7 @@ import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Capacitor } from "@capacitor/core";
 import { Loader2 } from "lucide-react";
 import TeamPortal from "./pages/TeamPortal";
+import TeamArchive from "./pages/TeamArchive";
 import AdminAuth from "./pages/AdminAuth";
 import ResetPassword from "./pages/ResetPassword";
 import ProgressorAuth from "./pages/ProgressorAuth";
