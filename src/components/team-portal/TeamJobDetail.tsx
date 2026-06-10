@@ -24,6 +24,7 @@ import { useBatchUpload } from '@/hooks/useBatchUpload';
 import { AIWritingAssistant } from './AIWritingAssistant';
 import { VoiceDictation } from './VoiceDictation';
 import { RenderWithProgressor } from '@/lib/progressorMarkup';
+import { uploadFileToStorage, DEFAULT_STORAGE_UPLOAD_TIMEOUT_MS } from '@/lib/storageUpload';
 
 interface TeamJobDetailProps {
   job: Job;
@@ -220,6 +221,9 @@ export const TeamJobDetail = ({
     },
   });
 
+  const hasPendingUploads = uploadingPhotos || uploadingFiles || uploadingVideos;
+  const hasFailedPhotoUploads = photoBatchUpload.failedCount > 0;
+
   // Always allow sign-off (teams may need to re-sign with additional photos/notes)
   const canSignOff = true;
   const alreadySignedOff = status === 'complete' || job.isCompleted;
@@ -374,7 +378,7 @@ export const TeamJobDetail = ({
     };
 
     try {
-      if (isOnline && (uploadingPhotos || uploadingFiles || uploadingVideos)) {
+      if (isOnline && hasPendingUploads) {
         toast({
           title: 'Please wait',
           description: 'Your uploads are still processing. Save will be available once uploads finish.',
@@ -519,6 +523,24 @@ export const TeamJobDetail = ({
     setIsCompleting(true);
 
     try {
+      if (isOnline && hasPendingUploads) {
+        toast({
+          title: 'Uploads still in progress',
+          description: 'Wait for photos, videos, and documents to finish uploading before signing off.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if (hasFailedPhotoUploads) {
+        toast({
+          title: 'Retry failed uploads first',
+          description: 'Some photos failed to upload. Retry them or remove them before signing off the job.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
       // Build complete sign-off data package
       const signOffData = {
         status: 'complete' as const,
@@ -663,22 +685,14 @@ export const TeamJobDetail = ({
           await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt - 1) + Math.random() * 500));
         }
 
-        const uploadPromise = supabase.storage
-          .from('job-attachments')
-          .upload(fileName, file, { cacheControl: '3600', upsert: false });
+        const url = await uploadFileToStorage({
+          bucket: 'job-attachments',
+          file,
+          filePath: fileName,
+          timeoutMs: DEFAULT_STORAGE_UPLOAD_TIMEOUT_MS,
+        });
 
-        const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Upload timed out')), 60000)
-        );
-
-        const { data, error } = await Promise.race([uploadPromise, timeoutPromise]) as any;
-        if (error) throw error;
-
-        const { data: urlData } = supabase.storage
-          .from('job-attachments')
-          .getPublicUrl(data.path);
-
-        return { name: file.name, url: urlData.publicUrl, type: file.type };
+        return { name: file.name, url, type: file.type };
       } catch (err: any) {
         console.error(`File upload attempt ${attempt + 1}/${maxRetries + 1} failed for ${file.name}:`, err?.message);
         if (attempt === maxRetries) return null;
@@ -1859,7 +1873,7 @@ export const TeamJobDetail = ({
                   </p>
                   <Button 
                     onClick={() => setShowSignOffModal(true)}
-                    disabled={isCompleting}
+                    disabled={isCompleting || hasPendingUploads}
                     className="w-full mt-3 bg-success hover:bg-success/90 text-success-foreground"
                   >
                     <CheckCircle2 className="mr-2 h-4 w-4" />
@@ -1878,7 +1892,7 @@ export const TeamJobDetail = ({
         <div className="fixed bottom-0 left-0 right-0 p-3 sm:p-4 bg-background border-t shadow-lg safe-area-bottom">
           <Button
             onClick={handleSave}
-            disabled={isSaving || uploadingPhotos || uploadingFiles || uploadingVideos}
+            disabled={isSaving || hasPendingUploads}
             className="w-full h-11 sm:h-12 text-base sm:text-lg"
           >
             {isSaving ? (
@@ -1886,7 +1900,7 @@ export const TeamJobDetail = ({
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                 Saving...
               </>
-            ) : uploadingPhotos || uploadingFiles || uploadingVideos ? (
+            ) : hasPendingUploads ? (
               <>
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                 Uploading...
