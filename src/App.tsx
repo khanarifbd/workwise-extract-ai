@@ -7,6 +7,7 @@ import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Capacitor } from "@capacitor/core";
 import { Loader2 } from "lucide-react";
 import TeamPortal from "./pages/TeamPortal";
+import TeamArchive from "./pages/TeamArchive";
 import AdminAuth from "./pages/AdminAuth";
 import ResetPassword from "./pages/ResetPassword";
 import ProgressorAuth from "./pages/ProgressorAuth";
@@ -75,6 +76,7 @@ const App = () => (
               {/* Native app routes - Team Portal only */}
               <Route path="/" element={<Navigate to="/team" replace />} />
               <Route path="/team" element={<TeamPortal />} />
+              <Route path="/archive" element={<TeamArchive />} />
               <Route path="*" element={<Navigate to="/team" replace />} />
             </>
           ) : (
@@ -90,6 +92,7 @@ const App = () => (
                 </AdminRoute>
               } />
               <Route path="/team" element={<TeamPortal />} />
+              <Route path="/archive" element={<TeamArchive />} />
               <Route path="/progressor-login" element={<Navigate to="/progressor" replace />} />
               <Route path="/progressor" element={
                 <AdminRoute>
