@@ -144,8 +144,6 @@ function buildTree(jobs: CompletedJob[]): YearBucket[] {
     if (!iso) continue;
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) continue;
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) continue;
     const year = d.getFullYear();
     const month = d.getMonth();
     const { isoYear, isoWeek: wk } = isoWeek(d);
