@@ -46,15 +46,26 @@ interface CompletedJob {
   phone_number: string | null;
   summary_of_works: string | null;
   description: string | null;
+  work_items: any;
   attachments: any;
+  status: string | null;
+  is_completed: boolean | null;
   fully_complete: boolean;
   completion_date: string | null;
+  date_issued: string | null;
   booked_date: string | null;
   progress_notes: string | null;
+  team: string | null;
+  team2: string | null;
+  category_id: string | null;
   category_name: string | null;
   category_color: string | null;
   signed_off_at: string;
   photos_count: number;
+  videos_count?: number;
+  documents_count?: number;
+  work_items_modified?: number;
+  work_items_total?: number;
 }
 
 interface HistoryEntry {
