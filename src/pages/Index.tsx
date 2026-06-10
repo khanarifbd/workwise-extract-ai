@@ -1124,19 +1124,30 @@ const Index = () => {
     if (!dmCategoryId) return;
     const computeCount = async () => {
       try {
-        const [jobsRes, signOffRes] = await Promise.all([
-          supabase
-            .from('jobs')
-            .select('id, booked_date, is_completed, status, refer_back, is_ongoing')
-            .eq('category_id', dmCategoryId)
-            .is('deleted_at', null)
-            .eq('is_completed', false)
-            .eq('refer_back', false),
-          supabase
-            .from('team_sign_offs')
-            .select('job_id'),
-        ]);
-        const signedOffIds = new Set((signOffRes.data || []).map(s => s.job_id));
+        const { data: jobsList } = await supabase
+          .from('jobs')
+          .select('id, booked_date, is_completed, status, refer_back, is_ongoing')
+          .eq('category_id', dmCategoryId)
+          .is('deleted_at', null)
+          .eq('is_completed', false)
+          .eq('refer_back', false);
+
+        // Scope sign-off lookup to the DM jobs we care about
+        const dmIds = (jobsList || []).map(j => j.id);
+        const signedOffIds = new Set<string>();
+        if (dmIds.length > 0) {
+          const chunkSize = 200;
+          for (let i = 0; i < dmIds.length; i += chunkSize) {
+            const chunk = dmIds.slice(i, i + chunkSize);
+            const { data: soData } = await supabase
+              .from('team_sign_offs')
+              .select('job_id')
+              .in('job_id', chunk);
+            (soData || []).forEach(r => signedOffIds.add(r.job_id));
+          }
+        }
+        const jobsRes = { data: jobsList } as { data: typeof jobsList };
+
         const now = getGMTNow();
         let count = 0;
         for (const job of (jobsRes.data || [])) {
