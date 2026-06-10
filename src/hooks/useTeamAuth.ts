@@ -17,6 +17,11 @@ export const useTeamAuth = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const persistSession = useCallback((nextSession: TeamSession) => {
+    localStorage.setItem(SESSION_KEY, JSON.stringify(nextSession));
+    setSession(nextSession);
+  }, []);
+
   // Load session from localStorage on mount
   useEffect(() => {
     const stored = localStorage.getItem(SESSION_KEY);
@@ -74,8 +79,7 @@ export const useTeamAuth = () => {
       };
 
       // Store session without access code (security improvement)
-      localStorage.setItem(SESSION_KEY, JSON.stringify(newSession));
-      setSession(newSession);
+      persistSession(newSession);
       setIsLoading(false);
       return true;
     } catch (err) {
@@ -84,7 +88,7 @@ export const useTeamAuth = () => {
       setIsLoading(false);
       return false;
     }
-  }, []);
+  }, [persistSession]);
 
   const logout = useCallback(() => {
     localStorage.removeItem(SESSION_KEY);
@@ -115,12 +119,19 @@ export const useTeamAuth = () => {
         throw new Error(data?.error || 'Failed to fetch jobs');
       }
 
+      if (data.teamName && data.teamName !== session.teamName) {
+        persistSession({
+          ...session,
+          teamName: data.teamName,
+        });
+      }
+
       return {
         jobs: data.jobs as any[],
         serverTime: (data.serverTime as string | undefined) || undefined,
       };
     },
-    [session]
+    [session, persistSession]
   );
 
   // Function to update job through edge function
@@ -154,15 +165,22 @@ export const useTeamAuth = () => {
     });
 
     if (fnError) {
-      throw new Error('Failed to update job');
+      throw new Error(fnError.message || 'Failed to update job');
     }
 
     if (!data?.success) {
       throw new Error(data?.error || 'Failed to update job');
     }
 
+    if (data.teamName && data.teamName !== session.teamName) {
+      persistSession({
+        ...session,
+        teamName: data.teamName,
+      });
+    }
+
     return true;
-  }, [session]);
+  }, [session, persistSession]);
 
   // Function to update language preference
   const updateLanguagePreference = useCallback(async (languagePreference: string): Promise<boolean> => {
@@ -183,11 +201,10 @@ export const useTeamAuth = () => {
 
     // Update local session
     const updatedSession = { ...session, languagePreference };
-    localStorage.setItem(SESSION_KEY, JSON.stringify(updatedSession));
-    setSession(updatedSession);
+    persistSession(updatedSession);
 
     return true;
-  }, [session]);
+  }, [session, persistSession]);
 
   // Function to remove a job from team's list (unassign team from job)
   const removeJobFromTeam = useCallback(async (jobId: string): Promise<boolean> => {

@@ -187,9 +187,9 @@ Deno.serve(async (req) => {
     }
 
     // Validate input
-    if (!teamId || !teamName || !jobId) {
+    if (!teamId || !jobId) {
       return new Response(
-        JSON.stringify({ error: "Team ID, team name, and job ID are required" }),
+        JSON.stringify({ error: "Team ID and job ID are required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -263,6 +263,11 @@ Deno.serve(async (req) => {
       );
     }
 
+    const canonicalTeamName = teamData.team_name;
+    if (teamName && teamName !== canonicalTeamName) {
+      console.warn(`Team name mismatch: provided "${teamName}", using canonical "${canonicalTeamName}"`);
+    }
+
     // Verify the job belongs to this team (either as team or team2)
     const { data: job, error: jobError } = await supabase
       .from("jobs")
@@ -279,9 +284,9 @@ Deno.serve(async (req) => {
     }
 
     // Check if team is assigned as either primary or secondary team
-    const isAssignedTeam = job.team === teamName || job.team2 === teamName;
+    const isAssignedTeam = job.team === canonicalTeamName || job.team2 === canonicalTeamName;
     if (!isAssignedTeam) {
-      console.error("Team mismatch: job belongs to", job.team, "and", job.team2, "but request from", teamName);
+      console.error("Team mismatch: job belongs to", job.team, "and", job.team2, "but request from", canonicalTeamName);
       return new Response(
         JSON.stringify({ error: "You don't have permission to update this job" }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -352,7 +357,7 @@ Deno.serve(async (req) => {
             hasModification: itemUpdate.hasModification ?? item.hasModification,
             variation: itemUpdate.variation ?? item.variation,
             // Add metadata for tracking
-            lastUpdatedBy: teamName,
+            lastUpdatedBy: canonicalTeamName,
             lastUpdatedAt: timestamp,
           };
         }
@@ -377,14 +382,14 @@ Deno.serve(async (req) => {
           return;
         }
         
-        const photoId = `photo-${teamName}-${Date.now()}-${index}`;
+        const photoId = `photo-${canonicalTeamName}-${Date.now()}-${index}`;
         newAttachments.push({
           id: photoId,
           name: `Team Photo ${index + 1}`,
           type: 'image',
           url: photoUrl,
           uploadedAt: timestamp,
-          uploadedBy: teamName,
+          uploadedBy: canonicalTeamName,
           category: 'team-photo',
         });
       });
@@ -400,14 +405,14 @@ Deno.serve(async (req) => {
           return;
         }
         
-        const videoId = `video-${teamName}-${Date.now()}-${index}`;
+        const videoId = `video-${canonicalTeamName}-${Date.now()}-${index}`;
         newAttachments.push({
           id: videoId,
           name: `Team Video ${index + 1}`,
           type: 'video',
           url: videoUrl,
           uploadedAt: timestamp,
-          uploadedBy: teamName,
+          uploadedBy: canonicalTeamName,
           category: 'team-video',
         });
       });
@@ -423,14 +428,14 @@ Deno.serve(async (req) => {
           return;
         }
         
-        const docId = `doc-${teamName}-${Date.now()}-${index}`;
+        const docId = `doc-${canonicalTeamName}-${Date.now()}-${index}`;
         newAttachments.push({
           id: docId,
           name: doc.name,
           type: 'document',
           url: doc.url,
           uploadedAt: timestamp,
-          uploadedBy: teamName,
+          uploadedBy: canonicalTeamName,
           category: 'team-document',
         });
       });
@@ -458,10 +463,10 @@ Deno.serve(async (req) => {
 
     // If this is a job completion, add a completion record note and create admin notification
     if (updates.isCompletion || updates.status === 'complete') {
-      const completionNote = `\n\n--- JOB SIGN-OFF ---\nCompleted by: ${teamName}\nDate: ${new Date(timestamp).toLocaleString()}\nWork Items Reviewed: ${workItemsTotal}\nPhotos: ${photosCount}\nVideos: ${videosCount}\nDocuments: ${documentsCount}`;
+      const completionNote = `\n\n--- JOB SIGN-OFF ---\nCompleted by: ${canonicalTeamName}\nDate: ${new Date(timestamp).toLocaleString()}\nWork Items Reviewed: ${workItemsTotal}\nPhotos: ${photosCount}\nVideos: ${videosCount}\nDocuments: ${documentsCount}`;
       
       jobUpdates.progress_notes = (updates.notes || '') + completionNote;
-      console.log(`Job ${jobId} signed off by team ${teamName}`);
+      console.log(`Job ${jobId} signed off by team ${canonicalTeamName}`);
 
       // Get job details for notification
       const { data: jobDetails } = await supabase
@@ -478,7 +483,7 @@ Deno.serve(async (req) => {
           job_number: jobDetails?.job_number || 'Unknown',
           job_name: jobDetails?.name || 'Unknown',
           team_id: teamId,
-          team_name: teamName,
+          team_name: canonicalTeamName,
           photos_count: photosCount,
           videos_count: videosCount,
           documents_count: documentsCount,
@@ -500,7 +505,7 @@ Deno.serve(async (req) => {
         .upsert({
           job_id: jobId,
           team_id: teamId,
-          team_name: teamName,
+          team_name: canonicalTeamName,
           signed_off_at: timestamp,
           photos_count: photosCount,
           videos_count: videosCount,
@@ -516,7 +521,7 @@ Deno.serve(async (req) => {
         console.error("Failed to record team sign-off:", signOffError.message);
         // Don't fail the request, just log
       } else {
-        console.log(`Team sign-off recorded for ${teamName} on job ${jobId}`);
+        console.log(`Team sign-off recorded for ${canonicalTeamName} on job ${jobId}`);
       }
 
       // CRITICAL: Update the job FIRST before sending notifications
@@ -550,8 +555,8 @@ Deno.serve(async (req) => {
         if (opsManagers && opsManagers.length > 0) {
           console.log(`Notifying ${opsManagers.length} Operations Managers about sign-off`);
           
-          const signOffTitle = `Sign-Off: ${teamName}`;
-          const signOffBody = `Job #${jobDetails?.job_number || 'Unknown'} - ${jobDetails?.name || 'Unknown'} signed off by ${teamName}. Photos: ${photosCount}, Videos: ${videosCount}`;
+          const signOffTitle = `Sign-Off: ${canonicalTeamName}`;
+          const signOffBody = `Job #${jobDetails?.job_number || 'Unknown'} - ${jobDetails?.name || 'Unknown'} signed off by ${canonicalTeamName}. Photos: ${photosCount}, Videos: ${videosCount}`;
 
           // Check if both teams have now signed off
           const { data: allSignOffs } = await supabase
@@ -710,7 +715,7 @@ Deno.serve(async (req) => {
         progress: updates.progress || null,
         notes: updates.notes || null,
         photos: updates.photos?.filter(p => !p.startsWith('data:')) || null,
-        updated_by: teamName,
+        updated_by: canonicalTeamName,
       });
 
     if (recordError) {
@@ -718,11 +723,12 @@ Deno.serve(async (req) => {
       // Don't fail the request, just log the error
     }
 
-    console.log(`Job ${jobId} updated successfully by team ${teamName}`);
+    console.log(`Job ${jobId} updated successfully by team ${canonicalTeamName}`);
 
     return new Response(
       JSON.stringify({ 
         success: true,
+        teamName: canonicalTeamName,
         message: updates.isCompletion ? 'Job signed off and all data transferred' : 'Job updated successfully',
         summary: {
           workItemsUpdated: updates.workItemUpdates ? Object.keys(updates.workItemUpdates).length : 0,
