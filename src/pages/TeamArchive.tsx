@@ -294,6 +294,39 @@ export default function TeamArchive() {
     );
   }, [jobs, search]);
 
+  const tree = useMemo(() => buildTree(filtered), [filtered]);
+
+  // Auto-expand current year + current month + most-recent week on first load
+  useEffect(() => {
+    if (expandInitialised || tree.length === 0) return;
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = now.getMonth();
+    const yk = String(y);
+    const mk = `${y}-${String(m + 1).padStart(2, '0')}`;
+    const next = new Set<string>();
+    const yearNode = tree.find((yn) => yn.year === y) ?? tree[0];
+    if (yearNode) {
+      next.add(String(yearNode.year));
+      const monthNode = yearNode.months.find((mn) => mn.month === m) ?? yearNode.months[0];
+      if (monthNode) {
+        next.add(monthNode.key);
+        if (monthNode.weeks[0]) next.add(monthNode.weeks[0].key);
+      }
+    }
+    // Preserve hints just in case current period exists
+    next.add(yk); next.add(mk);
+    setExpanded(next);
+    setExpandInitialised(true);
+  }, [tree, expandInitialised]);
+
+  // When user searches, auto-expand everything so matches are visible
+  const searchActive = search.trim().length > 0;
+  const renderTree = useMemo(() => {
+    if (!searchActive) return tree;
+    return tree;
+  }, [tree, searchActive]);
+
   if (isInitialising) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
