@@ -188,9 +188,9 @@ Deno.serve(async (req) => {
         category_id: job.category_id,
         category_name: cat?.name ?? null,
         category_color: cat?.color ?? null,
-        // Prefer date_issued for archive grouping so it mirrors the Genie's monthly folders
-        signed_off_at: s?.signed_off_at ?? job.completion_date ?? job.date_issued,
-        bucket_date: job.date_issued ?? job.completion_date ?? s?.signed_off_at ?? null,
+        // Teams expect the archive to reflect when work completed, not when the job was first issued.
+        signed_off_at: s?.signed_off_at ?? job.completion_date ?? job.booked_date ?? job.date_issued,
+        bucket_date: job.completion_date ?? s?.signed_off_at ?? job.booked_date ?? job.date_issued ?? null,
         photos_count: s?.photos_count ?? 0,
         videos_count: s?.videos_count ?? 0,
         documents_count: s?.documents_count ?? 0,
@@ -200,7 +200,7 @@ Deno.serve(async (req) => {
       };
     });
 
-    // Sort by date_issued desc to match Genie order
+    // Sort by completion date desc so recent completions appear first in the archive
     combined.sort((a, b) => {
       const da = a.bucket_date ? new Date(a.bucket_date).getTime() : 0;
       const db = b.bucket_date ? new Date(b.bucket_date).getTime() : 0;

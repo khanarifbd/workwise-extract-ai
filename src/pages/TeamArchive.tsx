@@ -138,8 +138,8 @@ function buildTree(jobs: CompletedJob[]): YearBucket[] {
   const weekMeta = new Map<string, { isoYear: number; isoWeek: number }>();
 
   for (const j of jobs) {
-    // Group by date_issued (the Genie's source of truth for monthly folders),
-    // falling back to completion_date / signed_off_at so nothing disappears.
+    // Group by completion date so teams see finished jobs in the period they were completed,
+    // falling back to sign-off / booked / issued date so nothing disappears.
     const iso = j.bucket_date ?? j.signed_off_at;
     if (!iso) continue;
     const d = new Date(iso);
@@ -398,7 +398,7 @@ export default function TeamArchive() {
 
         {/* Count */}
         <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span>{filtered.length} of {jobs.length} completed</span>
+          <span>{filtered.length} of {jobs.length} completed · grouped by completion date</span>
           <Button variant="ghost" size="sm" onClick={loadJobs} disabled={isLoadingJobs} className="h-7 text-xs">
             {isLoadingJobs ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Refresh'}
           </Button>
