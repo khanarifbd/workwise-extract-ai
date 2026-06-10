@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { compressImages, formatBytes, calculateSavings } from '@/lib/imageCompression';
+import { uploadFileToStorage, DEFAULT_STORAGE_UPLOAD_TIMEOUT_MS } from '@/lib/storageUpload';
 
 interface UploadItem {
   id: string;
@@ -31,37 +31,7 @@ interface UseBatchUploadOptions {
 
 const MAX_RETRIES_DEFAULT = 3;
 const RETRY_BASE_DELAY_MS = 1000;
-const UPLOAD_TIMEOUT_MS = 60000; // 60s per file
-
-/** Upload a single file to storage with timeout */
-async function uploadSingleFile(
-  file: File,
-  bucket: string,
-  filePath: string,
-  timeoutMs: number = UPLOAD_TIMEOUT_MS,
-): Promise<string> {
-  // Race upload against timeout
-  const uploadPromise = supabase.storage
-    .from(bucket)
-    .upload(filePath, file, {
-      cacheControl: '3600',
-      upsert: false,
-    });
-
-  const timeoutPromise = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error('Upload timed out after ' + (timeoutMs / 1000) + 's')), timeoutMs)
-  );
-
-  const { data, error } = await Promise.race([uploadPromise, timeoutPromise]) as any;
-
-  if (error) throw error;
-
-  const { data: urlData } = supabase.storage
-    .from(bucket)
-    .getPublicUrl(data.path);
-
-  return urlData.publicUrl;
-}
+const UPLOAD_TIMEOUT_MS = DEFAULT_STORAGE_UPLOAD_TIMEOUT_MS;
 
 /** Sleep helper with exponential backoff */
 function backoffDelay(attempt: number, baseMs: number = RETRY_BASE_DELAY_MS): Promise<void> {
@@ -119,7 +89,12 @@ export const useBatchUpload = ({
 
         updateItem(item.id, { progress: 30 });
 
-        const url = await uploadSingleFile(item.file, bucket, filePath);
+        const url = await uploadFileToStorage({
+          file: item.file,
+          bucket,
+          filePath,
+          timeoutMs: UPLOAD_TIMEOUT_MS,
+        });
 
         // Revoke thumbnail blob URL to free memory
         if (item.thumbnailUrl?.startsWith('blob:')) {
