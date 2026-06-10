@@ -74,9 +74,9 @@ Deno.serve(async (req) => {
     const { teamId, teamName, since } = body;
 
     // Validate input
-    if (!teamId || !teamName) {
+    if (!teamId) {
       return new Response(
-        JSON.stringify({ error: "Team ID and name are required" }),
+        JSON.stringify({ error: "Team ID is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -141,14 +141,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Security: Validate that provided teamName matches the database record
-    // This prevents SQL injection via malicious teamName parameter
-    if (teamData.team_name !== teamName) {
-      console.error(`Team name mismatch: provided "${teamName}", expected "${teamData.team_name}"`);
-      return new Response(
-        JSON.stringify({ error: "Invalid team session" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    const canonicalTeamName = teamData.team_name;
+
+    if (teamName && teamName !== canonicalTeamName) {
+      console.warn(`Team name mismatch: provided "${teamName}", using canonical "${canonicalTeamName}"`);
     }
 
     const isOpsManager = teamData.is_ops_manager === true;
@@ -227,7 +223,7 @@ Deno.serve(async (req) => {
         // Quote values to prevent PostgREST filter injection if teamName ever
         // contains commas/dots/operators (defence-in-depth on top of the
         // earlier exact-match validation against team_access_codes).
-        const safe = teamName.replace(/"/g, '\\"');
+        const safe = canonicalTeamName.replace(/"/g, '\\"');
         query = query.or(`team.eq."${safe}",team2.eq."${safe}"`);
       }
 
@@ -245,13 +241,14 @@ Deno.serve(async (req) => {
     }
 
     console.log(
-      `Fetched ${jobs?.length || 0} ${sinceDate ? 'delta' : 'full'} jobs for ${isOpsManager ? 'ops manager' : 'team'}: ${teamName}`
+      `Fetched ${jobs?.length || 0} ${sinceDate ? 'delta' : 'full'} jobs for ${isOpsManager ? 'ops manager' : 'team'}: ${canonicalTeamName}`
     );
 
     return new Response(
       JSON.stringify({
         success: true,
         jobs: jobs || [],
+        teamName: canonicalTeamName,
         serverTime: new Date().toISOString(),
       }),
       {
