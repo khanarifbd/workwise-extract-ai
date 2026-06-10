@@ -25,6 +25,11 @@ import {
   X,
   FileText,
   Plus,
+  ChevronRight,
+  Folder,
+  FolderOpen,
+  ListChecks,
+  Phone,
 } from 'lucide-react';
 
 interface ArchiveSession {
