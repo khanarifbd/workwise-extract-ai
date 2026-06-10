@@ -20,6 +20,14 @@
 
   <body>
     <script>
+      // Redirect plain /archive (no hash) to hash-routed #/archive
+      (function() {
+        var p = window.location.pathname;
+        var h = window.location.hash;
+        if ((p === '/archive' || p === '/archive/') && (!h || h === '' || h === '#/' || h === '#')) {
+          window.location.replace(window.location.origin + '/#/archive');
+        }
+      })();
       // Apply theme immediately to prevent flash
       (function() {
         const stored = localStorage.getItem('theme');
