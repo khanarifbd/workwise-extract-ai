@@ -371,32 +371,51 @@ export const sendWhatsAppNotification = async (
 };
 
 // Database operations
-export const fetchJobs = async (categoryId?: string): Promise<Job[]> => {
+// In-flight dedupe + short-lived cache so multiple components mounting at once
+// don't all fire their own /jobs request (which was contributing to statement
+// timeouts under load — the same query was being issued 5-10x concurrently).
+const _jobsInflight = new Map<string, Promise<Job[]>>();
+const _jobsCache = new Map<string, { at: number; data: Job[] }>();
+const JOBS_DEDUPE_TTL = 1500; // ms
+
+const _runFetchJobs = async (categoryId?: string): Promise<Job[]> => {
   const batchSize = 1000;
-  let allData: any[] = [];
+  const allData: any[] = [];
   let offset = 0;
   let hasMore = true;
+  const maxAttemptsPerBatch = 3;
 
   while (hasMore) {
-    let query = supabase
-      .from('jobs')
-      .select('*')
-      .is('deleted_at', null)
-      .order('date_issued', { ascending: false })
-      .range(offset, offset + batchSize - 1);
+    let attempt = 0;
+    let lastErr: any = null;
+    let data: any[] | null = null;
 
-    if (categoryId) {
-      query = query.eq('category_id', categoryId);
-    }
+    while (attempt < maxAttemptsPerBatch) {
+      let query = supabase
+        .from('jobs')
+        .select('*')
+        .is('deleted_at', null)
+        .order('date_issued', { ascending: false })
+        .range(offset, offset + batchSize - 1);
+      if (categoryId) query = query.eq('category_id', categoryId);
 
-    const { data, error } = await query;
-
-    if (error) {
+      const { data: rows, error } = await query;
+      if (!error) { data = rows ?? []; break; }
+      lastErr = error;
+      // 57014 = statement_timeout — back off briefly and retry the same range.
+      if ((error as any)?.code === '57014' && attempt < maxAttemptsPerBatch - 1) {
+        console.warn(`fetchJobs timeout, retry ${attempt + 1}/${maxAttemptsPerBatch - 1}`);
+        await sleep(800 * (attempt + 1));
+        attempt++;
+        continue;
+      }
       console.error('Error fetching jobs:', error);
       throw error;
     }
 
-    if (data && data.length > 0) {
+    if (!data) throw lastErr ?? new Error('Failed to fetch jobs');
+
+    if (data.length > 0) {
       allData.push(...data);
       offset += batchSize;
       hasMore = data.length === batchSize;
@@ -406,6 +425,30 @@ export const fetchJobs = async (categoryId?: string): Promise<Job[]> => {
   }
 
   return allData.map(mapDatabaseJobToJob);
+};
+
+export const fetchJobs = async (categoryId?: string): Promise<Job[]> => {
+  const key = categoryId || '__all__';
+
+  // Serve a very recent result without hitting the DB again (request burst dedupe)
+  const cached = _jobsCache.get(key);
+  if (cached && Date.now() - cached.at < JOBS_DEDUPE_TTL) return cached.data;
+
+  // Coalesce concurrent callers onto one promise
+  const inflight = _jobsInflight.get(key);
+  if (inflight) return inflight;
+
+  const p = (async () => {
+    try {
+      const data = await _runFetchJobs(categoryId);
+      _jobsCache.set(key, { at: Date.now(), data });
+      return data;
+    } finally {
+      _jobsInflight.delete(key);
+    }
+  })();
+  _jobsInflight.set(key, p);
+  return p;
 };
 
 export const createJob = async (job: Omit<Job, 'id'>, categoryId?: string): Promise<Job> => {
