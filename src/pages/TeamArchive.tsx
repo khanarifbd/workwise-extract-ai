@@ -403,55 +403,159 @@ export default function TeamArchive() {
           </div>
         )}
 
-        <ul className="space-y-2">
-          {filtered.map((job) => (
-            <li key={`${job.job_id}-${job.signed_off_at}`}>
-              <button
-                type="button"
-                onClick={() => setActiveJob(job)}
-                className="w-full text-left bg-background hover:bg-accent/40 transition-colors rounded-xl border p-3.5 flex items-start gap-3 min-h-[72px]"
-              >
-                <div className={`mt-1 shrink-0 w-2.5 h-2.5 rounded-full ${job.fully_complete ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-mono font-bold text-sm">{job.job_number}</span>
-                    {job.category_name && (
-                      <Badge
-                        variant="outline"
-                        className="text-[10px] px-1.5 py-0 h-4"
-                        style={job.category_color ? { borderColor: job.category_color, color: job.category_color } : undefined}
-                      >
-                        {job.category_name}
-                      </Badge>
-                    )}
+        {!isLoadingJobs && filtered.length > 0 && (
+          <div className="flex items-center gap-2 -mt-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => {
+                const all = new Set<string>();
+                for (const y of tree) {
+                  all.add(y.key);
+                  for (const m of y.months) {
+                    all.add(m.key);
+                    for (const w of m.weeks) all.add(w.key);
+                  }
+                }
+                setExpanded(all);
+              }}
+            >
+              Expand all
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => setExpanded(new Set())}
+            >
+              Collapse all
+            </Button>
+          </div>
+        )}
+
+        <div className="space-y-2">
+          {renderTree.map((yearNode) => {
+            const yOpen = searchActive || expanded.has(yearNode.key);
+            return (
+              <section key={yearNode.key} className="bg-background rounded-xl border overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => toggleNode(yearNode.key)}
+                  className="w-full flex items-center gap-2 px-3.5 py-3 hover:bg-accent/40 transition-colors text-left"
+                >
+                  <ChevronRight className={`h-4 w-4 text-muted-foreground shrink-0 transition-transform ${yOpen ? 'rotate-90' : ''}`} />
+                  {yOpen ? <FolderOpen className="h-4 w-4 text-primary" /> : <Folder className="h-4 w-4 text-muted-foreground" />}
+                  <span className="font-semibold text-base">{yearNode.year}</span>
+                  <Badge variant="secondary" className="ml-auto text-[10px]">{yearNode.count}</Badge>
+                </button>
+                {yOpen && (
+                  <div className="border-t bg-muted/20">
+                    {yearNode.months.map((monthNode) => {
+                      const mOpen = searchActive || expanded.has(monthNode.key);
+                      return (
+                        <div key={monthNode.key} className="border-b last:border-b-0">
+                          <button
+                            type="button"
+                            onClick={() => toggleNode(monthNode.key)}
+                            className="w-full flex items-center gap-2 pl-7 pr-3.5 py-2.5 hover:bg-accent/40 transition-colors text-left"
+                          >
+                            <ChevronRight className={`h-3.5 w-3.5 text-muted-foreground shrink-0 transition-transform ${mOpen ? 'rotate-90' : ''}`} />
+                            <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="font-medium text-sm">{monthNode.label}</span>
+                            <Badge variant="secondary" className="ml-auto text-[10px]">{monthNode.count}</Badge>
+                          </button>
+                          {mOpen && (
+                            <div className="bg-background">
+                              {monthNode.weeks.map((weekNode) => {
+                                const wOpen = searchActive || expanded.has(weekNode.key);
+                                return (
+                                  <div key={weekNode.key} className="border-t">
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleNode(weekNode.key)}
+                                      className="w-full flex items-center gap-2 pl-12 pr-3.5 py-2 hover:bg-accent/40 transition-colors text-left"
+                                    >
+                                      <ChevronRight className={`h-3 w-3 text-muted-foreground shrink-0 transition-transform ${wOpen ? 'rotate-90' : ''}`} />
+                                      <span className="text-xs font-medium">{weekNode.label}</span>
+                                      <span className="text-[10px] text-muted-foreground">{weekNode.range}</span>
+                                      <Badge variant="secondary" className="ml-auto text-[10px]">{weekNode.count}</Badge>
+                                    </button>
+                                    {wOpen && (
+                                      <div className="bg-muted/10 px-3 pb-2.5 pt-1 space-y-2">
+                                        {weekNode.days.map((dayNode) => (
+                                          <div key={dayNode.key}>
+                                            <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold px-1.5 py-1.5 flex items-center gap-1.5">
+                                              <Calendar className="h-3 w-3" /> {dayNode.label}
+                                              <span className="text-muted-foreground/70 normal-case tracking-normal">· {dayNode.jobs.length}</span>
+                                            </div>
+                                            <ul className="space-y-1.5">
+                                              {dayNode.jobs.map((job) => (
+                                                <li key={`${job.job_id}-${job.signed_off_at}`}>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => setActiveJob(job)}
+                                                    className="w-full text-left bg-background hover:bg-accent/40 transition-colors rounded-lg border p-3 flex items-start gap-3 min-h-[64px]"
+                                                  >
+                                                    <div className={`mt-1 shrink-0 w-2.5 h-2.5 rounded-full ${job.fully_complete ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                                                    <div className="min-w-0 flex-1">
+                                                      <div className="flex items-center gap-2 flex-wrap">
+                                                        <span className="font-mono font-bold text-sm">{job.job_number}</span>
+                                                        {job.category_name && (
+                                                          <Badge
+                                                            variant="outline"
+                                                            className="text-[10px] px-1.5 py-0 h-4"
+                                                            style={job.category_color ? { borderColor: job.category_color, color: job.category_color } : undefined}
+                                                          >
+                                                            {job.category_name}
+                                                          </Badge>
+                                                        )}
+                                                      </div>
+                                                      <div className="text-sm font-medium truncate mt-0.5">{job.name}</div>
+                                                      <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                                                        <MapPin className="h-3 w-3 shrink-0" />
+                                                        <span className="truncate">{job.address}</span>
+                                                      </div>
+                                                      <div className="text-[11px] text-muted-foreground mt-1.5 flex items-center gap-3 flex-wrap">
+                                                        <span className="flex items-center gap-1">
+                                                          <CheckCircle2 className="h-3 w-3" />
+                                                          {formatDate(job.signed_off_at)}
+                                                        </span>
+                                                        {job.photos_count > 0 && (
+                                                          <span className="flex items-center gap-1">
+                                                            <ImageIcon className="h-3 w-3" />
+                                                            {job.photos_count}
+                                                          </span>
+                                                        )}
+                                                        {!job.fully_complete && (
+                                                          <span className="flex items-center gap-1 text-amber-600">
+                                                            <Clock className="h-3 w-3" /> Awaiting others
+                                                          </span>
+                                                        )}
+                                                      </div>
+                                                    </div>
+                                                  </button>
+                                                </li>
+                                              ))}
+                                            </ul>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
-                  <div className="text-sm font-medium truncate mt-0.5">{job.name}</div>
-                  <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                    <MapPin className="h-3 w-3 shrink-0" />
-                    <span className="truncate">{job.address}</span>
-                  </div>
-                  <div className="text-[11px] text-muted-foreground mt-1.5 flex items-center gap-3 flex-wrap">
-                    <span className="flex items-center gap-1">
-                      <CheckCircle2 className="h-3 w-3" />
-                      {formatDate(job.signed_off_at)}
-                    </span>
-                    {job.photos_count > 0 && (
-                      <span className="flex items-center gap-1">
-                        <ImageIcon className="h-3 w-3" />
-                        {job.photos_count}
-                      </span>
-                    )}
-                    {!job.fully_complete && (
-                      <span className="flex items-center gap-1 text-amber-600">
-                        <Clock className="h-3 w-3" /> Awaiting others
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </button>
-            </li>
-          ))}
-        </ul>
+                )}
+              </section>
+            );
+          })}
+        </div>
       </main>
 
       <JobEditSheet
