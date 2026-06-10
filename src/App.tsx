@@ -76,6 +76,7 @@ const App = () => (
               {/* Native app routes - Team Portal only */}
               <Route path="/" element={<Navigate to="/team" replace />} />
               <Route path="/team" element={<TeamPortal />} />
+              <Route path="/archive" element={<TeamArchive />} />
               <Route path="*" element={<Navigate to="/team" replace />} />
             </>
           ) : (
