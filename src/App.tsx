@@ -92,6 +92,7 @@ const App = () => (
                 </AdminRoute>
               } />
               <Route path="/team" element={<TeamPortal />} />
+              <Route path="/archive" element={<TeamArchive />} />
               <Route path="/progressor-login" element={<Navigate to="/progressor" replace />} />
               <Route path="/progressor" element={
                 <AdminRoute>
