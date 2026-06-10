@@ -693,14 +693,51 @@ function JobEditSheet({ job, session, onClose, onSaved }: JobEditSheetProps) {
                 <ScrollArea className="h-full px-4 pb-6">
                   <div className="space-y-4 text-sm">
                     <Row icon={<MapPin className="h-3.5 w-3.5" />} label="Address" value={job.address} />
+                    {job.phone_number && (
+                      <Row icon={<Phone className="h-3.5 w-3.5" />} label="Phone" value={job.phone_number} />
+                    )}
                     <Row icon={<Calendar className="h-3.5 w-3.5" />} label="Signed off" value={formatDateTime(job.signed_off_at)} />
+                    {job.completion_date && (
+                      <Row icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="Completed" value={formatDateTime(job.completion_date)} />
+                    )}
                     {job.booked_date && (
                       <Row icon={<Calendar className="h-3.5 w-3.5" />} label="Booked" value={formatDate(job.booked_date)} />
+                    )}
+                    {job.date_issued && (
+                      <Row icon={<Calendar className="h-3.5 w-3.5" />} label="Date issued" value={formatDate(job.date_issued)} />
+                    )}
+                    {(job.team || job.team2) && (
+                      <Row icon={<FileText className="h-3.5 w-3.5" />} label="Teams" value={[job.team, job.team2].filter(Boolean).join(' + ')} />
                     )}
                     {job.summary_of_works && (
                       <div>
                         <Label>Summary of works</Label>
                         <p className="text-sm whitespace-pre-wrap mt-1">{job.summary_of_works}</p>
+                      </div>
+                    )}
+                    {job.description && job.description !== job.summary_of_works && (
+                      <div>
+                        <Label>Description</Label>
+                        <p className="text-sm whitespace-pre-wrap mt-1">{job.description}</p>
+                      </div>
+                    )}
+                    {Array.isArray(job.work_items) && job.work_items.length > 0 && (
+                      <div>
+                        <Label>Work items ({job.work_items.length})</Label>
+                        <ul className="mt-1.5 space-y-1.5">
+                          {job.work_items.map((wi: any, i: number) => (
+                            <li key={i} className="flex items-start gap-2 text-xs bg-muted/40 rounded-lg p-2.5">
+                              <ListChecks className="h-3.5 w-3.5 mt-0.5 shrink-0 text-muted-foreground" />
+                              <div className="min-w-0 flex-1">
+                                {wi.code && <span className="font-mono font-semibold mr-1.5">{wi.code}</span>}
+                                <span className="whitespace-pre-wrap">{wi.description || wi.name || wi.title || ''}</span>
+                                {wi.quantity != null && (
+                                  <span className="text-muted-foreground ml-1.5">× {wi.quantity}</span>
+                                )}
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
                       </div>
                     )}
                     {job.progress_notes && (
