@@ -213,6 +213,15 @@ export default function TeamArchive() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [activeJob, setActiveJob] = useState<CompletedJob | null>(null);
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+  const [expandInitialised, setExpandInitialised] = useState(false);
+  const toggleNode = useCallback((key: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     const stored = localStorage.getItem(SESSION_KEY);
