@@ -117,7 +117,12 @@ export const useJobsWithExternalAssignees = () => {
         event: '*', schema: 'public', table: 'job_external_assignees',
       }, () => fetchAll())
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    const onLocal = () => fetchAll();
+    window.addEventListener('external-assignee-changed', onLocal);
+    return () => {
+      supabase.removeChannel(channel);
+      window.removeEventListener('external-assignee-changed', onLocal);
+    };
   }, [fetchAll]);
 
   return { jobIds, isLoading, refresh: fetchAll };
