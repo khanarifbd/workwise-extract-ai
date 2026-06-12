@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface BulkExternalAssignee {
-  id: string;                  // job_external_assignees.id
+  id: string;
   job_id: string;
   subcontractor_id: string;
   name: string;
@@ -11,23 +11,36 @@ export interface BulkExternalAssignee {
   phone: string | null;
 }
 
+const EXT_ASSIGNEE_EVENT = 'external-assignee-changed';
+
+/** Notify any mounted bulk hooks to refresh immediately (no realtime dependency). */
+export const notifyExternalAssigneeChanged = (jobId?: string) => {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent(EXT_ASSIGNEE_EVENT, { detail: { jobId } }));
+};
+
 /**
- * Bulk fetch external assignees for a set of jobIds in a single query
- * (chunked) + one realtime subscription. Avoids N per-row hooks/channels.
+ * Bulk fetch external assignees for a set of jobIds.
+ * - Single stable realtime channel (global)
+ * - Local custom-event refresh (instant, no realtime needed)
+ * - Content-hash of jobIds so changes always re-fetch
  */
 export const useJobsExternalAssigneesBulk = (jobIds: string[]) => {
   const [map, setMap] = useState<Map<string, BulkExternalAssignee[]>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
+  const jobIdsRef = useRef<string[]>(jobIds);
+  jobIdsRef.current = jobIds;
 
-  const jobIdHash = useMemo(
-    () => (jobIds.length === 0
-      ? 'empty'
-      : `${jobIds.length}_${jobIds[0]?.slice(0, 8)}_${jobIds[jobIds.length - 1]?.slice(0, 8)}`),
-    [jobIds]
-  );
+  // Stable content hash so reorder/insert/remove all re-trigger fetch.
+  const jobIdHash = useMemo(() => {
+    if (jobIds.length === 0) return 'empty';
+    // Join sorted ids — cheap & deterministic.
+    return [...jobIds].sort().join('|');
+  }, [jobIds]);
 
   const fetchAll = useCallback(async () => {
-    if (jobIds.length === 0) {
+    const ids = jobIdsRef.current;
+    if (ids.length === 0) {
       setMap(new Map());
       setIsLoading(false);
       return;
@@ -36,8 +49,8 @@ export const useJobsExternalAssigneesBulk = (jobIds: string[]) => {
     try {
       const chunkSize = 100;
       const acc: any[] = [];
-      for (let i = 0; i < jobIds.length; i += chunkSize) {
-        const chunk = jobIds.slice(i, i + chunkSize);
+      for (let i = 0; i < ids.length; i += chunkSize) {
+        const chunk = ids.slice(i, i + chunkSize);
         const { data, error } = await supabase
           .from('job_external_assignees')
           .select('id, job_id, subcontractor_id, subcontractor:subcontractors(name, company, trade, phone)')
@@ -65,17 +78,29 @@ export const useJobsExternalAssigneesBulk = (jobIds: string[]) => {
     } finally {
       setIsLoading(false);
     }
-  }, [jobIdHash]);
+  }, []);
 
+  // Re-fetch whenever the set of jobIds changes.
   useEffect(() => {
     fetchAll();
+  }, [jobIdHash, fetchAll]);
+
+  // Single stable realtime channel + local event listener.
+  useEffect(() => {
     const channel = supabase
-      .channel(`job-ext-bulk-${jobIdHash}`)
+      .channel('job-ext-bulk-global')
       .on('postgres_changes', {
         event: '*', schema: 'public', table: 'job_external_assignees',
       }, () => fetchAll())
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+
+    const onLocal = () => fetchAll();
+    window.addEventListener(EXT_ASSIGNEE_EVENT, onLocal);
+
+    return () => {
+      supabase.removeChannel(channel);
+      window.removeEventListener(EXT_ASSIGNEE_EVENT, onLocal);
+    };
   }, [fetchAll]);
 
   const getExternals = useCallback(
