@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { Subcontractor } from './useSubcontractors';
+import { notifyExternalAssigneeChanged } from './useJobsExternalAssigneesBulk';
 
 export interface JobExternalAssignee {
   id: string;
@@ -70,6 +71,7 @@ export const useJobExternalAssignees = (jobId: string | null | undefined) => {
     }
     toast.success('External assignee added');
     await fetchAll();
+    notifyExternalAssigneeChanged(jobId);
     return data;
   };
 
@@ -84,6 +86,7 @@ export const useJobExternalAssignees = (jobId: string | null | undefined) => {
     }
     toast.success('Removed');
     await fetchAll();
+    notifyExternalAssigneeChanged(jobId ?? undefined);
     return true;
   };
 
@@ -114,7 +117,12 @@ export const useJobsWithExternalAssignees = () => {
         event: '*', schema: 'public', table: 'job_external_assignees',
       }, () => fetchAll())
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    const onLocal = () => fetchAll();
+    window.addEventListener('external-assignee-changed', onLocal);
+    return () => {
+      supabase.removeChannel(channel);
+      window.removeEventListener('external-assignee-changed', onLocal);
+    };
   }, [fetchAll]);
 
   return { jobIds, isLoading, refresh: fetchAll };
