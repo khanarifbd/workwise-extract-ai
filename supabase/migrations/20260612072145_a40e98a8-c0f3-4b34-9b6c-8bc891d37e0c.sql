@@ -1,0 +1,1 @@
+ALTER PUBLICATION supabase_realtime ADD TABLE public.job_external_assignees; ALTER PUBLICATION supabase_realtime ADD TABLE public.subcontractors;
