@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { Subcontractor } from './useSubcontractors';
+import { notifyExternalAssigneeChanged } from './useJobsExternalAssigneesBulk';
 
 export interface JobExternalAssignee {
   id: string;
