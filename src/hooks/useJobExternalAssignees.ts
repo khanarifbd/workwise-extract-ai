@@ -71,6 +71,7 @@ export const useJobExternalAssignees = (jobId: string | null | undefined) => {
     }
     toast.success('External assignee added');
     await fetchAll();
+    notifyExternalAssigneeChanged(jobId);
     return data;
   };
 
@@ -85,6 +86,7 @@ export const useJobExternalAssignees = (jobId: string | null | undefined) => {
     }
     toast.success('Removed');
     await fetchAll();
+    notifyExternalAssigneeChanged(jobId ?? undefined);
     return true;
   };
 
