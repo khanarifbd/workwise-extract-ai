@@ -291,35 +291,58 @@ export const extractInsulationJobsFromDocument = async (
   });
 };
 
+export interface ConvertTierItem {
+  description: string;
+  code: string;
+  qty: number;
+  cost: number;
+  unit: string | null;
+  category: string | null;
+  valid: boolean;
+}
+export interface ConvertTier {
+  label: string;
+  notes: string;
+  items: ConvertTierItem[];
+  total: number;
+}
+export interface ConvertResponse {
+  tiers: Record<'baseline' | 'enhanced' | 'premium', ConvertTier>;
+  accuracy: Record<string, { total: number; itemCount: number; invalidCodes: string[]; valid: boolean }>;
+  review: any;
+  codeSource: 'nph_books' | 'fallback';
+  codeCount: number;
+  minimumCost: number;
+}
+
+export const convertDescriptionToTieredQuotes = async (
+  description: string,
+  minimumCost?: number
+): Promise<ConvertResponse> => {
+  const headers = await getAuthHeaders();
+  const { data, error } = await supabase.functions.invoke('convert-description', {
+    body: {
+      description,
+      ...(typeof minimumCost === 'number' ? { minimumCost } : {}),
+      sorCodesContext: getSORCodesContext(), // fallback only — used if no NPH books uploaded
+    },
+    headers,
+  });
+  if (error) throw error;
+  if (!data?.success) throw new Error(data?.error || 'Failed to convert description');
+  return data as ConvertResponse;
+};
+
+// Legacy single-list helper kept for backwards compatibility (returns baseline tier as WorkItem[])
 export const convertDescriptionToWorkItems = async (description: string): Promise<WorkItem[]> => {
-  try {
-    const headers = await getAuthHeaders();
-    const { data, error } = await supabase.functions.invoke('convert-description', {
-      body: { 
-        description,
-        sorCodesContext: getSORCodesContext()
-      },
-      headers
-    });
-
-    if (error) {
-      console.error('Error calling convert-description function:', error);
-      throw error;
-    }
-
-    if (!data?.success) {
-      throw new Error(data?.error || 'Failed to convert description');
-    }
-
-    // Add IDs to work items
-    return data.workItems.map((item: any) => ({
-      ...item,
-      id: crypto.randomUUID()
-    }));
-  } catch (error) {
-    console.error('Error converting description:', error);
-    throw error;
-  }
+  const res = await convertDescriptionToTieredQuotes(description);
+  return res.tiers.baseline.items.map((i) => ({
+    id: crypto.randomUUID(),
+    description: i.description,
+    sorCode: i.code,
+    qty: i.qty,
+    cost: i.cost,
+  }));
 };
 
 export const sendWhatsAppNotification = async (
