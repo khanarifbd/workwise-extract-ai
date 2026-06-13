@@ -1200,6 +1200,89 @@ export type Database = {
           },
         ]
       }
+      sor_code_books: {
+        Row: {
+          code_count: number
+          created_at: string
+          error_message: string | null
+          file_name: string
+          file_path: string
+          file_size: number | null
+          id: string
+          status: string
+          updated_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          code_count?: number
+          created_at?: string
+          error_message?: string | null
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          id?: string
+          status?: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          code_count?: number
+          created_at?: string
+          error_message?: string | null
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          id?: string
+          status?: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: []
+      }
+      sor_code_entries: {
+        Row: {
+          book_id: string
+          category: string | null
+          code: string
+          cost: number
+          created_at: string
+          description: string
+          id: string
+          keywords: string[] | null
+          unit: string | null
+        }
+        Insert: {
+          book_id: string
+          category?: string | null
+          code: string
+          cost?: number
+          created_at?: string
+          description: string
+          id?: string
+          keywords?: string[] | null
+          unit?: string | null
+        }
+        Update: {
+          book_id?: string
+          category?: string | null
+          code?: string
+          cost?: number
+          created_at?: string
+          description?: string
+          id?: string
+          keywords?: string[] | null
+          unit?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sor_code_entries_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "sor_code_books"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subcontractors: {
         Row: {
           company: string | null
