@@ -48,6 +48,27 @@ export const JobFilters = ({ filters, onFiltersChange, availableSorCodes, onExpo
   const [presetName, setPresetName] = useState('');
   const [showSavePreset, setShowSavePreset] = useState(false);
 
+  // Local search state debounced so each keystroke doesn't re-render the entire dashboard.
+  const [localSearch, setLocalSearch] = useState(filters.search);
+  const debouncedSearch = useDebouncedValue(localSearch, 250);
+  const lastPushedSearch = useRef(filters.search);
+
+  // Push debounced search up to parent only when it actually changes.
+  useEffect(() => {
+    if (debouncedSearch === lastPushedSearch.current) return;
+    lastPushedSearch.current = debouncedSearch;
+    onFiltersChange({ ...filters, search: debouncedSearch });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch]);
+
+  // Keep local in sync if parent clears/resets filters externally (e.g. preset apply).
+  useEffect(() => {
+    if (filters.search !== lastPushedSearch.current) {
+      lastPushedSearch.current = filters.search;
+      setLocalSearch(filters.search);
+    }
+  }, [filters.search]);
+
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
