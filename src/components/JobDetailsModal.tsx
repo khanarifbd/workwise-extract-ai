@@ -118,13 +118,19 @@ export const JobDetailsModal = forwardRef<HTMLDivElement, JobDetailsModalProps>(
     });
   };
 
-  const handleAIConvert = (workItems: WorkItem[]) => {
-    setEditedJob({ ...editedJob, workItems: [...editedJob.workItems, ...workItems] });
+  const handleAIConvert = (workItems: WorkItem[], replaceExisting?: boolean) => {
+    setEditedJob({
+      ...editedJob,
+      workItems: replaceExisting ? workItems : [...editedJob.workItems, ...workItems],
+    });
     setShowAIConverter(false);
   };
 
-  const handleAdditionalAIConvert = (workItems: WorkItem[]) => {
-    setEditedJob({ ...editedJob, additionalWorks: [...editedJob.additionalWorks, ...workItems] });
+  const handleAdditionalAIConvert = (workItems: WorkItem[], replaceExisting?: boolean) => {
+    setEditedJob({
+      ...editedJob,
+      additionalWorks: replaceExisting ? workItems : [...editedJob.additionalWorks, ...workItems],
+    });
     setShowAdditionalAI(false);
   };
 
