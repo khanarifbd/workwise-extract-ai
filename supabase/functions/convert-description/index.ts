@@ -51,7 +51,7 @@ serve(async (req) => {
     if (!parsed.success) {
       return new Response(JSON.stringify({ error: 'Invalid input', details: parsed.error.errors }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
-    const { description, minimumCost = 0, sorCodesContext } = parsed.data;
+    const { description, minimumCost = 0, sorCodesContext, existingWorks } = parsed.data;
 
     // Load codes from approved SOR books
     const { data: codeRows } = await admin
