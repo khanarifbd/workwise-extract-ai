@@ -2,10 +2,11 @@ import { useEffect, useState, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Upload, Trash2, RefreshCw, FileText, CheckCircle2, AlertCircle, Loader2, BookOpen } from 'lucide-react';
+import { Upload, Trash2, RefreshCw, FileText, CheckCircle2, AlertCircle, Loader2, BookOpen, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { SORCodePasteDialog } from './SORCodePasteDialog';
 
 interface SORBook {
   id: string;
@@ -27,6 +28,7 @@ export const SORCodeBookManager = ({ open, onOpenChange }: Props) => {
   const [books, setBooks] = useState<SORBook[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [pasteOpen, setPasteOpen] = useState(false);
   const { toast } = useToast();
 
   const load = useCallback(async () => {
@@ -125,24 +127,35 @@ export const SORCodeBookManager = ({ open, onOpenChange }: Props) => {
         </DialogHeader>
 
         <div className="space-y-4">
-          <label className={cn(
-            "flex items-center justify-center gap-2 p-6 border-2 border-dashed rounded-lg cursor-pointer transition-colors",
-            uploading ? "border-primary bg-primary/5" : "border-border hover:border-primary/50 hover:bg-muted/30"
-          )}>
-            <input
-              type="file"
-              accept="application/pdf"
-              multiple
-              className="hidden"
-              disabled={uploading}
-              onChange={(e) => handleUpload(e.target.files)}
-            />
-            {uploading ? (
-              <><Loader2 className="w-5 h-5 animate-spin" /><span className="text-sm">Uploading…</span></>
-            ) : (
-              <><Upload className="w-5 h-5 text-primary" /><span className="text-sm font-medium">Click to upload SOR PDF(s)</span></>
-            )}
-          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2">
+            <label className={cn(
+              "flex items-center justify-center gap-2 p-6 border-2 border-dashed rounded-lg cursor-pointer transition-colors",
+              uploading ? "border-primary bg-primary/5" : "border-border hover:border-primary/50 hover:bg-muted/30"
+            )}>
+              <input
+                type="file"
+                accept="application/pdf"
+                multiple
+                className="hidden"
+                disabled={uploading}
+                onChange={(e) => handleUpload(e.target.files)}
+              />
+              {uploading ? (
+                <><Loader2 className="w-5 h-5 animate-spin" /><span className="text-sm">Uploading…</span></>
+              ) : (
+                <><Upload className="w-5 h-5 text-primary" /><span className="text-sm font-medium">Click to upload SOR PDF(s)</span></>
+              )}
+            </label>
+            <Button
+              variant="outline"
+              className="h-auto sm:w-44 flex-col gap-1 py-3"
+              onClick={() => setPasteOpen(true)}
+            >
+              <Plus className="w-5 h-5 text-primary" />
+              <span className="text-sm font-medium">Add codes manually</span>
+              <span className="text-[10px] text-muted-foreground">Paste, bulk or single</span>
+            </Button>
+          </div>
 
           <div className="space-y-2 max-h-[400px] overflow-y-auto">
             {loading && books.length === 0 ? (
@@ -203,6 +216,7 @@ export const SORCodeBookManager = ({ open, onOpenChange }: Props) => {
           </div>
         </div>
       </DialogContent>
+      <SORCodePasteDialog open={pasteOpen} onOpenChange={setPasteOpen} onSaved={load} />
     </Dialog>
   );
 };
