@@ -57,7 +57,14 @@ export const AIWorkConverter = ({ onConvert, onClose, existingWorks, initialDesc
             cost: typeof w.cost === 'number' ? w.cost : 0,
           }))
         : undefined;
-      const res = await convertDescriptionToTieredQuotes(description, min, existingPayload);
+      // Augment description with optional ongoing/progress context.
+      const extras: string[] = [];
+      if (includeOngoing && hasOngoing) extras.push(`ONGOING NOTES / REASON (admin):\n${ongoingNotes!.trim()}`);
+      if (includeProgress && hasProgress) extras.push(`TEAM PROGRESS NOTES (from portal):\n${progressNotes!.trim()}`);
+      const fullDescription = extras.length > 0
+        ? `${description.trim()}\n\n---\n${extras.join('\n\n')}`
+        : description;
+      const res = await convertDescriptionToTieredQuotes(fullDescription, min, existingPayload);
       setResult(res);
       setSelectedTier('baseline');
       if (res.codeSource === 'fallback') {
