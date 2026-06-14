@@ -216,6 +216,7 @@ export const SORCodeBookManager = ({ open, onOpenChange }: Props) => {
           </div>
         </div>
       </DialogContent>
+      <SORCodePasteDialog open={pasteOpen} onOpenChange={setPasteOpen} onSaved={load} />
     </Dialog>
   );
 };
