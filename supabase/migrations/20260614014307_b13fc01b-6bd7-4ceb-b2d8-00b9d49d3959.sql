@@ -1,0 +1,1 @@
+UPDATE public.sor_code_books SET code_count = 947, status = 'ready', error_message = NULL, updated_at = now() WHERE id = '11111111-1111-1111-1111-111111111111';
