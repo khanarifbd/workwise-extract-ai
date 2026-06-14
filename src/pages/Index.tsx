@@ -1405,9 +1405,9 @@ const Index = () => {
         </div>
       )}
       
-      <main className="flex-1 container mx-auto px-4 py-4 flex flex-col gap-4">
+      <main className="flex-1 container mx-auto px-4 py-3 flex flex-col gap-3">
         {/* Compact Stats Row — always uses full jobs array for accurate totals */}
-        <div className="flex items-center justify-between gap-4 bg-section-stats rounded-lg p-3">
+        <div className="flex items-center justify-between gap-3 bg-section-stats rounded-lg px-3 py-2">
           {isInsulationCategory ? (
             <InsulationStatsCards jobs={jobs} />
           ) : isFanCategory ? (
