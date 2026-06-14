@@ -222,6 +222,44 @@ export const AIWorkConverter = ({ onConvert, onClose, existingWorks, initialDesc
               </div>
             </label>
           )}
+          {(hasOngoing || hasProgress) && (
+            <div className="space-y-2">
+              {hasOngoing && (
+                <label className={cn(
+                  'flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors',
+                  includeOngoing ? 'border-amber-500/50 bg-amber-500/5' : 'border-border hover:bg-muted/30'
+                )}>
+                  <input
+                    type="checkbox"
+                    checked={includeOngoing}
+                    onChange={(e) => setIncludeOngoing(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 accent-amber-500 cursor-pointer"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-semibold">Include Ongoing Notes / Reason</div>
+                    <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2 whitespace-pre-wrap">{ongoingNotes!.trim()}</p>
+                  </div>
+                </label>
+              )}
+              {hasProgress && (
+                <label className={cn(
+                  'flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors',
+                  includeProgress ? 'border-blue-500/50 bg-blue-500/5' : 'border-border hover:bg-muted/30'
+                )}>
+                  <input
+                    type="checkbox"
+                    checked={includeProgress}
+                    onChange={(e) => setIncludeProgress(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 accent-blue-500 cursor-pointer"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-semibold">Include Team Progress Notes</div>
+                    <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2 whitespace-pre-wrap">{progressNotes!.trim()}</p>
+                  </div>
+                </label>
+              )}
+            </div>
+          )}
           <Button onClick={handleConvert} disabled={isProcessing || !description.trim()} className="w-full">
             {isProcessing ? (
               <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Processing with AI + accuracy check…</>
