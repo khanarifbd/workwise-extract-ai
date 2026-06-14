@@ -16,8 +16,8 @@ import { ExportPanel } from '@/components/ExportPanel';
 import { DMJobFilters, FanJobFilters, InsulationJobFilters, FilterState, getDefaultFilterState } from '@/components/filters';
 import { CategoryTabs } from '@/components/CategoryTabs';
 import { CategoryGuidelinesPanel } from '@/components/CategoryGuidelinesPanel';
-import { KanbanBoard } from '@/components/KanbanBoard';
-import { CalendarView } from '@/components/CalendarView';
+const KanbanBoard = lazy(() => import('@/components/KanbanBoard').then(m => ({ default: m.KanbanBoard })));
+const CalendarView = lazy(() => import('@/components/CalendarView').then(m => ({ default: m.CalendarView })));
 import { MonthlyFolderTabs } from '@/components/MonthlyFolderTabs';
 import { BookedDateSidebar } from '@/components/BookedDateSidebar';
 
