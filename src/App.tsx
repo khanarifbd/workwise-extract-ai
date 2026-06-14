@@ -71,6 +71,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <HashRouter>
+        <LastRouteRestorer />
         <Routes>
           {isNativeApp ? (
             <>
