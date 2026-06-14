@@ -11,6 +11,12 @@ const schema = z.object({
   description: z.string().min(1).max(50000),
   minimumCost: z.number().min(0).max(1_000_000).optional(),
   sorCodesContext: z.string().max(50000).optional(), // fallback only
+  existingWorks: z.array(z.object({
+    description: z.string().max(2000),
+    code: z.string().max(64).optional(),
+    qty: z.number().optional(),
+    cost: z.number().optional(),
+  })).max(200).optional(),
 });
 
 interface CodeEntry {
