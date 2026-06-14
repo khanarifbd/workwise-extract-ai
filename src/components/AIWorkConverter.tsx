@@ -17,6 +17,8 @@ interface AIWorkConverterProps {
   existingWorks?: WorkItem[];
   initialDescription?: string;
   initialMinimumCost?: string;
+  ongoingNotes?: string;
+  progressNotes?: string;
 }
 
 type TierKey = 'baseline' | 'enhanced' | 'premium';
@@ -26,7 +28,7 @@ const TIER_META: Record<TierKey, { label: string; color: string; ring: string; d
   premium:  { label: 'Premium',  color: 'bg-amber-500/10 text-amber-600 border-amber-500/30',     ring: 'ring-amber-500',  description: 'Full scope with allied works (~+45%)' },
 };
 
-export const AIWorkConverter = ({ onConvert, onClose, existingWorks, initialDescription, initialMinimumCost }: AIWorkConverterProps) => {
+export const AIWorkConverter = ({ onConvert, onClose, existingWorks, initialDescription, initialMinimumCost, ongoingNotes, progressNotes }: AIWorkConverterProps) => {
   const [description, setDescription] = useState(initialDescription ?? '');
   const [minimumCost, setMinimumCost] = useState<string>(initialMinimumCost ?? '');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -35,6 +37,10 @@ export const AIWorkConverter = ({ onConvert, onClose, existingWorks, initialDesc
   const [showBooks, setShowBooks] = useState(false);
   const hasExisting = !!(existingWorks && existingWorks.length > 0);
   const [incorporateExisting, setIncorporateExisting] = useState<boolean>(hasExisting);
+  const hasOngoing = !!(ongoingNotes && ongoingNotes.trim().length > 0);
+  const hasProgress = !!(progressNotes && progressNotes.trim().length > 0);
+  const [includeOngoing, setIncludeOngoing] = useState<boolean>(hasOngoing);
+  const [includeProgress, setIncludeProgress] = useState<boolean>(hasProgress);
   const { toast } = useToast();
   const { isAdmin } = useAdminAuth();
 
