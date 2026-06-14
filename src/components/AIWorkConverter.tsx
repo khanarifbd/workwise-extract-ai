@@ -24,7 +24,7 @@ const TIER_META: Record<TierKey, { label: string; color: string; ring: string; d
   premium:  { label: 'Premium',  color: 'bg-amber-500/10 text-amber-600 border-amber-500/30',     ring: 'ring-amber-500',  description: 'Full scope with allied works (~+45%)' },
 };
 
-export const AIWorkConverter = ({ onConvert, onClose }: AIWorkConverterProps) => {
+export const AIWorkConverter = ({ onConvert, onClose, existingWorks }: AIWorkConverterProps) => {
   const [description, setDescription] = useState('');
   const [minimumCost, setMinimumCost] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
