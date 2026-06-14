@@ -157,15 +157,7 @@ export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount
             </button>
 
 
-            {/* Roadmaps — prominent CTA */}
-            <Link
-              to="/roadmaps"
-              title="Project Roadmaps"
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 shadow-md hover:shadow-lg transition-all"
-            >
-              <Workflow className="w-4 h-4" />
-              <span>Roadmap</span>
-            </Link>
+
 
 
             {/* Sign-off bell */}
