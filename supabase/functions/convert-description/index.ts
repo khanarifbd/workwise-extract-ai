@@ -200,28 +200,56 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
     }
     if (!tiersRaw?.tiers) throw new Error('AI returned no tiers');
 
-    // Deterministic accuracy: resolve every code against catalogue, recompute totals
+    // Deterministic accuracy: resolve every code against catalogue, recompute totals.
+    // For codes the AI invented, deterministically remap to the closest legitimate catalogue
+    // entry by token-overlap on the description (so the user always gets a real costed line).
+    const remapByDescription = (desc: string): CodeEntry | null => {
+      const toks = tokenize(desc);
+      if (toks.length === 0) return null;
+      let best: { c: CodeEntry; s: number } | null = null;
+      for (const c of codes) {
+        const hay = `${c.description} ${c.category || ''}`.toLowerCase();
+        let s = 0;
+        for (const t of toks) if (hay.includes(t)) s += t.length >= 5 ? 2 : 1;
+        if (s > 0 && (!best || s > best.s)) best = { c, s };
+      }
+      // Require at least 2 token hits to avoid noisy remaps
+      return best && best.s >= 2 ? best.c : null;
+    };
+
     const tierKeys = ['baseline', 'enhanced', 'premium'] as const;
     const validatedTiers: Record<string, any> = {};
-    const accuracy: Record<string, { total: number; itemCount: number; invalidCodes: string[]; valid: boolean }> = {};
+    const accuracy: Record<string, { total: number; itemCount: number; invalidCodes: string[]; remappedCount: number; valid: boolean }> = {};
 
     for (const key of tierKeys) {
       const t = tiersRaw.tiers[key];
       if (!t) continue;
       const items: any[] = Array.isArray(t.items) ? t.items : [];
       const invalidCodes: string[] = [];
+      let remappedCount = 0;
       let total = 0;
       const cleanedItems = items.map((it) => {
-        const code = String(it.code || '').trim();
+        const originalCode = String(it.code || '').trim();
         const qty = Math.max(1, Math.round(Number(it.qty) || 1));
-        const entry = codeIndex.get(code);
+        const desc = String(it.description || '');
+        let entry = codeIndex.get(originalCode);
+        let codeUsed = originalCode;
+        let remapped = false;
         if (!entry) {
-          invalidCodes.push(code);
-          return { description: String(it.description || ''), code, qty, cost: 0, unit: null, category: null, valid: false };
+          const guess = remapByDescription(desc);
+          if (guess) {
+            entry = guess;
+            codeUsed = guess.code;
+            remapped = true;
+            remappedCount += 1;
+          } else {
+            invalidCodes.push(originalCode);
+            return { description: desc, code: originalCode, qty, cost: 0, unit: null, category: null, valid: false };
+          }
         }
         const cost = entry.cost * qty;
         total += cost;
-        return { description: String(it.description || entry.description), code, qty, cost, unit: entry.unit, category: entry.category, valid: true };
+        return { description: desc || entry.description, code: codeUsed, qty, cost, unit: entry.unit, category: entry.category, valid: true, ...(remapped ? { remappedFrom: originalCode } : {}) };
       });
       validatedTiers[key] = {
         label: t.label || key,
@@ -233,6 +261,7 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
         total: validatedTiers[key].total,
         itemCount: cleanedItems.length,
         invalidCodes,
+        remappedCount,
         valid: invalidCodes.length === 0,
       };
     }
