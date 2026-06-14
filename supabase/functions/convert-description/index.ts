@@ -285,9 +285,7 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
 
   } catch (error: any) {
     console.error('convert-description error', error);
-    const msg = error?.name === 'AbortError'
-      ? 'AI conversion timed out. Please try again — shorter descriptions process faster.'
-      : String(error?.message || 'Failed');
+    const msg = String(error?.message || 'Failed');
     return new Response(JSON.stringify({ error: msg }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 });
