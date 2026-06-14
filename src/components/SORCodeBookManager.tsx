@@ -2,10 +2,11 @@ import { useEffect, useState, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Upload, Trash2, RefreshCw, FileText, CheckCircle2, AlertCircle, Loader2, BookOpen } from 'lucide-react';
+import { Upload, Trash2, RefreshCw, FileText, CheckCircle2, AlertCircle, Loader2, BookOpen, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { SORCodePasteDialog } from './SORCodePasteDialog';
 
 interface SORBook {
   id: string;
