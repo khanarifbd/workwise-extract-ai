@@ -122,7 +122,9 @@ export const JobDetailsModal = forwardRef<HTMLDivElement, JobDetailsModalProps>(
     });
   };
 
-  const handleAIConvert = (workItems: WorkItem[], replaceExisting?: boolean) => {
+  const handleAIConvert = (workItems: WorkItem[], replaceExisting?: boolean, descriptionUsed?: string) => {
+    setAiUndo({ prev: editedJob.workItems, description: descriptionUsed ?? '' });
+    setAiInitialDescription(descriptionUsed ?? '');
     setEditedJob({
       ...editedJob,
       workItems: replaceExisting ? workItems : [...editedJob.workItems, ...workItems],
@@ -130,12 +132,30 @@ export const JobDetailsModal = forwardRef<HTMLDivElement, JobDetailsModalProps>(
     setShowAIConverter(false);
   };
 
-  const handleAdditionalAIConvert = (workItems: WorkItem[], replaceExisting?: boolean) => {
+  const handleAdditionalAIConvert = (workItems: WorkItem[], replaceExisting?: boolean, descriptionUsed?: string) => {
+    setAiUndoAdditional({ prev: editedJob.additionalWorks, description: descriptionUsed ?? '' });
+    setAiAdditionalInitialDescription(descriptionUsed ?? '');
     setEditedJob({
       ...editedJob,
       additionalWorks: replaceExisting ? workItems : [...editedJob.additionalWorks, ...workItems],
     });
     setShowAdditionalAI(false);
+  };
+
+  const handleRevertAI = () => {
+    if (!aiUndo) return;
+    setEditedJob({ ...editedJob, workItems: aiUndo.prev });
+    setAiInitialDescription(aiUndo.description);
+    setAiUndo(null);
+    setShowAIConverter(true);
+  };
+
+  const handleRevertAdditionalAI = () => {
+    if (!aiUndoAdditional) return;
+    setEditedJob({ ...editedJob, additionalWorks: aiUndoAdditional.prev });
+    setAiAdditionalInitialDescription(aiUndoAdditional.description);
+    setAiUndoAdditional(null);
+    setShowAdditionalAI(true);
   };
 
   const getTotalCost = (items: WorkItem[]) => {
