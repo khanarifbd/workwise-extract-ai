@@ -479,6 +479,7 @@ export const JobDetailsModal = forwardRef<HTMLDivElement, JobDetailsModalProps>(
                   <AIWorkConverter
                     onConvert={handleAdditionalAIConvert}
                     onClose={() => setShowAdditionalAI(false)}
+                    existingWorks={editedJob.additionalWorks}
                   />
                 )}
 
