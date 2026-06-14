@@ -34,6 +34,7 @@ import { TeamAccountabilityMetrics } from '@/components/TeamAccountabilityMetric
 import { AdminNotesOrganiser } from '@/components/AdminNotesOrganiser';
 import { EODReportsPanel } from '@/components/EODReportsPanel';
 import { ReferBackPDFButton } from '@/components/ReferBackPDFButton';
+import { ActionHub } from '@/components/ActionHub';
 import { downloadReferBackJobPDF } from '@/components/ReferBackJobPDF';
 import { useJobAlerts } from '@/hooks/useJobAlerts';
 import { useOverdueNotifications } from '@/hooks/useOverdueNotifications';
@@ -1414,22 +1415,8 @@ const Index = () => {
           ) : (
             <StatsCards jobs={jobs} allJobs={jobs} tradeBookings={tradeBookings} />
           )}
-          <div className="flex items-center gap-2 shrink-0">
-            <Button asChild size="sm" className="gap-1.5 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white shadow-md">
-              <Link to="/auto-assign">
-                <Sparkles className="w-3.5 h-3.5" />
-                Auto-Assign
-              </Link>
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setShowMaterialsReport(true)}
-              className="gap-1.5"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-primary" />
-              Materials Report
-            </Button>
+          <div className="shrink-0">
+            <ActionHub />
           </div>
         </div>
 
@@ -1804,14 +1791,6 @@ const Index = () => {
                   </SelectContent>
                 </Select>
               )}
-              <Link
-                to="/progressor"
-                title="Open Progressor Workspace — close incomplete jobs"
-                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-white bg-progressor hover:bg-progressor/90 shadow-lg shadow-progressor/30 hover:shadow-progressor/50 ring-2 ring-progressor/40 hover:ring-progressor/60 transition-all hover:scale-[1.03] active:scale-[0.98]"
-              >
-                <Workflow className="w-4 h-4" />
-                <span>Progressor</span>
-              </Link>
             </div>
           </div>
           
