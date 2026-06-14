@@ -23,7 +23,7 @@ import { BookedDateSidebar } from '@/components/BookedDateSidebar';
 
 import { Link } from 'react-router-dom';
 import { Workflow } from 'lucide-react';
-import { JobDetailsModal } from '@/components/JobDetailsModal';
+const JobDetailsModal = lazy(() => import('@/components/JobDetailsModal').then(m => ({ default: m.JobDetailsModal })));
 import { DuplicateJobAlert } from '@/components/DuplicateJobAlert';
 import { CompletedJobsPDFButton } from '@/components/CompletedJobsPDFButton';
 import { ManualJobEntry } from '@/components/ManualJobEntry';
