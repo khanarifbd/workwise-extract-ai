@@ -12,9 +12,11 @@ import { cn } from '@/lib/utils';
 import { SORCodeBookManager } from './SORCodeBookManager';
 
 interface AIWorkConverterProps {
-  onConvert: (workItems: WorkItem[], replaceExisting?: boolean) => void;
+  onConvert: (workItems: WorkItem[], replaceExisting?: boolean, descriptionUsed?: string) => void;
   onClose: () => void;
   existingWorks?: WorkItem[];
+  initialDescription?: string;
+  initialMinimumCost?: string;
 }
 
 type TierKey = 'baseline' | 'enhanced' | 'premium';
@@ -24,9 +26,9 @@ const TIER_META: Record<TierKey, { label: string; color: string; ring: string; d
   premium:  { label: 'Premium',  color: 'bg-amber-500/10 text-amber-600 border-amber-500/30',     ring: 'ring-amber-500',  description: 'Full scope with allied works (~+45%)' },
 };
 
-export const AIWorkConverter = ({ onConvert, onClose, existingWorks }: AIWorkConverterProps) => {
-  const [description, setDescription] = useState('');
-  const [minimumCost, setMinimumCost] = useState<string>('');
+export const AIWorkConverter = ({ onConvert, onClose, existingWorks, initialDescription, initialMinimumCost }: AIWorkConverterProps) => {
+  const [description, setDescription] = useState(initialDescription ?? '');
+  const [minimumCost, setMinimumCost] = useState<string>(initialMinimumCost ?? '');
   const [isProcessing, setIsProcessing] = useState(false);
   const [result, setResult] = useState<ConvertResponse | null>(null);
   const [selectedTier, setSelectedTier] = useState<TierKey>('baseline');
@@ -77,7 +79,7 @@ export const AIWorkConverter = ({ onConvert, onClose, existingWorks }: AIWorkCon
       qty: it.qty,
       cost: it.cost,
     }));
-    onConvert(workItems, incorporateExisting && hasExisting);
+    onConvert(workItems, incorporateExisting && hasExisting, description);
   };
 
   const renderTierPanel = (key: TierKey, tier: ConvertTier) => {

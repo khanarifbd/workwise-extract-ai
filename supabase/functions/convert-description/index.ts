@@ -81,22 +81,34 @@ serve(async (req) => {
     if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY missing');
 
     const minCostInstruction = minimumCost > 0
-      ? `\n\nMINIMUM COST TARGET: £${minimumCost.toFixed(2)}.
-You MUST produce three tiered quotes where the BASELINE total is greater than or equal to £${minimumCost.toFixed(2)}.
-- baseline: lean scope, total >= £${minimumCost.toFixed(2)}.
+      ? `\n\nCOSTING TARGET: £${minimumCost.toFixed(2)} (baseline minimum).
+You MUST scale the three tiers to hit realistic NPH cost coverage for a fully-completed job of this type:
+- baseline: lean but COMPLETE scope, total >= £${minimumCost.toFixed(2)}.
 - enhanced: standard NPH scope, total approximately +20% above baseline (range +15% to +25%).
-- premium: full scope with higher-grade materials/labour, total approximately +45% above baseline (range +40% to +55%).
-Achieve tier scaling by adjusting QUANTITIES, adding genuinely related allied SOR codes (e.g. make-good, decoration, ancillary fittings), or selecting higher-cost variants from the catalogue — NEVER by inflating the per-unit cost of a code.`
-      : `\n\nNo minimum cost specified. Produce three tiered quotes scaled by scope:
-- baseline: minimum compliant scope.
+- premium: full scope with allied works, total approximately +45% above baseline (range +40% to +55%).
+HOW TO REACH THE TARGET (NEVER inflate per-unit cost):
+1. Increase QUANTITIES, LENGTHS, AREAS, LAYERS, COATS where genuinely applicable (e.g. m² of plaster, linear m of skirting, number of coats of paint, m² of decoration following a repair).
+2. Add genuinely-related allied SOR codes from the catalogue: make-good, redecoration, ancillary fittings, debris removal, access works, isolation/reinstatement.
+3. Select higher-cost catalogue variants only when the works data genuinely justifies them.
+Every chosen code MUST be defensible from the job data — no fabrication.`
+      : `\n\nNo minimum cost specified. Produce three realistic tiered quotes scaled by scope:
+- baseline: minimum COMPLETE compliant scope.
 - enhanced: standard NPH scope (~+20% total).
-- premium: full scope with allied works (~+45% total).`;
+- premium: full scope with allied works (~+45% total).
+Scale by increasing QUANTITIES / LENGTHS / AREAS / LAYERS / COATS and adding allied SOR codes — never by altering per-unit cost.`;
 
     const systemPrompt = `You are a UK social housing pricing specialist with 25+ years of tradesmen experience, working strictly to NPH-approved Schedule of Rates.
 
-You will be given a tenant/works description. Convert it into THREE complete tiered quotes (baseline, enhanced, premium) of itemised SOR work items.
+GOAL: Produce a realistic, accurate, NPH-ALIGNED SOR-code breakdown of the works ACTUALLY CARRIED OUT on this job. The output is what an admin will type, line-by-line, into NPH's portal — every line must pair a valid SOR code with a clear, specific, professional description of that line of work.
 
-You MUST only use SOR codes from the catalogue below. NEVER invent codes. NEVER alter the per-unit cost — quantities are the only thing you change.
+You will be given a tenant/works description (and, optionally, an existing NPH-allocated Works List). Convert this into THREE complete tiered quotes (baseline, enhanced, premium) of itemised SOR work items.
+
+HARD RULES:
+- ONLY use SOR codes from the catalogue below. NEVER invent codes.
+- NEVER alter the per-unit cost — only quantities scale.
+- Every line description must be SPECIFIC (what was done, where, with what material/finish where implied) — not generic.
+- Use whichever source has the MORE SPECIFIC data for each line: prefer the existing Works List where it names a precise code/scope; prefer the free-text description where it adds location, dimensions, material, fault detail, or extent.
+- Do NOT fabricate. If the data doesn't imply a code, don't add it.
 
 CATALOGUE (code: description (Category, Unit, Cost)):
 ${sorContext}
@@ -111,16 +123,18 @@ Return STRICTLY a JSON object of this shape (no markdown, no commentary):
   }
 }
 
-Each items[] entry: description = clear, professional human-readable line; code = exact SOR code from the catalogue; qty = integer >= 1.
+Each items[] entry: description = clear, professional, NPH-portal-ready human-readable line (mention location/material/extent where the data supports it); code = exact SOR code from the catalogue; qty = integer >= 1.
 Notes: 1-2 sentences explaining the scope rationale for that tier (e.g. "Adds tiled make-good and full redecoration").`;
 
     const existingWorksBlock = (existingWorks && existingWorks.length > 0)
       ? `\n\nEXISTING NPH WORKS LIST (already on the job — provided by NPH).
-These are the works ALREADY ALLOCATED to this job. Many descriptions are short or non-specific.
+These are the works ALREADY ALLOCATED to this job. Many descriptions are short, vague, or missing a SOR code.
 Your task:
-1. KEEP every existing item — re-emit each one in every tier using the SAME SOR code and (at minimum) the SAME qty. Preserve them verbatim.
-2. From the NEW description plus the existing works combined, INFER the realistic full breakdown of works actually carried out on site. Add ONLY additional SOR codes from the catalogue that the combined data genuinely implies (allied works, make-good, ancillary fittings, decoration). DO NOT fabricate works that are not implied by the data.
-3. Stay accurate — when a description is vague, use the surrounding works items as context to choose the most realistic NPH-aligned codes. Never invent.
+1. KEEP every existing item — re-emit each one in every tier. Preserve the original code where present. If an existing item has NO SOR code (or an unknown/invalid one), FIND the most appropriate SOR code from the catalogue that matches its description and use that. Never drop an existing item.
+2. Compare each existing item against the new description — adopt the MORE SPECIFIC wording / location / material / extent for the final line description (whichever source carries the better detail).
+3. From the combined data, INFER and ADD the realistic full breakdown of works actually carried out on site (allied works, make-good, redecoration, ancillary fittings, debris removal, access). Add ONLY codes that the combined data genuinely implies.
+4. To reach the cost target, MAXIMISE quantities/lengths/areas/layers/coats where genuinely justified by the works — never inflate per-unit cost, never fabricate scope.
+5. Result must be NPH-aligned: each line ready to enter into the NPH portal as a complete, specific record of work done.
 
 Existing items (JSON):
 ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, code: w.code || null, qty: w.qty || 1 })))}`

@@ -12,7 +12,8 @@ import {
   Plus,
   Calendar as CalendarIcon,
   ChevronDown,
-  Clock
+  Clock,
+  Undo2
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -53,6 +54,10 @@ export const JobDetailsModal = forwardRef<HTMLDivElement, JobDetailsModalProps>(
   const [editedJob, setEditedJob] = useState<Job>({ ...job });
   const [showAIConverter, setShowAIConverter] = useState(false);
   const [showAdditionalAI, setShowAdditionalAI] = useState(false);
+  const [aiUndo, setAiUndo] = useState<{ prev: WorkItem[]; description: string } | null>(null);
+  const [aiUndoAdditional, setAiUndoAdditional] = useState<{ prev: WorkItem[]; description: string } | null>(null);
+  const [aiInitialDescription, setAiInitialDescription] = useState<string>('');
+  const [aiAdditionalInitialDescription, setAiAdditionalInitialDescription] = useState<string>('');
   const [sorSearchIndex, setSorSearchIndex] = useState<number | null>(null);
   const [sorSearchTerm, setSorSearchTerm] = useState('');
   const [sorSearchResults, setSorSearchResults] = useState<SORCode[]>([]);
@@ -118,7 +123,9 @@ export const JobDetailsModal = forwardRef<HTMLDivElement, JobDetailsModalProps>(
     });
   };
 
-  const handleAIConvert = (workItems: WorkItem[], replaceExisting?: boolean) => {
+  const handleAIConvert = (workItems: WorkItem[], replaceExisting?: boolean, descriptionUsed?: string) => {
+    setAiUndo({ prev: editedJob.workItems, description: descriptionUsed ?? '' });
+    setAiInitialDescription(descriptionUsed ?? '');
     setEditedJob({
       ...editedJob,
       workItems: replaceExisting ? workItems : [...editedJob.workItems, ...workItems],
@@ -126,12 +133,30 @@ export const JobDetailsModal = forwardRef<HTMLDivElement, JobDetailsModalProps>(
     setShowAIConverter(false);
   };
 
-  const handleAdditionalAIConvert = (workItems: WorkItem[], replaceExisting?: boolean) => {
+  const handleAdditionalAIConvert = (workItems: WorkItem[], replaceExisting?: boolean, descriptionUsed?: string) => {
+    setAiUndoAdditional({ prev: editedJob.additionalWorks, description: descriptionUsed ?? '' });
+    setAiAdditionalInitialDescription(descriptionUsed ?? '');
     setEditedJob({
       ...editedJob,
       additionalWorks: replaceExisting ? workItems : [...editedJob.additionalWorks, ...workItems],
     });
     setShowAdditionalAI(false);
+  };
+
+  const handleRevertAI = () => {
+    if (!aiUndo) return;
+    setEditedJob({ ...editedJob, workItems: aiUndo.prev });
+    setAiInitialDescription(aiUndo.description);
+    setAiUndo(null);
+    setShowAIConverter(true);
+  };
+
+  const handleRevertAdditionalAI = () => {
+    if (!aiUndoAdditional) return;
+    setEditedJob({ ...editedJob, additionalWorks: aiUndoAdditional.prev });
+    setAiAdditionalInitialDescription(aiUndoAdditional.description);
+    setAiUndoAdditional(null);
+    setShowAdditionalAI(true);
   };
 
   const getTotalCost = (items: WorkItem[]) => {
@@ -393,6 +418,12 @@ export const JobDetailsModal = forwardRef<HTMLDivElement, JobDetailsModalProps>(
                     </button>
                   </CollapsibleTrigger>
                   <div className="flex gap-2">
+                    {aiUndo && (
+                      <Button variant="outline" size="sm" onClick={handleRevertAI} title="Revert last AI conversion and re-edit description">
+                        <Undo2 className="w-3 h-3 mr-1" />
+                        Revert AI
+                      </Button>
+                    )}
                     <Button variant="outline" size="sm" onClick={() => setShowAIConverter(true)}>
                       <Wand2 className="w-3 h-3 mr-1" />
                       AI Convert
@@ -409,6 +440,7 @@ export const JobDetailsModal = forwardRef<HTMLDivElement, JobDetailsModalProps>(
                     onConvert={handleAIConvert}
                     onClose={() => setShowAIConverter(false)}
                     existingWorks={editedJob.workItems}
+                    initialDescription={aiInitialDescription || editedJob.description || editedJob.summaryOfWorks}
                   />
                 )}
 
@@ -464,6 +496,12 @@ export const JobDetailsModal = forwardRef<HTMLDivElement, JobDetailsModalProps>(
                     </button>
                   </CollapsibleTrigger>
                   <div className="flex gap-2">
+                    {aiUndoAdditional && (
+                      <Button variant="outline" size="sm" onClick={handleRevertAdditionalAI} title="Revert last AI conversion and re-edit description">
+                        <Undo2 className="w-3 h-3 mr-1" />
+                        Revert AI
+                      </Button>
+                    )}
                     <Button variant="outline" size="sm" onClick={() => setShowAdditionalAI(true)}>
                       <Wand2 className="w-3 h-3 mr-1" />
                       AI Convert
@@ -480,6 +518,7 @@ export const JobDetailsModal = forwardRef<HTMLDivElement, JobDetailsModalProps>(
                     onConvert={handleAdditionalAIConvert}
                     onClose={() => setShowAdditionalAI(false)}
                     existingWorks={editedJob.additionalWorks}
+                    initialDescription={aiAdditionalInitialDescription}
                   />
                 )}
 
