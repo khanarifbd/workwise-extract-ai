@@ -26,8 +26,8 @@ import { Workflow } from 'lucide-react';
 const JobDetailsModal = lazy(() => import('@/components/JobDetailsModal').then(m => ({ default: m.JobDetailsModal })));
 import { DuplicateJobAlert } from '@/components/DuplicateJobAlert';
 import { CompletedJobsPDFButton } from '@/components/CompletedJobsPDFButton';
-import { ManualJobEntry } from '@/components/ManualJobEntry';
-import { PasteJobEntry } from '@/components/PasteJobEntry';
+const ManualJobEntry = lazy(() => import('@/components/ManualJobEntry').then(m => ({ default: m.ManualJobEntry })));
+const PasteJobEntry = lazy(() => import('@/components/PasteJobEntry').then(m => ({ default: m.PasteJobEntry })));
 import { OverdueJobsDashboard } from '@/components/OverdueJobsDashboard';
 
 import { TeamAccountabilityMetrics } from '@/components/TeamAccountabilityMetrics';
