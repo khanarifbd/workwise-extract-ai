@@ -77,7 +77,7 @@ export const AIWorkConverter = ({ onConvert, onClose, existingWorks }: AIWorkCon
       qty: it.qty,
       cost: it.cost,
     }));
-    onConvert(workItems);
+    onConvert(workItems, incorporateExisting && hasExisting);
   };
 
   const renderTierPanel = (key: TierKey, tier: ConvertTier) => {
