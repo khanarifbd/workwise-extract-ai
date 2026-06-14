@@ -521,6 +521,8 @@ export const JobDetailsModal = forwardRef<HTMLDivElement, JobDetailsModalProps>(
                     onClose={() => setShowAdditionalAI(false)}
                     existingWorks={editedJob.additionalWorks}
                     initialDescription={aiAdditionalInitialDescription}
+                    ongoingNotes={editedJob.ongoingReason}
+                    progressNotes={editedJob.progressNotes}
                   />
                 )}
 
