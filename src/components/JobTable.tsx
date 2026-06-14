@@ -1821,99 +1821,145 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
         />
       )}
 
-      {/* Duplicate Action Modal */}
-      {duplicateActionJob && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-card border-4 border-red-500 rounded-xl shadow-2xl w-full max-w-md animate-scale-in">
-            {/* Header */}
-            <div className="flex items-center gap-3 px-5 py-4 border-b border-red-500 bg-red-500/20">
-              <div className="p-2 rounded-full bg-red-500/30">
-                <AlertTriangle className="w-6 h-6 text-red-600" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-red-700 dark:text-red-400">DUPLICATE JOB</h2>
-                <p className="text-sm text-muted-foreground">
-                  Job <span className="font-mono font-bold">{duplicateActionJob.jobNumber}</span> appears multiple times
-                </p>
-              </div>
-              <button 
-                onClick={() => setDuplicateActionJob(null)} 
-                className="ml-auto p-2 hover:bg-muted rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      {/* Duplicate Action Modal — lists ALL copies of the duplicate job number */}
+      {duplicateActionJob && (() => {
+        const dupKey = duplicateActionJob.jobNumber.toLowerCase();
+        const siblings = jobs
+          .filter(j => j.jobNumber.toLowerCase() === dupKey)
+          .sort((a, b) => a.dateIssued.getTime() - b.dateIssued.getTime());
 
-            {/* Job Details */}
-            <div className="p-5 space-y-3">
-              <div className="border border-border rounded-lg p-3 bg-muted/20">
-                <p className="font-semibold">{duplicateActionJob.name}</p>
-                <p className="text-sm text-muted-foreground truncate">{duplicateActionJob.address}</p>
-                <div className="flex items-center gap-2 mt-2">
-                  <span className="text-xs bg-muted px-2 py-0.5 rounded">
-                    {duplicateActionJob.workItems.length} work items
-                  </span>
-                  <span className="text-xs bg-muted px-2 py-0.5 rounded">
-                    {duplicateActionJob.progress}% complete
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    Added {format(duplicateActionJob.dateIssued, 'dd MMM yyyy')}
-                  </span>
+        return (
+          <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-card border-4 border-red-500 rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col animate-scale-in">
+              {/* Header */}
+              <div className="flex items-center gap-3 px-5 py-4 border-b border-red-500 bg-red-500/20 shrink-0">
+                <div className="p-2 rounded-full bg-red-500/30">
+                  <AlertTriangle className="w-6 h-6 text-red-600" />
                 </div>
+                <div>
+                  <h2 className="text-xl font-bold text-red-700 dark:text-red-400">DUPLICATE JOB</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Job <span className="font-mono font-bold">{duplicateActionJob.jobNumber}</span> appears{' '}
+                    <span className="font-bold text-red-600">{siblings.length}×</span> — review each copy and delete the duplicates you don't need.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setDuplicateActionJob(null)}
+                  className="ml-auto p-2 hover:bg-muted rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-              <p className="text-sm text-muted-foreground">
-                Choose an action for this duplicate job:
-              </p>
-            </div>
 
-            {/* Actions */}
-            <div className="flex flex-col gap-2 px-5 pb-5">
-              <Button
-                variant="outline"
-                className="w-full justify-start gap-2"
-                onClick={() => {
-                  setShowJobDetails(duplicateActionJob);
-                  setDuplicateActionJob(null);
-                }}
-              >
-                <Edit2 className="w-4 h-4" />
-                Edit / Modify This Job
-              </Button>
-              <Button
-                variant="outline"
-                className="w-full justify-start gap-2"
-                onClick={() => {
-                  const newJobNumber = `${duplicateActionJob.jobNumber}-${Date.now().toString().slice(-4)}`;
-                  onUpdateJob({ ...duplicateActionJob, jobNumber: newJobNumber });
-                  toast({
-                    title: "Job Number Updated",
-                    description: `Changed to ${newJobNumber} to resolve duplicate.`,
-                  });
-                  setDuplicateActionJob(null);
-                }}
-              >
-                <Copy className="w-4 h-4" />
-                Keep with New Job Number
-              </Button>
-              <Button
-                variant="destructive"
-                className="w-full justify-start gap-2"
-                onClick={() => {
-                  onDeleteJob(duplicateActionJob.id);
-                  toast({
-                    title: "Duplicate Deleted",
-                    description: `Job #${duplicateActionJob.jobNumber} has been removed.`,
-                  });
-                  setDuplicateActionJob(null);
-                }}
-              >
-                <Trash2 className="w-4 h-4" />
-                Delete This Job
-              </Button>
+              {/* Copies list */}
+              <div className="p-4 space-y-3 overflow-y-auto">
+                {siblings.map((copy, idx) => {
+                  const isOldest = idx === 0;
+                  return (
+                    <div
+                      key={copy.id}
+                      className={cn(
+                        "border rounded-lg p-3 bg-muted/10",
+                        isOldest ? "border-emerald-500/50 bg-emerald-500/5" : "border-border"
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                              Copy {idx + 1} of {siblings.length}
+                            </span>
+                            {isOldest && (
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-700 dark:text-emerald-400">
+                                ORIGINAL (oldest)
+                              </span>
+                            )}
+                          </div>
+                          <p className="font-semibold truncate">{copy.name}</p>
+                          <p className="text-sm text-muted-foreground truncate">{copy.address}</p>
+                          <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                            <span className="text-xs bg-muted px-2 py-0.5 rounded">
+                              {copy.workItems.length} items
+                            </span>
+                            <span className="text-xs bg-muted px-2 py-0.5 rounded">
+                              {copy.progress}% complete
+                            </span>
+                            <span className="text-xs bg-muted px-2 py-0.5 rounded">
+                              Added {format(copy.dateIssued, 'dd MMM yyyy')}
+                            </span>
+                            {copy.team && (
+                              <span className="text-xs bg-muted px-2 py-0.5 rounded">
+                                Team: {copy.team}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-1.5 shrink-0">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1.5 h-8"
+                            onClick={() => {
+                              setShowJobDetails(copy);
+                              setDuplicateActionJob(null);
+                            }}
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                            Open
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1.5 h-8"
+                            onClick={() => {
+                              const newJobNumber = `${copy.jobNumber}-${Date.now().toString().slice(-4)}`;
+                              onUpdateJob({ ...copy, jobNumber: newJobNumber });
+                              toast({
+                                title: "Job number updated",
+                                description: `Changed to ${newJobNumber}.`,
+                              });
+                              if (siblings.length <= 2) setDuplicateActionJob(null);
+                            }}
+                          >
+                            <Copy className="w-3.5 h-3.5" />
+                            Rename
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            className="gap-1.5 h-8"
+                            onClick={() => {
+                              onDeleteJob(copy.id);
+                              toast({
+                                title: "Duplicate deleted",
+                                description: `Removed copy ${idx + 1} of ${siblings.length}.`,
+                              });
+                              if (siblings.length <= 2) setDuplicateActionJob(null);
+                            }}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            Delete
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Footer */}
+              <div className="px-5 py-3 border-t bg-muted/20 flex items-center justify-between shrink-0">
+                <p className="text-xs text-muted-foreground">
+                  Tip: keep the most complete copy (highest progress / most items) and delete the rest.
+                </p>
+                <Button variant="ghost" size="sm" onClick={() => setDuplicateActionJob(null)}>
+                  Close
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Transfer Job Modal */}
       {showTransferModal && onTransferJob && (
