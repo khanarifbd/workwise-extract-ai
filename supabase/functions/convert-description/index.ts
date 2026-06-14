@@ -172,28 +172,20 @@ Existing items (JSON):
 ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, code: w.code || null, qty: w.qty || 1 })))}`
       : '';
 
-    // Use Flash for speed — Pro was timing out at the gateway ("connection closed before message completed").
-    // The deterministic remap + accuracy validation below catches any hallucinated codes, so Flash is safe here.
-    const genController = new AbortController();
-    const genTimeout = setTimeout(() => genController.abort(), 55_000);
-    let genRes: Response;
-    try {
-      genRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
-        signal: genController.signal,
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
-          messages: [
-            { role: 'system', content: systemPrompt + existingWorksBlock },
-            { role: 'user', content: `Description to convert:\n\n${description}` },
-          ],
-          response_format: { type: 'json_object' },
-        }),
-      });
-    } finally {
-      clearTimeout(genTimeout);
-    }
+    // No client-side abort: conversion stays open as long as the user keeps the page open.
+    // Deterministic remap + accuracy validation below catches any hallucinated codes.
+    const genRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          { role: 'system', content: systemPrompt + existingWorksBlock },
+          { role: 'user', content: `Description to convert:\n\n${description}` },
+        ],
+        response_format: { type: 'json_object' },
+      }),
+    });
 
     if (!genRes.ok) {
       if (genRes.status === 429) return new Response(JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }), { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -293,9 +285,7 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
 
   } catch (error: any) {
     console.error('convert-description error', error);
-    const msg = error?.name === 'AbortError'
-      ? 'AI conversion timed out. Please try again — shorter descriptions process faster.'
-      : String(error?.message || 'Failed');
+    const msg = String(error?.message || 'Failed');
     return new Response(JSON.stringify({ error: msg }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 });

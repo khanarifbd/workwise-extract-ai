@@ -441,6 +441,8 @@ export const JobDetailsModal = forwardRef<HTMLDivElement, JobDetailsModalProps>(
                     onClose={() => setShowAIConverter(false)}
                     existingWorks={editedJob.workItems}
                     initialDescription={aiInitialDescription || editedJob.description || editedJob.summaryOfWorks}
+                    ongoingNotes={editedJob.ongoingReason}
+                    progressNotes={editedJob.progressNotes}
                   />
                 )}
 
@@ -519,6 +521,8 @@ export const JobDetailsModal = forwardRef<HTMLDivElement, JobDetailsModalProps>(
                     onClose={() => setShowAdditionalAI(false)}
                     existingWorks={editedJob.additionalWorks}
                     initialDescription={aiAdditionalInitialDescription}
+                    ongoingNotes={editedJob.ongoingReason}
+                    progressNotes={editedJob.progressNotes}
                   />
                 )}
 

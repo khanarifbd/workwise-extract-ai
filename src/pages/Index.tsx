@@ -1,5 +1,5 @@
 /* @refresh reset */
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useSessionPersistence } from '@/hooks/useSessionPersistence';
 import { useMetricsIntegrity } from '@/hooks/useMetricsIntegrity';
 import { Job } from '@/types/job';
@@ -11,28 +11,28 @@ import { Header } from '@/components/Header';
 import { StatsCards } from '@/components/StatsCards';
 import { FanStatsCards } from '@/components/FanStatsCards';
 import { InsulationStatsCards } from '@/components/InsulationStatsCards';
-import { InsulationAnalyticsReport } from '@/components/InsulationAnalyticsReport';
+const InsulationAnalyticsReport = lazy(() => import('@/components/InsulationAnalyticsReport').then(m => ({ default: m.InsulationAnalyticsReport })));
 import { ExportPanel } from '@/components/ExportPanel';
 import { DMJobFilters, FanJobFilters, InsulationJobFilters, FilterState, getDefaultFilterState } from '@/components/filters';
 import { CategoryTabs } from '@/components/CategoryTabs';
 import { CategoryGuidelinesPanel } from '@/components/CategoryGuidelinesPanel';
-import { KanbanBoard } from '@/components/KanbanBoard';
-import { CalendarView } from '@/components/CalendarView';
+const KanbanBoard = lazy(() => import('@/components/KanbanBoard').then(m => ({ default: m.KanbanBoard })));
+const CalendarView = lazy(() => import('@/components/CalendarView').then(m => ({ default: m.CalendarView })));
 import { MonthlyFolderTabs } from '@/components/MonthlyFolderTabs';
 import { BookedDateSidebar } from '@/components/BookedDateSidebar';
 
 import { Link } from 'react-router-dom';
 import { Workflow } from 'lucide-react';
-import { JobDetailsModal } from '@/components/JobDetailsModal';
+const JobDetailsModal = lazy(() => import('@/components/JobDetailsModal').then(m => ({ default: m.JobDetailsModal })));
 import { DuplicateJobAlert } from '@/components/DuplicateJobAlert';
 import { CompletedJobsPDFButton } from '@/components/CompletedJobsPDFButton';
-import { ManualJobEntry } from '@/components/ManualJobEntry';
-import { PasteJobEntry } from '@/components/PasteJobEntry';
+const ManualJobEntry = lazy(() => import('@/components/ManualJobEntry').then(m => ({ default: m.ManualJobEntry })));
+const PasteJobEntry = lazy(() => import('@/components/PasteJobEntry').then(m => ({ default: m.PasteJobEntry })));
 import { OverdueJobsDashboard } from '@/components/OverdueJobsDashboard';
 
-import { TeamAccountabilityMetrics } from '@/components/TeamAccountabilityMetrics';
-import { AdminNotesOrganiser } from '@/components/AdminNotesOrganiser';
-import { EODReportsPanel } from '@/components/EODReportsPanel';
+const TeamAccountabilityMetrics = lazy(() => import('@/components/TeamAccountabilityMetrics').then(m => ({ default: m.TeamAccountabilityMetrics })));
+const AdminNotesOrganiser = lazy(() => import('@/components/AdminNotesOrganiser').then(m => ({ default: m.AdminNotesOrganiser })));
+const EODReportsPanel = lazy(() => import('@/components/EODReportsPanel').then(m => ({ default: m.EODReportsPanel })));
 import { ReferBackPDFButton } from '@/components/ReferBackPDFButton';
 import { ActionHub } from '@/components/ActionHub';
 import { downloadReferBackJobPDF } from '@/components/ReferBackJobPDF';
@@ -46,7 +46,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { ChevronDown, ChevronUp, Loader2, Images, PenLine, CalendarDays, X as XIcon, ClipboardPaste, Sparkles } from 'lucide-react';
-import { MaterialsReportModal } from '@/components/MaterialsReportModal';
+const MaterialsReportModal = lazy(() => import('@/components/MaterialsReportModal').then(m => ({ default: m.MaterialsReportModal })));
 import { isAfter, isBefore, startOfDay, endOfDay, format, parseISO, isValid } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { getGMTNow, getHoursDifferenceGMT } from '@/lib/dateUtils';
@@ -1366,6 +1366,7 @@ const Index = () => {
   }
 
   return (
+    <Suspense fallback={<div className="min-h-screen bg-background" />}>
     <div className="min-h-screen bg-background flex flex-col">
       <Header 
         onExport={() => setShowExport(true)} 
@@ -1942,6 +1943,7 @@ const Index = () => {
         />
       )}
     </div>
+    </Suspense>
   );
 };
 

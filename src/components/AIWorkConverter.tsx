@@ -17,6 +17,8 @@ interface AIWorkConverterProps {
   existingWorks?: WorkItem[];
   initialDescription?: string;
   initialMinimumCost?: string;
+  ongoingNotes?: string;
+  progressNotes?: string;
 }
 
 type TierKey = 'baseline' | 'enhanced' | 'premium';
@@ -26,7 +28,7 @@ const TIER_META: Record<TierKey, { label: string; color: string; ring: string; d
   premium:  { label: 'Premium',  color: 'bg-amber-500/10 text-amber-600 border-amber-500/30',     ring: 'ring-amber-500',  description: 'Full scope with allied works (~+45%)' },
 };
 
-export const AIWorkConverter = ({ onConvert, onClose, existingWorks, initialDescription, initialMinimumCost }: AIWorkConverterProps) => {
+export const AIWorkConverter = ({ onConvert, onClose, existingWorks, initialDescription, initialMinimumCost, ongoingNotes, progressNotes }: AIWorkConverterProps) => {
   const [description, setDescription] = useState(initialDescription ?? '');
   const [minimumCost, setMinimumCost] = useState<string>(initialMinimumCost ?? '');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -35,6 +37,10 @@ export const AIWorkConverter = ({ onConvert, onClose, existingWorks, initialDesc
   const [showBooks, setShowBooks] = useState(false);
   const hasExisting = !!(existingWorks && existingWorks.length > 0);
   const [incorporateExisting, setIncorporateExisting] = useState<boolean>(hasExisting);
+  const hasOngoing = !!(ongoingNotes && ongoingNotes.trim().length > 0);
+  const hasProgress = !!(progressNotes && progressNotes.trim().length > 0);
+  const [includeOngoing, setIncludeOngoing] = useState<boolean>(hasOngoing);
+  const [includeProgress, setIncludeProgress] = useState<boolean>(hasProgress);
   const { toast } = useToast();
   const { isAdmin } = useAdminAuth();
 
@@ -51,7 +57,14 @@ export const AIWorkConverter = ({ onConvert, onClose, existingWorks, initialDesc
             cost: typeof w.cost === 'number' ? w.cost : 0,
           }))
         : undefined;
-      const res = await convertDescriptionToTieredQuotes(description, min, existingPayload);
+      // Augment description with optional ongoing/progress context.
+      const extras: string[] = [];
+      if (includeOngoing && hasOngoing) extras.push(`ONGOING NOTES / REASON (admin):\n${ongoingNotes!.trim()}`);
+      if (includeProgress && hasProgress) extras.push(`TEAM PROGRESS NOTES (from portal):\n${progressNotes!.trim()}`);
+      const fullDescription = extras.length > 0
+        ? `${description.trim()}\n\n---\n${extras.join('\n\n')}`
+        : description;
+      const res = await convertDescriptionToTieredQuotes(fullDescription, min, existingPayload);
       setResult(res);
       setSelectedTier('baseline');
       if (res.codeSource === 'fallback') {
@@ -208,6 +221,44 @@ export const AIWorkConverter = ({ onConvert, onClose, existingWorks, initialDesc
                 </p>
               </div>
             </label>
+          )}
+          {(hasOngoing || hasProgress) && (
+            <div className="space-y-2">
+              {hasOngoing && (
+                <label className={cn(
+                  'flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors',
+                  includeOngoing ? 'border-amber-500/50 bg-amber-500/5' : 'border-border hover:bg-muted/30'
+                )}>
+                  <input
+                    type="checkbox"
+                    checked={includeOngoing}
+                    onChange={(e) => setIncludeOngoing(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 accent-amber-500 cursor-pointer"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-semibold">Include Ongoing Notes / Reason</div>
+                    <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2 whitespace-pre-wrap">{ongoingNotes!.trim()}</p>
+                  </div>
+                </label>
+              )}
+              {hasProgress && (
+                <label className={cn(
+                  'flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors',
+                  includeProgress ? 'border-blue-500/50 bg-blue-500/5' : 'border-border hover:bg-muted/30'
+                )}>
+                  <input
+                    type="checkbox"
+                    checked={includeProgress}
+                    onChange={(e) => setIncludeProgress(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 accent-blue-500 cursor-pointer"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-semibold">Include Team Progress Notes</div>
+                    <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2 whitespace-pre-wrap">{progressNotes!.trim()}</p>
+                  </div>
+                </label>
+              )}
+            </div>
           )}
           <Button onClick={handleConvert} disabled={isProcessing || !description.trim()} className="w-full">
             {isProcessing ? (
