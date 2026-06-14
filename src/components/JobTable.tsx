@@ -248,8 +248,8 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
     }));
   }, [teamSettings]);
   
-  // Find all duplicate job numbers
-  const duplicateJobIds = findDuplicates(jobs);
+  // Find all duplicate job numbers (memoized so it doesn't recompute on every render)
+  const duplicateJobIds = useMemo(() => findDuplicates(jobs), [jobs]);
 
   // Keep action badges in sync when a contact attempt is logged in the modal
   useEffect(() => {
