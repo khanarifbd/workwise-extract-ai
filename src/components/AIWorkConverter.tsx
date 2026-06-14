@@ -14,6 +14,7 @@ import { SORCodeBookManager } from './SORCodeBookManager';
 interface AIWorkConverterProps {
   onConvert: (workItems: WorkItem[]) => void;
   onClose: () => void;
+  existingWorks?: WorkItem[];
 }
 
 type TierKey = 'baseline' | 'enhanced' | 'premium';
