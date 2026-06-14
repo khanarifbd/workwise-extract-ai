@@ -46,7 +46,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { ChevronDown, ChevronUp, Loader2, Images, PenLine, CalendarDays, X as XIcon, ClipboardPaste, Sparkles } from 'lucide-react';
-import { MaterialsReportModal } from '@/components/MaterialsReportModal';
+const MaterialsReportModal = lazy(() => import('@/components/MaterialsReportModal').then(m => ({ default: m.MaterialsReportModal })));
 import { isAfter, isBefore, startOfDay, endOfDay, format, parseISO, isValid } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { getGMTNow, getHoursDifferenceGMT } from '@/lib/dateUtils';
