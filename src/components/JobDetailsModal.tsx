@@ -402,6 +402,7 @@ export const JobDetailsModal = forwardRef<HTMLDivElement, JobDetailsModalProps>(
                   <AIWorkConverter
                     onConvert={handleAIConvert}
                     onClose={() => setShowAIConverter(false)}
+                    existingWorks={editedJob.workItems}
                   />
                 )}
 
