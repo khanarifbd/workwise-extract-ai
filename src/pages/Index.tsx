@@ -1444,8 +1444,9 @@ const Index = () => {
           );
         })()}
 
-        {/* Search and Filters - Category Specific */}
-        <div className="bg-section-filters rounded-lg p-3">
+        {/* Search and Filters - Category Specific — sticky for quick access while scrolling */}
+        <div className="bg-section-filters/95 backdrop-blur-md rounded-lg px-3 py-2 sticky top-2 z-30 border border-border/40 shadow-sm">
+
           {isInsulationCategory ? (
             <InsulationJobFilters
               filters={filters}
