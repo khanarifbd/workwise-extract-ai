@@ -66,15 +66,17 @@ Rules:
 - Extract ALL codes from ALL pages. Do not summarise or omit.
 - Return ONLY the JSON object.`;
 
+    console.log(`[extract-sor-codes] book=${bookId} size=${buf.byteLength} b64=${base64.length}`);
+
     const aiRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'google/gemini-2.5-pro',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: [
-            { type: 'text', text: 'Extract all SOR codes from this rate schedule PDF.' },
+            { type: 'text', text: 'Extract every SOR code line item from this rate schedule PDF. Return JSON only.' },
             { type: 'file', file: { filename: book.file_name, file_data: `data:application/pdf;base64,${base64}` } },
           ]},
         ],
