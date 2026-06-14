@@ -59,63 +59,96 @@ function isCompleted(j: Job): boolean {
 }
 
 export const StatsCards = forwardRef<HTMLDivElement, StatsCardsProps>(({ jobs, allJobs, tradeBookings }, ref) => {
-  const now = useMemo(() => getGMTNow(), []);
   const [detailsOpen, setDetailsOpen] = useState(false);
 
   const counts = useMemo(() => {
+    // Recompute "now" fresh on every jobs change so overdue stays accurate
+    // through long sessions (avoids mount-time freeze drift).
+    const now = getGMTNow();
+    const nowMs = now.getTime();
+
     const total = jobs.length;
-    const complete = jobs.filter(isCompleted).length;
-    const active = total - complete;
-    const assigned = jobs.filter(j => !isCompleted(j) && j.team != null && j.team !== '').length;
-
-    const overdue = jobs.filter(j => {
-      if (isCompleted(j)) return false;
-      if (!j.bookedDate) return false;
-      const bd = j.bookedDate instanceof Date ? j.bookedDate : new Date(j.bookedDate);
-      if (isNaN(bd.getTime())) return false;
-      return bd.getTime() < now.getTime() && getHoursDifferenceGMT(now, bd) > 24;
-    }).length;
-
-    const incompleteJobs = jobs.filter(j => !isCompleted(j));
-    const emergency = incompleteJobs.filter(j => isEmergencyOrCritical(j.description)).length;
-    const urgent = incompleteJobs.filter(j => isUrgent(j.description)).length;
-
-    const unbookedJobs = incompleteJobs.filter(j => !j.bookedDate);
-    const noAnswer = unbookedJobs.filter(j => j.status === 'no_answer').length;
-    const voiceMessage = unbookedJobs.filter(j => j.status === 'voice_message').length;
-    const callBack = unbookedJobs.filter(j => j.status === 'call_back').length;
-    const noShow = unbookedJobs.filter(j => j.status === 'no_show').length;
-    const totalUnbooked = unbookedJobs.length;
-
-    const sourceJobs = allJobs || jobs;
-    const booked = sourceJobs.filter(j => {
-      if (isCompleted(j)) return false;
-      if (j.referBack) return false;
-      return !!j.bookedDate || (tradeBookings ? tradeBookings.has(j.id) : false);
-    }).length;
-
-    const awaitingTrade = incompleteJobs.filter(j => j.status === 'awaiting_trade').length;
-    const ongoing = incompleteJobs.filter(j => j.isOngoing).length;
-    const paused = incompleteJobs.filter(j => j.status === 'pause').length;
+    let complete = 0;
+    let assigned = 0;
+    let overdue = 0;
+    let emergency = 0;
+    let urgent = 0;
+    let noAnswer = 0;
+    let voiceMessage = 0;
+    let callBack = 0;
+    let noShow = 0;
+    let totalUnbooked = 0;
+    let awaitingTrade = 0;
+    let ongoing = 0;
+    let paused = 0;
+    let progressSum = 0;
 
     const activeByStatus = {
-      pending: incompleteJobs.filter(j => j.status === 'pending' || !j.status).length,
-      started: incompleteJobs.filter(j => j.status === 'started').length,
-      noAnswer: incompleteJobs.filter(j => j.status === 'no_answer').length,
-      voiceMessage: incompleteJobs.filter(j => j.status === 'voice_message').length,
-      callBack: incompleteJobs.filter(j => j.status === 'call_back').length,
-      noShow: incompleteJobs.filter(j => j.status === 'no_show').length,
-      awaitingTrade: incompleteJobs.filter(j => j.status === 'awaiting_trade').length,
-      paused: incompleteJobs.filter(j => j.status === 'pause').length,
-      leftProperty: incompleteJobs.filter(j => j.status === 'left_property').length,
-      returnNph: incompleteJobs.filter(j => j.status === 'return_nph').length,
-      jan2026: incompleteJobs.filter(j => j.status === 'jan2026').length,
+      pending: 0, started: 0, noAnswer: 0, voiceMessage: 0, callBack: 0,
+      noShow: 0, awaitingTrade: 0, paused: 0, leftProperty: 0, returnNph: 0, jan2026: 0,
     };
-    const activeStatusSum = Object.values(activeByStatus).reduce((a, b) => a + b, 0);
 
-    const avgProgress = jobs.length > 0 
-      ? Math.round(jobs.reduce((sum, j) => sum + (j.progress || 0), 0) / jobs.length)
-      : 0;
+    // Single pass over jobs for all incomplete-job counters.
+    for (const j of jobs) {
+      progressSum += j.progress || 0;
+      if (isCompleted(j)) { complete++; continue; }
+
+      // Incomplete only from here
+      if (j.team != null && j.team !== '') assigned++;
+      if (isEmergencyOrCritical(j.description)) emergency++;
+      if (isUrgent(j.description)) urgent++;
+      if (j.isOngoing) ongoing++;
+
+      if (j.bookedDate) {
+        const bd = j.bookedDate instanceof Date ? j.bookedDate : new Date(j.bookedDate);
+        const bdMs = bd.getTime();
+        if (!isNaN(bdMs) && bdMs < nowMs && getHoursDifferenceGMT(now, bd) > 24) {
+          overdue++;
+        }
+      } else {
+        totalUnbooked++;
+        if (j.status === 'no_answer') noAnswer++;
+        else if (j.status === 'voice_message') voiceMessage++;
+        else if (j.status === 'call_back') callBack++;
+        else if (j.status === 'no_show') noShow++;
+      }
+
+      switch (j.status) {
+        case 'awaiting_trade': awaitingTrade++; activeByStatus.awaitingTrade++; break;
+        case 'pause': paused++; activeByStatus.paused++; break;
+        case 'started': activeByStatus.started++; break;
+        case 'no_answer': activeByStatus.noAnswer++; break;
+        case 'voice_message': activeByStatus.voiceMessage++; break;
+        case 'call_back': activeByStatus.callBack++; break;
+        case 'no_show': activeByStatus.noShow++; break;
+        case 'left_property': activeByStatus.leftProperty++; break;
+        case 'return_nph': activeByStatus.returnNph++; break;
+        case 'jan2026': activeByStatus.jan2026++; break;
+        case 'pending':
+          activeByStatus.pending++; break;
+        default:
+          if (!j.status) activeByStatus.pending++;
+      }
+    }
+
+    const active = total - complete;
+
+    // Booked uses a separate source (allJobs) so keep its own pass.
+    const sourceJobs = allJobs || jobs;
+    let booked = 0;
+    for (const j of sourceJobs) {
+      if (isCompleted(j)) continue;
+      if (j.referBack) continue;
+      if (j.bookedDate || (tradeBookings && tradeBookings.has(j.id))) booked++;
+    }
+
+    const activeStatusSum =
+      activeByStatus.pending + activeByStatus.started + activeByStatus.noAnswer +
+      activeByStatus.voiceMessage + activeByStatus.callBack + activeByStatus.noShow +
+      activeByStatus.awaitingTrade + activeByStatus.paused + activeByStatus.leftProperty +
+      activeByStatus.returnNph + activeByStatus.jan2026;
+
+    const avgProgress = total > 0 ? Math.round(progressSum / total) : 0;
 
     return {
       total, complete, active, assigned, overdue,
@@ -124,7 +157,7 @@ export const StatsCards = forwardRef<HTMLDivElement, StatsCardsProps>(({ jobs, a
       booked, awaitingTrade, ongoing, paused, avgProgress,
       activeByStatus, activeStatusSum
     };
-  }, [jobs, allJobs, now]);
+  }, [jobs, allJobs, tradeBookings]);
 
   const primaryStats = [
     { label: 'Total', value: counts.total, icon: Briefcase, color: 'text-primary', bg: 'bg-primary/10' },

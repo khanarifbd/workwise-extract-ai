@@ -100,8 +100,11 @@ const Index = () => {
   // Get trade-booked jobs (sub-tasks with booked dates)
   const { tradeBookings, refetch: refetchTradeBookings } = useTradeBookedJobs();
   
-  // Get job IDs for sign-off status
-  const jobIds = useMemo(() => jobs.map(j => j.id), [jobs]);
+  // Stable jobIds: reference only changes when the SET of IDs changes (add/remove),
+  // not on every field edit. Prevents unnecessary re-subscriptions in downstream hooks.
+  const jobIdsKey = useMemo(() => jobs.map(j => j.id).sort().join('|'), [jobs]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const jobIds = useMemo(() => jobs.map(j => j.id), [jobIdsKey]);
   const { getSignOffStatus, getLatestSignOffDate, getSignOffRows } = useSignOffStatus(jobIds);
   const { jobIds: jobsWithExternalSet } = useJobsWithExternalAssignees();
   const { getExternals: getExternalAssignees } = useJobsExternalAssigneesBulk(jobIds);
@@ -1123,6 +1126,7 @@ const Index = () => {
   const [danniCount, setDanniCount] = useState(0);
   useEffect(() => {
     if (!dmCategoryId) return;
+    let cancelled = false;
     const computeCount = async () => {
       try {
         const { data: jobsList } = await supabase
@@ -1147,18 +1151,12 @@ const Index = () => {
             (soData || []).forEach(r => signedOffIds.add(r.job_id));
           }
         }
-        const jobsRes = { data: jobsList } as { data: typeof jobsList };
 
         const now = getGMTNow();
         let count = 0;
-        for (const job of (jobsRes.data || [])) {
+        for (const job of (jobsList || [])) {
           if (job.status === 'complete') continue;
-          // Include manually flagged ongoing jobs
-          if (job.is_ongoing) {
-            count++;
-            continue;
-          }
-          // Auto-trigger: 24h+ past booked date
+          if (job.is_ongoing) { count++; continue; }
           if (!job.booked_date) continue;
           const bd = new Date(job.booked_date);
           if (isNaN(bd.getTime()) || bd.getTime() >= now.getTime()) continue;
@@ -1166,15 +1164,17 @@ const Index = () => {
           if (signedOffIds.has(job.id)) continue;
           count++;
         }
-        setDanniCount(count);
+        if (!cancelled) setDanniCount(count);
       } catch (err) {
         console.error('Failed to compute Danni count:', err);
       }
     };
     computeCount();
     const interval = setInterval(computeCount, 120000);
-    return () => clearInterval(interval);
-  }, [dmCategoryId, jobs]);
+    return () => { cancelled = true; clearInterval(interval); };
+    // Depend on jobs.length (add/remove) not jobs reference (every field edit).
+    // The 2-minute interval still picks up booked_date/sign-off drift.
+  }, [dmCategoryId, jobs.length]);
   // Real-time overdue notifications with toast and sound alerts
   useOverdueNotifications({
     jobs,

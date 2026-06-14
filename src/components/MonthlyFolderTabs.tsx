@@ -71,10 +71,16 @@ export const MonthlyFolderTabs = ({
 
   const totalJobs = jobs.length;
 
-  // Current month key
-  const currentMonthKey = format(new Date(), 'yyyy-MM');
-  const currentMonthFolder = folders.find(f => f.id === currentMonthKey);
-  const otherFolders = folders.filter(f => f.id !== currentMonthKey);
+  // Current month key (stable for the session; recomputed only if folders change)
+  const currentMonthKey = useMemo(() => format(new Date(), 'yyyy-MM'), []);
+  const currentMonthFolder = useMemo(
+    () => folders.find(f => f.id === currentMonthKey),
+    [folders, currentMonthKey]
+  );
+  const otherFolders = useMemo(
+    () => folders.filter(f => f.id !== currentMonthKey),
+    [folders, currentMonthKey]
+  );
   const [showOlderMonths, setShowOlderMonths] = useState(false);
 
   return (

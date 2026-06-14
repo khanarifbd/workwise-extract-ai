@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -46,6 +47,27 @@ export const JobFilters = ({ filters, onFiltersChange, availableSorCodes, onExpo
   const [presets, setPresets] = useState<FilterPreset[]>([]);
   const [presetName, setPresetName] = useState('');
   const [showSavePreset, setShowSavePreset] = useState(false);
+
+  // Local search state debounced so each keystroke doesn't re-render the entire dashboard.
+  const [localSearch, setLocalSearch] = useState(filters.search);
+  const debouncedSearch = useDebouncedValue(localSearch, 250);
+  const lastPushedSearch = useRef(filters.search);
+
+  // Push debounced search up to parent only when it actually changes.
+  useEffect(() => {
+    if (debouncedSearch === lastPushedSearch.current) return;
+    lastPushedSearch.current = debouncedSearch;
+    onFiltersChange({ ...filters, search: debouncedSearch });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch]);
+
+  // Keep local in sync if parent clears/resets filters externally (e.g. preset apply).
+  useEffect(() => {
+    if (filters.search !== lastPushedSearch.current) {
+      lastPushedSearch.current = filters.search;
+      setLocalSearch(filters.search);
+    }
+  }, [filters.search]);
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -133,18 +155,18 @@ export const JobFilters = ({ filters, onFiltersChange, availableSorCodes, onExpo
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2 flex-wrap">
-        {/* Search Input */}
+        {/* Search Input (locally debounced so keystrokes don't re-render the entire dashboard) */}
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             placeholder="Search jobs, names, addresses..."
-            value={filters.search}
-            onChange={(e) => updateFilter('search', e.target.value)}
+            value={localSearch}
+            onChange={(e) => setLocalSearch(e.target.value)}
             className="pl-9 h-9 text-sm"
           />
-          {filters.search && (
+          {localSearch && (
             <button
-              onClick={() => updateFilter('search', '')}
+              onClick={() => setLocalSearch('')}
               className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
             >
               <X className="w-3 h-3" />
