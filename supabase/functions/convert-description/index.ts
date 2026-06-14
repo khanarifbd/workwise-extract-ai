@@ -64,10 +64,40 @@ serve(async (req) => {
     const codeIndex = new Map<string, CodeEntry>();
     codes.forEach((c) => codeIndex.set(c.code, c));
 
+    // Token-based shortlist: pre-filter the catalogue to entries that share meaningful tokens
+    // with the description + existing works. This drastically improves grounding vs dumping all 2000+ codes.
+    const STOP = new Set(['the','a','an','and','or','of','to','in','on','at','for','with','by','is','are','be','it','as','this','that','from','was','were','has','have','had','will','any','all','new','old','one','two','per','use','using','make','please','need','required','works','work','job','area','room']);
+    const tokenize = (s: string): string[] =>
+      (s || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter((w) => w.length >= 3 && !STOP.has(w));
+
+    const queryTokens = new Set<string>([
+      ...tokenize(description),
+      ...((existingWorks ?? []).flatMap((w: any) => tokenize(w.description || ''))),
+    ]);
+
+    const scoreEntry = (c: CodeEntry): number => {
+      const hay = `${c.description} ${c.category || ''}`.toLowerCase();
+      let s = 0;
+      for (const t of queryTokens) if (hay.includes(t)) s += t.length >= 5 ? 2 : 1;
+      return s;
+    };
+
     let sorContext: string;
     let codeSource: 'nph_books' | 'fallback';
     if (codes.length > 0) {
-      sorContext = codes.map((c) => `${c.code}: ${c.description} (Category: ${c.category || 'General'}, Unit: ${c.unit || 'each'}, Cost: £${c.cost})`).join('\n');
+      // Always include codes referenced by existing works
+      const forcedCodes = new Set<string>(
+        (existingWorks ?? []).map((w: any) => String(w.code || '').trim()).filter(Boolean)
+      );
+      const scored = codes
+        .map((c) => ({ c, s: scoreEntry(c) + (forcedCodes.has(c.code) ? 999 : 0) }))
+        .filter((x) => x.s > 0)
+        .sort((a, b) => b.s - a.s)
+        .slice(0, 300)
+        .map((x) => x.c);
+      // Fallback: if no tokens matched (very short desc), use first 300 codes
+      const shortlist = scored.length >= 20 ? scored : codes.slice(0, 300);
+      sorContext = shortlist.map((c) => `${c.code} | ${c.description} | ${c.category || 'General'} | ${c.unit || 'each'} | £${c.cost}`).join('\n');
       codeSource = 'nph_books';
     } else {
       sorContext = sorCodesContext || '';
