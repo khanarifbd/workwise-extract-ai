@@ -286,34 +286,10 @@ For each tier, judge:
 Return STRICTLY: { "review": { "baseline": { "ok": boolean, "issues": string[], "score": number }, "enhanced": {...}, "premium": {...} }, "overall": { "ok": boolean, "summary": string } }
 score: 0-100. issues: short bullet-style strings (empty array if none).`;
 
-    const reviewPayload = {
-      description,
-      minimumCost,
-      tiers: Object.fromEntries(Object.entries(validatedTiers).map(([k, v]: any) => [k, { total: v.total, items: v.items.map((i: any) => ({ code: i.code, description: i.description, qty: i.qty, cost: i.cost })) }])),
-    };
-
-    let review: any = null;
-    try {
-      const revRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
-          messages: [
-            { role: 'system', content: reviewPrompt },
-            { role: 'user', content: JSON.stringify(reviewPayload) },
-          ],
-          response_format: { type: 'json_object' },
-        }),
-      });
-      if (revRes.ok) {
-        const d = await revRes.json();
-        const c = d.choices?.[0]?.message?.content ?? '';
-        try { review = JSON.parse(c); } catch { const m = c.match(/\{[\s\S]*\}/); if (m) try { review = JSON.parse(m[0]); } catch {} }
-      }
-    } catch (e) {
-      console.warn('Review pass failed:', e);
-    }
+    // Review pass removed for speed — it added 5-15s per request and the deterministic
+    // catalogue validation + remap above already guarantees every emitted code is real
+    // and costed against the NPH book. UI handles null review gracefully.
+    const review: any = null;
 
     return new Response(JSON.stringify({
       success: true,
