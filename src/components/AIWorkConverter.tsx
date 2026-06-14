@@ -41,7 +41,15 @@ export const AIWorkConverter = ({ onConvert, onClose, existingWorks }: AIWorkCon
     setIsProcessing(true);
     try {
       const min = minimumCost.trim() ? Number(minimumCost) : undefined;
-      const res = await convertDescriptionToTieredQuotes(description, min);
+      const existingPayload = (incorporateExisting && hasExisting)
+        ? existingWorks!.map((w) => ({
+            description: w.description || '',
+            code: w.sorCode || undefined,
+            qty: typeof w.qty === 'number' ? w.qty : 1,
+            cost: typeof w.cost === 'number' ? w.cost : 0,
+          }))
+        : undefined;
+      const res = await convertDescriptionToTieredQuotes(description, min, existingPayload);
       setResult(res);
       setSelectedTier('baseline');
       if (res.codeSource === 'fallback') {
