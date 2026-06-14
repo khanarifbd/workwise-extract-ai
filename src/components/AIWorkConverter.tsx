@@ -12,8 +12,9 @@ import { cn } from '@/lib/utils';
 import { SORCodeBookManager } from './SORCodeBookManager';
 
 interface AIWorkConverterProps {
-  onConvert: (workItems: WorkItem[]) => void;
+  onConvert: (workItems: WorkItem[], replaceExisting?: boolean) => void;
   onClose: () => void;
+  existingWorks?: WorkItem[];
 }
 
 type TierKey = 'baseline' | 'enhanced' | 'premium';
@@ -23,13 +24,15 @@ const TIER_META: Record<TierKey, { label: string; color: string; ring: string; d
   premium:  { label: 'Premium',  color: 'bg-amber-500/10 text-amber-600 border-amber-500/30',     ring: 'ring-amber-500',  description: 'Full scope with allied works (~+45%)' },
 };
 
-export const AIWorkConverter = ({ onConvert, onClose }: AIWorkConverterProps) => {
+export const AIWorkConverter = ({ onConvert, onClose, existingWorks }: AIWorkConverterProps) => {
   const [description, setDescription] = useState('');
   const [minimumCost, setMinimumCost] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [result, setResult] = useState<ConvertResponse | null>(null);
   const [selectedTier, setSelectedTier] = useState<TierKey>('baseline');
   const [showBooks, setShowBooks] = useState(false);
+  const hasExisting = !!(existingWorks && existingWorks.length > 0);
+  const [incorporateExisting, setIncorporateExisting] = useState<boolean>(hasExisting);
   const { toast } = useToast();
   const { isAdmin } = useAdminAuth();
 
@@ -38,7 +41,15 @@ export const AIWorkConverter = ({ onConvert, onClose }: AIWorkConverterProps) =>
     setIsProcessing(true);
     try {
       const min = minimumCost.trim() ? Number(minimumCost) : undefined;
-      const res = await convertDescriptionToTieredQuotes(description, min);
+      const existingPayload = (incorporateExisting && hasExisting)
+        ? existingWorks!.map((w) => ({
+            description: w.description || '',
+            code: w.sorCode || undefined,
+            qty: typeof w.qty === 'number' ? w.qty : 1,
+            cost: typeof w.cost === 'number' ? w.cost : 0,
+          }))
+        : undefined;
+      const res = await convertDescriptionToTieredQuotes(description, min, existingPayload);
       setResult(res);
       setSelectedTier('baseline');
       if (res.codeSource === 'fallback') {
@@ -66,7 +77,7 @@ export const AIWorkConverter = ({ onConvert, onClose }: AIWorkConverterProps) =>
       qty: it.qty,
       cost: it.cost,
     }));
-    onConvert(workItems);
+    onConvert(workItems, incorporateExisting && hasExisting);
   };
 
   const renderTierPanel = (key: TierKey, tier: ConvertTier) => {
@@ -174,6 +185,28 @@ export const AIWorkConverter = ({ onConvert, onClose }: AIWorkConverterProps) =>
               <p className="text-[10px] text-muted-foreground mt-1">Baseline ≥ this figure, Enhanced ~+20%, Premium ~+45%.</p>
             </div>
           </div>
+          {hasExisting && (
+            <label className={cn(
+              'flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors',
+              incorporateExisting ? 'border-primary/50 bg-primary/5' : 'border-border hover:bg-muted/30'
+            )}>
+              <input
+                type="checkbox"
+                checked={incorporateExisting}
+                onChange={(e) => setIncorporateExisting(e.target.checked)}
+                className="mt-0.5 h-4 w-4 accent-primary cursor-pointer"
+              />
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-semibold flex items-center gap-2">
+                  Incorporate existing Works List ({existingWorks!.length} NPH item{existingWorks!.length === 1 ? '' : 's'})
+                  <Badge variant="secondary" className="text-[10px]">Recommended</Badge>
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Keeps every NPH-allocated SOR code intact and uses them as context to build a realistic, accurate breakdown of the works — no fabrication.
+                </p>
+              </div>
+            </label>
+          )}
           <Button onClick={handleConvert} disabled={isProcessing || !description.trim()} className="w-full">
             {isProcessing ? (
               <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Processing with AI + accuracy check…</>

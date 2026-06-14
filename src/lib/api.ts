@@ -315,15 +315,24 @@ export interface ConvertResponse {
   minimumCost: number;
 }
 
+export interface ExistingWorkInput {
+  description: string;
+  code?: string;
+  qty?: number;
+  cost?: number;
+}
+
 export const convertDescriptionToTieredQuotes = async (
   description: string,
-  minimumCost?: number
+  minimumCost?: number,
+  existingWorks?: ExistingWorkInput[]
 ): Promise<ConvertResponse> => {
   const headers = await getAuthHeaders();
   const { data, error } = await supabase.functions.invoke('convert-description', {
     body: {
       description,
       ...(typeof minimumCost === 'number' ? { minimumCost } : {}),
+      ...(existingWorks && existingWorks.length > 0 ? { existingWorks } : {}),
       sorCodesContext: getSORCodesContext(), // fallback only — used if no NPH books uploaded
     },
     headers,

@@ -11,6 +11,12 @@ const schema = z.object({
   description: z.string().min(1).max(50000),
   minimumCost: z.number().min(0).max(1_000_000).optional(),
   sorCodesContext: z.string().max(50000).optional(), // fallback only
+  existingWorks: z.array(z.object({
+    description: z.string().max(2000),
+    code: z.string().max(64).optional(),
+    qty: z.number().optional(),
+    cost: z.number().optional(),
+  })).max(200).optional(),
 });
 
 interface CodeEntry {
@@ -45,7 +51,7 @@ serve(async (req) => {
     if (!parsed.success) {
       return new Response(JSON.stringify({ error: 'Invalid input', details: parsed.error.errors }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
-    const { description, minimumCost = 0, sorCodesContext } = parsed.data;
+    const { description, minimumCost = 0, sorCodesContext, existingWorks } = parsed.data;
 
     // Load codes from approved SOR books
     const { data: codeRows } = await admin
@@ -108,13 +114,25 @@ Return STRICTLY a JSON object of this shape (no markdown, no commentary):
 Each items[] entry: description = clear, professional human-readable line; code = exact SOR code from the catalogue; qty = integer >= 1.
 Notes: 1-2 sentences explaining the scope rationale for that tier (e.g. "Adds tiled make-good and full redecoration").`;
 
+    const existingWorksBlock = (existingWorks && existingWorks.length > 0)
+      ? `\n\nEXISTING NPH WORKS LIST (already on the job — provided by NPH).
+These are the works ALREADY ALLOCATED to this job. Many descriptions are short or non-specific.
+Your task:
+1. KEEP every existing item — re-emit each one in every tier using the SAME SOR code and (at minimum) the SAME qty. Preserve them verbatim.
+2. From the NEW description plus the existing works combined, INFER the realistic full breakdown of works actually carried out on site. Add ONLY additional SOR codes from the catalogue that the combined data genuinely implies (allied works, make-good, ancillary fittings, decoration). DO NOT fabricate works that are not implied by the data.
+3. Stay accurate — when a description is vague, use the surrounding works items as context to choose the most realistic NPH-aligned codes. Never invent.
+
+Existing items (JSON):
+${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, code: w.code || null, qty: w.qty || 1 })))}`
+      : '';
+
     const genRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash',
         messages: [
-          { role: 'system', content: systemPrompt },
+          { role: 'system', content: systemPrompt + existingWorksBlock },
           { role: 'user', content: `Description to convert:\n\n${description}` },
         ],
         response_format: { type: 'json_object' },
