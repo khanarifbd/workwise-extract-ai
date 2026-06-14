@@ -185,6 +185,28 @@ export const AIWorkConverter = ({ onConvert, onClose, existingWorks }: AIWorkCon
               <p className="text-[10px] text-muted-foreground mt-1">Baseline ≥ this figure, Enhanced ~+20%, Premium ~+45%.</p>
             </div>
           </div>
+          {hasExisting && (
+            <label className={cn(
+              'flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors',
+              incorporateExisting ? 'border-primary/50 bg-primary/5' : 'border-border hover:bg-muted/30'
+            )}>
+              <input
+                type="checkbox"
+                checked={incorporateExisting}
+                onChange={(e) => setIncorporateExisting(e.target.checked)}
+                className="mt-0.5 h-4 w-4 accent-primary cursor-pointer"
+              />
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-semibold flex items-center gap-2">
+                  Incorporate existing Works List ({existingWorks!.length} NPH item{existingWorks!.length === 1 ? '' : 's'})
+                  <Badge variant="secondary" className="text-[10px]">Recommended</Badge>
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Keeps every NPH-allocated SOR code intact and uses them as context to build a realistic, accurate breakdown of the works — no fabrication.
+                </p>
+              </div>
+            </label>
+          )}
           <Button onClick={handleConvert} disabled={isProcessing || !description.trim()} className="w-full">
             {isProcessing ? (
               <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Processing with AI + accuracy check…</>
