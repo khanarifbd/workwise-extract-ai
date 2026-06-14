@@ -1,0 +1,1 @@
+UPDATE public.sor_code_books SET code_count = (SELECT COUNT(*) FROM public.sor_code_entries WHERE book_id = '11111111-1111-1111-1111-111111111111'), status = 'ready', error_message = NULL, updated_at = now() WHERE id = '11111111-1111-1111-1111-111111111111';
