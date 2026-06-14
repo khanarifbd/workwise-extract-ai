@@ -93,10 +93,10 @@ serve(async (req) => {
         .map((c) => ({ c, s: scoreEntry(c) + (forcedCodes.has(c.code) ? 999 : 0) }))
         .filter((x) => x.s > 0)
         .sort((a, b) => b.s - a.s)
-        .slice(0, 300)
+        .slice(0, 220)
         .map((x) => x.c);
-      // Fallback: if no tokens matched (very short desc), use first 300 codes
-      const shortlist = scored.length >= 20 ? scored : codes.slice(0, 300);
+      // Fallback: if no tokens matched (very short desc), use first 220 codes
+      const shortlist = scored.length >= 20 ? scored : codes.slice(0, 220);
       sorContext = shortlist.map((c) => `${c.code} | ${c.description} | ${c.category || 'General'} | ${c.unit || 'each'} | £${c.cost}`).join('\n');
       codeSource = 'nph_books';
     } else {
@@ -172,18 +172,28 @@ Existing items (JSON):
 ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, code: w.code || null, qty: w.qty || 1 })))}`
       : '';
 
-    const genRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-pro',
-        messages: [
-          { role: 'system', content: systemPrompt + existingWorksBlock },
-          { role: 'user', content: `Description to convert:\n\n${description}` },
-        ],
-        response_format: { type: 'json_object' },
-      }),
-    });
+    // Use Flash for speed — Pro was timing out at the gateway ("connection closed before message completed").
+    // The deterministic remap + accuracy validation below catches any hallucinated codes, so Flash is safe here.
+    const genController = new AbortController();
+    const genTimeout = setTimeout(() => genController.abort(), 55_000);
+    let genRes: Response;
+    try {
+      genRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
+        signal: genController.signal,
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            { role: 'system', content: systemPrompt + existingWorksBlock },
+            { role: 'user', content: `Description to convert:\n\n${description}` },
+          ],
+          response_format: { type: 'json_object' },
+        }),
+      });
+    } finally {
+      clearTimeout(genTimeout);
+    }
 
     if (!genRes.ok) {
       if (genRes.status === 429) return new Response(JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }), { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -266,44 +276,10 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
       };
     }
 
-    // Second AI pass for NPH/industry alignment review
-    const reviewPrompt = `You are an NPH QS reviewer. Review the three tiered quotes below against the original description.
-For each tier, judge:
-1. Are the SOR codes appropriate for the works described?
-2. Are quantities realistic for typical UK social housing repair?
-3. Is the scope progression sensible (baseline -> enhanced -> premium)?
-
-Return STRICTLY: { "review": { "baseline": { "ok": boolean, "issues": string[], "score": number }, "enhanced": {...}, "premium": {...} }, "overall": { "ok": boolean, "summary": string } }
-score: 0-100. issues: short bullet-style strings (empty array if none).`;
-
-    const reviewPayload = {
-      description,
-      minimumCost,
-      tiers: Object.fromEntries(Object.entries(validatedTiers).map(([k, v]: any) => [k, { total: v.total, items: v.items.map((i: any) => ({ code: i.code, description: i.description, qty: i.qty, cost: i.cost })) }])),
-    };
-
-    let review: any = null;
-    try {
-      const revRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
-          messages: [
-            { role: 'system', content: reviewPrompt },
-            { role: 'user', content: JSON.stringify(reviewPayload) },
-          ],
-          response_format: { type: 'json_object' },
-        }),
-      });
-      if (revRes.ok) {
-        const d = await revRes.json();
-        const c = d.choices?.[0]?.message?.content ?? '';
-        try { review = JSON.parse(c); } catch { const m = c.match(/\{[\s\S]*\}/); if (m) try { review = JSON.parse(m[0]); } catch {} }
-      }
-    } catch (e) {
-      console.warn('Review pass failed:', e);
-    }
+    // Review pass removed for speed — it previously added 5-15s per request via a second
+    // AI call. The deterministic catalogue validation + token-overlap remap above already
+    // guarantees every emitted code is real and costed against the NPH book.
+    const review: any = null;
 
     return new Response(JSON.stringify({
       success: true,
@@ -317,6 +293,9 @@ score: 0-100. issues: short bullet-style strings (empty array if none).`;
 
   } catch (error: any) {
     console.error('convert-description error', error);
-    return new Response(JSON.stringify({ error: String(error?.message || 'Failed') }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    const msg = error?.name === 'AbortError'
+      ? 'AI conversion timed out. Please try again — shorter descriptions process faster.'
+      : String(error?.message || 'Failed');
+    return new Response(JSON.stringify({ error: msg }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 });
