@@ -64,10 +64,40 @@ serve(async (req) => {
     const codeIndex = new Map<string, CodeEntry>();
     codes.forEach((c) => codeIndex.set(c.code, c));
 
+    // Token-based shortlist: pre-filter the catalogue to entries that share meaningful tokens
+    // with the description + existing works. This drastically improves grounding vs dumping all 2000+ codes.
+    const STOP = new Set(['the','a','an','and','or','of','to','in','on','at','for','with','by','is','are','be','it','as','this','that','from','was','were','has','have','had','will','any','all','new','old','one','two','per','use','using','make','please','need','required','works','work','job','area','room']);
+    const tokenize = (s: string): string[] =>
+      (s || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter((w) => w.length >= 3 && !STOP.has(w));
+
+    const queryTokens = new Set<string>([
+      ...tokenize(description),
+      ...((existingWorks ?? []).flatMap((w: any) => tokenize(w.description || ''))),
+    ]);
+
+    const scoreEntry = (c: CodeEntry): number => {
+      const hay = `${c.description} ${c.category || ''}`.toLowerCase();
+      let s = 0;
+      for (const t of queryTokens) if (hay.includes(t)) s += t.length >= 5 ? 2 : 1;
+      return s;
+    };
+
     let sorContext: string;
     let codeSource: 'nph_books' | 'fallback';
     if (codes.length > 0) {
-      sorContext = codes.map((c) => `${c.code}: ${c.description} (Category: ${c.category || 'General'}, Unit: ${c.unit || 'each'}, Cost: £${c.cost})`).join('\n');
+      // Always include codes referenced by existing works
+      const forcedCodes = new Set<string>(
+        (existingWorks ?? []).map((w: any) => String(w.code || '').trim()).filter(Boolean)
+      );
+      const scored = codes
+        .map((c) => ({ c, s: scoreEntry(c) + (forcedCodes.has(c.code) ? 999 : 0) }))
+        .filter((x) => x.s > 0)
+        .sort((a, b) => b.s - a.s)
+        .slice(0, 300)
+        .map((x) => x.c);
+      // Fallback: if no tokens matched (very short desc), use first 300 codes
+      const shortlist = scored.length >= 20 ? scored : codes.slice(0, 300);
+      sorContext = shortlist.map((c) => `${c.code} | ${c.description} | ${c.category || 'General'} | ${c.unit || 'each'} | £${c.cost}`).join('\n');
       codeSource = 'nph_books';
     } else {
       sorContext = sorCodesContext || '';
@@ -110,8 +140,10 @@ HARD RULES:
 - Use whichever source has the MORE SPECIFIC data for each line: prefer the existing Works List where it names a precise code/scope; prefer the free-text description where it adds location, dimensions, material, fault detail, or extent.
 - Do NOT fabricate. If the data doesn't imply a code, don't add it.
 
-CATALOGUE (code: description (Category, Unit, Cost)):
+CATALOGUE — these are the ONLY codes you may emit (pipe-separated: code | description | category | unit | cost):
 ${sorContext}
+
+REMINDER: a code that is NOT in the list above does not exist. Do not invent codes like "821503" or "0508AA" — only emit codes printed in the list above. If no listed code fits, omit the line.
 ${minCostInstruction}
 
 Return STRICTLY a JSON object of this shape (no markdown, no commentary):
@@ -144,7 +176,7 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
       method: 'POST',
       headers: { 'Authorization': `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'google/gemini-2.5-pro',
         messages: [
           { role: 'system', content: systemPrompt + existingWorksBlock },
           { role: 'user', content: `Description to convert:\n\n${description}` },
@@ -168,28 +200,56 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
     }
     if (!tiersRaw?.tiers) throw new Error('AI returned no tiers');
 
-    // Deterministic accuracy: resolve every code against catalogue, recompute totals
+    // Deterministic accuracy: resolve every code against catalogue, recompute totals.
+    // For codes the AI invented, deterministically remap to the closest legitimate catalogue
+    // entry by token-overlap on the description (so the user always gets a real costed line).
+    const remapByDescription = (desc: string): CodeEntry | null => {
+      const toks = tokenize(desc);
+      if (toks.length === 0) return null;
+      let best: { c: CodeEntry; s: number } | null = null;
+      for (const c of codes) {
+        const hay = `${c.description} ${c.category || ''}`.toLowerCase();
+        let s = 0;
+        for (const t of toks) if (hay.includes(t)) s += t.length >= 5 ? 2 : 1;
+        if (s > 0 && (!best || s > best.s)) best = { c, s };
+      }
+      // Require at least 2 token hits to avoid noisy remaps
+      return best && best.s >= 2 ? best.c : null;
+    };
+
     const tierKeys = ['baseline', 'enhanced', 'premium'] as const;
     const validatedTiers: Record<string, any> = {};
-    const accuracy: Record<string, { total: number; itemCount: number; invalidCodes: string[]; valid: boolean }> = {};
+    const accuracy: Record<string, { total: number; itemCount: number; invalidCodes: string[]; remappedCount: number; valid: boolean }> = {};
 
     for (const key of tierKeys) {
       const t = tiersRaw.tiers[key];
       if (!t) continue;
       const items: any[] = Array.isArray(t.items) ? t.items : [];
       const invalidCodes: string[] = [];
+      let remappedCount = 0;
       let total = 0;
       const cleanedItems = items.map((it) => {
-        const code = String(it.code || '').trim();
+        const originalCode = String(it.code || '').trim();
         const qty = Math.max(1, Math.round(Number(it.qty) || 1));
-        const entry = codeIndex.get(code);
+        const desc = String(it.description || '');
+        let entry = codeIndex.get(originalCode);
+        let codeUsed = originalCode;
+        let remapped = false;
         if (!entry) {
-          invalidCodes.push(code);
-          return { description: String(it.description || ''), code, qty, cost: 0, unit: null, category: null, valid: false };
+          const guess = remapByDescription(desc);
+          if (guess) {
+            entry = guess;
+            codeUsed = guess.code;
+            remapped = true;
+            remappedCount += 1;
+          } else {
+            invalidCodes.push(originalCode);
+            return { description: desc, code: originalCode, qty, cost: 0, unit: null, category: null, valid: false };
+          }
         }
         const cost = entry.cost * qty;
         total += cost;
-        return { description: String(it.description || entry.description), code, qty, cost, unit: entry.unit, category: entry.category, valid: true };
+        return { description: desc || entry.description, code: codeUsed, qty, cost, unit: entry.unit, category: entry.category, valid: true, ...(remapped ? { remappedFrom: originalCode } : {}) };
       });
       validatedTiers[key] = {
         label: t.label || key,
@@ -201,6 +261,7 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
         total: validatedTiers[key].total,
         itemCount: cleanedItems.length,
         invalidCodes,
+        remappedCount,
         valid: invalidCodes.length === 0,
       };
     }
