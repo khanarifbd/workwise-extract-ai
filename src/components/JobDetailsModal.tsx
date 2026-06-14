@@ -496,6 +496,12 @@ export const JobDetailsModal = forwardRef<HTMLDivElement, JobDetailsModalProps>(
                     </button>
                   </CollapsibleTrigger>
                   <div className="flex gap-2">
+                    {aiUndoAdditional && (
+                      <Button variant="outline" size="sm" onClick={handleRevertAdditionalAI} title="Revert last AI conversion and re-edit description">
+                        <Undo2 className="w-3 h-3 mr-1" />
+                        Revert AI
+                      </Button>
+                    )}
                     <Button variant="outline" size="sm" onClick={() => setShowAdditionalAI(true)}>
                       <Wand2 className="w-3 h-3 mr-1" />
                       AI Convert
@@ -512,6 +518,7 @@ export const JobDetailsModal = forwardRef<HTMLDivElement, JobDetailsModalProps>(
                     onConvert={handleAdditionalAIConvert}
                     onClose={() => setShowAdditionalAI(false)}
                     existingWorks={editedJob.additionalWorks}
+                    initialDescription={aiAdditionalInitialDescription}
                   />
                 )}
 
