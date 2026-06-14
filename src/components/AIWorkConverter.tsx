@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 import { SORCodeBookManager } from './SORCodeBookManager';
 
 interface AIWorkConverterProps {
-  onConvert: (workItems: WorkItem[]) => void;
+  onConvert: (workItems: WorkItem[], replaceExisting?: boolean) => void;
   onClose: () => void;
   existingWorks?: WorkItem[];
 }
