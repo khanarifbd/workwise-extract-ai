@@ -1943,6 +1943,7 @@ const Index = () => {
         />
       )}
     </div>
+    </Suspense>
   );
 };
 
