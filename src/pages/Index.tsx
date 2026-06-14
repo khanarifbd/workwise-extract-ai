@@ -30,9 +30,9 @@ const ManualJobEntry = lazy(() => import('@/components/ManualJobEntry').then(m =
 const PasteJobEntry = lazy(() => import('@/components/PasteJobEntry').then(m => ({ default: m.PasteJobEntry })));
 import { OverdueJobsDashboard } from '@/components/OverdueJobsDashboard';
 
-import { TeamAccountabilityMetrics } from '@/components/TeamAccountabilityMetrics';
-import { AdminNotesOrganiser } from '@/components/AdminNotesOrganiser';
-import { EODReportsPanel } from '@/components/EODReportsPanel';
+const TeamAccountabilityMetrics = lazy(() => import('@/components/TeamAccountabilityMetrics').then(m => ({ default: m.TeamAccountabilityMetrics })));
+const AdminNotesOrganiser = lazy(() => import('@/components/AdminNotesOrganiser').then(m => ({ default: m.AdminNotesOrganiser })));
+const EODReportsPanel = lazy(() => import('@/components/EODReportsPanel').then(m => ({ default: m.EODReportsPanel })));
 import { ReferBackPDFButton } from '@/components/ReferBackPDFButton';
 import { ActionHub } from '@/components/ActionHub';
 import { downloadReferBackJobPDF } from '@/components/ReferBackJobPDF';
