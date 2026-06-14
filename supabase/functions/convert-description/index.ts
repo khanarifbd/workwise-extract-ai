@@ -276,19 +276,9 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
       };
     }
 
-    // Second AI pass for NPH/industry alignment review
-    const reviewPrompt = `You are an NPH QS reviewer. Review the three tiered quotes below against the original description.
-For each tier, judge:
-1. Are the SOR codes appropriate for the works described?
-2. Are quantities realistic for typical UK social housing repair?
-3. Is the scope progression sensible (baseline -> enhanced -> premium)?
-
-Return STRICTLY: { "review": { "baseline": { "ok": boolean, "issues": string[], "score": number }, "enhanced": {...}, "premium": {...} }, "overall": { "ok": boolean, "summary": string } }
-score: 0-100. issues: short bullet-style strings (empty array if none).`;
-
-    // Review pass removed for speed — it added 5-15s per request and the deterministic
-    // catalogue validation + remap above already guarantees every emitted code is real
-    // and costed against the NPH book. UI handles null review gracefully.
+    // Review pass removed for speed — it previously added 5-15s per request via a second
+    // AI call. The deterministic catalogue validation + token-overlap remap above already
+    // guarantees every emitted code is real and costed against the NPH book.
     const review: any = null;
 
     return new Response(JSON.stringify({
