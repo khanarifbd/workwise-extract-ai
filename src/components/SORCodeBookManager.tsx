@@ -28,6 +28,7 @@ export const SORCodeBookManager = ({ open, onOpenChange }: Props) => {
   const [books, setBooks] = useState<SORBook[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [pasteOpen, setPasteOpen] = useState(false);
   const { toast } = useToast();
 
   const load = useCallback(async () => {
