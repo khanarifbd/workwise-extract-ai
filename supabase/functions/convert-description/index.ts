@@ -140,8 +140,10 @@ HARD RULES:
 - Use whichever source has the MORE SPECIFIC data for each line: prefer the existing Works List where it names a precise code/scope; prefer the free-text description where it adds location, dimensions, material, fault detail, or extent.
 - Do NOT fabricate. If the data doesn't imply a code, don't add it.
 
-CATALOGUE (code: description (Category, Unit, Cost)):
+CATALOGUE — these are the ONLY codes you may emit (pipe-separated: code | description | category | unit | cost):
 ${sorContext}
+
+REMINDER: a code that is NOT in the list above does not exist. Do not invent codes like "821503" or "0508AA" — only emit codes printed in the list above. If no listed code fits, omit the line.
 ${minCostInstruction}
 
 Return STRICTLY a JSON object of this shape (no markdown, no commentary):
