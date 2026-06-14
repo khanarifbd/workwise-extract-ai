@@ -11,7 +11,7 @@ import { Header } from '@/components/Header';
 import { StatsCards } from '@/components/StatsCards';
 import { FanStatsCards } from '@/components/FanStatsCards';
 import { InsulationStatsCards } from '@/components/InsulationStatsCards';
-import { InsulationAnalyticsReport } from '@/components/InsulationAnalyticsReport';
+const InsulationAnalyticsReport = lazy(() => import('@/components/InsulationAnalyticsReport').then(m => ({ default: m.InsulationAnalyticsReport })));
 import { ExportPanel } from '@/components/ExportPanel';
 import { DMJobFilters, FanJobFilters, InsulationJobFilters, FilterState, getDefaultFilterState } from '@/components/filters';
 import { CategoryTabs } from '@/components/CategoryTabs';
