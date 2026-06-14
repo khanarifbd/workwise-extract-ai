@@ -125,9 +125,6 @@ export const StatsCards = forwardRef<HTMLDivElement, StatsCardsProps>(({ jobs, a
         case 'return_nph': activeByStatus.returnNph++; break;
         case 'jan2026': activeByStatus.jan2026++; break;
         case 'pending':
-        case undefined:
-        case null:
-        case '':
           activeByStatus.pending++; break;
         default:
           if (!j.status) activeByStatus.pending++;
