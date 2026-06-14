@@ -12,9 +12,11 @@ import { cn } from '@/lib/utils';
 import { SORCodeBookManager } from './SORCodeBookManager';
 
 interface AIWorkConverterProps {
-  onConvert: (workItems: WorkItem[], replaceExisting?: boolean) => void;
+  onConvert: (workItems: WorkItem[], replaceExisting?: boolean, descriptionUsed?: string) => void;
   onClose: () => void;
   existingWorks?: WorkItem[];
+  initialDescription?: string;
+  initialMinimumCost?: string;
 }
 
 type TierKey = 'baseline' | 'enhanced' | 'premium';
