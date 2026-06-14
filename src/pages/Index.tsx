@@ -1366,6 +1366,7 @@ const Index = () => {
   }
 
   return (
+    <Suspense fallback={<div className="min-h-screen bg-background" />}>
     <div className="min-h-screen bg-background flex flex-col">
       <Header 
         onExport={() => setShowExport(true)} 
