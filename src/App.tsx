@@ -14,6 +14,7 @@ import ProgressorAuth from "./pages/ProgressorAuth";
 import NotFound from "./pages/NotFound";
 import { AdminRoute } from "./components/AdminRoute";
 import { ProgressorRoute } from "./components/ProgressorRoute";
+import { LastRouteRestorer } from "./components/LastRouteRestorer";
 
 // Lazy load heavy pages with retry on chunk load failure
 const lazyRetry = (importFn: () => Promise<any>) => {
