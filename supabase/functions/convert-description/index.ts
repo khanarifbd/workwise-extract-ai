@@ -236,7 +236,7 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
       const invalidCodes: string[] = [];
       let remappedCount = 0;
       let total = 0;
-      const cleanedItems = items.map((it) => {
+      const cleanedItemsRaw = items.map((it) => {
         const originalCode = String(it.code || '').trim();
         const qty = Math.max(1, Math.round(Number(it.qty) || 1));
         const desc = String(it.description || '');
@@ -252,13 +252,36 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
             remappedCount += 1;
           } else {
             invalidCodes.push(originalCode);
-            return { description: desc, code: originalCode, qty, cost: 0, unit: null, category: null, valid: false };
+            return null; // drop unresolvable lines — no £0 placeholders
           }
         }
         const cost = entry.cost * qty;
         total += cost;
-        return { description: desc || entry.description, code: codeUsed, qty, cost, unit: entry.unit, category: entry.category, valid: true, ...(remapped ? { remappedFrom: originalCode } : {}) };
+        return { description: desc || entry.description, code: codeUsed, qty, cost, unit: entry.unit, category: entry.category, entryCost: entry.cost, valid: true, ...(remapped ? { remappedFrom: originalCode } : {}) };
       });
+      const cleanedItems: any[] = cleanedItemsRaw.filter((x) => x !== null) as any[];
+
+      // HARD FLOOR enforcement for baseline: if the AI undershoots minimumCost,
+      // deterministically scale up the qty of the cheapest-per-unit valid lines
+      // (so we add coverage of allied items, never per-unit cost inflation).
+      if (key === 'baseline' && minimumCost > 0 && total < minimumCost && cleanedItems.length > 0) {
+        // Sort by lowest per-unit cost first → scaling cheap lines adds most "scope coverage"
+        const scalable = [...cleanedItems].sort((a, b) => (a.entryCost || 0) - (b.entryCost || 0));
+        let i = 0;
+        let safety = 5000;
+        while (total < minimumCost && safety-- > 0) {
+          const line = scalable[i % scalable.length];
+          if (!line.entryCost || line.entryCost <= 0) { i++; continue; }
+          line.qty += 1;
+          line.cost = line.entryCost * line.qty;
+          total += line.entryCost;
+          i++;
+        }
+      }
+
+      // Strip the internal entryCost helper before returning
+      for (const it of cleanedItems) delete it.entryCost;
+
       validatedTiers[key] = {
         label: t.label || key,
         notes: String(t.notes || ''),
