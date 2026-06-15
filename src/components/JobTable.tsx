@@ -490,31 +490,26 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
       const result = await extractFansWithAI(job.description || job.summaryOfWorks || '', job.workItems);
       
       if (result) {
-        // Always update fanInfo - if no fans found, set to empty array with a marker
         const fanInfoToSave: FanInfo[] = result.hasFans && result.fans.length > 0 
           ? result.fans 
-          : [{ type: '__SCANNED_NO_FANS__', quantity: 0, location: '' }]; // Marker for "scanned but no fans"
+          : [{ type: '__SCANNED_NO_FANS__', quantity: 0, location: '' }];
         
         onUpdateJob({ ...job, fanInfo: fanInfoToSave });
         
         if (result.hasFans && result.fans.length > 0) {
-          toast({
-            title: "Fans Found",
-            description: `Detected ${result.totalFanCount} fan(s) in ${result.fans.length} type(s). Use the Fan editor to book.`,
+          // Open booking dialog so user can pick a date and a linked Fan folder is created.
+          setFanBookingDialogData({
+            job,
+            fanInfo: result.fans,
+            totalFanCount: result.totalFanCount,
+            isUpdate: !!job.linkedFanJobId,
           });
         } else {
-          toast({
-            title: "No Fans Found",
-            description: "Scan complete - no fans detected in this job.",
-          });
+          toast({ title: "No Fans Found", description: "Scan complete - no fans detected in this job." });
         }
       } else {
-        // API returned null - mark as scanned with no fans
         onUpdateJob({ ...job, fanInfo: [{ type: '__SCANNED_NO_FANS__', quantity: 0, location: '' }] });
-        toast({
-          title: "No Fans Found",
-          description: "Scan complete - no fans detected in this job.",
-        });
+        toast({ title: "No Fans Found", description: "Scan complete - no fans detected in this job." });
       }
     } catch (error) {
       console.error('Error scanning for fans:', error);
