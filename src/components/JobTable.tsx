@@ -507,20 +507,10 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
         onUpdateJob({ ...job, fanInfo: fanInfoToSave });
         
         if (result.hasFans && result.fans.length > 0) {
-          // Show the booking date dialog if we have a fan category
-          if (fanCategoryId) {
-            setFanBookingDialogData({
-              job: { ...job, fanInfo: fanInfoToSave },
-              fanInfo: result.fans,
-              totalFanCount: result.totalFanCount,
-              isUpdate: !!job.linkedFanJobId,
-            });
-          } else {
-            toast({
-              title: "Fans Found!",
-              description: `Found ${result.totalFanCount} fan(s) in ${result.fans.length} type(s).`,
-            });
-          }
+          toast({
+            title: "Fans Found",
+            description: `Detected ${result.totalFanCount} fan(s) in ${result.fans.length} type(s). Use the Fan editor to book.`,
+          });
         } else {
           toast({
             title: "No Fans Found",
