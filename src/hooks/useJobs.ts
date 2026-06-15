@@ -291,6 +291,41 @@ export const useJobs = (categoryId?: string) => {
           description: `Trades requiring booking — ${summary.join(', ')}.`,
         });
       }
+
+      // Auto-create linked trade folders so detected fans/roof/floor/loft
+      // appear as linked child jobs under their respective trade categories.
+      try {
+        const slugsNeeded: string[] = [];
+        if (updates.fanInfo && updates.fanInfo[0]?.type !== '__SCANNED_NO_FANS__') slugsNeeded.push('fans');
+        if (updates.roofingInfo && updates.roofingInfo[0]?.type !== '__SCANNED_NO_ROOFING__') slugsNeeded.push('roofing');
+        if (updates.flooringInfo && updates.flooringInfo[0]?.type !== '__SCANNED_NO_FLOORING__') slugsNeeded.push('flooring');
+        if (updates.insulationInfo && updates.insulationInfo[0]?.type !== '__SCANNED_NO_INSULATION__') slugsNeeded.push('insulation');
+        if (slugsNeeded.length > 0) {
+          const { data: cats } = await supabase.from('categories').select('id, slug').in('slug', slugsNeeded);
+          const bySlug = new Map((cats || []).map((c: any) => [c.slug, c.id as string]));
+          const parentJob: Job = { ...newJob, ...saved } as Job;
+          const linkOps: Promise<unknown>[] = [];
+          const fanCatId = bySlug.get('fans');
+          if (fanCatId && updates.fanInfo && updates.fanInfo[0]?.type !== '__SCANNED_NO_FANS__' && !parentJob.linkedFanJobId) {
+            linkOps.push(createLinkedFanJob(parentJob, updates.fanInfo, fanCatId, null));
+          }
+          const roofCatId = bySlug.get('roofing');
+          if (roofCatId && updates.roofingInfo && updates.roofingInfo[0]?.type !== '__SCANNED_NO_ROOFING__' && !parentJob.linkedRoofingJobId) {
+            linkOps.push(createLinkedRoofingJob(parentJob, updates.roofingInfo, roofCatId, null));
+          }
+          const floorCatId = bySlug.get('flooring');
+          if (floorCatId && updates.flooringInfo && updates.flooringInfo[0]?.type !== '__SCANNED_NO_FLOORING__' && !parentJob.linkedFlooringJobId) {
+            linkOps.push(createLinkedFlooringJob(parentJob, updates.flooringInfo, floorCatId, null));
+          }
+          const insCatId = bySlug.get('insulation');
+          if (insCatId && updates.insulationInfo && updates.insulationInfo[0]?.type !== '__SCANNED_NO_INSULATION__' && !parentJob.linkedInsulationJobId) {
+            linkOps.push(createLinkedInsulationJob(parentJob, updates.insulationInfo, insCatId, null));
+          }
+          if (linkOps.length > 0) await Promise.allSettled(linkOps);
+        }
+      } catch (linkErr) {
+        console.warn('Auto-link creation failed', linkErr);
+      }
     } catch (e) {
       console.warn('Failed to persist auto-scan results', e);
     }
