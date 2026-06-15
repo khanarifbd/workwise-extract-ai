@@ -584,15 +584,14 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
         onUpdateJob({ ...job, roofingInfo: roofingInfoToSave });
         
         if (result.hasRoofing && result.roofing.length > 0) {
-          toast({
-            title: "Roofing Found",
-            description: `Detected ${result.totalRoofingCount} roofing item(s) in ${result.roofing.length} type(s). Use the Roofing editor to book.`,
+          setRoofingBookingDialogData({
+            job,
+            roofingInfo: result.roofing,
+            totalRoofingCount: result.totalRoofingCount,
+            isUpdate: !!job.linkedRoofingJobId,
           });
         } else {
-          toast({
-            title: "No Roofing Found",
-            description: "Scan complete - no roofing work detected in this job.",
-          });
+          toast({ title: "No Roofing Found", description: "Scan complete - no roofing work detected in this job." });
         }
       } else {
         onUpdateJob({ ...job, roofingInfo: [{ type: '__SCANNED_NO_ROOFING__', quantity: 0, location: '' }] });
