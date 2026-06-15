@@ -139,10 +139,17 @@ HARD RULES:
 - Use whichever source has the MORE SPECIFIC data for each line: prefer the existing Works List where it names a precise code/scope; prefer the free-text description where it adds location, dimensions, material, fault detail, or extent.
 - Do NOT fabricate. If the data doesn't imply a code, don't add it.
 
+TASK ENCAPSULATION (MANDATORY):
+You will be given a combined job context made of: the main description, the existing Works List, and optionally the Ongoing Notes / Reason and Team Progress notes. You MUST:
+1. Read the ENTIRE combined context carefully. Mentally enumerate EVERY discrete task, action, fault, location, material, fixture, or scope item mentioned anywhere — in the description, in the existing works, in ongoing notes, and in progress notes.
+2. For EACH enumerated task, emit at least one SOR line that covers it. Nothing in the combined context may be left uncosted if the catalogue contains a code that fits it.
+3. Where one SOR code naturally covers several mentioned sub-actions (e.g. "prep + paint" as a single decoration code), state that consolidation in the line description.
+4. If a task is mentioned but no catalogue code fits, omit the line silently — never emit a placeholder/invented code.
+
 CATALOGUE — these are the ONLY codes you may emit (pipe-separated: code | description | category | unit | cost):
 ${sorContext}
 
-REMINDER: a code that is NOT in the list above does not exist. Do not invent codes like "821503" or "0508AA" — only emit codes printed in the list above. If no listed code fits, omit the line.
+REMINDER: a code that is NOT in the list above does not exist. Do not invent codes like "821503" or "703001" — only emit codes printed in the list above. If no listed code fits, omit the line.
 ${minCostInstruction}
 
 Return STRICTLY a JSON object of this shape (no markdown, no commentary):
