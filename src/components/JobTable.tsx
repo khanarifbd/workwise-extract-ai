@@ -394,7 +394,12 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
           : [{ type: '__SCANNED_NO_INSULATION__', quantity: 0, location: '' }];
         onUpdateJob({ ...job, insulationInfo: insulationInfoToSave });
         if (result.hasInsulation && result.insulation.length > 0) {
-          toast({ title: 'Loft / Insulation Found', description: `Detected ${result.totalInsulationCount} insulation unit(s). Use the Insulation editor to book.` });
+          setInsulationBookingDialogData({
+            job,
+            insulationInfo: result.insulation,
+            totalInsulationCount: result.totalInsulationCount,
+            isUpdate: !!job.linkedInsulationJobId,
+          });
         } else {
           toast({ title: 'No Insulation Found', description: 'Scan complete - no insulation detected.' });
         }
@@ -490,31 +495,26 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
       const result = await extractFansWithAI(job.description || job.summaryOfWorks || '', job.workItems);
       
       if (result) {
-        // Always update fanInfo - if no fans found, set to empty array with a marker
         const fanInfoToSave: FanInfo[] = result.hasFans && result.fans.length > 0 
           ? result.fans 
-          : [{ type: '__SCANNED_NO_FANS__', quantity: 0, location: '' }]; // Marker for "scanned but no fans"
+          : [{ type: '__SCANNED_NO_FANS__', quantity: 0, location: '' }];
         
         onUpdateJob({ ...job, fanInfo: fanInfoToSave });
         
         if (result.hasFans && result.fans.length > 0) {
-          toast({
-            title: "Fans Found",
-            description: `Detected ${result.totalFanCount} fan(s) in ${result.fans.length} type(s). Use the Fan editor to book.`,
+          // Open booking dialog so user can pick a date and a linked Fan folder is created.
+          setFanBookingDialogData({
+            job,
+            fanInfo: result.fans,
+            totalFanCount: result.totalFanCount,
+            isUpdate: !!job.linkedFanJobId,
           });
         } else {
-          toast({
-            title: "No Fans Found",
-            description: "Scan complete - no fans detected in this job.",
-          });
+          toast({ title: "No Fans Found", description: "Scan complete - no fans detected in this job." });
         }
       } else {
-        // API returned null - mark as scanned with no fans
         onUpdateJob({ ...job, fanInfo: [{ type: '__SCANNED_NO_FANS__', quantity: 0, location: '' }] });
-        toast({
-          title: "No Fans Found",
-          description: "Scan complete - no fans detected in this job.",
-        });
+        toast({ title: "No Fans Found", description: "Scan complete - no fans detected in this job." });
       }
     } catch (error) {
       console.error('Error scanning for fans:', error);
@@ -589,15 +589,14 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
         onUpdateJob({ ...job, roofingInfo: roofingInfoToSave });
         
         if (result.hasRoofing && result.roofing.length > 0) {
-          toast({
-            title: "Roofing Found",
-            description: `Detected ${result.totalRoofingCount} roofing item(s) in ${result.roofing.length} type(s). Use the Roofing editor to book.`,
+          setRoofingBookingDialogData({
+            job,
+            roofingInfo: result.roofing,
+            totalRoofingCount: result.totalRoofingCount,
+            isUpdate: !!job.linkedRoofingJobId,
           });
         } else {
-          toast({
-            title: "No Roofing Found",
-            description: "Scan complete - no roofing work detected in this job.",
-          });
+          toast({ title: "No Roofing Found", description: "Scan complete - no roofing work detected in this job." });
         }
       } else {
         onUpdateJob({ ...job, roofingInfo: [{ type: '__SCANNED_NO_ROOFING__', quantity: 0, location: '' }] });
@@ -677,15 +676,14 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
         onUpdateJob({ ...job, flooringInfo: flooringInfoToSave });
         
         if (result.hasFlooring && result.flooring.length > 0) {
-          toast({
-            title: "Flooring Found",
-            description: `Detected ${result.totalFlooringCount} flooring item(s). Use the Flooring editor to book.`,
+          setFlooringBookingDialogData({
+            job,
+            flooringInfo: result.flooring,
+            totalFlooringCount: result.totalFlooringCount,
+            isUpdate: !!job.linkedFlooringJobId,
           });
         } else {
-          toast({
-            title: "No Flooring Found",
-            description: "Scan complete - no flooring work detected in this job.",
-          });
+          toast({ title: "No Flooring Found", description: "Scan complete - no flooring work detected in this job." });
         }
       } else {
         onUpdateJob({ ...job, flooringInfo: [{ type: '__SCANNED_NO_FLOORING__', quantity: 0, location: '' }] });
@@ -758,15 +756,27 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
         return !j.fanInfo || j.fanInfo.length === 0 || wasScannedNoFans(j.fanInfo);
       });
       
+      let linkedCreated = 0;
       for (const job of jobsToScan) {
         try {
           const result = await extractFansWithAI(job.description || job.summaryOfWorks || '', job.workItems);
           if (result && result.hasFans) {
             onUpdateJob({ ...job, fanInfo: result.fans });
             fansFoundCount += result.totalFanCount;
-            
-            // Scanner only reports findings — no folder/linked-job creation.
 
+            // Auto-create / sync linked Fan folder so the parent job is linked to a Fan job.
+            if (fanCategoryId) {
+              try {
+                if (job.linkedFanJobId) {
+                  await syncLinkedFanJob(job, result.fans, fanCategoryId, null);
+                } else {
+                  await createLinkedFanJob(job, result.fans, fanCategoryId, null);
+                  linkedCreated++;
+                }
+              } catch (linkErr) {
+                console.error(`Failed to create linked Fan job for ${job.jobNumber}:`, linkErr);
+              }
+            }
           } else {
             // Mark as scanned with no fans
             onUpdateJob({ ...job, fanInfo: [{ type: '__SCANNED_NO_FANS__', quantity: 0, location: '' }] });
@@ -776,6 +786,7 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
           console.error(`Failed to scan job ${job.jobNumber}:`, error);
         }
       }
+      if (linkedCreated > 0) onFanJobCreated?.();
       
       toast({
         title: "Bulk Scan Complete",
