@@ -3,6 +3,7 @@ import { Job, FanInfo, RoofingInfo, FlooringInfo, InsulationInfo } from '@/types
 import {
   fetchJobs, createJob, updateJob, deleteJob, restoreJob,
   extractFansWithAI, extractRoofingWithAI, extractFlooringWithAI, extractInsulationWithAI,
+  createLinkedFanJob, createLinkedRoofingJob, createLinkedFlooringJob, createLinkedInsulationJob,
 } from '@/lib/api';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
