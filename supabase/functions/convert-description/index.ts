@@ -111,18 +111,17 @@ serve(async (req) => {
     if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY missing');
 
     const minCostInstruction = minimumCost > 0
-      ? `\n\nCOSTING TARGET: £${minimumCost.toFixed(2)} (baseline minimum).
-You MUST scale the three tiers to hit realistic NPH cost coverage for a fully-completed job of this type:
-- baseline: lean but COMPLETE scope, total >= £${minimumCost.toFixed(2)}.
+      ? `\n\nCOSTING FLOOR (HARD): £${minimumCost.toFixed(2)} is the ABSOLUTE MINIMUM BASE COST for the baseline tier. The baseline total MUST be >= £${minimumCost.toFixed(2)}. This is not a target, it is a floor — under no circumstances may baseline come in below it.
+- baseline: lean but COMPLETE scope. Total >= £${minimumCost.toFixed(2)} (HARD FLOOR).
 - enhanced: standard NPH scope, total approximately +20% above baseline (range +15% to +25%).
 - premium: full scope with allied works, total approximately +45% above baseline (range +40% to +55%).
-HOW TO REACH THE TARGET (NEVER inflate per-unit cost):
-1. Increase QUANTITIES, LENGTHS, AREAS, LAYERS, COATS where genuinely applicable (e.g. m² of plaster, linear m of skirting, number of coats of paint, m² of decoration following a repair).
-2. Add genuinely-related allied SOR codes from the catalogue: make-good, redecoration, ancillary fittings, debris removal, access works, isolation/reinstatement.
-3. Select higher-cost catalogue variants only when the works data genuinely justifies them.
-Every chosen code MUST be defensible from the job data — no fabrication.`
+HOW TO REACH AND HOLD THE FLOOR (NEVER inflate per-unit cost):
+1. First, encapsulate EVERY task implied by the job data as its own SOR line (see TASK ENCAPSULATION below). Coverage comes before scaling.
+2. Then increase QUANTITIES, LENGTHS, AREAS, LAYERS, COATS where genuinely applicable (m² of plaster, linear m of skirting, coats of paint, m² of redecoration following a repair).
+3. Then add genuinely-related allied SOR codes from the catalogue: make-good, redecoration, ancillary fittings, debris removal, access works, isolation/reinstatement.
+Every chosen code MUST be defensible from the job data — no fabrication, no per-unit cost manipulation.`
       : `\n\nNo minimum cost specified. Produce three realistic tiered quotes scaled by scope:
-- baseline: minimum COMPLETE compliant scope.
+- baseline: minimum COMPLETE compliant scope covering EVERY task in the data.
 - enhanced: standard NPH scope (~+20% total).
 - premium: full scope with allied works (~+45% total).
 Scale by increasing QUANTITIES / LENGTHS / AREAS / LAYERS / COATS and adding allied SOR codes — never by altering per-unit cost.`;
