@@ -111,18 +111,17 @@ serve(async (req) => {
     if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY missing');
 
     const minCostInstruction = minimumCost > 0
-      ? `\n\nCOSTING TARGET: £${minimumCost.toFixed(2)} (baseline minimum).
-You MUST scale the three tiers to hit realistic NPH cost coverage for a fully-completed job of this type:
-- baseline: lean but COMPLETE scope, total >= £${minimumCost.toFixed(2)}.
+      ? `\n\nCOSTING FLOOR (HARD): £${minimumCost.toFixed(2)} is the ABSOLUTE MINIMUM BASE COST for the baseline tier. The baseline total MUST be >= £${minimumCost.toFixed(2)}. This is not a target, it is a floor — under no circumstances may baseline come in below it.
+- baseline: lean but COMPLETE scope. Total >= £${minimumCost.toFixed(2)} (HARD FLOOR).
 - enhanced: standard NPH scope, total approximately +20% above baseline (range +15% to +25%).
 - premium: full scope with allied works, total approximately +45% above baseline (range +40% to +55%).
-HOW TO REACH THE TARGET (NEVER inflate per-unit cost):
-1. Increase QUANTITIES, LENGTHS, AREAS, LAYERS, COATS where genuinely applicable (e.g. m² of plaster, linear m of skirting, number of coats of paint, m² of decoration following a repair).
-2. Add genuinely-related allied SOR codes from the catalogue: make-good, redecoration, ancillary fittings, debris removal, access works, isolation/reinstatement.
-3. Select higher-cost catalogue variants only when the works data genuinely justifies them.
-Every chosen code MUST be defensible from the job data — no fabrication.`
+HOW TO REACH AND HOLD THE FLOOR (NEVER inflate per-unit cost):
+1. First, encapsulate EVERY task implied by the job data as its own SOR line (see TASK ENCAPSULATION below). Coverage comes before scaling.
+2. Then increase QUANTITIES, LENGTHS, AREAS, LAYERS, COATS where genuinely applicable (m² of plaster, linear m of skirting, coats of paint, m² of redecoration following a repair).
+3. Then add genuinely-related allied SOR codes from the catalogue: make-good, redecoration, ancillary fittings, debris removal, access works, isolation/reinstatement.
+Every chosen code MUST be defensible from the job data — no fabrication, no per-unit cost manipulation.`
       : `\n\nNo minimum cost specified. Produce three realistic tiered quotes scaled by scope:
-- baseline: minimum COMPLETE compliant scope.
+- baseline: minimum COMPLETE compliant scope covering EVERY task in the data.
 - enhanced: standard NPH scope (~+20% total).
 - premium: full scope with allied works (~+45% total).
 Scale by increasing QUANTITIES / LENGTHS / AREAS / LAYERS / COATS and adding allied SOR codes — never by altering per-unit cost.`;
@@ -140,10 +139,17 @@ HARD RULES:
 - Use whichever source has the MORE SPECIFIC data for each line: prefer the existing Works List where it names a precise code/scope; prefer the free-text description where it adds location, dimensions, material, fault detail, or extent.
 - Do NOT fabricate. If the data doesn't imply a code, don't add it.
 
+TASK ENCAPSULATION (MANDATORY):
+You will be given a combined job context made of: the main description, the existing Works List, and optionally the Ongoing Notes / Reason and Team Progress notes. You MUST:
+1. Read the ENTIRE combined context carefully. Mentally enumerate EVERY discrete task, action, fault, location, material, fixture, or scope item mentioned anywhere — in the description, in the existing works, in ongoing notes, and in progress notes.
+2. For EACH enumerated task, emit at least one SOR line that covers it. Nothing in the combined context may be left uncosted if the catalogue contains a code that fits it.
+3. Where one SOR code naturally covers several mentioned sub-actions (e.g. "prep + paint" as a single decoration code), state that consolidation in the line description.
+4. If a task is mentioned but no catalogue code fits, omit the line silently — never emit a placeholder/invented code.
+
 CATALOGUE — these are the ONLY codes you may emit (pipe-separated: code | description | category | unit | cost):
 ${sorContext}
 
-REMINDER: a code that is NOT in the list above does not exist. Do not invent codes like "821503" or "0508AA" — only emit codes printed in the list above. If no listed code fits, omit the line.
+REMINDER: a code that is NOT in the list above does not exist. Do not invent codes like "821503" or "703001" — only emit codes printed in the list above. If no listed code fits, omit the line.
 ${minCostInstruction}
 
 Return STRICTLY a JSON object of this shape (no markdown, no commentary):
@@ -230,7 +236,7 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
       const invalidCodes: string[] = [];
       let remappedCount = 0;
       let total = 0;
-      const cleanedItems = items.map((it) => {
+      const cleanedItemsRaw = items.map((it) => {
         const originalCode = String(it.code || '').trim();
         const qty = Math.max(1, Math.round(Number(it.qty) || 1));
         const desc = String(it.description || '');
@@ -246,13 +252,36 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
             remappedCount += 1;
           } else {
             invalidCodes.push(originalCode);
-            return { description: desc, code: originalCode, qty, cost: 0, unit: null, category: null, valid: false };
+            return null; // drop unresolvable lines — no £0 placeholders
           }
         }
         const cost = entry.cost * qty;
         total += cost;
-        return { description: desc || entry.description, code: codeUsed, qty, cost, unit: entry.unit, category: entry.category, valid: true, ...(remapped ? { remappedFrom: originalCode } : {}) };
+        return { description: desc || entry.description, code: codeUsed, qty, cost, unit: entry.unit, category: entry.category, entryCost: entry.cost, valid: true, ...(remapped ? { remappedFrom: originalCode } : {}) };
       });
+      const cleanedItems: any[] = cleanedItemsRaw.filter((x) => x !== null) as any[];
+
+      // HARD FLOOR enforcement for baseline: if the AI undershoots minimumCost,
+      // deterministically scale up the qty of the cheapest-per-unit valid lines
+      // (so we add coverage of allied items, never per-unit cost inflation).
+      if (key === 'baseline' && minimumCost > 0 && total < minimumCost && cleanedItems.length > 0) {
+        // Sort by lowest per-unit cost first → scaling cheap lines adds most "scope coverage"
+        const scalable = [...cleanedItems].sort((a, b) => (a.entryCost || 0) - (b.entryCost || 0));
+        let i = 0;
+        let safety = 5000;
+        while (total < minimumCost && safety-- > 0) {
+          const line = scalable[i % scalable.length];
+          if (!line.entryCost || line.entryCost <= 0) { i++; continue; }
+          line.qty += 1;
+          line.cost = line.entryCost * line.qty;
+          total += line.entryCost;
+          i++;
+        }
+      }
+
+      // Strip the internal entryCost helper before returning
+      for (const it of cleanedItems) delete it.entryCost;
+
       validatedTiers[key] = {
         label: t.label || key,
         notes: String(t.notes || ''),
