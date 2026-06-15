@@ -394,16 +394,7 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
           : [{ type: '__SCANNED_NO_INSULATION__', quantity: 0, location: '' }];
         onUpdateJob({ ...job, insulationInfo: insulationInfoToSave });
         if (result.hasInsulation && result.insulation.length > 0) {
-          if (insulationCategoryId) {
-            setInsulationBookingDialogData({
-              job: { ...job, insulationInfo: insulationInfoToSave },
-              insulationInfo: result.insulation,
-              totalInsulationCount: result.totalInsulationCount,
-              isUpdate: !!job.linkedInsulationJobId,
-            });
-          } else {
-            toast({ title: 'Insulation Found!', description: `Found ${result.totalInsulationCount} insulation unit(s).` });
-          }
+          toast({ title: 'Loft / Insulation Found', description: `Detected ${result.totalInsulationCount} insulation unit(s). Use the Insulation editor to book.` });
         } else {
           toast({ title: 'No Insulation Found', description: 'Scan complete - no insulation detected.' });
         }
