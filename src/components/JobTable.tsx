@@ -1317,7 +1317,7 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                           ) : (
                             <>
                               <Wand2 className="w-3 h-3 mr-0.5" />
-                              AI Scan
+                              Re-scan
                             </>
                           )}
                         </Button>
@@ -1375,7 +1375,7 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                           ) : (
                             <>
                               <Wand2 className="w-3 h-3 mr-0.5" />
-                              AI Scan
+                              Re-scan
                             </>
                           )}
                         </Button>
@@ -1433,7 +1433,7 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                           ) : (
                             <>
                               <Wand2 className="w-3 h-3 mr-0.5" />
-                              AI Scan
+                              Re-scan
                             </>
                           )}
                         </Button>
@@ -1491,7 +1491,7 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                            ) : (
                              <>
                                <Wand2 className="w-3 h-3 mr-0.5" />
-                               AI Scan
+                               Re-scan
                              </>
                            )}
                          </Button>
