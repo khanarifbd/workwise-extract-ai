@@ -756,15 +756,27 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
         return !j.fanInfo || j.fanInfo.length === 0 || wasScannedNoFans(j.fanInfo);
       });
       
+      let linkedCreated = 0;
       for (const job of jobsToScan) {
         try {
           const result = await extractFansWithAI(job.description || job.summaryOfWorks || '', job.workItems);
           if (result && result.hasFans) {
             onUpdateJob({ ...job, fanInfo: result.fans });
             fansFoundCount += result.totalFanCount;
-            
-            // Scanner only reports findings — no folder/linked-job creation.
 
+            // Auto-create / sync linked Fan folder so the parent job is linked to a Fan job.
+            if (fanCategoryId) {
+              try {
+                if (job.linkedFanJobId) {
+                  await syncLinkedFanJob(job, result.fans, fanCategoryId, null);
+                } else {
+                  await createLinkedFanJob(job, result.fans, fanCategoryId, null);
+                  linkedCreated++;
+                }
+              } catch (linkErr) {
+                console.error(`Failed to create linked Fan job for ${job.jobNumber}:`, linkErr);
+              }
+            }
           } else {
             // Mark as scanned with no fans
             onUpdateJob({ ...job, fanInfo: [{ type: '__SCANNED_NO_FANS__', quantity: 0, location: '' }] });
@@ -774,6 +786,7 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
           console.error(`Failed to scan job ${job.jobNumber}:`, error);
         }
       }
+      if (linkedCreated > 0) onFanJobCreated?.();
       
       toast({
         title: "Bulk Scan Complete",
