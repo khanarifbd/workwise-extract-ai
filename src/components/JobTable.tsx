@@ -765,19 +765,8 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
             onUpdateJob({ ...job, fanInfo: result.fans });
             fansFoundCount += result.totalFanCount;
             
-            // Auto-create or update linked fan job if category exists
-            if (fanCategoryId) {
-              try {
-                if (job.linkedFanJobId) {
-                  await syncLinkedFanJob(job, result.fans, fanCategoryId);
-                } else {
-                  await createLinkedFanJob(job, result.fans, fanCategoryId);
-                }
-                onFanJobCreated?.();
-              } catch (createError) {
-                console.error('Failed to create/update linked fan job:', createError);
-              }
-            }
+            // Scanner only reports findings — no folder/linked-job creation.
+
           } else {
             // Mark as scanned with no fans
             onUpdateJob({ ...job, fanInfo: [{ type: '__SCANNED_NO_FANS__', quantity: 0, location: '' }] });
