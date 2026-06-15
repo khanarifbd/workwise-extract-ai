@@ -95,6 +95,70 @@ export const AIWorkConverter = ({ onConvert, onClose, existingWorks, initialDesc
     onConvert(workItems, incorporateExisting && hasExisting, description);
   };
 
+  const handleSaveResults = () => {
+    if (!result) return;
+    const ts = new Date();
+    const stamp = `${ts.getFullYear()}${String(ts.getMonth() + 1).padStart(2, '0')}${String(ts.getDate()).padStart(2, '0')}-${String(ts.getHours()).padStart(2, '0')}${String(ts.getMinutes()).padStart(2, '0')}`;
+    const safeDesc = (description || 'conversion').replace(/[^a-z0-9]+/gi, '-').slice(0, 40).replace(/^-+|-+$/g, '') || 'conversion';
+
+    // JSON — full payload
+    const jsonPayload = {
+      savedAt: ts.toISOString(),
+      description,
+      minimumCost: minimumCost ? Number(minimumCost) : 0,
+      incorporatedExistingWorks: incorporateExisting && hasExisting ? existingWorks : null,
+      includedOngoingNotes: includeOngoing && hasOngoing ? ongoingNotes : null,
+      includedProgressNotes: includeProgress && hasProgress ? progressNotes : null,
+      result,
+    };
+    const jsonBlob = new Blob([JSON.stringify(jsonPayload, null, 2)], { type: 'application/json' });
+    const jsonUrl = URL.createObjectURL(jsonBlob);
+    const a1 = document.createElement('a');
+    a1.href = jsonUrl;
+    a1.download = `sor-conversion-${safeDesc}-${stamp}.json`;
+    document.body.appendChild(a1);
+    a1.click();
+    a1.remove();
+    URL.revokeObjectURL(jsonUrl);
+
+    // CSV — flat, NPH-ready (Tier, SOR Code, Description, Qty, Unit Cost, Line Total, Valid)
+    const esc = (v: unknown) => {
+      const s = String(v ?? '');
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const lines: string[] = [];
+    lines.push('Tier,SOR Code,Description,Qty,Unit Cost (GBP),Line Total (GBP),Valid');
+    (['baseline', 'enhanced', 'premium'] as TierKey[]).forEach((k) => {
+      const tier = result.tiers[k];
+      tier.items.forEach((it) => {
+        const unit = it.qty > 0 ? it.cost / it.qty : it.cost;
+        lines.push([
+          TIER_META[k].label,
+          esc(it.code),
+          esc(it.description),
+          it.qty,
+          unit.toFixed(2),
+          it.cost.toFixed(2),
+          it.valid ? 'Y' : 'N',
+        ].join(','));
+      });
+      lines.push([TIER_META[k].label, '', 'TIER TOTAL', '', '', tier.total.toFixed(2), ''].join(','));
+      lines.push('');
+    });
+    const csvBlob = new Blob([lines.join('\n')], { type: 'text/csv' });
+    const csvUrl = URL.createObjectURL(csvBlob);
+    const a2 = document.createElement('a');
+    a2.href = csvUrl;
+    a2.download = `sor-conversion-${safeDesc}-${stamp}.csv`;
+    document.body.appendChild(a2);
+    a2.click();
+    a2.remove();
+    URL.revokeObjectURL(csvUrl);
+
+    toast({ title: 'Conversion saved', description: 'Downloaded JSON + CSV with all 3 tiers, codes, descriptions and costs.' });
+  };
+
+
   const renderTierPanel = (key: TierKey, tier: ConvertTier) => {
     const meta = TIER_META[key];
     const acc = result?.accuracy[key];
