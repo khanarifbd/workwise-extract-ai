@@ -686,19 +686,10 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
         onUpdateJob({ ...job, flooringInfo: flooringInfoToSave });
         
         if (result.hasFlooring && result.flooring.length > 0) {
-          if (flooringCategoryId) {
-            setFlooringBookingDialogData({
-              job: { ...job, flooringInfo: flooringInfoToSave },
-              flooringInfo: result.flooring,
-              totalFlooringCount: result.totalFlooringCount,
-              isUpdate: !!job.linkedFlooringJobId,
-            });
-          } else {
-            toast({
-              title: "Flooring Found!",
-              description: `Found ${result.totalFlooringCount} flooring item(s).`,
-            });
-          }
+          toast({
+            title: "Flooring Found",
+            description: `Detected ${result.totalFlooringCount} flooring item(s). Use the Flooring editor to book.`,
+          });
         } else {
           toast({
             title: "No Flooring Found",
