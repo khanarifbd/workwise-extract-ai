@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Wand2, Loader2, X, Check, BookOpen, ShieldCheck, AlertTriangle, Sparkles } from 'lucide-react';
+import { Wand2, Loader2, X, Check, BookOpen, ShieldCheck, AlertTriangle, Sparkles, Download } from 'lucide-react';
 import { convertDescriptionToTieredQuotes, ConvertResponse, ConvertTier } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
