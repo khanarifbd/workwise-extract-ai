@@ -1,9 +1,13 @@
 import { useState, useEffect, useCallback, useRef, createElement } from 'react';
-import { Job } from '@/types/job';
-import { fetchJobs, createJob, updateJob, deleteJob, restoreJob } from '@/lib/api';
+import { Job, FanInfo, RoofingInfo, FlooringInfo, InsulationInfo } from '@/types/job';
+import {
+  fetchJobs, createJob, updateJob, deleteJob, restoreJob,
+  extractFansWithAI, extractRoofingWithAI, extractFlooringWithAI, extractInsulationWithAI,
+} from '@/lib/api';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
+
 
 export const useJobs = (categoryId?: string) => {
   const cacheKey = `genie_jobs_cache_${categoryId || 'all'}`;
