@@ -370,15 +370,20 @@ export const AIWorkConverter = ({ onConvert, onClose, existingWorks, initialDesc
 
           {renderTierPanel(selectedTier, result.tiers[selectedTier])}
 
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setResult(null)} className="flex-1">
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => setResult(null)} className="flex-1 min-w-[120px]">
               Try Again
             </Button>
-            <Button onClick={handleConfirm} className="flex-1">
+            <Button variant="outline" onClick={handleSaveResults} className="flex-1 min-w-[120px]" title="Download all 3 tiers (codes, descriptions, costs) as JSON + CSV">
+              <Download className="w-4 h-4 mr-2" />
+              Save Results
+            </Button>
+            <Button onClick={handleConfirm} className="flex-1 min-w-[160px]">
               <Check className="w-4 h-4 mr-2" />
               Use {TIER_META[selectedTier].label} ({result.tiers[selectedTier].items.length} items)
             </Button>
           </div>
+
         </>
       )}
     </div>
