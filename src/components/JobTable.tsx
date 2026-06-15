@@ -394,16 +394,7 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
           : [{ type: '__SCANNED_NO_INSULATION__', quantity: 0, location: '' }];
         onUpdateJob({ ...job, insulationInfo: insulationInfoToSave });
         if (result.hasInsulation && result.insulation.length > 0) {
-          if (insulationCategoryId) {
-            setInsulationBookingDialogData({
-              job: { ...job, insulationInfo: insulationInfoToSave },
-              insulationInfo: result.insulation,
-              totalInsulationCount: result.totalInsulationCount,
-              isUpdate: !!job.linkedInsulationJobId,
-            });
-          } else {
-            toast({ title: 'Insulation Found!', description: `Found ${result.totalInsulationCount} insulation unit(s).` });
-          }
+          toast({ title: 'Loft / Insulation Found', description: `Detected ${result.totalInsulationCount} insulation unit(s). Use the Insulation editor to book.` });
         } else {
           toast({ title: 'No Insulation Found', description: 'Scan complete - no insulation detected.' });
         }
@@ -507,20 +498,10 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
         onUpdateJob({ ...job, fanInfo: fanInfoToSave });
         
         if (result.hasFans && result.fans.length > 0) {
-          // Show the booking date dialog if we have a fan category
-          if (fanCategoryId) {
-            setFanBookingDialogData({
-              job: { ...job, fanInfo: fanInfoToSave },
-              fanInfo: result.fans,
-              totalFanCount: result.totalFanCount,
-              isUpdate: !!job.linkedFanJobId,
-            });
-          } else {
-            toast({
-              title: "Fans Found!",
-              description: `Found ${result.totalFanCount} fan(s) in ${result.fans.length} type(s).`,
-            });
-          }
+          toast({
+            title: "Fans Found",
+            description: `Detected ${result.totalFanCount} fan(s) in ${result.fans.length} type(s). Use the Fan editor to book.`,
+          });
         } else {
           toast({
             title: "No Fans Found",
@@ -608,19 +589,10 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
         onUpdateJob({ ...job, roofingInfo: roofingInfoToSave });
         
         if (result.hasRoofing && result.roofing.length > 0) {
-          if (roofingCategoryId) {
-            setRoofingBookingDialogData({
-              job: { ...job, roofingInfo: roofingInfoToSave },
-              roofingInfo: result.roofing,
-              totalRoofingCount: result.totalRoofingCount,
-              isUpdate: !!job.linkedRoofingJobId,
-            });
-          } else {
-            toast({
-              title: "Roofing Found!",
-              description: `Found ${result.totalRoofingCount} roofing item(s) in ${result.roofing.length} type(s).`,
-            });
-          }
+          toast({
+            title: "Roofing Found",
+            description: `Detected ${result.totalRoofingCount} roofing item(s) in ${result.roofing.length} type(s). Use the Roofing editor to book.`,
+          });
         } else {
           toast({
             title: "No Roofing Found",
@@ -705,19 +677,10 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
         onUpdateJob({ ...job, flooringInfo: flooringInfoToSave });
         
         if (result.hasFlooring && result.flooring.length > 0) {
-          if (flooringCategoryId) {
-            setFlooringBookingDialogData({
-              job: { ...job, flooringInfo: flooringInfoToSave },
-              flooringInfo: result.flooring,
-              totalFlooringCount: result.totalFlooringCount,
-              isUpdate: !!job.linkedFlooringJobId,
-            });
-          } else {
-            toast({
-              title: "Flooring Found!",
-              description: `Found ${result.totalFlooringCount} flooring item(s).`,
-            });
-          }
+          toast({
+            title: "Flooring Found",
+            description: `Detected ${result.totalFlooringCount} flooring item(s). Use the Flooring editor to book.`,
+          });
         } else {
           toast({
             title: "No Flooring Found",
@@ -802,19 +765,8 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
             onUpdateJob({ ...job, fanInfo: result.fans });
             fansFoundCount += result.totalFanCount;
             
-            // Auto-create or update linked fan job if category exists
-            if (fanCategoryId) {
-              try {
-                if (job.linkedFanJobId) {
-                  await syncLinkedFanJob(job, result.fans, fanCategoryId);
-                } else {
-                  await createLinkedFanJob(job, result.fans, fanCategoryId);
-                }
-                onFanJobCreated?.();
-              } catch (createError) {
-                console.error('Failed to create/update linked fan job:', createError);
-              }
-            }
+            // Scanner only reports findings — no folder/linked-job creation.
+
           } else {
             // Mark as scanned with no fans
             onUpdateJob({ ...job, fanInfo: [{ type: '__SCANNED_NO_FANS__', quantity: 0, location: '' }] });
@@ -1365,7 +1317,7 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                           ) : (
                             <>
                               <Wand2 className="w-3 h-3 mr-0.5" />
-                              AI Scan
+                              Re-scan
                             </>
                           )}
                         </Button>
@@ -1423,7 +1375,7 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                           ) : (
                             <>
                               <Wand2 className="w-3 h-3 mr-0.5" />
-                              AI Scan
+                              Re-scan
                             </>
                           )}
                         </Button>
@@ -1481,7 +1433,7 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                           ) : (
                             <>
                               <Wand2 className="w-3 h-3 mr-0.5" />
-                              AI Scan
+                              Re-scan
                             </>
                           )}
                         </Button>
@@ -1539,7 +1491,7 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                            ) : (
                              <>
                                <Wand2 className="w-3 h-3 mr-0.5" />
-                               AI Scan
+                               Re-scan
                              </>
                            )}
                          </Button>

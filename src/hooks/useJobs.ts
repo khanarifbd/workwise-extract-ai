@@ -1,9 +1,13 @@
 import { useState, useEffect, useCallback, useRef, createElement } from 'react';
-import { Job } from '@/types/job';
-import { fetchJobs, createJob, updateJob, deleteJob, restoreJob } from '@/lib/api';
+import { Job, FanInfo, RoofingInfo, FlooringInfo, InsulationInfo } from '@/types/job';
+import {
+  fetchJobs, createJob, updateJob, deleteJob, restoreJob,
+  extractFansWithAI, extractRoofingWithAI, extractFlooringWithAI, extractInsulationWithAI,
+} from '@/lib/api';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
+
 
 export const useJobs = (categoryId?: string) => {
   const cacheKey = `genie_jobs_cache_${categoryId || 'all'}`;
@@ -215,12 +219,82 @@ export const useJobs = (categoryId?: string) => {
     try {
       const newJob = await createJob(job, categoryId);
       setJobs(prev => [newJob, ...prev]);
+      // Fire-and-forget automatic trade scans (Fan / Roof / Floor / Loft-Insulation).
+      // Reports findings on the job row; no folder/linked-job creation.
+      runAutoTradeScans(newJob).catch(err => console.warn('auto-scan failed', err));
       return newJob;
     } catch (error) {
       console.error('Error adding job:', error);
       throw error;
     }
   };
+
+  // Run all four trade scanners in parallel on a newly added job and persist
+  // findings (or "scanned, none found" markers) to the *Info columns.
+  const runAutoTradeScans = async (newJob: Job) => {
+    const desc = newJob.description || newJob.summaryOfWorks || '';
+    if (!desc.trim()) return;
+    const works = newJob.workItems || [];
+    const updates: Partial<Job> = {};
+    const [fans, roof, floor, insul] = await Promise.allSettled([
+      newJob.fanInfo && newJob.fanInfo.length ? Promise.resolve(null) : extractFansWithAI(desc, works),
+      newJob.roofingInfo && newJob.roofingInfo.length ? Promise.resolve(null) : extractRoofingWithAI(desc, works),
+      newJob.flooringInfo && newJob.flooringInfo.length ? Promise.resolve(null) : extractFlooringWithAI(desc, works),
+      newJob.insulationInfo && newJob.insulationInfo.length ? Promise.resolve(null) : extractInsulationWithAI(desc, works),
+    ]);
+    if (fans.status === 'fulfilled' && fans.value) {
+      const r = fans.value;
+      updates.fanInfo = (r.hasFans && r.fans.length > 0)
+        ? r.fans
+        : [{ type: '__SCANNED_NO_FANS__', quantity: 0, location: '' } as FanInfo];
+    }
+    if (roof.status === 'fulfilled' && roof.value) {
+      const r = roof.value;
+      updates.roofingInfo = (r.hasRoofing && r.roofing.length > 0)
+        ? r.roofing
+        : [{ type: '__SCANNED_NO_ROOFING__', quantity: 0, location: '' } as RoofingInfo];
+    }
+    if (floor.status === 'fulfilled' && floor.value) {
+      const r = floor.value;
+      updates.flooringInfo = (r.hasFlooring && r.flooring.length > 0)
+        ? r.flooring
+        : [{ type: '__SCANNED_NO_FLOORING__', quantity: 0, location: '' } as FlooringInfo];
+    }
+    if (insul.status === 'fulfilled' && insul.value) {
+      const r = insul.value;
+      updates.insulationInfo = (r.hasInsulation && r.insulation.length > 0)
+        ? r.insulation
+        : [{ type: '__SCANNED_NO_INSULATION__', quantity: 0, location: '' } as InsulationInfo];
+    }
+    if (Object.keys(updates).length === 0) return;
+    try {
+      const saved = await updateJob(newJob.id, updates);
+      setJobs(prev => prev.map(j => j.id === newJob.id ? { ...j, ...saved } : j));
+      const summary: string[] = [];
+      if (updates.fanInfo && updates.fanInfo[0]?.type !== '__SCANNED_NO_FANS__') {
+        const total = updates.fanInfo.reduce((s, f: any) => s + (f.quantity || 0), 0);
+        summary.push(`${total} fan${total === 1 ? '' : 's'}`);
+      }
+      if (updates.roofingInfo && updates.roofingInfo[0]?.type !== '__SCANNED_NO_ROOFING__') {
+        summary.push(`${updates.roofingInfo.length} roof item${updates.roofingInfo.length === 1 ? '' : 's'}`);
+      }
+      if (updates.flooringInfo && updates.flooringInfo[0]?.type !== '__SCANNED_NO_FLOORING__') {
+        summary.push(`${updates.flooringInfo.length} floor item${updates.flooringInfo.length === 1 ? '' : 's'}`);
+      }
+      if (updates.insulationInfo && updates.insulationInfo[0]?.type !== '__SCANNED_NO_INSULATION__') {
+        summary.push(`${updates.insulationInfo.length} loft/insulation`);
+      }
+      if (summary.length > 0) {
+        toast({
+          title: `Auto-scan: ${newJob.jobNumber || 'job'}`,
+          description: `Trades requiring booking — ${summary.join(', ')}.`,
+        });
+      }
+    } catch (e) {
+      console.warn('Failed to persist auto-scan results', e);
+    }
+  };
+
 
   const editJob = async (id: string, updates: Partial<Job>) => {
     try {
