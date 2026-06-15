@@ -671,15 +671,14 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
         onUpdateJob({ ...job, flooringInfo: flooringInfoToSave });
         
         if (result.hasFlooring && result.flooring.length > 0) {
-          toast({
-            title: "Flooring Found",
-            description: `Detected ${result.totalFlooringCount} flooring item(s). Use the Flooring editor to book.`,
+          setFlooringBookingDialogData({
+            job,
+            flooringInfo: result.flooring,
+            totalFlooringCount: result.totalFlooringCount,
+            isUpdate: !!job.linkedFlooringJobId,
           });
         } else {
-          toast({
-            title: "No Flooring Found",
-            description: "Scan complete - no flooring work detected in this job.",
-          });
+          toast({ title: "No Flooring Found", description: "Scan complete - no flooring work detected in this job." });
         }
       } else {
         onUpdateJob({ ...job, flooringInfo: [{ type: '__SCANNED_NO_FLOORING__', quantity: 0, location: '' }] });
