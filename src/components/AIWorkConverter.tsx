@@ -41,8 +41,36 @@ export const AIWorkConverter = ({ onConvert, onClose, existingWorks, initialDesc
   const hasProgress = !!(progressNotes && progressNotes.trim().length > 0);
   const [includeOngoing, setIncludeOngoing] = useState<boolean>(hasOngoing);
   const [includeProgress, setIncludeProgress] = useState<boolean>(hasProgress);
+  // Per-line feedback: keyed by `${tier}::${index}` so each tier is rated independently.
+  const [feedback, setFeedback] = useState<Record<string, SORMatchRating>>({});
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
   const { isAdmin } = useAdminAuth();
+
+  const rateMatch = async (tier: TierKey, index: number, rating: SORMatchRating) => {
+    if (!result) return;
+    const key = `${tier}::${index}`;
+    const item = result.tiers[tier].items[index];
+    if (!item) return;
+    setFeedbackSubmitting((s) => ({ ...s, [key]: true }));
+    try {
+      await submitSORMatchFeedback({
+        sourceDescription: description,
+        lineDescription: item.description,
+        sorCode: item.code,
+        rating,
+        tier,
+        confidence: (item as any).confidence,
+        rationale: (item as any).rationale,
+      });
+      setFeedback((f) => ({ ...f, [key]: rating }));
+      toast({ title: `Rated ${rating}`, description: 'Future conversions will learn from this.' });
+    } catch (e: any) {
+      toast({ title: 'Could not save rating', description: e?.message || 'Try again.', variant: 'destructive' });
+    } finally {
+      setFeedbackSubmitting((s) => ({ ...s, [key]: false }));
+    }
+  };
 
   const handleConvert = async () => {
     if (!description.trim()) return;
