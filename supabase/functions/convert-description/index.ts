@@ -574,7 +574,10 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
         if (!isPinned) {
           if (lineActs.size > 0 && hayActs.size > 0 && conflictsAction(lineActs, hayActs)) return null;
           if (lineSurfs.size > 0 && haySurfs.size > 0 && conflictsSurface(lineSurfs, haySurfs)) return null;
-          if (lineToks.length >= 3 && anchorHits === 0 && bgHits === 0 && tokHits < 2) return null;
+          // Only drop weak matches when the AI itself signalled low confidence (<70).
+          // Trust strong AI confidence — it has the full catalogue context the regex doesn't.
+          const aiConf = Math.round(Number(it.confidence)) || 0;
+          if (aiConf < 70 && lineToks.length >= 3 && anchorHits === 0 && bgHits === 0 && tokHits < 2) return null;
         }
         const rationale = String(it.rationale || '').slice(0, 200) ||
           `Matched on ${entry.category || 'catalogue'} entry "${entry.description.slice(0, 70)}" (${entry.unit || 'each'} @ £${entry.cost}).`;
