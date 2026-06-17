@@ -351,28 +351,32 @@ export const convertDescriptionToTieredQuotes = async (
 };
 
 export type SORMatchRating = 'good' | 'fair' | 'bad';
+export type SORFeedbackScope = 'line' | 'overall' | 'missing_task';
 export const submitSORMatchFeedback = async (params: {
   sourceDescription: string;
-  lineDescription: string;
-  sorCode: string;
+  lineDescription?: string;
+  sorCode?: string;
   rating: SORMatchRating;
   tier?: string;
   confidence?: number;
   rationale?: string;
   note?: string;
+  feedbackScope?: SORFeedbackScope;
 }): Promise<void> => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Sign in required to rate matches');
+  const scope = params.feedbackScope ?? 'line';
   const { error } = await supabase.from('sor_match_feedback').insert({
     user_id: user.id,
     source_description: params.sourceDescription.slice(0, 5000),
-    line_description: params.lineDescription.slice(0, 2000),
-    sor_code: params.sorCode.slice(0, 64),
+    line_description: (params.lineDescription ?? '').slice(0, 2000),
+    sor_code: (params.sorCode ?? '').slice(0, 64),
     rating: params.rating,
     tier: params.tier ?? null,
     confidence: typeof params.confidence === 'number' ? Math.round(params.confidence) : null,
     rationale: params.rationale ? params.rationale.slice(0, 500) : null,
-    note: params.note ? params.note.slice(0, 1000) : null,
+    note: params.note ? params.note.slice(0, 2000) : null,
+    feedback_scope: scope,
   } as any);
   if (error) throw error;
 };

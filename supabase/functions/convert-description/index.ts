@@ -259,25 +259,32 @@ serve(async (req) => {
     try {
       const { data: fb } = await admin
         .from('sor_match_feedback')
-        .select('sor_code,line_description,source_description,rating,note')
+        .select('sor_code,line_description,source_description,rating,note,feedback_scope')
         .order('created_at', { ascending: false })
         .limit(500);
       if (fb && fb.length > 0) {
-        const withNote = (fb as any[]).filter((r) => r.note && String(r.note).trim().length > 0);
-        const good = (fb as any[]).filter((r) => r.rating === 'good').slice(0, 30);
-        const bad = (fb as any[]).filter((r) => r.rating === 'bad').slice(0, 30);
+        const lineFb = (fb as any[]).filter((r) => (r.feedback_scope ?? 'line') === 'line');
+        const overallFb = (fb as any[]).filter((r) => r.feedback_scope === 'overall' || r.feedback_scope === 'missing_task');
+        const withNote = lineFb.filter((r) => r.note && String(r.note).trim().length > 0);
+        const good = lineFb.filter((r) => r.rating === 'good').slice(0, 30);
+        const bad = lineFb.filter((r) => r.rating === 'bad').slice(0, 30);
         const notesGood = withNote.filter((r) => r.rating === 'good').slice(0, 25);
         const notesBad = withNote.filter((r) => r.rating === 'bad' || r.rating === 'fair').slice(0, 30);
         const fmt = (r: any) => `  • ${r.sor_code} for "${String(r.line_description).slice(0, 80)}" (job: "${String(r.source_description).slice(0, 80)}")`;
         const fmtNote = (r: any) => `  • [${r.rating.toUpperCase()}] code ${r.sor_code} on "${String(r.line_description).slice(0, 70)}" — surveyor said: "${String(r.note).slice(0, 240)}"`;
+        const fmtOverall = (r: any) => `  • [${String(r.feedback_scope).toUpperCase()} · ${String(r.rating).toUpperCase()}] on job "${String(r.source_description).slice(0, 120)}" — surveyor said: "${String(r.note || '').slice(0, 320)}"`;
         const parts: string[] = [];
+        if (overallFb.length) {
+          const overallLines = overallFb.slice(0, 25).map(fmtOverall).join('\n');
+          parts.push(`OVERALL-DESCRIPTION FEEDBACK (HIGHEST WEIGHT — these describe TASKS THAT WERE MISSED ENTIRELY or coverage gaps. When the current job description contains similar wording / tasks, you MUST enumerate them as separate SOR lines this time):\n${overallLines}`);
+        }
         if (notesGood.length || notesBad.length) {
           const noteLines = [...notesBad, ...notesGood].map(fmtNote).join('\n');
-          parts.push(`SURVEYOR REFINEMENT NOTES (HIGHEST-WEIGHT TRAINING — obey these corrections; they tell you exactly why prior pairings were right or wrong):\n${noteLines}`);
+          parts.push(`SURVEYOR REFINEMENT NOTES (HIGH WEIGHT — obey these corrections; they tell you exactly why prior pairings were right or wrong):\n${noteLines}`);
         }
         if (good.length) parts.push(`PRIOR GOOD MATCHES (reinforce these patterns — same code/task pairings should score high confidence):\n${good.map(fmt).join('\n')}`);
         if (bad.length) parts.push(`PRIOR BAD MATCHES (AVOID re-emitting these code/task pairings — the senior surveyor rejected them):\n${bad.map(fmt).join('\n')}`);
-        if (parts.length) feedbackBlock = `\n\nUSER-RATED MATCH HISTORY (training signal — weight matching toward GOOD notes, away from BAD/FAIR notes and rejected pairings):\n${parts.join('\n\n')}`;
+        if (parts.length) feedbackBlock = `\n\nUSER-RATED MATCH HISTORY (training signal):\n${parts.join('\n\n')}`;
       }
     } catch (e) {
       console.warn('feedback load failed', (e as any)?.message);
@@ -349,11 +356,33 @@ HARD RULES:
 - Use whichever source has the MORE SPECIFIC data for each line: prefer the existing Works List where it names a precise code/scope; prefer the free-text description where it adds location, dimensions, material, fault detail, or extent.
 - Do NOT fabricate. If the data doesn't imply a code, don't add it.
 
-TASK ENCAPSULATION (MANDATORY):
-1. After the semantic clean-up above, enumerate EVERY remaining discrete task with specific scope.
-2. For EACH enumerated task, emit at least one SOR line that covers it — at base rate.
-3. Where one SOR code naturally covers several mentioned sub-actions, state that consolidation in the line description.
-4. If a task is mentioned but no catalogue code fits, omit the line silently — never emit a placeholder/invented code.
+TASK ENCAPSULATION (MANDATORY — COVERAGE FAILURES ARE THE #1 REJECTION REASON):
+You are graded on whether EVERY discrete task implied by the data has its own SOR line. Missing tasks is worse than weak matches.
+
+STEP A — EXHAUSTIVE TASK EXTRACTION (do this before scoring any code):
+1. Read the FULL combined input character-by-character. List EVERY noun-phrase that names a component, fixture, material, surface, fault, treatment or trade action — no matter how briefly mentioned.
+2. Expand domain-specific abbreviations and trade jargon into the real underlying task. Examples of signals that MUST become tasks:
+   • "BACT DET" / "HALOPHEN" / "fungicidal wash" / "anti-mould" → mould treatment task (washdown + biocide application to affected surfaces).
+   • "wash down mould from PVCu window" → separate mould-cleaning task on window.
+   • "remove and relay X rolls of loft insulation" → LIFT-AND-RELAY loft insulation task; the roll count is a SIZE INDICATOR (1 roll ≈ 8m²) — use it to set qty/area and add a "make good" companion line if implied.
+   • "rake out and regrout wall tiles (Nm²)" → tile regrout task at the stated m².
+   • "renew silicone sealant to bath/basin/shower" → sealant renewal task.
+   • "clean gutter prior to decoration" → gutter clearance task.
+   • "client inspection" → inspection/quality-check task if a code exists for it.
+   • Any mention of cables, wagos, chop boxes, sockets, fittings → electrical containment/repair task.
+   • Any mention of squirrels / pests / roof access damage → pest-related make-good or roof repair task.
+3. Use quantitative hints (rolls, m², m, units, "all", "throughout", room count) to set REALISTIC quantities — don't default everything to 1. "11 rolls of loft insulation" → qty reflecting ~88m² of loft coverage.
+4. If the data lists an NPH works line ("227007 - CLIENT INSPECTION:REMOVE AND RELAY INSULATION 1"), that IS a discrete task — include it AND add any companion tasks the free-text implies (make good, debris removal, redecoration).
+5. After extraction, write your internal task list. Count the tasks. If the input mentions ≥5 distinct trade actions and you have <5 tasks, you have MISSED tasks — go back and re-extract.
+
+STEP B — CODE MATCHING (one pass per task):
+1. For EACH extracted task, pick the SINGLE catalogue line whose description most closely matches it semantically (action + component + surface + material).
+2. Where one SOR code naturally covers several mentioned sub-actions, state that consolidation in the line description.
+3. If a task is mentioned but NO catalogue code fits, omit that line silently — never emit a placeholder/invented code, but record nothing rather than force a weak match.
+
+STEP C — COVERAGE SELF-CHECK (run before returning):
+1. Re-scan the original description and confirm every named component / fault / treatment / fixture is represented by at least one emitted SOR line OR was correctly dropped because no catalogue code fits.
+2. Common misses to actively check for: mould-treatment lines, insulation lift-and-relay, sealant renewal, gutter clearance, decoration after repair, debris removal, access works.
 
 CATALOGUE — these are the ONLY codes you may emit (pipe-separated: code | description | category | unit | cost):
 ${sorContext}
