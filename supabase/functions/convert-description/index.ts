@@ -321,6 +321,21 @@ SOR MATCHING RULES (ACCURACY IS CRITICAL — this is graded line-by-line):
 - If no catalogue line is a defensible semantic match for a task, OMIT that task. Never force a weak match just to add a line.
 - After drafting, re-read every line and ask: "would a senior surveyor accept this code for this exact task?" If no, swap or drop.
 
+CRITICAL DISAMBIGUATION (do NOT confuse these — they are common failure modes):
+1. ACTION VERBS — the verb defines the code family:
+   • "remove and relay" / "lift and relay" / "reinstate" → REUSE existing material codes. NEVER map to "install new", "supply new", or "cavity defective of insulation". E.g. "remove and relay 11 rolls of loft insulation" = LIFT-AND-RELAY loft insulation code, NOT a new-install / cavity-fill code.
+   • "rake out and regrout" → tile/grout RENEWAL codes (raking out old grout, applying new grout/silicone). NEVER map to install-new-tile or replace-tile codes.
+   • "repoint" / "pointing" → MASONRY repointing codes (rake out old mortar, apply new mortar to brick/stone joints). NEVER map to plaster, render, tile, or grout codes.
+   • "treat" / "wash" / "fungicidal" → mould-treatment codes, NEVER paint or plaster codes.
+2. SURFACE / LOCATION — these are mutually exclusive; the wrong surface = wrong code:
+   • "wall tiles" ≠ "floor tiles". If the line says "wall", you MUST pick a wall-tile code; if "floor", a floor-tile code. Never cross them.
+   • "loft insulation" ≠ "cavity wall insulation" ≠ "external wall insulation". Match on the exact surface noun.
+   • "external wall" / "brickwork" / "mortar" / "pointing" = external masonry. NEVER map to internal plaster, tile, or floor codes.
+   • "ceiling" ≠ "wall" ≠ "floor" — pick the catalogue entry that names the same surface.
+3. KEYWORD SCAN — before choosing a code, identify and lock in: ACTION VERB (remove/relay, replace, install, repair, rake, repoint, treat), COMPONENT (insulation, tile, mortar, plaster, fan, door…), SURFACE (wall / floor / ceiling / loft / cavity / external / roof), MATERIAL (brick, mortar, ceramic, mineral wool…). A catalogue entry that disagrees on ANY of these is the WRONG entry.
+
+
+
 EXPLAINABILITY (REQUIRED — every line MUST carry its own evidence):
 - For EACH line you emit, you must output:
   • "confidence" — integer 0-100 reflecting how strongly the catalogue entry matches the task semantically. 90+ = exact-trade/component/action match; 70-89 = strong match, minor wording difference; 50-69 = plausible but generic; <50 = DO NOT EMIT (drop the line instead).
