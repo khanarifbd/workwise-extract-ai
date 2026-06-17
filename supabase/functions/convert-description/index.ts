@@ -51,7 +51,30 @@ serve(async (req) => {
     if (!parsed.success) {
       return new Response(JSON.stringify({ error: 'Invalid input', details: parsed.error.errors }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
-    const { description, minimumCost = 0, sorCodesContext, existingWorks } = parsed.data;
+    const { description: rawDescription, minimumCost = 0, sorCodesContext, existingWorks: rawExistingWorks } = parsed.data;
+
+    // FILLER PHRASE FILTER — generic statements that contain no costable scope.
+    // These describe intent (investigate / make safe / attend) rather than identifiable works,
+    // so they MUST NOT trigger SOR-code generation. Stripped from description and existing works
+    // before any matching, prompting, or remapping happens.
+    const FILLER_PATTERNS: RegExp[] = [
+      /\blocate\s+(the\s+)?(issue|fault|problem|leak|defect)s?\b[^.\n]*?\b(and|then|to)\b[^.\n]*?\b(carry\s+out|complete|undertake|perform|do)\b[^.\n]*?\b(remedial|necessary|required|appropriate|repair|making\s+good)\b[^.\n]*\.?/gi,
+      /\b(carry\s+out|complete|undertake|perform)\s+(any\s+)?(remedial|necessary|required|appropriate)\s+works?\b[^.\n]*\.?/gi,
+      /\binvestigate\s+and\s+(repair|rectify|resolve|make\s+good)\b[^.\n]*\.?/gi,
+      /\battend\s+(and\s+)?(make\s+safe|rectify|repair)\b[^.\n]*\.?/gi,
+      /\bmake\s+safe\s+and\s+(repair|rectify|make\s+good)\b[^.\n]*\.?/gi,
+      /\bcomplete\s+all\s+(associated|related|necessary)\s+works?\b[^.\n]*\.?/gi,
+    ];
+    const stripFiller = (s: string): string => {
+      let out = s || '';
+      for (const re of FILLER_PATTERNS) out = out.replace(re, ' ');
+      // Collapse whitespace and empty bullet lines left behind
+      return out.replace(/^[\s\-•*]+$/gm, '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+    };
+    const description = stripFiller(rawDescription);
+    const existingWorks = (rawExistingWorks ?? [])
+      .map((w: any) => ({ ...w, description: stripFiller(String(w.description || '')) }))
+      .filter((w: any) => w.description.length > 0 || (w.code && w.code.trim().length > 0));
 
     // Load codes from approved SOR books
     const { data: codeRows } = await admin
