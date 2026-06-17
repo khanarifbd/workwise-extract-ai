@@ -85,10 +85,13 @@ export const SORTrainingLoop = ({ open, onClose, initialDescription }: Props) =>
       .map((it, i) => ({ it, i, st: lines[i] }))
       .filter((x) => x.st && (x.st.rating || x.st.note.trim() || x.st.correctCode.trim()));
 
-    if (toSubmit.length === 0) {
+    const hasOverall = overallRating || overallNote.trim().length > 0;
+    const hasMissing = missingTasks.trim().length > 0;
+
+    if (toSubmit.length === 0 && !hasOverall && !hasMissing) {
       toast({
         title: 'No feedback yet',
-        description: 'Rate at least one pairing (or add a note / correct code) before re-converting.',
+        description: 'Rate at least one pairing, add overall feedback, or list missing tasks before re-converting.',
         variant: 'destructive',
       });
       return;
@@ -112,15 +115,50 @@ export const SORTrainingLoop = ({ open, onClose, initialDescription }: Props) =>
           confidence: (it as any).confidence,
           rationale: (it as any).rationale,
           note: note || undefined,
+          feedbackScope: 'line',
         });
         setLine(i, { saved: true });
       }
-      toast({ title: `Saved ${toSubmit.length} feedback entries`, description: 'Re-running conversion with your corrections…' });
+
+      if (hasOverall) {
+        await submitSORMatchFeedback({
+          sourceDescription: description,
+          rating: overallRating ?? 'fair',
+          note: overallNote.trim() || 'Overall description coverage feedback',
+          feedbackScope: 'overall',
+        });
+      }
+      if (hasMissing) {
+        await submitSORMatchFeedback({
+          sourceDescription: description,
+          rating: 'bad',
+          note: `MISSING TASKS — these were in the description but not paired: ${missingTasks.trim()}`,
+          feedbackScope: 'missing_task',
+        });
+      }
+
+      const total = toSubmit.length + (hasOverall ? 1 : 0) + (hasMissing ? 1 : 0);
+      toast({ title: `Saved ${total} feedback entries`, description: 'Re-running conversion with your corrections…' });
       await runConvert('retrain');
     } catch (e: any) {
       toast({ title: 'Could not save all feedback', description: e?.message || 'Try again.', variant: 'destructive' });
       setRetraining(false);
     }
+  };
+
+  const overallRatingBtn = (rating: SORMatchRating, label: string, Icon: any, active: string) => {
+    const on = overallRating === rating;
+    return (
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={() => setOverallRating(on ? undefined : rating)}
+        className={cn('h-8 px-2 text-[11px] gap-1', on && active)}
+      >
+        <Icon className="w-3 h-3" />
+        {label}
+      </Button>
+    );
   };
 
   const ratingBtn = (i: number, rating: SORMatchRating, label: string, Icon: any, active: string) => {
