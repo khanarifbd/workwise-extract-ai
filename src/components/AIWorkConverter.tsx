@@ -228,21 +228,72 @@ export const AIWorkConverter = ({ onConvert, onClose, existingWorks, initialDesc
             </ul>
           </div>
         )}
-        <div className="space-y-1 max-h-[260px] overflow-y-auto">
-          {tier.items.map((it, i) => (
-            <div key={i} className={cn('flex items-center justify-between gap-2 p-2 rounded-md border text-sm', it.valid ? 'border-border bg-card' : 'border-destructive/40 bg-destructive/5')}>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className="font-mono text-[10px]">{it.code}</Badge>
-                  {it.qty > 1 && <span className="text-xs text-muted-foreground">× {it.qty}</span>}
-                  {!it.valid && <span className="text-xs text-destructive">unknown code</span>}
+        <div className="space-y-2 max-h-[360px] overflow-y-auto">
+          {tier.items.map((it, i) => {
+            const conf = typeof (it as any).confidence === 'number' ? (it as any).confidence as number : null;
+            const rationale = (it as any).rationale as string | undefined;
+            const fbKey = `${key}::${i}`;
+            const currentRating = feedback[fbKey];
+            const submitting = !!feedbackSubmitting[fbKey];
+            const confColor = conf == null ? 'bg-muted text-muted-foreground'
+              : conf >= 85 ? 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30'
+              : conf >= 65 ? 'bg-blue-500/15 text-blue-700 border-blue-500/30'
+              : conf >= 45 ? 'bg-amber-500/15 text-amber-700 border-amber-500/30'
+              : 'bg-destructive/15 text-destructive border-destructive/30';
+            return (
+              <div key={i} className={cn('flex flex-col gap-1.5 p-2.5 rounded-md border text-sm', it.valid ? 'border-border bg-card' : 'border-destructive/40 bg-destructive/5')}>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant="secondary" className="font-mono text-[10px]">{it.code}</Badge>
+                      {it.qty > 1 && <span className="text-xs text-muted-foreground">× {it.qty}</span>}
+                      {conf != null && (
+                        <Badge variant="outline" className={cn('text-[10px] gap-1', confColor)} title="Model confidence this SOR code matches the task">
+                          <ShieldCheck className="w-3 h-3" /> {conf}% match
+                        </Badge>
+                      )}
+                      {!it.valid && <span className="text-xs text-destructive">unknown code</span>}
+                    </div>
+                    <p className="text-xs mt-1">{it.description}</p>
+                    {rationale && (
+                      <p className="text-[11px] mt-1 text-muted-foreground italic leading-snug">
+                        <span className="font-medium not-italic text-foreground/70">Why:</span> {rationale}
+                      </p>
+                    )}
+                  </div>
+                  <span className="font-semibold text-sm shrink-0">£{it.cost.toFixed(2)}</span>
                 </div>
-                <p className="text-xs mt-0.5 truncate">{it.description}</p>
+                <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/50">
+                  <span className="text-[10px] text-muted-foreground">Rate this match to train the AI:</span>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      size="sm" variant={currentRating === 'good' ? 'default' : 'outline'}
+                      disabled={submitting} onClick={() => rateMatch(key, i, 'good')}
+                      className={cn('h-6 px-2 text-[10px] gap-1', currentRating === 'good' && 'bg-emerald-600 hover:bg-emerald-700 text-white')}
+                    >
+                      <ThumbsUp className="w-3 h-3" /> Good
+                    </Button>
+                    <Button
+                      size="sm" variant={currentRating === 'fair' ? 'default' : 'outline'}
+                      disabled={submitting} onClick={() => rateMatch(key, i, 'fair')}
+                      className={cn('h-6 px-2 text-[10px] gap-1', currentRating === 'fair' && 'bg-amber-500 hover:bg-amber-600 text-white')}
+                    >
+                      <Minus className="w-3 h-3" /> Fair
+                    </Button>
+                    <Button
+                      size="sm" variant={currentRating === 'bad' ? 'default' : 'outline'}
+                      disabled={submitting} onClick={() => rateMatch(key, i, 'bad')}
+                      className={cn('h-6 px-2 text-[10px] gap-1', currentRating === 'bad' && 'bg-destructive hover:bg-destructive/90 text-white')}
+                    >
+                      <ThumbsDown className="w-3 h-3" /> Bad
+                    </Button>
+                  </div>
+                </div>
               </div>
-              <span className="font-semibold text-sm shrink-0">£{it.cost.toFixed(2)}</span>
-            </div>
-          ))}
+            );
+          })}
         </div>
+
         <div className="flex items-center justify-between pt-2 border-t border-border">
           <span className="text-xs text-muted-foreground">{tier.items.length} items</span>
           <span className="text-lg font-bold">£{tier.total.toFixed(2)}</span>
