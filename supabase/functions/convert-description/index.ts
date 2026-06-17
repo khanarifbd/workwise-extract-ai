@@ -562,11 +562,20 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
       const items: any[] = Array.isArray(t.items) ? t.items : [];
       const invalidCodes: string[] = [];
       let remappedCount = 0;
+      let hallucinationsDropped = 0;
+      let evidenceTracedCount = 0;
       let total = 0;
       const cleanedItemsRaw = items.map((it) => {
         const originalCode = String(it.code || '').trim();
         const qty = Math.max(1, Math.round(Number(it.qty) || 1));
         const desc = String(it.description || '');
+        const rawEvidence = String(it.evidence || '').slice(0, 400);
+        // EVIDENCE-OR-NOTHING — drop any line without a traceable evidence quote.
+        if (!evidenceTraceable(rawEvidence)) {
+          hallucinationsDropped += 1;
+          return null;
+        }
+        evidenceTracedCount += 1;
         let entry = codeIndex.get(originalCode);
         let codeUsed = originalCode;
         let remapped = false;
