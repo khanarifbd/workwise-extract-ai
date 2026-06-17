@@ -368,10 +368,29 @@ export const AIWorkConverter = ({ onConvert, onClose, existingWorks, initialDesc
                       {!it.valid && <span className="text-xs text-destructive">unknown code</span>}
                     </div>
                     <p className="text-xs mt-1">{it.description}</p>
+                    {(it as any).evidence && (
+                      <p className="text-[11px] mt-1 leading-snug border-l-2 border-primary/40 pl-2 bg-primary/5 rounded-sm py-0.5">
+                        <span className="font-medium text-primary/80">Evidence:</span>{' '}
+                        <span className="italic">"{(it as any).evidence}"</span>
+                      </p>
+                    )}
                     {rationale && (
                       <p className="text-[11px] mt-1 text-muted-foreground italic leading-snug">
                         <span className="font-medium not-italic text-foreground/70">Why:</span> {rationale}
                       </p>
+                    )}
+                    {Array.isArray((it as any).alternativesConsidered) && (it as any).alternativesConsidered.length > 0 && (
+                      <div className="text-[11px] mt-1 text-muted-foreground leading-snug">
+                        <span className="font-medium text-foreground/70">Alternatives considered:</span>
+                        <ul className="list-disc list-inside mt-0.5 space-y-0.5">
+                          {(it as any).alternativesConsidered.slice(0, 3).map((a: any, ai: number) => (
+                            <li key={ai}>
+                              <span className="font-mono">{a.code}</span>
+                              {a.reason ? ` — ${a.reason}` : ''}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
                     )}
                   </div>
                   <span className="font-semibold text-sm shrink-0">£{it.cost.toFixed(2)}</span>
