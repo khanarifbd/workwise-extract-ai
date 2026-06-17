@@ -1287,12 +1287,13 @@ export type Database = {
         Row: {
           confidence: number | null
           created_at: string
+          feedback_scope: string
           id: string
-          line_description: string
+          line_description: string | null
           note: string | null
           rating: string
           rationale: string | null
-          sor_code: string
+          sor_code: string | null
           source_description: string
           tier: string | null
           user_id: string | null
@@ -1300,12 +1301,13 @@ export type Database = {
         Insert: {
           confidence?: number | null
           created_at?: string
+          feedback_scope?: string
           id?: string
-          line_description: string
+          line_description?: string | null
           note?: string | null
           rating: string
           rationale?: string | null
-          sor_code: string
+          sor_code?: string | null
           source_description: string
           tier?: string | null
           user_id?: string | null
@@ -1313,12 +1315,13 @@ export type Database = {
         Update: {
           confidence?: number | null
           created_at?: string
+          feedback_scope?: string
           id?: string
-          line_description?: string
+          line_description?: string | null
           note?: string | null
           rating?: string
           rationale?: string | null
-          sor_code?: string
+          sor_code?: string | null
           source_description?: string
           tier?: string | null
           user_id?: string | null
