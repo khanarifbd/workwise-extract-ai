@@ -4,13 +4,15 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Wand2, Loader2, X, Check, BookOpen, ShieldCheck, AlertTriangle, Sparkles, Download, ThumbsUp, ThumbsDown, Minus, GraduationCap } from 'lucide-react';
-import { convertDescriptionToTieredQuotes, ConvertResponse, ConvertTier, submitSORMatchFeedback, SORMatchRating } from '@/lib/api';
+import { Wand2, Loader2, X, Check, BookOpen, ShieldCheck, AlertTriangle, Sparkles, Download, ThumbsUp, ThumbsDown, Minus, GraduationCap, Gavel } from 'lucide-react';
+import { convertDescriptionToTieredQuotes, ConvertResponse, ConvertTier, submitSORMatchFeedback, SORMatchRating, runSurveyorQAAudit, SurveyorQAAudit } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { cn } from '@/lib/utils';
 import { SORCodeBookManager } from './SORCodeBookManager';
 import { SORTrainingLoop } from './SORTrainingLoop';
+import { SurveyorQAAuditPanel } from './SurveyorQAAuditPanel';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 interface AIWorkConverterProps {
   onConvert: (workItems: WorkItem[], replaceExisting?: boolean, descriptionUsed?: string) => void;
