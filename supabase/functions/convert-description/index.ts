@@ -315,32 +315,31 @@ Scale by increasing QUANTITIES / LENGTHS / AREAS / LAYERS / COATS and adding all
 You do NOT keyword-match. You THINK, then SCOPE, then DECOMPOSE, then CODE. Surveyor-Level Understanding → Scope Creation → Task Extraction → SOR Matching. Never Keyword Detection → Code Matching.
 
 ZERO-HALLUCINATION CONTRACT (HIGHEST PRIORITY — these are the worst possible failures):
-A. NEVER invent a task not explicitly stated OR logically unavoidable from the notes. Before emitting ANY line ask: "Is this task explicitly stated, or unavoidably implied?" If no — DO NOT EMIT. Refuse common hallucinations: loft insulation when only bathroom/door works are described; roof repairs when only gutter cleaning is described; squirrel-ingress works when no pest is mentioned; decoration when no decoration is implied.
+A. EVIDENCE-OR-NOTHING RULE. NEVER invent a task not explicitly stated in the source notes. Every emitted line MUST carry an "evidence" field containing the VERBATIM sentence or phrase from the source description that justifies the task. If you cannot quote a sentence from the source that supports the task — DO NOT EMIT IT. Common hallucinations to actively refuse: loft insulation, DPC installation, electrical/cable/Wago works, additional drainage, roof repairs, squirrel ingress works, decoration — when none of these are evidenced in the notes.
 B. NEVER invent a measurement, quantity, area, or length. If the notes contain no measurement, use qty=1 and put "Measurement Required — surveyor to confirm" into the rationale. Never default to inflated figures (e.g. never "10 m²" when source says "clear 4 ft from wall").
 C. NEVER use a code outside the catalogue below. NEVER use memory, generic codes, inferred codes, or fabricated codes.
+D. EVERY LINE MUST CARRY ALTERNATIVES CONSIDERED. List at least one alternative catalogue code you weighed and rejected, with the reason.
 
-MANDATORY 9-STAGE WORKFLOW (perform silently, in order, before emitting any line):
+MANDATORY 8-STAGE SURVEYOR WORKFLOW (perform silently, in order, before emitting any line):
 
-STAGE 1 — SURVEYOR UNDERSTANDING. Identify: Root Cause (roof leak, condensation, failed gutter, failed extractor, tenant damage…); Consequential Damage (damp staining, mould, cracked plaster, rotten timber…); Existing Repair Actions already done on site (cleaned gutter, applied fungicidal wash, renewed sealant…); Missing Information (no dimensions, access unknown, qty not stated…).
+STAGE 1 — SURVEYOR UNDERSTANDING. Read the notes as a senior surveyor would. Identify: Root Cause (roof leak, condensation, failed gutter, failed extractor, tenant damage…); Consequential Damage (damp staining, mould, cracked plaster, rotten timber…); Existing Repair Actions already done on site; Missing Information.
 
-STAGE 2 — SCOPE OF WORKS CREATION. Convert notes into a professional surveyor scope. Example: "Clean mould and painted ceiling" → Scope = Treat mould / Prepare surface / Redecorate ceiling. Not just "Paint ceiling."
+STAGE 2 — ROOT CAUSE ANALYSIS. State the underlying defect mechanism in one sentence.
 
-STAGE 3 — TASK DECOMPOSITION. Each task = one trade + one action + one location. Hard splitting rules:
-  • Multi-product / multi-treatment MUST split — "Bactdet wash and Halophen treatment" = TWO tasks (apply Bactdet; apply Halophen).
-  • Multi-location MUST split — "Renew silicone to bath, basin, window, floor line, front door" = FIVE separate tasks. Different locations may attract different SOR codes; never merge.
-  • Consequential / preparation steps MUST be enumerated — "Sanded loose paint and filled ceiling crack" = remove loose paint / fill crack / sand smooth / prepare surface / paint ceiling. Identify every step required to complete the repair, not just the final visible result.
+STAGE 3 — CONSEQUENTIAL DAMAGE ANALYSIS. State the downstream damage the root cause has produced.
 
-STAGE 4 — TRADE CLASSIFICATION. Tag each task with a trade (Decorations / Plastering / Roofing / Brickwork / Joinery / Flooring / Drainage / Tiling / Sealants / Electrical / Ventilation…). This sharpens SOR selection.
+STAGE 4 — SCOPE OF WORKS CREATION. Build a numbered surveyor scope from the notes — every entry tied back to a quoted sentence.
 
-STAGE 5 — SOR SEARCH. Search ONLY the catalogue below.
+STAGE 5 — TASK DECOMPOSITION (ACTIVITY + LOCATION + PRODUCT SPLITTING). Each task = one trade + one action + one location + one product. Hard splitting rules:
+  • PRODUCT DETECTION ENGINE — every product / chemical / coating mentioned spawns its own task. "Bactdet wash and Halophen treatment" = TWO tasks (apply Bactdet; apply Halophen). "Mist coat and topcoat" = TWO tasks.
+  • LOCATION SPLITTING ENGINE — every location mentioned spawns its own task. "Renew silicone to bath, basin, window, floor line, front door" = FIVE separate sealant tasks. Never merge locations.
+  • ACTIVITY DECOMPOSITION ENGINE — every preparation / consequential step spawns its own task. "Sanded loose paint and filled ceiling crack and painted" = remove loose paint / fill crack / fill damaged areas / sand repair / prepare surface / paint ceiling. Identify every step, not just the final outcome.
 
-STAGE 6 — CONFIDENCE SCORING. 95–100 = direct match; 80–94 = strong semantic match; 60–79 = possible (only if no stronger candidate); <60 = DO NOT EMIT (drop the line — surveyor will review).
+STAGE 6 — TRADE CLASSIFICATION. Tag each task with a trade (Decorations / Plastering / Roofing / Brickwork / Joinery / Flooring / Drainage / Tiling / Sealants / Electrical / Ventilation…).
 
-STAGE 7 — ALTERNATIVE CODE VALIDATION. For each candidate, scan similar codes; compare description / trade / location / quantity basis / specificity. Always pick the MOST SPECIFIC code. Never a generic code when a specific code exists.
+STAGE 7 — SOR SEARCH + CONFIDENCE SCORING + ALTERNATIVE VALIDATION. Search ONLY the catalogue below. Score each match 0-100. 95–100 direct; 80–94 strong; 60–79 possible; <60 DO NOT EMIT. For every selected code, list at least one alternative considered and explain WHY the chosen code wins (more specific, correct trade, correct action verb, correct surface).
 
-STAGE 8 — REVENUE PROTECTION (price activities, not outcomes). Surveyors cost every activity the repair actually needs. "Paint ceiling" → scrape / fill / sand / mist coat / paint — emit a line whenever the catalogue has a specific code for that activity. Goal is ACCURATE pricing — not minimal, not inflated.
-
-STAGE 9 — FINAL VALIDATION. Before returning, answer each — if any fails, repeat the relevant stages: (1) all defects identified? (2) all repairs identified? (3) all locations identified? (4) all materials identified? (5) all preparation works identified? (6) all consequential repairs identified? (7) any tasks hallucinated (not in source)? (8) any measurements invented? (9) every code from the catalogue? (10) a more specific code available for any line?
+STAGE 8 — FINAL VALIDATION. Before returning, answer each — if any fails, repeat the relevant stages: (1) every emitted line carries quoted evidence from the source? (2) every line carries alternatives considered? (3) every code from the catalogue? (4) no invented measurements? (5) all locations / products / preparation / consequential steps decomposed? (6) all tasks attributable back to specific source sentences?
 
 SPECIAL CATEGORY RULES:
 • Damp & Mould — ALWAYS separate cause / remedial works / mould treatment / decoration.
@@ -440,14 +439,27 @@ ${minCostInstruction}
 
 Return STRICTLY a JSON object of this shape (no markdown, no commentary):
 {
+  "surveyorUnderstanding": {
+    "rootCause": string,
+    "consequentialDamage": string,
+    "scope": string[],
+    "tradeAllocation": string[]
+  },
   "tiers": {
-    "baseline": { "label": "Baseline", "items": [ { "description": string, "code": string, "qty": number, "confidence": number, "rationale": string } ], "notes": string },
+    "baseline": { "label": "Baseline", "items": [ { "description": string, "code": string, "qty": number, "confidence": number, "rationale": string, "evidence": string, "alternativesConsidered": [ { "code": string, "reason": string } ] } ], "notes": string },
     "enhanced": { "label": "Enhanced", "items": [ ... ], "notes": string },
     "premium":  { "label": "Premium",  "items": [ ... ], "notes": string }
   }
 }
 
-Each items[] entry: description = clear, professional, NPH-portal-ready human-readable line; code = exact SOR code from the catalogue; qty = integer >= 1; confidence = integer 0-100; rationale = <=160 char justification.
+Each items[] entry:
+- description = clear, professional, NPH-portal-ready human-readable line
+- code = exact SOR code from the catalogue
+- qty = integer >= 1
+- confidence = integer 0-100
+- rationale = <=160 char justification
+- evidence = VERBATIM quote (<=240 chars) from the source description proving this task exists. NO EVIDENCE → DO NOT EMIT.
+- alternativesConsidered = at least one rejected catalogue code with a short reason.
 Notes: 1-2 sentences explaining the scope rationale for that tier. FINAL CHECK before returning: re-verify every code semantically matches its line description against the catalogue.`;
 
     const existingWorksBlock = (existingWorks && existingWorks.length > 0)
@@ -521,9 +533,28 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
 
     const tierKeys = ['baseline', 'enhanced', 'premium'] as const;
     const validatedTiers: Record<string, any> = {};
-    const accuracy: Record<string, { total: number; itemCount: number; invalidCodes: string[]; remappedCount: number; valid: boolean }> = {};
+    const accuracy: Record<string, { total: number; itemCount: number; invalidCodes: string[]; remappedCount: number; valid: boolean; hallucinationsDropped: number; evidenceCoverage: number }> = {};
     const tierTotals: Record<string, number> = {};
     const tierItemsRef: Record<string, any[]> = {};
+
+    // EVIDENCE GATE — checks the AI-supplied evidence quote is genuinely traceable to
+    // the source description. We're lenient (token overlap, not exact substring) because
+    // line wrapping/paraphrasing is normal, but require strong overlap. Empty/missing
+    // evidence is treated as a hallucination and the line is dropped.
+    const normalize = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+    const descNorm = normalize(rawDescription);
+    const descTokenSet = new Set(descNorm.split(' ').filter((w) => w.length >= 3));
+    const evidenceTraceable = (evidence: string): boolean => {
+      const norm = normalize(evidence);
+      if (!norm || norm.length < 6) return false;
+      if (descNorm.includes(norm)) return true; // exact substring hit
+      // fallback: meaningful token overlap with the source
+      const toks = norm.split(' ').filter((w) => w.length >= 4 && !STOP.has(w));
+      if (toks.length === 0) return false;
+      let hits = 0; for (const t of toks) if (descTokenSet.has(t)) hits++;
+      return hits / toks.length >= 0.6;
+    };
+
 
     for (const key of tierKeys) {
       const t = tiersRaw.tiers[key];
@@ -531,11 +562,20 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
       const items: any[] = Array.isArray(t.items) ? t.items : [];
       const invalidCodes: string[] = [];
       let remappedCount = 0;
+      let hallucinationsDropped = 0;
+      let evidenceTracedCount = 0;
       let total = 0;
       const cleanedItemsRaw = items.map((it) => {
         const originalCode = String(it.code || '').trim();
         const qty = Math.max(1, Math.round(Number(it.qty) || 1));
         const desc = String(it.description || '');
+        const rawEvidence = String(it.evidence || '').slice(0, 400);
+        // EVIDENCE-OR-NOTHING — drop any line without a traceable evidence quote.
+        if (!evidenceTraceable(rawEvidence)) {
+          hallucinationsDropped += 1;
+          return null;
+        }
+        evidenceTracedCount += 1;
         let entry = codeIndex.get(originalCode);
         let codeUsed = originalCode;
         let remapped = false;
@@ -593,6 +633,12 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
         }
         const rationale = String(it.rationale || '').slice(0, 200) ||
           `Matched on ${entry.category || 'catalogue'} entry "${entry.description.slice(0, 70)}" (${entry.unit || 'each'} @ £${entry.cost}).`;
+        const alternativesConsidered = Array.isArray(it.alternativesConsidered)
+          ? it.alternativesConsidered
+              .filter((a: any) => a && (a.code || a.reason))
+              .slice(0, 4)
+              .map((a: any) => ({ code: String(a.code || '').slice(0, 64), reason: String(a.reason || '').slice(0, 200) }))
+          : [];
         return {
           description: desc || entry.description,
           code: codeUsed,
@@ -604,6 +650,8 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
           valid: true,
           confidence,
           rationale,
+          evidence: rawEvidence,
+          alternativesConsidered,
           ...(remapped ? { remappedFrom: originalCode } : {}),
         };
       });
@@ -617,12 +665,17 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
         items: cleanedItems,
         total: 0, // set after monotonic enforcement below
       };
+      const evidenceCoverage = items.length > 0
+        ? Math.round((evidenceTracedCount / items.length) * 100)
+        : 100;
       accuracy[key] = {
         total: 0,
         itemCount: cleanedItems.length,
         invalidCodes,
         remappedCount,
-        valid: invalidCodes.length === 0,
+        hallucinationsDropped,
+        evidenceCoverage,
+        valid: invalidCodes.length === 0 && hallucinationsDropped === 0,
       };
     }
 
@@ -678,6 +731,32 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
     // guarantees every emitted code is real and costed against the NPH book.
     const review: any = null;
 
+    // Extract surveyor understanding payload safely.
+    const su = tiersRaw.surveyorUnderstanding && typeof tiersRaw.surveyorUnderstanding === 'object'
+      ? {
+          rootCause: String(tiersRaw.surveyorUnderstanding.rootCause || '').slice(0, 600),
+          consequentialDamage: String(tiersRaw.surveyorUnderstanding.consequentialDamage || '').slice(0, 600),
+          scope: Array.isArray(tiersRaw.surveyorUnderstanding.scope)
+            ? tiersRaw.surveyorUnderstanding.scope.slice(0, 50).map((s: any) => String(s).slice(0, 240))
+            : [],
+          tradeAllocation: Array.isArray(tiersRaw.surveyorUnderstanding.tradeAllocation)
+            ? tiersRaw.surveyorUnderstanding.tradeAllocation.slice(0, 30).map((s: any) => String(s).slice(0, 240))
+            : [],
+        }
+      : null;
+
+    // Approval gate per spec — baseline-tier scored. Hallucinations=0, evidence=100%, codes valid.
+    const baselineAcc = accuracy['baseline'];
+    const approvalGate = baselineAcc ? {
+      hallucinations: baselineAcc.hallucinationsDropped || 0,
+      evidenceCoverage: baselineAcc.evidenceCoverage,
+      codesValid: baselineAcc.invalidCodes.length === 0,
+      passed:
+        (baselineAcc.hallucinationsDropped || 0) === 0 &&
+        baselineAcc.evidenceCoverage >= 100 &&
+        baselineAcc.invalidCodes.length === 0,
+    } : null;
+
     return new Response(JSON.stringify({
       success: true,
       tiers: validatedTiers,
@@ -686,6 +765,8 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
       codeSource,
       codeCount: codes.length,
       minimumCost,
+      surveyorUnderstanding: su,
+      approvalGate,
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
   } catch (error: any) {

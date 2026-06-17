@@ -179,6 +179,38 @@ export const AIWorkConverter = ({ onConvert, onClose, existingWorks, initialDesc
       if (res.codeSource === 'fallback') {
         toast({ title: 'Using fallback codes', description: 'No NPH SOR books uploaded — used built-in catalogue. Upload approved PDFs for full accuracy.', variant: 'destructive' });
       }
+      // PRIORITY 8 — auto-dispatch the independent Surveyor QA Agent against the baseline tier.
+      // Runs in the background; the user can open the QA dialog whenever they want.
+      const baseline = res.tiers.baseline;
+      if (baseline && baseline.items.length > 0) {
+        setQaTierAudited('baseline');
+        setQaAudit(null);
+        setQaRunning(true);
+        runSurveyorQAAudit({
+          description: fullDescription,
+          tier: TIER_META.baseline.label,
+          items: baseline.items.map((it) => ({
+            description: it.description,
+            code: it.code,
+            qty: it.qty,
+            cost: it.cost,
+            confidence: (it as any).confidence,
+            rationale: (it as any).rationale,
+          })),
+        })
+          .then((audit) => {
+            setQaAudit(audit);
+            toast({
+              title: `QA ${audit.decision || 'Complete'}`,
+              description: audit.summary?.slice(0, 140) || 'Independent surveyor review finished.',
+              variant: audit.decision === 'APPROVED' ? 'default' : 'destructive',
+            });
+          })
+          .catch((e: any) => {
+            console.warn('Auto QA audit failed', e?.message);
+          })
+          .finally(() => setQaRunning(false));
+      }
     } catch (error) {
       console.error('Conversion error:', error);
       toast({
@@ -336,10 +368,29 @@ export const AIWorkConverter = ({ onConvert, onClose, existingWorks, initialDesc
                       {!it.valid && <span className="text-xs text-destructive">unknown code</span>}
                     </div>
                     <p className="text-xs mt-1">{it.description}</p>
+                    {(it as any).evidence && (
+                      <p className="text-[11px] mt-1 leading-snug border-l-2 border-primary/40 pl-2 bg-primary/5 rounded-sm py-0.5">
+                        <span className="font-medium text-primary/80">Evidence:</span>{' '}
+                        <span className="italic">"{(it as any).evidence}"</span>
+                      </p>
+                    )}
                     {rationale && (
                       <p className="text-[11px] mt-1 text-muted-foreground italic leading-snug">
                         <span className="font-medium not-italic text-foreground/70">Why:</span> {rationale}
                       </p>
+                    )}
+                    {Array.isArray((it as any).alternativesConsidered) && (it as any).alternativesConsidered.length > 0 && (
+                      <div className="text-[11px] mt-1 text-muted-foreground leading-snug">
+                        <span className="font-medium text-foreground/70">Alternatives considered:</span>
+                        <ul className="list-disc list-inside mt-0.5 space-y-0.5">
+                          {(it as any).alternativesConsidered.slice(0, 3).map((a: any, ai: number) => (
+                            <li key={ai}>
+                              <span className="font-mono">{a.code}</span>
+                              {a.reason ? ` — ${a.reason}` : ''}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
                     )}
                   </div>
                   <span className="font-semibold text-sm shrink-0">£{it.cost.toFixed(2)}</span>
@@ -567,6 +618,49 @@ export const AIWorkConverter = ({ onConvert, onClose, existingWorks, initialDesc
               </button>
             ))}
           </div>
+
+          {(result.surveyorUnderstanding || result.approvalGate) && (
+            <div className="rounded-lg border border-border bg-card p-3 space-y-2">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="text-xs font-semibold flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-primary" /> Surveyor Understanding & Approval Gate
+                </div>
+                {result.approvalGate && (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <Badge variant="outline" className={cn('text-[10px]', result.approvalGate.passed ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-700' : 'border-amber-500/50 bg-amber-500/10 text-amber-700')}>
+                      {result.approvalGate.passed ? 'Gate: PASSED' : 'Gate: REVIEW'}
+                    </Badge>
+                    <Badge variant="outline" className="text-[10px]">Evidence {result.approvalGate.evidenceCoverage}%</Badge>
+                    <Badge variant="outline" className="text-[10px]">Hallucinations {result.approvalGate.hallucinations}</Badge>
+                  </div>
+                )}
+              </div>
+              {result.surveyorUnderstanding && (
+                <div className="grid sm:grid-cols-2 gap-2 text-[11px]">
+                  {result.surveyorUnderstanding.rootCause && (
+                    <p><span className="font-medium">Root cause:</span> {result.surveyorUnderstanding.rootCause}</p>
+                  )}
+                  {result.surveyorUnderstanding.consequentialDamage && (
+                    <p><span className="font-medium">Consequential damage:</span> {result.surveyorUnderstanding.consequentialDamage}</p>
+                  )}
+                  {result.surveyorUnderstanding.scope?.length > 0 && (
+                    <div className="sm:col-span-2">
+                      <span className="font-medium">Scope ({result.surveyorUnderstanding.scope.length}):</span>
+                      <ol className="list-decimal list-inside mt-0.5 space-y-0.5">
+                        {result.surveyorUnderstanding.scope.slice(0, 12).map((s, i) => <li key={i}>{s}</li>)}
+                      </ol>
+                    </div>
+                  )}
+                  {result.surveyorUnderstanding.tradeAllocation?.length > 0 && (
+                    <div className="sm:col-span-2">
+                      <span className="font-medium">Trades:</span>{' '}
+                      {result.surveyorUnderstanding.tradeAllocation.join(' · ')}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {renderTierPanel(selectedTier, result.tiers[selectedTier])}
 
