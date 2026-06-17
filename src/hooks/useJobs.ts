@@ -4,6 +4,7 @@ import {
   fetchJobs, createJob, updateJob, deleteJob, restoreJob,
   extractFansWithAI, extractRoofingWithAI, extractFlooringWithAI, extractInsulationWithAI,
   createLinkedFanJob, createLinkedRoofingJob, createLinkedFlooringJob, createLinkedInsulationJob,
+  mapDatabaseJobToJob,
 } from '@/lib/api';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
