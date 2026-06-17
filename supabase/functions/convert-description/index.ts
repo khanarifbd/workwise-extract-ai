@@ -228,6 +228,8 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
     const tierKeys = ['baseline', 'enhanced', 'premium'] as const;
     const validatedTiers: Record<string, any> = {};
     const accuracy: Record<string, { total: number; itemCount: number; invalidCodes: string[]; remappedCount: number; valid: boolean }> = {};
+    const tierTotals: Record<string, number> = {};
+    const tierItemsRef: Record<string, any[]> = {};
 
     for (const key of tierKeys) {
       const t = tiersRaw.tiers[key];
@@ -252,7 +254,7 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
             remappedCount += 1;
           } else {
             invalidCodes.push(originalCode);
-            return null; // drop unresolvable lines — no £0 placeholders
+            return null;
           }
         }
         const cost = entry.cost * qty;
@@ -261,40 +263,68 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
       });
       const cleanedItems: any[] = cleanedItemsRaw.filter((x) => x !== null) as any[];
 
-      // HARD FLOOR enforcement for baseline: if the AI undershoots minimumCost,
-      // deterministically scale up the qty of the cheapest-per-unit valid lines
-      // (so we add coverage of allied items, never per-unit cost inflation).
-      if (key === 'baseline' && minimumCost > 0 && total < minimumCost && cleanedItems.length > 0) {
-        // Sort by lowest per-unit cost first → scaling cheap lines adds most "scope coverage"
-        const scalable = [...cleanedItems].sort((a, b) => (a.entryCost || 0) - (b.entryCost || 0));
-        let i = 0;
-        let safety = 5000;
-        while (total < minimumCost && safety-- > 0) {
-          const line = scalable[i % scalable.length];
-          if (!line.entryCost || line.entryCost <= 0) { i++; continue; }
-          line.qty += 1;
-          line.cost = line.entryCost * line.qty;
-          total += line.entryCost;
-          i++;
-        }
-      }
-
-      // Strip the internal entryCost helper before returning
-      for (const it of cleanedItems) delete it.entryCost;
-
+      tierTotals[key] = total;
+      tierItemsRef[key] = cleanedItems;
       validatedTiers[key] = {
         label: t.label || key,
         notes: String(t.notes || ''),
         items: cleanedItems,
-        total: Math.round(total * 100) / 100,
+        total: 0, // set after monotonic enforcement below
       };
       accuracy[key] = {
-        total: validatedTiers[key].total,
+        total: 0,
         itemCount: cleanedItems.length,
         invalidCodes,
         remappedCount,
         valid: invalidCodes.length === 0,
       };
+    }
+
+    // Deterministic scaler: bumps qty on cheapest-per-unit lines until total >= target.
+    // This adds scope coverage instead of inflating per-unit cost — keeps SOR rates honest.
+    const scaleUpToTarget = (items: any[], currentTotal: number, target: number): number => {
+      if (!items.length || currentTotal >= target) return currentTotal;
+      const scalable = [...items].sort((a, b) => (a.entryCost || 0) - (b.entryCost || 0));
+      let i = 0;
+      let safety = 10000;
+      let total = currentTotal;
+      while (total < target && safety-- > 0) {
+        const line = scalable[i % scalable.length];
+        if (!line.entryCost || line.entryCost <= 0) { i++; continue; }
+        line.qty += 1;
+        line.cost = line.entryCost * line.qty;
+        total += line.entryCost;
+        i++;
+      }
+      return total;
+    };
+
+    // Enforce HARD ordering: minimumCost <= baseline < enhanced < premium.
+    // Baseline floor = minimumCost (if set), otherwise whatever AI returned.
+    // Enhanced >= baseline * 1.20, Premium >= baseline * 1.45 AND > enhanced.
+    if (tierItemsRef['baseline']) {
+      const baselineTarget = minimumCost > 0 ? minimumCost : (tierTotals['baseline'] || 0);
+      tierTotals['baseline'] = scaleUpToTarget(tierItemsRef['baseline'], tierTotals['baseline'] || 0, baselineTarget);
+    }
+    const baseTotal = tierTotals['baseline'] || (minimumCost > 0 ? minimumCost : 0);
+
+    if (tierItemsRef['enhanced']) {
+      const enhancedTarget = Math.max(baseTotal * 1.20, tierTotals['enhanced'] || 0);
+      tierTotals['enhanced'] = scaleUpToTarget(tierItemsRef['enhanced'], tierTotals['enhanced'] || 0, enhancedTarget);
+    }
+    const enhTotal = tierTotals['enhanced'] || baseTotal * 1.20;
+
+    if (tierItemsRef['premium']) {
+      const premiumTarget = Math.max(baseTotal * 1.45, enhTotal * 1.05, tierTotals['premium'] || 0);
+      tierTotals['premium'] = scaleUpToTarget(tierItemsRef['premium'], tierTotals['premium'] || 0, premiumTarget);
+    }
+
+    for (const key of tierKeys) {
+      if (!validatedTiers[key]) continue;
+      for (const it of tierItemsRef[key]) delete it.entryCost;
+      const finalTotal = Math.round((tierTotals[key] || 0) * 100) / 100;
+      validatedTiers[key].total = finalTotal;
+      accuracy[key].total = finalTotal;
     }
 
     // Review pass removed for speed — it previously added 5-15s per request via a second
