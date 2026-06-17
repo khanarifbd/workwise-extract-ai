@@ -322,6 +322,31 @@ export const AIWorkConverter = ({ onConvert, onClose, existingWorks, initialDesc
                     </Button>
                   </div>
                 </div>
+                {currentRating && (
+                  <div className="flex items-start gap-2 pt-1">
+                    <Textarea
+                      value={feedbackNotes[fbKey] || ''}
+                      onChange={(e) => { setFeedbackNotes((n) => ({ ...n, [fbKey]: e.target.value })); setNoteSaved((s) => ({ ...s, [fbKey]: false })); }}
+                      placeholder={
+                        currentRating === 'bad'
+                          ? 'Why is this a bad match? e.g. "Wrong trade — this is a roofing job, not plumbing" or "Should be code XXXX for replace, not repair".'
+                          : currentRating === 'fair'
+                          ? 'What would make this match better? e.g. "Close, but the catalogue code for slate tiles fits better than concrete".'
+                          : 'Add any refinement to reinforce this pairing (optional).'
+                      }
+                      className="min-h-[44px] text-[11px] flex-1"
+                      maxLength={1000}
+                    />
+                    <Button
+                      size="sm" variant="outline"
+                      disabled={submitting || !(feedbackNotes[fbKey] || '').trim() || noteSaved[fbKey]}
+                      onClick={() => saveNote(key, i)}
+                      className="h-7 px-2 text-[10px] shrink-0"
+                    >
+                      {noteSaved[fbKey] ? 'Saved' : 'Save note'}
+                    </Button>
+                  </div>
+                )}
               </div>
             );
           })}
