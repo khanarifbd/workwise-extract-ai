@@ -118,25 +118,113 @@ serve(async (req) => {
       'skirting','architrave','frame','joist','stud','batten',
     ]);
 
+    // ACTION GROUPS — verbs that change meaning dramatically. A catalogue entry whose
+    // action group disagrees with the line is a WRONG pairing (e.g. "remove & relay loft
+    // insulation" must NEVER map to "cavity area defective of insulation / install new").
+    type ActionGroup = 'remove_relay' | 'install_new' | 'repair' | 'replace' | 'treat' | 'rake_regrout' | 'repoint' | 'clean' | 'overhaul';
+    const ACTION_RULES: Array<{ group: ActionGroup; re: RegExp }> = [
+      { group: 'remove_relay', re: /\b(remove\s+and\s+(re)?lay|lift\s+and\s+relay|take\s+up\s+and\s+relay|relay|re-?lay|reinstate)\b/i },
+      { group: 'rake_regrout', re: /\b(rake\s*out|re-?grout|regrout|raking\s+out)\b/i },
+      { group: 'repoint',      re: /\b(repoint|re-?point|pointing|point\s+up)\b/i },
+      { group: 'treat',        re: /\b(treat|treatment|wash\s+down|fungicidal|anti-?mould|bactdet|sterilis)/i },
+      { group: 'replace',      re: /\b(replace|renew|swap\s+out|new\s+for\s+old)\b/i },
+      { group: 'install_new',  re: /\b(install\s+new|supply\s+and\s+install|fit\s+new|provide\s+and\s+fit|first\s+install)\b/i },
+      { group: 'repair',       re: /\b(repair|patch|make\s+good|rectify|fix)\b/i },
+      { group: 'overhaul',     re: /\b(overhaul|service|ease\s+and\s+adjust|adjust)\b/i },
+      { group: 'clean',        re: /\b(clean|clear|clearance|jet\s+wash)\b/i },
+    ];
+    const detectActions = (s: string): Set<ActionGroup> => {
+      const out = new Set<ActionGroup>();
+      for (const r of ACTION_RULES) if (r.re.test(s)) out.add(r.group);
+      return out;
+    };
+    // ACTION CONFLICTS — pairs that are semantically incompatible. If line has A and
+    // catalogue entry has B (and not A), that catalogue line is disqualified.
+    const ACTION_CONFLICTS: Partial<Record<ActionGroup, ActionGroup[]>> = {
+      remove_relay: ['install_new'],
+      install_new:  ['remove_relay', 'repair'],
+      repair:       ['install_new', 'replace'],
+      replace:      ['repair'],
+      rake_regrout: ['install_new', 'replace'],
+      repoint:      ['install_new', 'replace', 'rake_regrout'],
+      treat:        ['install_new', 'replace'],
+    };
+
+    // SURFACE / LOCATION GROUPS — mutually exclusive contexts. wall ≠ floor; loft ≠ cavity;
+    // brick/mortar (masonry) ≠ tile/grout (ceramics). A catalogue entry belonging to a
+    // DIFFERENT surface group than the line is disqualified.
+    type SurfaceGroup = 'wall' | 'floor' | 'ceiling' | 'loft' | 'cavity' | 'external_masonry' | 'roof' | 'tile_ceramic';
+    const SURFACE_RULES: Array<{ group: SurfaceGroup; re: RegExp }> = [
+      { group: 'loft',             re: /\b(loft|attic|roof\s*space)\b/i },
+      { group: 'cavity',           re: /\bcavity(\s+wall)?\b/i },
+      { group: 'external_masonry', re: /\b(brick(work)?|mortar|pointing|external\s+wall|render|stonework|masonry)\b/i },
+      { group: 'roof',             re: /\b(roof|slate|ridge|valley|flashing|gutter|fascia|soffit)\b/i },
+      { group: 'wall',             re: /\bwall(\s+tile)?s?\b/i },
+      { group: 'floor',            re: /\b(floor|flooring|skirting|underlay|screed)\b/i },
+      { group: 'ceiling',          re: /\bceiling\b/i },
+      { group: 'tile_ceramic',     re: /\b(tile|tiling|grout|silicone\s+seal)\b/i },
+    ];
+    const detectSurfaces = (s: string): Set<SurfaceGroup> => {
+      const out = new Set<SurfaceGroup>();
+      for (const r of SURFACE_RULES) if (r.re.test(s)) out.add(r.group);
+      return out;
+    };
+    // Conflicting surface pairs — being in one means definitely NOT the other.
+    const SURFACE_CONFLICTS: Partial<Record<SurfaceGroup, SurfaceGroup[]>> = {
+      wall:             ['floor', 'ceiling', 'loft', 'roof'],
+      floor:            ['wall', 'ceiling', 'loft', 'roof'],
+      ceiling:          ['wall', 'floor'],
+      loft:             ['cavity', 'wall', 'floor', 'external_masonry'],
+      cavity:           ['loft'],
+      external_masonry: ['loft', 'floor', 'tile_ceramic'],
+      tile_ceramic:    ['external_masonry', 'loft'],
+    };
+
+    const conflictsAction = (lineActs: Set<ActionGroup>, hayActs: Set<ActionGroup>): boolean => {
+      for (const la of lineActs) {
+        const bad = ACTION_CONFLICTS[la] || [];
+        for (const b of bad) if (hayActs.has(b) && !hayActs.has(la)) return true;
+      }
+      return false;
+    };
+    const conflictsSurface = (lineSurfs: Set<SurfaceGroup>, haySurfs: Set<SurfaceGroup>): boolean => {
+      for (const ls of lineSurfs) {
+        const bad = SURFACE_CONFLICTS[ls] || [];
+        for (const b of bad) if (haySurfs.has(b) && !haySurfs.has(ls)) return true;
+      }
+      return false;
+    };
+
     const queryTokens = new Set<string>([
       ...tokenize(description),
       ...((existingWorks ?? []).flatMap((w: any) => tokenize(w.description || ''))),
     ]);
     const queryBigrams = new Set<string>(bigrams(Array.from(queryTokens)));
+    const queryActions = detectActions(`${description} ${(existingWorks ?? []).map((w: any) => w.description || '').join(' ')}`);
+    const querySurfaces = detectSurfaces(`${description} ${(existingWorks ?? []).map((w: any) => w.description || '').join(' ')}`);
 
     const scoreEntry = (c: CodeEntry): number => {
       const hay = `${c.description} ${c.category || ''}`.toLowerCase();
+      const hayActs = detectActions(hay);
+      const haySurfs = detectSurfaces(hay);
+      // HARD DISQUALIFY: action or surface group clash → exclude from shortlist.
+      if (queryActions.size > 0 && hayActs.size > 0 && conflictsAction(queryActions, hayActs)) return 0;
+      if (querySurfaces.size > 0 && haySurfs.size > 0 && conflictsSurface(querySurfaces, haySurfs)) return 0;
       let s = 0;
       for (const t of queryTokens) {
         if (hay.includes(t)) {
           s += t.length >= 5 ? 2 : 1;
-          if (ANCHOR_TOKENS.has(t)) s += 3; // trade/component anchors weigh heavily
+          if (ANCHOR_TOKENS.has(t)) s += 3;
         }
       }
-      // Bigram bonus: contiguous two-word phrases are strong semantic evidence.
       for (const bg of queryBigrams) if (hay.includes(bg)) s += 4;
+      // Action-group agreement bonus — same verb family is strong evidence.
+      for (const a of queryActions) if (hayActs.has(a)) s += 6;
+      // Surface-group agreement bonus — same surface/location family is strong evidence.
+      for (const sf of querySurfaces) if (haySurfs.has(sf)) s += 6;
       return s;
     };
+
 
 
     let sorContext: string;
@@ -233,6 +321,21 @@ SOR MATCHING RULES (ACCURACY IS CRITICAL — this is graded line-by-line):
 - If no catalogue line is a defensible semantic match for a task, OMIT that task. Never force a weak match just to add a line.
 - After drafting, re-read every line and ask: "would a senior surveyor accept this code for this exact task?" If no, swap or drop.
 
+CRITICAL DISAMBIGUATION (do NOT confuse these — they are common failure modes):
+1. ACTION VERBS — the verb defines the code family:
+   • "remove and relay" / "lift and relay" / "reinstate" → REUSE existing material codes. NEVER map to "install new", "supply new", or "cavity defective of insulation". E.g. "remove and relay 11 rolls of loft insulation" = LIFT-AND-RELAY loft insulation code, NOT a new-install / cavity-fill code.
+   • "rake out and regrout" → tile/grout RENEWAL codes (raking out old grout, applying new grout/silicone). NEVER map to install-new-tile or replace-tile codes.
+   • "repoint" / "pointing" → MASONRY repointing codes (rake out old mortar, apply new mortar to brick/stone joints). NEVER map to plaster, render, tile, or grout codes.
+   • "treat" / "wash" / "fungicidal" → mould-treatment codes, NEVER paint or plaster codes.
+2. SURFACE / LOCATION — these are mutually exclusive; the wrong surface = wrong code:
+   • "wall tiles" ≠ "floor tiles". If the line says "wall", you MUST pick a wall-tile code; if "floor", a floor-tile code. Never cross them.
+   • "loft insulation" ≠ "cavity wall insulation" ≠ "external wall insulation". Match on the exact surface noun.
+   • "external wall" / "brickwork" / "mortar" / "pointing" = external masonry. NEVER map to internal plaster, tile, or floor codes.
+   • "ceiling" ≠ "wall" ≠ "floor" — pick the catalogue entry that names the same surface.
+3. KEYWORD SCAN — before choosing a code, identify and lock in: ACTION VERB (remove/relay, replace, install, repair, rake, repoint, treat), COMPONENT (insulation, tile, mortar, plaster, fan, door…), SURFACE (wall / floor / ceiling / loft / cavity / external / roof), MATERIAL (brick, mortar, ceramic, mineral wool…). A catalogue entry that disagrees on ANY of these is the WRONG entry.
+
+
+
 EXPLAINABILITY (REQUIRED — every line MUST carry its own evidence):
 - For EACH line you emit, you must output:
   • "confidence" — integer 0-100 reflecting how strongly the catalogue entry matches the task semantically. 90+ = exact-trade/component/action match; 70-89 = strong match, minor wording difference; 50-69 = plausible but generic; <50 = DO NOT EMIT (drop the line instead).
@@ -320,15 +423,22 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
     const remapByDescription = (desc: string): CodeEntry | null => {
       const toks = tokenize(desc);
       if (toks.length === 0) return null;
+      const lineActs = detectActions(desc);
+      const lineSurfs = detectSurfaces(desc);
       let best: { c: CodeEntry; s: number } | null = null;
       for (const c of codes) {
         const hay = `${c.description} ${c.category || ''}`.toLowerCase();
+        const hayActs = detectActions(hay);
+        const haySurfs = detectSurfaces(hay);
+        // Hard-disqualify entries whose action or surface group contradicts the line.
+        if (lineActs.size > 0 && hayActs.size > 0 && conflictsAction(lineActs, hayActs)) continue;
+        if (lineSurfs.size > 0 && haySurfs.size > 0 && conflictsSurface(lineSurfs, haySurfs)) continue;
         let s = 0;
         for (const t of toks) if (hay.includes(t)) s += t.length >= 5 ? 2 : 1;
+        for (const a of lineActs) if (hayActs.has(a)) s += 6;
+        for (const sf of lineSurfs) if (haySurfs.has(sf)) s += 6;
         if (s > 0 && (!best || s > best.s)) best = { c, s };
       }
-      // Require at least 2 token hits to avoid noisy remaps
-      // Require a strong semantic overlap (>=4) — weak matches are dropped, not force-fit.
       return best && best.s >= 4 ? best.c : null;
     };
 
@@ -387,12 +497,19 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
         }
         if (remapped) confidence = Math.min(confidence, 55); // remapped = lower trust
         confidence = Math.max(0, Math.min(100, confidence));
-        // STRICT semantic guard: if the AI's chosen catalogue entry shares NO trade-anchor
-        // with the line AND has weak token overlap AND isn't an explicit existing-works
-        // pin, drop the line silently rather than emit a weak pairing.
+        // STRICT semantic guard: drop pairings where the catalogue entry contradicts the
+        // line's action verb (e.g. "remove & relay" mapped to "install new") or surface
+        // (e.g. "wall tile" mapped to "floor tile"; "loft insulation" to "cavity insulation";
+        // "repoint brickwork" to a tile/grout code). Also drop weak no-anchor matches.
         const isPinned = (rawExistingWorks ?? []).some((w: any) => String(w.code || '').trim() === codeUsed);
-        if (!isPinned && lineToks.length >= 3 && anchorHits === 0 && bgHits === 0 && tokHits < 2) {
-          return null;
+        const lineActs = detectActions(desc);
+        const lineSurfs = detectSurfaces(desc);
+        const hayActs = detectActions(hay);
+        const haySurfs = detectSurfaces(hay);
+        if (!isPinned) {
+          if (lineActs.size > 0 && hayActs.size > 0 && conflictsAction(lineActs, hayActs)) return null;
+          if (lineSurfs.size > 0 && haySurfs.size > 0 && conflictsSurface(lineSurfs, haySurfs)) return null;
+          if (lineToks.length >= 3 && anchorHits === 0 && bgHits === 0 && tokHits < 2) return null;
         }
         const rationale = String(it.rationale || '').slice(0, 200) ||
           `Matched on ${entry.category || 'catalogue'} entry "${entry.description.slice(0, 70)}" (${entry.unit || 'each'} @ £${entry.cost}).`;
