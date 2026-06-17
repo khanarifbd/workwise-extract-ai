@@ -385,32 +385,40 @@ HARD RULES:
 - Do NOT fabricate. If the data doesn't imply a code, don't add it.
 
 TASK ENCAPSULATION (MANDATORY — COVERAGE FAILURES ARE THE #1 REJECTION REASON):
-You are graded on whether EVERY discrete task implied by the data has its own SOR line. Missing tasks is worse than weak matches.
+You are graded on whether EVERY discrete task implied by the data has its own SOR line. Missing tasks is worse than weak matches. Under-enumeration is the most common failure — when in doubt, SPLIT.
 
-STEP A — EXHAUSTIVE TASK EXTRACTION (do this before scoring any code):
-1. Read the FULL combined input character-by-character. List EVERY noun-phrase that names a component, fixture, material, surface, fault, treatment or trade action — no matter how briefly mentioned.
-2. Expand domain-specific abbreviations and trade jargon into the real underlying task. Examples of signals that MUST become tasks:
-   • "BACT DET" / "HALOPHEN" / "fungicidal wash" / "anti-mould" → mould treatment task (washdown + biocide application to affected surfaces).
+STEP A — EXHAUSTIVE NUMBERED TASK EXTRACTION (do this before scoring any code):
+1. Read the FULL combined input character-by-character. Walk the property mentally room-by-room / area-by-area (every heading like "Bathroom", "Front Door", "External Work", "Gutter Cleaning", "Ceiling" is a section — each contains MULTIPLE tasks).
+2. Build a NUMBERED internal list of EVERY discrete action. One verb + one component/surface = one numbered task. Examples of MUST-SPLIT patterns:
+   • "Removed silicone on the window, bathtub, washing basin and floor line and applied new silicone" → FOUR separate sealant-renewal tasks (1 window, 2 bath, 3 basin, 4 floor) — never collapse into one line.
+   • "Sanded loose paint, filled crack on ceiling, sanded smooth, prepared for painting" → crack-fill / make-good / preparation task on the ceiling.
+   • "Painted entire bathroom ceiling with white anti-mould paint" → ceiling redecoration task (anti-mould emulsion).
+   • "All mould-affected areas remediated with Bactdet then sealed with Halophen" → mould-treatment task (wash-down + biocide + sealing coat). If multiple surfaces are named (walls, ceiling, window reveals) consider whether the catalogue has a per-area code.
+   • "Clean wall AND floor tiles, remove dirt/mould/limescale/old grout, regrout tiled areas" → wall-tile regrout task AND floor-tile regrout task (TWO codes, never merge — the surface group differs).
+   • "Repointed brickwork crack" → masonry repointing task.
+   • "Clear and clean area extending 4 feet from the wall, remove debris/vegetation/loose materials/waste" → external clearance / vegetation removal task.
+   • "Removed gutter guard brush, cleaned it, washed down gutters, reinstalled" → gutter clearance task (and a guard-brush clean/refit task if a separate code exists).
+   • "Front door sealant renewal" → ONE more sealant task (separate from bathroom sealants — different location).
+3. Expand domain-specific abbreviations and trade jargon into the real underlying task:
+   • "BACT DET" / "HALOPHEN" / "fungicidal wash" / "anti-mould" → mould treatment task (washdown + biocide application).
    • "wash down mould from PVCu window" → separate mould-cleaning task on window.
    • "remove and relay X rolls of loft insulation" → LIFT-AND-RELAY loft insulation task; the roll count is a SIZE INDICATOR (1 roll ≈ 8m²) — use it to set qty/area and add a "make good" companion line if implied.
    • "rake out and regrout wall tiles (Nm²)" → tile regrout task at the stated m².
-   • "renew silicone sealant to bath/basin/shower" → sealant renewal task.
+   • "renew silicone sealant to bath/basin/shower" → ONE sealant renewal task PER named fixture.
    • "clean gutter prior to decoration" → gutter clearance task.
-   • "client inspection" → inspection/quality-check task if a code exists for it.
-   • Any mention of cables, wagos, chop boxes, sockets, fittings → electrical containment/repair task.
-   • Any mention of squirrels / pests / roof access damage → pest-related make-good or roof repair task.
-3. Use quantitative hints (rolls, m², m, units, "all", "throughout", room count) to set REALISTIC quantities — don't default everything to 1. "11 rolls of loft insulation" → qty reflecting ~88m² of loft coverage.
-4. If the data lists an NPH works line ("227007 - CLIENT INSPECTION:REMOVE AND RELAY INSULATION 1"), that IS a discrete task — include it AND add any companion tasks the free-text implies (make good, debris removal, redecoration).
-5. After extraction, write your internal task list. Count the tasks. If the input mentions ≥5 distinct trade actions and you have <5 tasks, you have MISSED tasks — go back and re-extract.
+4. Use quantitative hints (rolls, m², m, units, "all", "throughout", room count, "4 feet from the wall") to set REALISTIC quantities — don't default everything to 1.
+5. If the data lists an NPH works line, that IS a discrete task — include it AND add any companion tasks the free-text implies (make good, debris removal, redecoration).
+6. After extraction, COUNT your numbered task list. Sanity floors: if the source has section headings (e.g. Bathroom / Front Door / External / Gutter) you should typically have ≥2 tasks per non-trivial section. If the input mentions ≥5 distinct trade actions and you have <5 tasks, you have MISSED tasks — go back and re-extract before any code matching.
 
-STEP B — CODE MATCHING (one pass per task):
+STEP B — CODE MATCHING (one pass per numbered task):
 1. For EACH extracted task, pick the SINGLE catalogue line whose description most closely matches it semantically (action + component + surface + material).
-2. Where one SOR code naturally covers several mentioned sub-actions, state that consolidation in the line description.
+2. Where one SOR code naturally covers several mentioned sub-actions, state that consolidation in the line description — but PREFER splitting where the catalogue has distinct codes per surface/fixture.
 3. If a task is mentioned but NO catalogue code fits, omit that line silently — never emit a placeholder/invented code, but record nothing rather than force a weak match.
 
 STEP C — COVERAGE SELF-CHECK (run before returning):
 1. Re-scan the original description and confirm every named component / fault / treatment / fixture is represented by at least one emitted SOR line OR was correctly dropped because no catalogue code fits.
-2. Common misses to actively check for: mould-treatment lines, insulation lift-and-relay, sealant renewal, gutter clearance, decoration after repair, debris removal, access works.
+2. Common misses to actively check for: mould-treatment lines, ceiling crack-fill / make-good, anti-mould ceiling redecoration, EACH sealant location, insulation lift-and-relay, gutter clearance, external clearance, repointing, decoration after repair, debris removal, access works.
+3. If baseline contains fewer items than the count of distinct trade actions you enumerated in Step A, you have UNDER-ENUMERATED — go back and add the missing lines.
 
 CATALOGUE — these are the ONLY codes you may emit (pipe-separated: code | description | category | unit | cost):
 ${sorContext}
