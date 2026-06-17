@@ -299,6 +299,8 @@ export interface ConvertTierItem {
   unit: string | null;
   category: string | null;
   valid: boolean;
+  confidence?: number;
+  rationale?: string;
 }
 export interface ConvertTier {
   label: string;
@@ -328,18 +330,49 @@ export const convertDescriptionToTieredQuotes = async (
   existingWorks?: ExistingWorkInput[]
 ): Promise<ConvertResponse> => {
   const headers = await getAuthHeaders();
-  const { data, error } = await supabase.functions.invoke('convert-description', {
-    body: {
-      description,
-      ...(typeof minimumCost === 'number' ? { minimumCost } : {}),
-      ...(existingWorks && existingWorks.length > 0 ? { existingWorks } : {}),
-      sorCodesContext: getSORCodesContext(), // fallback only — used if no NPH books uploaded
-    },
-    headers,
+  // Mark convert-in-flight so app-level idle/refresh logic doesn't reload the page mid-conversion.
+  (window as any).__convertInFlight = ((window as any).__convertInFlight || 0) + 1;
+  try {
+    const { data, error } = await supabase.functions.invoke('convert-description', {
+      body: {
+        description,
+        ...(typeof minimumCost === 'number' ? { minimumCost } : {}),
+        ...(existingWorks && existingWorks.length > 0 ? { existingWorks } : {}),
+        sorCodesContext: getSORCodesContext(),
+      },
+      headers,
+    });
+    if (error) throw error;
+    if (!data?.success) throw new Error(data?.error || 'Failed to convert description');
+    return data as ConvertResponse;
+  } finally {
+    (window as any).__convertInFlight = Math.max(0, ((window as any).__convertInFlight || 1) - 1);
+  }
+};
+
+export type SORMatchRating = 'good' | 'fair' | 'bad';
+export const submitSORMatchFeedback = async (params: {
+  sourceDescription: string;
+  lineDescription: string;
+  sorCode: string;
+  rating: SORMatchRating;
+  tier?: string;
+  confidence?: number;
+  rationale?: string;
+}): Promise<void> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Sign in required to rate matches');
+  const { error } = await supabase.from('sor_match_feedback').insert({
+    user_id: user.id,
+    source_description: params.sourceDescription.slice(0, 5000),
+    line_description: params.lineDescription.slice(0, 2000),
+    sor_code: params.sorCode.slice(0, 64),
+    rating: params.rating,
+    tier: params.tier ?? null,
+    confidence: typeof params.confidence === 'number' ? Math.round(params.confidence) : null,
+    rationale: params.rationale ? params.rationale.slice(0, 500) : null,
   });
   if (error) throw error;
-  if (!data?.success) throw new Error(data?.error || 'Failed to convert description');
-  return data as ConvertResponse;
 };
 
 // Legacy single-list helper kept for backwards compatibility (returns baseline tier as WorkItem[])
