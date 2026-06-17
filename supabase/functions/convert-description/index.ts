@@ -130,6 +130,27 @@ serve(async (req) => {
       }
     }
 
+    // TRAINING SIGNAL — pull recent user feedback and feed it into the prompt.
+    let feedbackBlock = '';
+    try {
+      const { data: fb } = await admin
+        .from('sor_match_feedback')
+        .select('sor_code,line_description,source_description,rating')
+        .order('created_at', { ascending: false })
+        .limit(400);
+      if (fb && fb.length > 0) {
+        const good = fb.filter((r: any) => r.rating === 'good').slice(0, 25);
+        const bad = fb.filter((r: any) => r.rating === 'bad').slice(0, 25);
+        const fmt = (r: any) => `  • ${r.sor_code} for "${String(r.line_description).slice(0, 80)}" (job: "${String(r.source_description).slice(0, 80)}")`;
+        const parts: string[] = [];
+        if (good.length) parts.push(`PRIOR GOOD MATCHES (reinforce these patterns — same code/task pairings should score high confidence):\n${good.map(fmt).join('\n')}`);
+        if (bad.length) parts.push(`PRIOR BAD MATCHES (AVOID re-emitting these code/task pairings — the senior surveyor rejected them):\n${bad.map(fmt).join('\n')}`);
+        if (parts.length) feedbackBlock = `\n\nUSER-RATED MATCH HISTORY (training signal — weight matching toward GOOD, away from BAD):\n${parts.join('\n\n')}`;
+      }
+    } catch (e) {
+      console.warn('feedback load failed', (e as any)?.message);
+    }
+
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY missing');
 
@@ -167,6 +188,11 @@ SOR MATCHING RULES (ACCURACY IS CRITICAL — this is graded line-by-line):
 - If no catalogue line is a defensible semantic match for a task, OMIT that task. Never force a weak match just to add a line.
 - After drafting, re-read every line and ask: "would a senior surveyor accept this code for this exact task?" If no, swap or drop.
 
+EXPLAINABILITY (REQUIRED — every line MUST carry its own evidence):
+- For EACH line you emit, you must output:
+  • "confidence" — integer 0-100 reflecting how strongly the catalogue entry matches the task semantically. 90+ = exact-trade/component/action match; 70-89 = strong match, minor wording difference; 50-69 = plausible but generic; <50 = DO NOT EMIT (drop the line instead).
+  • "rationale" — one sentence (<=160 chars) explaining WHY this SOR code was chosen for this task. Reference trade, component, action and matching keywords.
+
 HARD RULES:
 - ONLY use SOR codes from the catalogue below. NEVER invent codes.
 - NEVER alter the per-unit cost — only quantities scale.
@@ -178,26 +204,26 @@ HARD RULES:
 TASK ENCAPSULATION (MANDATORY):
 1. After the semantic clean-up above, enumerate EVERY remaining discrete task with specific scope.
 2. For EACH enumerated task, emit at least one SOR line that covers it — at base rate.
-3. Where one SOR code naturally covers several mentioned sub-actions (e.g. "prep + paint" as a single decoration code), state that consolidation in the line description.
+3. Where one SOR code naturally covers several mentioned sub-actions, state that consolidation in the line description.
 4. If a task is mentioned but no catalogue code fits, omit the line silently — never emit a placeholder/invented code.
 
 CATALOGUE — these are the ONLY codes you may emit (pipe-separated: code | description | category | unit | cost):
 ${sorContext}
 
-REMINDER: a code that is NOT in the list above does not exist. Do not invent codes — only emit codes printed in the list above. If no listed code fits, omit the line.
+REMINDER: a code that is NOT in the list above does not exist. Do not invent codes — only emit codes printed in the list above. If no listed code fits, omit the line.${feedbackBlock}
 ${minCostInstruction}
 
 Return STRICTLY a JSON object of this shape (no markdown, no commentary):
 {
   "tiers": {
-    "baseline": { "label": "Baseline", "items": [ { "description": string, "code": string, "qty": number } ], "notes": string },
+    "baseline": { "label": "Baseline", "items": [ { "description": string, "code": string, "qty": number, "confidence": number, "rationale": string } ], "notes": string },
     "enhanced": { "label": "Enhanced", "items": [ ... ], "notes": string },
     "premium":  { "label": "Premium",  "items": [ ... ], "notes": string }
   }
 }
 
-Each items[] entry: description = clear, professional, NPH-portal-ready human-readable line (mention location/material/extent where the data supports it); code = exact SOR code from the catalogue; qty = integer >= 1.
-Notes: 1-2 sentences explaining the scope rationale for that tier (e.g. "Adds tiled make-good and full redecoration"). FINAL CHECK before returning: re-verify every code semantically matches its line description against the catalogue.`;
+Each items[] entry: description = clear, professional, NPH-portal-ready human-readable line; code = exact SOR code from the catalogue; qty = integer >= 1; confidence = integer 0-100; rationale = <=160 char justification.
+Notes: 1-2 sentences explaining the scope rationale for that tier. FINAL CHECK before returning: re-verify every code semantically matches its line description against the catalogue.`;
 
     const existingWorksBlock = (existingWorks && existingWorks.length > 0)
       ? `\n\nEXISTING NPH WORKS LIST (already on the job — provided by NPH).
@@ -219,7 +245,7 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
       method: 'POST',
       headers: { 'Authorization': `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-pro',
+        model: 'google/gemini-2.5-flash',
         messages: [
           { role: 'system', content: systemPrompt + existingWorksBlock },
           { role: 'user', content: `Description to convert:\n\n${description}` },
@@ -295,7 +321,34 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
         }
         const cost = entry.cost * qty;
         total += cost;
-        return { description: desc || entry.description, code: codeUsed, qty, cost, unit: entry.unit, category: entry.category, entryCost: entry.cost, valid: true, ...(remapped ? { remappedFrom: originalCode } : {}) };
+        // Confidence: prefer AI-supplied; otherwise derive from semantic token overlap.
+        let confidence = Math.round(Number(it.confidence));
+        if (!Number.isFinite(confidence) || confidence <= 0) {
+          const lineToks = tokenize(desc);
+          const hay = `${entry.description} ${entry.category || ''}`.toLowerCase();
+          let hits = 0;
+          for (const t of lineToks) if (hay.includes(t)) hits += 1;
+          confidence = lineToks.length > 0
+            ? Math.min(95, Math.round((hits / lineToks.length) * 100))
+            : 60;
+        }
+        if (remapped) confidence = Math.min(confidence, 55); // remapped = lower trust
+        confidence = Math.max(0, Math.min(100, confidence));
+        const rationale = String(it.rationale || '').slice(0, 200) ||
+          `Matched on ${entry.category || 'catalogue'} entry "${entry.description.slice(0, 70)}" (${entry.unit || 'each'} @ £${entry.cost}).`;
+        return {
+          description: desc || entry.description,
+          code: codeUsed,
+          qty,
+          cost,
+          unit: entry.unit,
+          category: entry.category,
+          entryCost: entry.cost,
+          valid: true,
+          confidence,
+          rationale,
+          ...(remapped ? { remappedFrom: originalCode } : {}),
+        };
       });
       const cleanedItems: any[] = cleanedItemsRaw.filter((x) => x !== null) as any[];
 
