@@ -345,7 +345,51 @@ export const SORTrainingLoop = ({ open, onClose, initialDescription }: Props) =>
                 })}
               </div>
             )}
+
+            {result && (
+              <div className="rounded-lg border-2 border-primary/30 bg-primary/5 p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <ListChecks className="w-4 h-4 text-primary" />
+                  <h4 className="text-sm font-semibold">Overall description feedback</h4>
+                  <Badge variant="outline" className="text-[10px]">Highest training weight</Badge>
+                </div>
+                <p className="text-[11px] text-muted-foreground -mt-1">
+                  Rate how well the AI covered the WHOLE description — did it identify every task, or miss
+                  some (e.g. "missed loft insulation lift-and-relay", "missed mould treatment for BACT DET / HALOPHEN",
+                  "didn't use 11 rolls hint to estimate loft area")? This trains coverage, not just per-line accuracy.
+                </p>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Coverage rating:</span>
+                  {overallRatingBtn('good', 'Complete', ThumbsUp, 'bg-emerald-500/15 border-emerald-500/40 text-emerald-700')}
+                  {overallRatingBtn('fair', 'Partial', Minus, 'bg-amber-500/15 border-amber-500/40 text-amber-700')}
+                  {overallRatingBtn('bad', 'Missed lots', ThumbsDown, 'bg-red-500/15 border-red-500/40 text-red-700')}
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[11px] font-medium text-muted-foreground">
+                    Overall feedback (what went well / what was missed at the description level)
+                  </label>
+                  <Textarea
+                    value={overallNote}
+                    onChange={(e) => setOverallNote(e.target.value)}
+                    placeholder='e.g. "Only paired 2 of ~6 tasks. Missed remove-and-relay loft insulation, missed BACT DET mould treatment, didn\'t treat 11 rolls as a size indicator (~88m² of loft)."'
+                    className="min-h-[80px] text-xs"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[11px] font-medium text-muted-foreground">
+                    Missing tasks (list any tasks the description contains that got NO SOR pairing)
+                  </label>
+                  <Textarea
+                    value={missingTasks}
+                    onChange={(e) => setMissingTasks(e.target.value)}
+                    placeholder='e.g. "remove and relay loft insulation (11 rolls); apply BACT DET + HALOPHEN to mould areas; clean gutters; renew silicone sealant to bath"'
+                    className="min-h-[60px] text-xs"
+                  />
+                </div>
+              </div>
+            )}
           </div>
+
         </ScrollArea>
       </div>
     </div>,
