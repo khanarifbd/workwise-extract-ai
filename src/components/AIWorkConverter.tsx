@@ -4,12 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Wand2, Loader2, X, Check, BookOpen, ShieldCheck, AlertTriangle, Sparkles, Download, ThumbsUp, ThumbsDown, Minus } from 'lucide-react';
+import { Wand2, Loader2, X, Check, BookOpen, ShieldCheck, AlertTriangle, Sparkles, Download, ThumbsUp, ThumbsDown, Minus, GraduationCap } from 'lucide-react';
 import { convertDescriptionToTieredQuotes, ConvertResponse, ConvertTier, submitSORMatchFeedback, SORMatchRating } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { cn } from '@/lib/utils';
 import { SORCodeBookManager } from './SORCodeBookManager';
+import { SORTrainingLoop } from './SORTrainingLoop';
 
 interface AIWorkConverterProps {
   onConvert: (workItems: WorkItem[], replaceExisting?: boolean, descriptionUsed?: string) => void;
