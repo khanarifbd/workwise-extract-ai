@@ -48,6 +48,9 @@ export const SORTrainingLoop = ({ open, onClose, initialDescription }: Props) =>
   const [retraining, setRetraining] = useState(false);
   const [result, setResult] = useState<ConvertResponse | null>(null);
   const [lines, setLines] = useState<Record<number, LineState>>({});
+  const [overallRating, setOverallRating] = useState<SORMatchRating | undefined>(undefined);
+  const [overallNote, setOverallNote] = useState('');
+  const [missingTasks, setMissingTasks] = useState('');
 
   const runConvert = async (mode: 'initial' | 'retrain') => {
     if (!description.trim()) {
