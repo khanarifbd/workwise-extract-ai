@@ -11,6 +11,21 @@ interface TeamSession {
 }
 
 const SESSION_KEY = 'team_portal_session';
+const TEAM_JOBS_TIMEOUT_MS = 25000;
+
+const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number): Promise<T> => {
+  let timeoutId: number | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timeoutId = window.setTimeout(() => reject(new Error('Team jobs request timed out')), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+  }
+};
 
 export const useTeamAuth = () => {
   const [session, setSession] = useState<TeamSession | null>(null);
@@ -103,13 +118,16 @@ export const useTeamAuth = () => {
         throw new Error('Not authenticated');
       }
 
-      const { data, error: fnError } = await supabase.functions.invoke('get-team-jobs', {
-        body: {
-          teamId: session.teamId,
-          teamName: session.teamName,
-          ...(since ? { since } : {}),
-        },
-      });
+      const { data, error: fnError } = await withTimeout(
+        supabase.functions.invoke('get-team-jobs', {
+          body: {
+            teamId: session.teamId,
+            teamName: session.teamName,
+            ...(since ? { since } : {}),
+          },
+        }),
+        TEAM_JOBS_TIMEOUT_MS
+      );
 
       if (fnError) {
         throw new Error('Failed to fetch jobs');
