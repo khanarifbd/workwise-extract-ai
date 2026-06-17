@@ -371,7 +371,7 @@ export const SORTrainingLoop = ({ open, onClose, initialDescription }: Props) =>
                   <Textarea
                     value={overallNote}
                     onChange={(e) => setOverallNote(e.target.value)}
-                    placeholder='e.g. "Only paired 2 of ~6 tasks. Missed remove-and-relay loft insulation, missed BACT DET mould treatment, didn\'t treat 11 rolls as a size indicator (~88m² of loft)."'
+                    placeholder={`e.g. "Only paired 2 of ~6 tasks. Missed remove-and-relay loft insulation, missed BACT DET mould treatment, didn't treat 11 rolls as a size indicator (~88m² of loft)."`}
                     className="min-h-[80px] text-xs"
                   />
                 </div>
