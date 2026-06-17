@@ -168,16 +168,22 @@ const TeamPortal = () => {
   // Load jobs for the authenticated team using secure backend function
   // Supports delta polling: when "since" is provided, we merge updated jobs into local state.
   const lastJobsSyncRef = useRef<string | null>(null);
+  const loadJobsInFlightRef = useRef<Promise<void> | null>(null);
+  const lastFullLoadAtRef = useRef(0);
+  const lastResumeRefreshAtRef = useRef(0);
 
   const loadJobs = async (opts?: { since?: string; silent?: boolean }) => {
     if (!session?.teamName) return;
+    if (loadJobsInFlightRef.current) return loadJobsInFlightRef.current;
 
     const since = opts?.since;
     const isOpsManager = session.isOpsManager === true;
 
+    if (!since && opts?.silent && Date.now() - lastFullLoadAtRef.current < 15000) return;
+
     if (!opts?.silent) setIsLoadingJobs(true);
 
-    try {
+    const run = (async () => { try {
       if (isOnline) {
         const { jobs: data, serverTime } = await fetchTeamJobs(since);
         const mappedJobs = (data || []).map((row: any) => mapDatabaseJobToJob(row));
@@ -214,6 +220,7 @@ const TeamPortal = () => {
             });
           }
         } else {
+          lastFullLoadAtRef.current = Date.now();
           setJobs(mappedJobs);
           // Cache for offline use with team name for sync time tracking
           await cacheJobs(mappedJobs, session.teamName);
@@ -251,7 +258,10 @@ const TeamPortal = () => {
       }
     } finally {
       if (!opts?.silent) setIsLoadingJobs(false);
-    }
+      loadJobsInFlightRef.current = null;
+    } })();
+    loadJobsInFlightRef.current = run;
+    return run;
   };
 
   // Sync pending updates when online using secure edge function
@@ -499,8 +509,10 @@ const TeamPortal = () => {
         const listener = await App.addListener('appStateChange', ({ isActive }) => {
           if (!isActive) return;
           if (!navigator.onLine) return;
+          if (Date.now() - lastResumeRefreshAtRef.current < 15000) return;
+          lastResumeRefreshAtRef.current = Date.now();
           syncPendingUpdatesRef.current();
-          loadJobsRef.current();
+          loadJobsRef.current({ silent: true });
         });
         remove = () => listener.remove();
       } catch (error) {
