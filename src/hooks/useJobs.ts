@@ -161,16 +161,37 @@ export const useJobs = (categoryId?: string) => {
           // For INSERT/UPDATE, check if this is our own optimistic update
           if (newRecord) {
             const newJobId = newRecord.id as string;
-            
+
             // If this update was from our optimistic update, ignore it
             if (newJobId && pendingUpdatesRef.current.has(newJobId)) {
               console.log('Ignoring realtime update for pending optimistic job:', newJobId);
               return;
             }
+
+            // Apply the payload directly — avoids a full 1000+ row refetch on
+            // every single edit (was the main source of perceived slowness).
+            try {
+              const mapped = mapDatabaseJobToJob(newRecord as any);
+              setJobs(prev => {
+                const idx = prev.findIndex(j => j.id === mapped.id);
+                if (idx === -1) {
+                  // INSERT: prepend
+                  return [mapped, ...prev];
+                }
+                if (prev[idx] === mapped) return prev;
+                const next = prev.slice();
+                next[idx] = { ...prev[idx], ...mapped };
+                return next;
+              });
+              return;
+            } catch (e) {
+              console.warn('Realtime patch failed, falling back to reload', e);
+            }
           }
-          
-          // Debounce reload for other users' changes
+
+          // Fallback: debounced full reload
           debouncedReload();
+
         }
       )
       .subscribe();
