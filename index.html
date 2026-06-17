@@ -42,38 +42,9 @@
       })();
 
       (function() {
-        var RETRY_WINDOW_MS = 30000;
-        var RETRY_LIMIT = 2;
-
         window.__hardRefreshForModuleError = function() {
-          try {
-            var now = Date.now();
-            var last = Number(sessionStorage.getItem('module_boot_retry_ts') || 0);
-            var count = Number(sessionStorage.getItem('module_boot_retry_count') || 0);
-
-            if (now - last < RETRY_WINDOW_MS && count >= RETRY_LIMIT) {
-              console.error('Module script failed repeatedly; not retrying again.');
-              return;
-            }
-
-            sessionStorage.setItem('module_boot_retry_ts', String(now));
-            sessionStorage.setItem('module_boot_retry_count', String(count + 1));
-
-            var url = new URL(window.location.href);
-            url.searchParams.set('__reload', String(now));
-            window.location.replace(url.toString());
-          } catch (error) {
-            console.error('Module recovery failed', error);
-            window.location.reload();
-          }
+          console.error('Module script failed to load; automatic refresh suppressed to preserve user work.');
         };
-
-        window.addEventListener('load', function() {
-          setTimeout(function() {
-            sessionStorage.removeItem('module_boot_retry_count');
-            sessionStorage.removeItem('module_boot_retry_ts');
-          }, RETRY_WINDOW_MS);
-        });
       })();
     </script>
     <div id="root"></div>
