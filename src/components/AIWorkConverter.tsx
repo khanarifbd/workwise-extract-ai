@@ -50,6 +50,11 @@ export const AIWorkConverter = ({ onConvert, onClose, existingWorks, initialDesc
   const [feedbackSubmitting, setFeedbackSubmitting] = useState<Record<string, boolean>>({});
   const [feedbackNotes, setFeedbackNotes] = useState<Record<string, string>>({});
   const [noteSaved, setNoteSaved] = useState<Record<string, boolean>>({});
+  // Surveyor QA Audit — independent auditor that challenges Convert AI output per tier.
+  const [qaAudit, setQaAudit] = useState<SurveyorQAAudit | null>(null);
+  const [qaTierAudited, setQaTierAudited] = useState<TierKey | null>(null);
+  const [qaRunning, setQaRunning] = useState(false);
+  const [qaOpen, setQaOpen] = useState(false);
   const { toast } = useToast();
   const { isAdmin } = useAdminAuth();
 
