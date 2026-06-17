@@ -114,6 +114,45 @@ export const AIWorkConverter = ({ onConvert, onClose, existingWorks, initialDesc
     }
   };
 
+  // Run the independent Surveyor QA Agent against the currently-selected tier.
+  const runQAAudit = async () => {
+    if (!result) return;
+    const tier = result.tiers[selectedTier];
+    if (!tier || tier.items.length === 0) {
+      toast({ title: 'Nothing to audit', description: 'Generate a tier first.', variant: 'destructive' });
+      return;
+    }
+    setQaRunning(true);
+    setQaOpen(true);
+    setQaAudit(null);
+    setQaTierAudited(selectedTier);
+    try {
+      const audit = await runSurveyorQAAudit({
+        description,
+        tier: TIER_META[selectedTier].label,
+        items: tier.items.map((it) => ({
+          description: it.description,
+          code: it.code,
+          qty: it.qty,
+          cost: it.cost,
+          confidence: (it as any).confidence,
+          rationale: (it as any).rationale,
+        })),
+      });
+      setQaAudit(audit);
+      toast({
+        title: `QA ${audit.decision || 'Complete'}`,
+        description: audit.summary?.slice(0, 140) || 'Independent surveyor review finished.',
+        variant: audit.decision === 'APPROVED' ? 'default' : 'destructive',
+      });
+    } catch (e: any) {
+      toast({ title: 'QA audit failed', description: e?.message || 'Try again.', variant: 'destructive' });
+      setQaOpen(false);
+    } finally {
+      setQaRunning(false);
+    }
+  };
+
   const handleConvert = async () => {
     if (!description.trim()) return;
     setIsProcessing(true);
