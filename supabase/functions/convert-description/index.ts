@@ -408,15 +408,22 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
     const remapByDescription = (desc: string): CodeEntry | null => {
       const toks = tokenize(desc);
       if (toks.length === 0) return null;
+      const lineActs = detectActions(desc);
+      const lineSurfs = detectSurfaces(desc);
       let best: { c: CodeEntry; s: number } | null = null;
       for (const c of codes) {
         const hay = `${c.description} ${c.category || ''}`.toLowerCase();
+        const hayActs = detectActions(hay);
+        const haySurfs = detectSurfaces(hay);
+        // Hard-disqualify entries whose action or surface group contradicts the line.
+        if (lineActs.size > 0 && hayActs.size > 0 && conflictsAction(lineActs, hayActs)) continue;
+        if (lineSurfs.size > 0 && haySurfs.size > 0 && conflictsSurface(lineSurfs, haySurfs)) continue;
         let s = 0;
         for (const t of toks) if (hay.includes(t)) s += t.length >= 5 ? 2 : 1;
+        for (const a of lineActs) if (hayActs.has(a)) s += 6;
+        for (const sf of lineSurfs) if (haySurfs.has(sf)) s += 6;
         if (s > 0 && (!best || s > best.s)) best = { c, s };
       }
-      // Require at least 2 token hits to avoid noisy remaps
-      // Require a strong semantic overlap (>=4) — weak matches are dropped, not force-fit.
       return best && best.s >= 4 ? best.c : null;
     };
 
