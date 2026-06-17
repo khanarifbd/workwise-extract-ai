@@ -179,6 +179,38 @@ export const AIWorkConverter = ({ onConvert, onClose, existingWorks, initialDesc
       if (res.codeSource === 'fallback') {
         toast({ title: 'Using fallback codes', description: 'No NPH SOR books uploaded — used built-in catalogue. Upload approved PDFs for full accuracy.', variant: 'destructive' });
       }
+      // PRIORITY 8 — auto-dispatch the independent Surveyor QA Agent against the baseline tier.
+      // Runs in the background; the user can open the QA dialog whenever they want.
+      const baseline = res.tiers.baseline;
+      if (baseline && baseline.items.length > 0) {
+        setQaTierAudited('baseline');
+        setQaAudit(null);
+        setQaRunning(true);
+        runSurveyorQAAudit({
+          description: fullDescription,
+          tier: TIER_META.baseline.label,
+          items: baseline.items.map((it) => ({
+            description: it.description,
+            code: it.code,
+            qty: it.qty,
+            cost: it.cost,
+            confidence: (it as any).confidence,
+            rationale: (it as any).rationale,
+          })),
+        })
+          .then((audit) => {
+            setQaAudit(audit);
+            toast({
+              title: `QA ${audit.decision || 'Complete'}`,
+              description: audit.summary?.slice(0, 140) || 'Independent surveyor review finished.',
+              variant: audit.decision === 'APPROVED' ? 'default' : 'destructive',
+            });
+          })
+          .catch((e: any) => {
+            console.warn('Auto QA audit failed', e?.message);
+          })
+          .finally(() => setQaRunning(false));
+      }
     } catch (error) {
       console.error('Conversion error:', error);
       toast({
