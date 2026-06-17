@@ -257,7 +257,8 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
         if (s > 0 && (!best || s > best.s)) best = { c, s };
       }
       // Require at least 2 token hits to avoid noisy remaps
-      return best && best.s >= 2 ? best.c : null;
+      // Require a strong semantic overlap (>=4) — weak matches are dropped, not force-fit.
+      return best && best.s >= 4 ? best.c : null;
     };
 
     const tierKeys = ['baseline', 'enhanced', 'premium'] as const;
