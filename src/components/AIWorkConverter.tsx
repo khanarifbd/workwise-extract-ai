@@ -4,12 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Wand2, Loader2, X, Check, BookOpen, ShieldCheck, AlertTriangle, Sparkles, Download, ThumbsUp, ThumbsDown, Minus } from 'lucide-react';
+import { Wand2, Loader2, X, Check, BookOpen, ShieldCheck, AlertTriangle, Sparkles, Download, ThumbsUp, ThumbsDown, Minus, GraduationCap } from 'lucide-react';
 import { convertDescriptionToTieredQuotes, ConvertResponse, ConvertTier, submitSORMatchFeedback, SORMatchRating } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { cn } from '@/lib/utils';
 import { SORCodeBookManager } from './SORCodeBookManager';
+import { SORTrainingLoop } from './SORTrainingLoop';
 
 interface AIWorkConverterProps {
   onConvert: (workItems: WorkItem[], replaceExisting?: boolean, descriptionUsed?: string) => void;
@@ -35,6 +36,7 @@ export const AIWorkConverter = ({ onConvert, onClose, existingWorks, initialDesc
   const [result, setResult] = useState<ConvertResponse | null>(null);
   const [selectedTier, setSelectedTier] = useState<TierKey>('baseline');
   const [showBooks, setShowBooks] = useState(false);
+  const [showTraining, setShowTraining] = useState(false);
   const hasExisting = !!(existingWorks && existingWorks.length > 0);
   const [incorporateExisting, setIncorporateExisting] = useState<boolean>(hasExisting);
   const hasOngoing = !!(ongoingNotes && ongoingNotes.trim().length > 0);
@@ -373,6 +375,10 @@ export const AIWorkConverter = ({ onConvert, onClose, existingWorks, initialDesc
           </div>
         </div>
         <div className="flex items-center gap-1">
+          <Button size="sm" variant="outline" onClick={() => setShowTraining(true)} title="Train the AI by rating pairings and re-converting">
+            <GraduationCap className="w-3.5 h-3.5 mr-1" />
+            Training loop
+          </Button>
           {isAdmin && (
             <Button size="sm" variant="outline" onClick={() => setShowBooks(true)}>
               <BookOpen className="w-3.5 h-3.5 mr-1" />
@@ -384,6 +390,7 @@ export const AIWorkConverter = ({ onConvert, onClose, existingWorks, initialDesc
           </button>
         </div>
       </div>
+      <SORTrainingLoop open={showTraining} onClose={() => setShowTraining(false)} initialDescription={description} />
 
       {!result ? (
         <>
