@@ -366,19 +366,34 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
         }
         const cost = entry.cost * qty;
         total += cost;
-        // Confidence: prefer AI-supplied; otherwise derive from semantic token overlap.
+        // Confidence: prefer AI-supplied; otherwise derive from deep semantic overlap
+        // (single tokens + bigrams + trade/component anchors) against the catalogue entry.
         let confidence = Math.round(Number(it.confidence));
+        const lineToks = tokenize(desc);
+        const lineBigrams = bigrams(lineToks);
+        const hay = `${entry.description} ${entry.category || ''}`.toLowerCase();
+        let tokHits = 0; let anchorHits = 0; let bgHits = 0;
+        for (const t of lineToks) {
+          if (hay.includes(t)) {
+            tokHits += 1;
+            if (ANCHOR_TOKENS.has(t)) anchorHits += 1;
+          }
+        }
+        for (const bg of lineBigrams) if (hay.includes(bg)) bgHits += 1;
         if (!Number.isFinite(confidence) || confidence <= 0) {
-          const lineToks = tokenize(desc);
-          const hay = `${entry.description} ${entry.category || ''}`.toLowerCase();
-          let hits = 0;
-          for (const t of lineToks) if (hay.includes(t)) hits += 1;
-          confidence = lineToks.length > 0
-            ? Math.min(95, Math.round((hits / lineToks.length) * 100))
-            : 60;
+          const tokRatio = lineToks.length > 0 ? tokHits / lineToks.length : 0;
+          confidence = Math.min(95, Math.round(tokRatio * 70 + Math.min(anchorHits, 3) * 8 + Math.min(bgHits, 3) * 4));
+          if (lineToks.length === 0) confidence = 60;
         }
         if (remapped) confidence = Math.min(confidence, 55); // remapped = lower trust
         confidence = Math.max(0, Math.min(100, confidence));
+        // STRICT semantic guard: if the AI's chosen catalogue entry shares NO trade-anchor
+        // with the line AND has weak token overlap AND isn't an explicit existing-works
+        // pin, drop the line silently rather than emit a weak pairing.
+        const isPinned = (rawExistingWorks ?? []).some((w: any) => String(w.code || '').trim() === codeUsed);
+        if (!isPinned && lineToks.length >= 3 && anchorHits === 0 && bgHits === 0 && tokHits < 2) {
+          return null;
+        }
         const rationale = String(it.rationale || '').slice(0, 200) ||
           `Matched on ${entry.category || 'catalogue'} entry "${entry.description.slice(0, 70)}" (${entry.unit || 'each'} @ £${entry.cost}).`;
         return {
