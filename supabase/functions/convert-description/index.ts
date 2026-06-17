@@ -130,26 +130,37 @@ serve(async (req) => {
       }
     }
 
-    // TRAINING SIGNAL — pull recent user feedback and feed it into the prompt.
+    // TRAINING SIGNAL — pull recent user feedback (including free-text refinement notes)
+    // and feed it into the prompt. Notes from the surveyor are weighted highest because
+    // they tell the model EXACTLY why a prior pairing was right or wrong.
     let feedbackBlock = '';
     try {
       const { data: fb } = await admin
         .from('sor_match_feedback')
-        .select('sor_code,line_description,source_description,rating')
+        .select('sor_code,line_description,source_description,rating,note')
         .order('created_at', { ascending: false })
-        .limit(400);
+        .limit(500);
       if (fb && fb.length > 0) {
-        const good = fb.filter((r: any) => r.rating === 'good').slice(0, 25);
-        const bad = fb.filter((r: any) => r.rating === 'bad').slice(0, 25);
+        const withNote = (fb as any[]).filter((r) => r.note && String(r.note).trim().length > 0);
+        const good = (fb as any[]).filter((r) => r.rating === 'good').slice(0, 30);
+        const bad = (fb as any[]).filter((r) => r.rating === 'bad').slice(0, 30);
+        const notesGood = withNote.filter((r) => r.rating === 'good').slice(0, 25);
+        const notesBad = withNote.filter((r) => r.rating === 'bad' || r.rating === 'fair').slice(0, 30);
         const fmt = (r: any) => `  • ${r.sor_code} for "${String(r.line_description).slice(0, 80)}" (job: "${String(r.source_description).slice(0, 80)}")`;
+        const fmtNote = (r: any) => `  • [${r.rating.toUpperCase()}] code ${r.sor_code} on "${String(r.line_description).slice(0, 70)}" — surveyor said: "${String(r.note).slice(0, 240)}"`;
         const parts: string[] = [];
+        if (notesGood.length || notesBad.length) {
+          const noteLines = [...notesBad, ...notesGood].map(fmtNote).join('\n');
+          parts.push(`SURVEYOR REFINEMENT NOTES (HIGHEST-WEIGHT TRAINING — obey these corrections; they tell you exactly why prior pairings were right or wrong):\n${noteLines}`);
+        }
         if (good.length) parts.push(`PRIOR GOOD MATCHES (reinforce these patterns — same code/task pairings should score high confidence):\n${good.map(fmt).join('\n')}`);
         if (bad.length) parts.push(`PRIOR BAD MATCHES (AVOID re-emitting these code/task pairings — the senior surveyor rejected them):\n${bad.map(fmt).join('\n')}`);
-        if (parts.length) feedbackBlock = `\n\nUSER-RATED MATCH HISTORY (training signal — weight matching toward GOOD, away from BAD):\n${parts.join('\n\n')}`;
+        if (parts.length) feedbackBlock = `\n\nUSER-RATED MATCH HISTORY (training signal — weight matching toward GOOD notes, away from BAD/FAIR notes and rejected pairings):\n${parts.join('\n\n')}`;
       }
     } catch (e) {
       console.warn('feedback load failed', (e as any)?.message);
     }
+
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY missing');
