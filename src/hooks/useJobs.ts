@@ -41,7 +41,7 @@ export const useJobs = (categoryId?: string) => {
   const pendingUpdatesRef = useRef<Set<string>>(new Set());
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastFetchRef = useRef<number>(0);
-  const integrityIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const freshnessIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     jobsLengthRef.current = jobs.length;
@@ -197,33 +197,21 @@ export const useJobs = (categoryId?: string) => {
       )
       .subscribe();
 
-    // Periodic integrity check: verify local count matches DB every 3 minutes
-    // Uses visibility API to avoid wasting resources when tab is hidden
-    const runIntegrityCheck = async () => {
+    // Periodic freshness check: avoid expensive exact count queries. Realtime
+    // patches handle normal changes; this only performs a quiet reload when the
+    // visible page has been idle long enough to risk staleness.
+    const runFreshnessCheck = async () => {
       if (document.visibilityState !== 'visible') return;
       if (loadingRef.current || pendingUpdatesRef.current.size > 0) return;
-      try {
-        let query = supabase
-          .from('jobs')
-          .select('id', { count: 'exact', head: true })
-          .is('deleted_at', null);
-        if (categoryId) query = query.eq('category_id', categoryId);
-        const { count } = await query;
-        if (count !== null && count !== jobsLengthRef.current) {
-          console.log(`Integrity mismatch: local=${jobsLengthRef.current}, db=${count}. Auto-refreshing...`);
-          loadJobs(true, true);
-        }
-      } catch { /* silent */ }
+      if (Date.now() - lastFetchRef.current < 5 * 60 * 1000) return;
+      loadJobs(false, true);
     };
 
-    // Run integrity check every 3 minutes (was 30s — too aggressive, caused ~50k
-     // count queries/day and contributed to statement timeouts under load).
-    integrityIntervalRef.current = setInterval(runIntegrityCheck, 180000);
+    freshnessIntervalRef.current = setInterval(runFreshnessCheck, 300000);
 
-    // Re-check when the tab regains focus so users always see fresh counts
-    // when they come back to the genie (fixes stale day-click counts).
+    // Re-check when the tab regains focus without blocking the UI.
     const onVisible = () => {
-      if (document.visibilityState === 'visible') runIntegrityCheck();
+      if (document.visibilityState === 'visible') runFreshnessCheck();
     };
     document.addEventListener('visibilitychange', onVisible);
     window.addEventListener('focus', onVisible);
@@ -233,9 +221,9 @@ export const useJobs = (categoryId?: string) => {
         clearTimeout(debounceTimerRef.current);
         debounceTimerRef.current = null;
       }
-      if (integrityIntervalRef.current) {
-        clearInterval(integrityIntervalRef.current);
-        integrityIntervalRef.current = null;
+      if (freshnessIntervalRef.current) {
+        clearInterval(freshnessIntervalRef.current);
+        freshnessIntervalRef.current = null;
       }
       document.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener('focus', onVisible);
