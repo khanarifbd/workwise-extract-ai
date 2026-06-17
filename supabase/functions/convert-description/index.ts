@@ -731,6 +731,32 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
     // guarantees every emitted code is real and costed against the NPH book.
     const review: any = null;
 
+    // Extract surveyor understanding payload safely.
+    const su = tiersRaw.surveyorUnderstanding && typeof tiersRaw.surveyorUnderstanding === 'object'
+      ? {
+          rootCause: String(tiersRaw.surveyorUnderstanding.rootCause || '').slice(0, 600),
+          consequentialDamage: String(tiersRaw.surveyorUnderstanding.consequentialDamage || '').slice(0, 600),
+          scope: Array.isArray(tiersRaw.surveyorUnderstanding.scope)
+            ? tiersRaw.surveyorUnderstanding.scope.slice(0, 50).map((s: any) => String(s).slice(0, 240))
+            : [],
+          tradeAllocation: Array.isArray(tiersRaw.surveyorUnderstanding.tradeAllocation)
+            ? tiersRaw.surveyorUnderstanding.tradeAllocation.slice(0, 30).map((s: any) => String(s).slice(0, 240))
+            : [],
+        }
+      : null;
+
+    // Approval gate per spec — baseline-tier scored. Hallucinations=0, evidence=100%, codes valid.
+    const baselineAcc = accuracy['baseline'];
+    const approvalGate = baselineAcc ? {
+      hallucinations: baselineAcc.hallucinationsDropped || 0,
+      evidenceCoverage: baselineAcc.evidenceCoverage,
+      codesValid: baselineAcc.invalidCodes.length === 0,
+      passed:
+        (baselineAcc.hallucinationsDropped || 0) === 0 &&
+        baselineAcc.evidenceCoverage >= 100 &&
+        baselineAcc.invalidCodes.length === 0,
+    } : null;
+
     return new Response(JSON.stringify({
       success: true,
       tiers: validatedTiers,
@@ -739,6 +765,8 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
       codeSource,
       codeCount: codes.length,
       minimumCost,
+      surveyorUnderstanding: su,
+      approvalGate,
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
   } catch (error: any) {
