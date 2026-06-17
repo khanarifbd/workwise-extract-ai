@@ -4,13 +4,15 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Wand2, Loader2, X, Check, BookOpen, ShieldCheck, AlertTriangle, Sparkles, Download, ThumbsUp, ThumbsDown, Minus, GraduationCap } from 'lucide-react';
-import { convertDescriptionToTieredQuotes, ConvertResponse, ConvertTier, submitSORMatchFeedback, SORMatchRating } from '@/lib/api';
+import { Wand2, Loader2, X, Check, BookOpen, ShieldCheck, AlertTriangle, Sparkles, Download, ThumbsUp, ThumbsDown, Minus, GraduationCap, Gavel } from 'lucide-react';
+import { convertDescriptionToTieredQuotes, ConvertResponse, ConvertTier, submitSORMatchFeedback, SORMatchRating, runSurveyorQAAudit, SurveyorQAAudit } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { cn } from '@/lib/utils';
 import { SORCodeBookManager } from './SORCodeBookManager';
 import { SORTrainingLoop } from './SORTrainingLoop';
+import { SurveyorQAAuditPanel } from './SurveyorQAAuditPanel';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 interface AIWorkConverterProps {
   onConvert: (workItems: WorkItem[], replaceExisting?: boolean, descriptionUsed?: string) => void;
@@ -48,6 +50,11 @@ export const AIWorkConverter = ({ onConvert, onClose, existingWorks, initialDesc
   const [feedbackSubmitting, setFeedbackSubmitting] = useState<Record<string, boolean>>({});
   const [feedbackNotes, setFeedbackNotes] = useState<Record<string, string>>({});
   const [noteSaved, setNoteSaved] = useState<Record<string, boolean>>({});
+  // Surveyor QA Audit — independent auditor that challenges Convert AI output per tier.
+  const [qaAudit, setQaAudit] = useState<SurveyorQAAudit | null>(null);
+  const [qaTierAudited, setQaTierAudited] = useState<TierKey | null>(null);
+  const [qaRunning, setQaRunning] = useState(false);
+  const [qaOpen, setQaOpen] = useState(false);
   const { toast } = useToast();
   const { isAdmin } = useAdminAuth();
 
@@ -104,6 +111,45 @@ export const AIWorkConverter = ({ onConvert, onClose, existingWorks, initialDesc
       toast({ title: 'Could not save note', description: e?.message || 'Try again.', variant: 'destructive' });
     } finally {
       setFeedbackSubmitting((s) => ({ ...s, [key]: false }));
+    }
+  };
+
+  // Run the independent Surveyor QA Agent against the currently-selected tier.
+  const runQAAudit = async () => {
+    if (!result) return;
+    const tier = result.tiers[selectedTier];
+    if (!tier || tier.items.length === 0) {
+      toast({ title: 'Nothing to audit', description: 'Generate a tier first.', variant: 'destructive' });
+      return;
+    }
+    setQaRunning(true);
+    setQaOpen(true);
+    setQaAudit(null);
+    setQaTierAudited(selectedTier);
+    try {
+      const audit = await runSurveyorQAAudit({
+        description,
+        tier: TIER_META[selectedTier].label,
+        items: tier.items.map((it) => ({
+          description: it.description,
+          code: it.code,
+          qty: it.qty,
+          cost: it.cost,
+          confidence: (it as any).confidence,
+          rationale: (it as any).rationale,
+        })),
+      });
+      setQaAudit(audit);
+      toast({
+        title: `QA ${audit.decision || 'Complete'}`,
+        description: audit.summary?.slice(0, 140) || 'Independent surveyor review finished.',
+        variant: audit.decision === 'APPROVED' ? 'default' : 'destructive',
+      });
+    } catch (e: any) {
+      toast({ title: 'QA audit failed', description: e?.message || 'Try again.', variant: 'destructive' });
+      setQaOpen(false);
+    } finally {
+      setQaRunning(false);
     }
   };
 
@@ -532,11 +578,43 @@ export const AIWorkConverter = ({ onConvert, onClose, existingWorks, initialDesc
               <Download className="w-4 h-4 mr-2" />
               Save Results
             </Button>
+            <Button
+              variant="outline"
+              onClick={runQAAudit}
+              disabled={qaRunning}
+              className="flex-1 min-w-[160px] border-amber-500/50 text-amber-700 hover:bg-amber-500/10"
+              title="Independent senior-surveyor audit that challenges this schedule for missing tasks, hallucinations, wrong codes, and revenue leakage"
+            >
+              {qaRunning
+                ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Auditing…</>
+                : <><Gavel className="w-4 h-4 mr-2" />QA Audit ({TIER_META[selectedTier].label})</>}
+            </Button>
             <Button onClick={handleConfirm} className="flex-1 min-w-[160px]">
               <Check className="w-4 h-4 mr-2" />
               Use {TIER_META[selectedTier].label} ({result.tiers[selectedTier].items.length} items)
             </Button>
           </div>
+
+          <Dialog open={qaOpen} onOpenChange={setQaOpen}>
+            <DialogContent className="max-w-3xl">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Gavel className="w-5 h-5 text-amber-600" />
+                  Surveyor QA Audit{qaTierAudited ? ` — ${TIER_META[qaTierAudited].label}` : ''}
+                </DialogTitle>
+                <DialogDescription>
+                  Independent senior surveyor reviewing Convert AI's schedule. Built its OWN scope first, then compared.
+                </DialogDescription>
+              </DialogHeader>
+              {qaRunning && !qaAudit ? (
+                <div className="flex items-center justify-center py-12 text-sm text-muted-foreground gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" /> Running independent surveyor analysis…
+                </div>
+              ) : qaAudit ? (
+                <SurveyorQAAuditPanel audit={qaAudit} />
+              ) : null}
+            </DialogContent>
+          </Dialog>
 
         </>
       )}

@@ -381,6 +381,46 @@ export const submitSORMatchFeedback = async (params: {
   if (error) throw error;
 };
 
+// ============= SURVEYOR QA AUDIT =============
+// Independent senior-surveyor auditor that challenges Convert AI output.
+export interface SurveyorQAAudit {
+  summary?: string;
+  independentUnderstanding?: { rootCause?: string; consequentialDamage?: string; ownScope?: string[] };
+  correctTasks?: string[];
+  missingTasks?: string[];
+  hallucinatedTasks?: string[];
+  duplicatedTasks?: string[];
+  mergedTasks?: string[];
+  preparationWorksMissed?: string[];
+  consequentialRepairsMissed?: string[];
+  locationErrors?: string[];
+  quantityErrors?: string[];
+  codeChallenges?: Array<{ code: string; line: string; issue: string }>;
+  betterCodeRecommendations?: Array<{ currentCode: string; recommendedCode: string; line: string; reason: string }>;
+  commercialRisks?: Array<{ issue: string; impact: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' }>;
+  revenueLeakage?: Array<{ missedActivity: string; estimatedImpact: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' }>;
+  scores?: { scope?: number; task?: number; sor?: number; quantity?: number; commercial?: number; overall?: number };
+  decision?: 'APPROVED' | 'REJECTED';
+  requiredCorrections?: string[];
+}
+
+export const runSurveyorQAAudit = async (params: {
+  description: string;
+  tier: string;
+  items: Array<{ description: string; code: string; qty?: number; cost?: number; confidence?: number; rationale?: string }>;
+}): Promise<SurveyorQAAudit> => {
+  const headers = await getAuthHeaders();
+  const { data, error } = await supabase.functions.invoke('surveyor-qa-audit', {
+    body: params,
+    headers,
+  });
+  if (error) throw error;
+  if (!data?.success) throw new Error(data?.error || 'QA audit failed');
+  return (data.audit ?? {}) as SurveyorQAAudit;
+};
+
+
+
 // Legacy single-list helper kept for backwards compatibility (returns baseline tier as WorkItem[])
 export const convertDescriptionToWorkItems = async (description: string): Promise<WorkItem[]> => {
   const res = await convertDescriptionToTieredQuotes(description);
