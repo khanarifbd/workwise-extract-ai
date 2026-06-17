@@ -306,7 +306,9 @@ export const SORTrainingLoop = ({ open, onClose, initialDescription }: Props) =>
             )}
           </div>
         </ScrollArea>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>,
+    document.body,
   );
+
 };
