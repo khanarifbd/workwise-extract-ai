@@ -16,7 +16,10 @@ const handleChunkError = (msg: string) => {
   console.error("Module chunk failed to load; automatic refresh suppressed to preserve user work.");
 };
 window.addEventListener("error", (e) => handleChunkError(e?.message || ""));
-window.addEventListener("unhandledrejection", (e: any) => handleChunkError(e?.reason?.message || String(e?.reason || "")));
+window.addEventListener("unhandledrejection", (e: PromiseRejectionEvent) => {
+  const reason = e.reason;
+  handleChunkError(reason instanceof Error ? reason.message : String(reason || ""));
+});
 
 createRoot(document.getElementById("root")!).render(<App />);
 
