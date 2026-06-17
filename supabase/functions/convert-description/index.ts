@@ -92,18 +92,52 @@ serve(async (req) => {
     const STOP = new Set(['the','a','an','and','or','of','to','in','on','at','for','with','by','is','are','be','it','as','this','that','from','was','were','has','have','had','will','any','all','new','old','one','two','per','use','using','make','please','need','required','works','work','job','area','room']);
     const tokenize = (s: string): string[] =>
       (s || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter((w) => w.length >= 3 && !STOP.has(w));
+    // Bigrams capture multi-word trade nouns ("fan unit", "wc pan", "skirting board", "fire door")
+    // that single-token overlap misses — material differences here are what make a match strong vs weak.
+    const bigrams = (toks: string[]): string[] => {
+      const out: string[] = [];
+      for (let i = 0; i < toks.length - 1; i++) out.push(`${toks[i]} ${toks[i + 1]}`);
+      return out;
+    };
+    // Trade/component anchor words — when present in BOTH the line and the catalogue entry,
+    // they are strong evidence of a correct semantic pairing. Used to boost the score.
+    const ANCHOR_TOKENS = new Set([
+      'fan','humidistat','extractor','ventilation','duct',
+      'plaster','plasterboard','skim','render',
+      'paint','gloss','emulsion','undercoat','primer','decoration',
+      'mould','wash','bactdet','fungicidal',
+      'tile','tiling','grout','silicone',
+      'roof','slate','tile','flashing','gutter','downpipe','fascia','soffit',
+      'door','frame','firedoor','fire','intumescent','closer','hinge','lock',
+      'window','glazing','sash','sill','cill',
+      'floor','flooring','vinyl','carpet','laminate','underlay','screed',
+      'wc','toilet','cistern','basin','tap','sink','shower','bath','waste','trap','isolator',
+      'socket','switch','consumer','rcd','spur','pendant','cable','circuit','earth','bonding',
+      'boiler','radiator','valve','trv','pipe','copper','plastic',
+      'insulation','loft','cavity','board','rockwool','pir',
+      'skirting','architrave','frame','joist','stud','batten',
+    ]);
 
     const queryTokens = new Set<string>([
       ...tokenize(description),
       ...((existingWorks ?? []).flatMap((w: any) => tokenize(w.description || ''))),
     ]);
+    const queryBigrams = new Set<string>(bigrams(Array.from(queryTokens)));
 
     const scoreEntry = (c: CodeEntry): number => {
       const hay = `${c.description} ${c.category || ''}`.toLowerCase();
       let s = 0;
-      for (const t of queryTokens) if (hay.includes(t)) s += t.length >= 5 ? 2 : 1;
+      for (const t of queryTokens) {
+        if (hay.includes(t)) {
+          s += t.length >= 5 ? 2 : 1;
+          if (ANCHOR_TOKENS.has(t)) s += 3; // trade/component anchors weigh heavily
+        }
+      }
+      // Bigram bonus: contiguous two-word phrases are strong semantic evidence.
+      for (const bg of queryBigrams) if (hay.includes(bg)) s += 4;
       return s;
     };
+
 
     let sorContext: string;
     let codeSource: 'nph_books' | 'fallback';
@@ -130,26 +164,37 @@ serve(async (req) => {
       }
     }
 
-    // TRAINING SIGNAL — pull recent user feedback and feed it into the prompt.
+    // TRAINING SIGNAL — pull recent user feedback (including free-text refinement notes)
+    // and feed it into the prompt. Notes from the surveyor are weighted highest because
+    // they tell the model EXACTLY why a prior pairing was right or wrong.
     let feedbackBlock = '';
     try {
       const { data: fb } = await admin
         .from('sor_match_feedback')
-        .select('sor_code,line_description,source_description,rating')
+        .select('sor_code,line_description,source_description,rating,note')
         .order('created_at', { ascending: false })
-        .limit(400);
+        .limit(500);
       if (fb && fb.length > 0) {
-        const good = fb.filter((r: any) => r.rating === 'good').slice(0, 25);
-        const bad = fb.filter((r: any) => r.rating === 'bad').slice(0, 25);
+        const withNote = (fb as any[]).filter((r) => r.note && String(r.note).trim().length > 0);
+        const good = (fb as any[]).filter((r) => r.rating === 'good').slice(0, 30);
+        const bad = (fb as any[]).filter((r) => r.rating === 'bad').slice(0, 30);
+        const notesGood = withNote.filter((r) => r.rating === 'good').slice(0, 25);
+        const notesBad = withNote.filter((r) => r.rating === 'bad' || r.rating === 'fair').slice(0, 30);
         const fmt = (r: any) => `  • ${r.sor_code} for "${String(r.line_description).slice(0, 80)}" (job: "${String(r.source_description).slice(0, 80)}")`;
+        const fmtNote = (r: any) => `  • [${r.rating.toUpperCase()}] code ${r.sor_code} on "${String(r.line_description).slice(0, 70)}" — surveyor said: "${String(r.note).slice(0, 240)}"`;
         const parts: string[] = [];
+        if (notesGood.length || notesBad.length) {
+          const noteLines = [...notesBad, ...notesGood].map(fmtNote).join('\n');
+          parts.push(`SURVEYOR REFINEMENT NOTES (HIGHEST-WEIGHT TRAINING — obey these corrections; they tell you exactly why prior pairings were right or wrong):\n${noteLines}`);
+        }
         if (good.length) parts.push(`PRIOR GOOD MATCHES (reinforce these patterns — same code/task pairings should score high confidence):\n${good.map(fmt).join('\n')}`);
         if (bad.length) parts.push(`PRIOR BAD MATCHES (AVOID re-emitting these code/task pairings — the senior surveyor rejected them):\n${bad.map(fmt).join('\n')}`);
-        if (parts.length) feedbackBlock = `\n\nUSER-RATED MATCH HISTORY (training signal — weight matching toward GOOD, away from BAD):\n${parts.join('\n\n')}`;
+        if (parts.length) feedbackBlock = `\n\nUSER-RATED MATCH HISTORY (training signal — weight matching toward GOOD notes, away from BAD/FAIR notes and rejected pairings):\n${parts.join('\n\n')}`;
       }
     } catch (e) {
       console.warn('feedback load failed', (e as any)?.message);
     }
+
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY missing');
@@ -321,19 +366,34 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
         }
         const cost = entry.cost * qty;
         total += cost;
-        // Confidence: prefer AI-supplied; otherwise derive from semantic token overlap.
+        // Confidence: prefer AI-supplied; otherwise derive from deep semantic overlap
+        // (single tokens + bigrams + trade/component anchors) against the catalogue entry.
         let confidence = Math.round(Number(it.confidence));
+        const lineToks = tokenize(desc);
+        const lineBigrams = bigrams(lineToks);
+        const hay = `${entry.description} ${entry.category || ''}`.toLowerCase();
+        let tokHits = 0; let anchorHits = 0; let bgHits = 0;
+        for (const t of lineToks) {
+          if (hay.includes(t)) {
+            tokHits += 1;
+            if (ANCHOR_TOKENS.has(t)) anchorHits += 1;
+          }
+        }
+        for (const bg of lineBigrams) if (hay.includes(bg)) bgHits += 1;
         if (!Number.isFinite(confidence) || confidence <= 0) {
-          const lineToks = tokenize(desc);
-          const hay = `${entry.description} ${entry.category || ''}`.toLowerCase();
-          let hits = 0;
-          for (const t of lineToks) if (hay.includes(t)) hits += 1;
-          confidence = lineToks.length > 0
-            ? Math.min(95, Math.round((hits / lineToks.length) * 100))
-            : 60;
+          const tokRatio = lineToks.length > 0 ? tokHits / lineToks.length : 0;
+          confidence = Math.min(95, Math.round(tokRatio * 70 + Math.min(anchorHits, 3) * 8 + Math.min(bgHits, 3) * 4));
+          if (lineToks.length === 0) confidence = 60;
         }
         if (remapped) confidence = Math.min(confidence, 55); // remapped = lower trust
         confidence = Math.max(0, Math.min(100, confidence));
+        // STRICT semantic guard: if the AI's chosen catalogue entry shares NO trade-anchor
+        // with the line AND has weak token overlap AND isn't an explicit existing-works
+        // pin, drop the line silently rather than emit a weak pairing.
+        const isPinned = (rawExistingWorks ?? []).some((w: any) => String(w.code || '').trim() === codeUsed);
+        if (!isPinned && lineToks.length >= 3 && anchorHits === 0 && bgHits === 0 && tokHits < 2) {
+          return null;
+        }
         const rationale = String(it.rationale || '').slice(0, 200) ||
           `Matched on ${entry.category || 'catalogue'} entry "${entry.description.slice(0, 70)}" (${entry.unit || 'each'} @ £${entry.cost}).`;
         return {

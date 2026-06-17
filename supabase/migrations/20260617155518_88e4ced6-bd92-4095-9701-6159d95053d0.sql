@@ -1,0 +1,1 @@
+ALTER TABLE public.sor_match_feedback ADD COLUMN IF NOT EXISTS note TEXT;

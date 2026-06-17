@@ -359,6 +359,7 @@ export const submitSORMatchFeedback = async (params: {
   tier?: string;
   confidence?: number;
   rationale?: string;
+  note?: string;
 }): Promise<void> => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Sign in required to rate matches');
@@ -371,7 +372,8 @@ export const submitSORMatchFeedback = async (params: {
     tier: params.tier ?? null,
     confidence: typeof params.confidence === 'number' ? Math.round(params.confidence) : null,
     rationale: params.rationale ? params.rationale.slice(0, 500) : null,
-  });
+    note: params.note ? params.note.slice(0, 1000) : null,
+  } as any);
   if (error) throw error;
 };
 

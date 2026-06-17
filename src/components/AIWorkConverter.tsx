@@ -44,6 +44,8 @@ export const AIWorkConverter = ({ onConvert, onClose, existingWorks, initialDesc
   // Per-line feedback: keyed by `${tier}::${index}` so each tier is rated independently.
   const [feedback, setFeedback] = useState<Record<string, SORMatchRating>>({});
   const [feedbackSubmitting, setFeedbackSubmitting] = useState<Record<string, boolean>>({});
+  const [feedbackNotes, setFeedbackNotes] = useState<Record<string, string>>({});
+  const [noteSaved, setNoteSaved] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
   const { isAdmin } = useAdminAuth();
 
@@ -62,11 +64,42 @@ export const AIWorkConverter = ({ onConvert, onClose, existingWorks, initialDesc
         tier,
         confidence: (item as any).confidence,
         rationale: (item as any).rationale,
+        note: feedbackNotes[key]?.trim() || undefined,
       });
       setFeedback((f) => ({ ...f, [key]: rating }));
-      toast({ title: `Rated ${rating}`, description: 'Future conversions will learn from this.' });
+      setNoteSaved((s) => ({ ...s, [key]: !!feedbackNotes[key]?.trim() }));
+      toast({ title: `Rated ${rating}`, description: 'Add a refinement note below to teach the AI exactly why.' });
     } catch (e: any) {
       toast({ title: 'Could not save rating', description: e?.message || 'Try again.', variant: 'destructive' });
+    } finally {
+      setFeedbackSubmitting((s) => ({ ...s, [key]: false }));
+    }
+  };
+
+  const saveNote = async (tier: TierKey, index: number) => {
+    if (!result) return;
+    const key = `${tier}::${index}`;
+    const note = (feedbackNotes[key] || '').trim();
+    const rating = feedback[key];
+    if (!note || !rating) return;
+    const item = result.tiers[tier].items[index];
+    if (!item) return;
+    setFeedbackSubmitting((s) => ({ ...s, [key]: true }));
+    try {
+      await submitSORMatchFeedback({
+        sourceDescription: description,
+        lineDescription: item.description,
+        sorCode: item.code,
+        rating,
+        tier,
+        confidence: (item as any).confidence,
+        rationale: (item as any).rationale,
+        note,
+      });
+      setNoteSaved((s) => ({ ...s, [key]: true }));
+      toast({ title: 'Refinement saved', description: 'Your note will guide future SOR matches.' });
+    } catch (e: any) {
+      toast({ title: 'Could not save note', description: e?.message || 'Try again.', variant: 'destructive' });
     } finally {
       setFeedbackSubmitting((s) => ({ ...s, [key]: false }));
     }
@@ -289,6 +322,31 @@ export const AIWorkConverter = ({ onConvert, onClose, existingWorks, initialDesc
                     </Button>
                   </div>
                 </div>
+                {currentRating && (
+                  <div className="flex items-start gap-2 pt-1">
+                    <Textarea
+                      value={feedbackNotes[fbKey] || ''}
+                      onChange={(e) => { setFeedbackNotes((n) => ({ ...n, [fbKey]: e.target.value })); setNoteSaved((s) => ({ ...s, [fbKey]: false })); }}
+                      placeholder={
+                        currentRating === 'bad'
+                          ? 'Why is this a bad match? e.g. "Wrong trade — this is a roofing job, not plumbing" or "Should be code XXXX for replace, not repair".'
+                          : currentRating === 'fair'
+                          ? 'What would make this match better? e.g. "Close, but the catalogue code for slate tiles fits better than concrete".'
+                          : 'Add any refinement to reinforce this pairing (optional).'
+                      }
+                      className="min-h-[44px] text-[11px] flex-1"
+                      maxLength={1000}
+                    />
+                    <Button
+                      size="sm" variant="outline"
+                      disabled={submitting || !(feedbackNotes[fbKey] || '').trim() || noteSaved[fbKey]}
+                      onClick={() => saveNote(key, i)}
+                      className="h-7 px-2 text-[10px] shrink-0"
+                    >
+                      {noteSaved[fbKey] ? 'Saved' : 'Save note'}
+                    </Button>
+                  </div>
+                )}
               </div>
             );
           })}

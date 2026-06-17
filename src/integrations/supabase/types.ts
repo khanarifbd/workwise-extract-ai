@@ -1289,6 +1289,7 @@ export type Database = {
           created_at: string
           id: string
           line_description: string
+          note: string | null
           rating: string
           rationale: string | null
           sor_code: string
@@ -1301,6 +1302,7 @@ export type Database = {
           created_at?: string
           id?: string
           line_description: string
+          note?: string | null
           rating: string
           rationale?: string | null
           sor_code: string
@@ -1313,6 +1315,7 @@ export type Database = {
           created_at?: string
           id?: string
           line_description?: string
+          note?: string | null
           rating?: string
           rationale?: string | null
           sor_code?: string
