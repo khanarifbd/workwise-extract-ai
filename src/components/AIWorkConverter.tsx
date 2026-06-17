@@ -36,6 +36,7 @@ export const AIWorkConverter = ({ onConvert, onClose, existingWorks, initialDesc
   const [result, setResult] = useState<ConvertResponse | null>(null);
   const [selectedTier, setSelectedTier] = useState<TierKey>('baseline');
   const [showBooks, setShowBooks] = useState(false);
+  const [showTraining, setShowTraining] = useState(false);
   const hasExisting = !!(existingWorks && existingWorks.length > 0);
   const [incorporateExisting, setIncorporateExisting] = useState<boolean>(hasExisting);
   const hasOngoing = !!(ongoingNotes && ongoingNotes.trim().length > 0);
