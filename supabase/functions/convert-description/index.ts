@@ -92,18 +92,52 @@ serve(async (req) => {
     const STOP = new Set(['the','a','an','and','or','of','to','in','on','at','for','with','by','is','are','be','it','as','this','that','from','was','were','has','have','had','will','any','all','new','old','one','two','per','use','using','make','please','need','required','works','work','job','area','room']);
     const tokenize = (s: string): string[] =>
       (s || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter((w) => w.length >= 3 && !STOP.has(w));
+    // Bigrams capture multi-word trade nouns ("fan unit", "wc pan", "skirting board", "fire door")
+    // that single-token overlap misses — material differences here are what make a match strong vs weak.
+    const bigrams = (toks: string[]): string[] => {
+      const out: string[] = [];
+      for (let i = 0; i < toks.length - 1; i++) out.push(`${toks[i]} ${toks[i + 1]}`);
+      return out;
+    };
+    // Trade/component anchor words — when present in BOTH the line and the catalogue entry,
+    // they are strong evidence of a correct semantic pairing. Used to boost the score.
+    const ANCHOR_TOKENS = new Set([
+      'fan','humidistat','extractor','ventilation','duct',
+      'plaster','plasterboard','skim','render',
+      'paint','gloss','emulsion','undercoat','primer','decoration',
+      'mould','wash','bactdet','fungicidal',
+      'tile','tiling','grout','silicone',
+      'roof','slate','tile','flashing','gutter','downpipe','fascia','soffit',
+      'door','frame','firedoor','fire','intumescent','closer','hinge','lock',
+      'window','glazing','sash','sill','cill',
+      'floor','flooring','vinyl','carpet','laminate','underlay','screed',
+      'wc','toilet','cistern','basin','tap','sink','shower','bath','waste','trap','isolator',
+      'socket','switch','consumer','rcd','spur','pendant','cable','circuit','earth','bonding',
+      'boiler','radiator','valve','trv','pipe','copper','plastic',
+      'insulation','loft','cavity','board','rockwool','pir',
+      'skirting','architrave','frame','joist','stud','batten',
+    ]);
 
     const queryTokens = new Set<string>([
       ...tokenize(description),
       ...((existingWorks ?? []).flatMap((w: any) => tokenize(w.description || ''))),
     ]);
+    const queryBigrams = new Set<string>(bigrams(Array.from(queryTokens)));
 
     const scoreEntry = (c: CodeEntry): number => {
       const hay = `${c.description} ${c.category || ''}`.toLowerCase();
       let s = 0;
-      for (const t of queryTokens) if (hay.includes(t)) s += t.length >= 5 ? 2 : 1;
+      for (const t of queryTokens) {
+        if (hay.includes(t)) {
+          s += t.length >= 5 ? 2 : 1;
+          if (ANCHOR_TOKENS.has(t)) s += 3; // trade/component anchors weigh heavily
+        }
+      }
+      // Bigram bonus: contiguous two-word phrases are strong semantic evidence.
+      for (const bg of queryBigrams) if (hay.includes(bg)) s += 4;
       return s;
     };
+
 
     let sorContext: string;
     let codeSource: 'nph_books' | 'fallback';
