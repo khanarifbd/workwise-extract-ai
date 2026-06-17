@@ -375,6 +375,10 @@ export const AIWorkConverter = ({ onConvert, onClose, existingWorks, initialDesc
           </div>
         </div>
         <div className="flex items-center gap-1">
+          <Button size="sm" variant="outline" onClick={() => setShowTraining(true)} title="Train the AI by rating pairings and re-converting">
+            <GraduationCap className="w-3.5 h-3.5 mr-1" />
+            Training loop
+          </Button>
           {isAdmin && (
             <Button size="sm" variant="outline" onClick={() => setShowBooks(true)}>
               <BookOpen className="w-3.5 h-3.5 mr-1" />
@@ -386,6 +390,7 @@ export const AIWorkConverter = ({ onConvert, onClose, existingWorks, initialDesc
           </button>
         </div>
       </div>
+      <SORTrainingLoop open={showTraining} onClose={() => setShowTraining(false)} initialDescription={description} />
 
       {!result ? (
         <>
