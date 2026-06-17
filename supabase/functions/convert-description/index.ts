@@ -533,9 +533,28 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
 
     const tierKeys = ['baseline', 'enhanced', 'premium'] as const;
     const validatedTiers: Record<string, any> = {};
-    const accuracy: Record<string, { total: number; itemCount: number; invalidCodes: string[]; remappedCount: number; valid: boolean }> = {};
+    const accuracy: Record<string, { total: number; itemCount: number; invalidCodes: string[]; remappedCount: number; valid: boolean; hallucinationsDropped: number; evidenceCoverage: number }> = {};
     const tierTotals: Record<string, number> = {};
     const tierItemsRef: Record<string, any[]> = {};
+
+    // EVIDENCE GATE — checks the AI-supplied evidence quote is genuinely traceable to
+    // the source description. We're lenient (token overlap, not exact substring) because
+    // line wrapping/paraphrasing is normal, but require strong overlap. Empty/missing
+    // evidence is treated as a hallucination and the line is dropped.
+    const normalize = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+    const descNorm = normalize(rawDescription);
+    const descTokenSet = new Set(descNorm.split(' ').filter((w) => w.length >= 3));
+    const evidenceTraceable = (evidence: string): boolean => {
+      const norm = normalize(evidence);
+      if (!norm || norm.length < 6) return false;
+      if (descNorm.includes(norm)) return true; // exact substring hit
+      // fallback: meaningful token overlap with the source
+      const toks = norm.split(' ').filter((w) => w.length >= 4 && !STOP.has(w));
+      if (toks.length === 0) return false;
+      let hits = 0; for (const t of toks) if (descTokenSet.has(t)) hits++;
+      return hits / toks.length >= 0.6;
+    };
+
 
     for (const key of tierKeys) {
       const t = tiersRaw.tiers[key];
