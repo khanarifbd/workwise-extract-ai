@@ -633,6 +633,12 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
         }
         const rationale = String(it.rationale || '').slice(0, 200) ||
           `Matched on ${entry.category || 'catalogue'} entry "${entry.description.slice(0, 70)}" (${entry.unit || 'each'} @ £${entry.cost}).`;
+        const alternativesConsidered = Array.isArray(it.alternativesConsidered)
+          ? it.alternativesConsidered
+              .filter((a: any) => a && (a.code || a.reason))
+              .slice(0, 4)
+              .map((a: any) => ({ code: String(a.code || '').slice(0, 64), reason: String(a.reason || '').slice(0, 200) }))
+          : [];
         return {
           description: desc || entry.description,
           code: codeUsed,
@@ -644,6 +650,8 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
           valid: true,
           confidence,
           rationale,
+          evidence: rawEvidence,
+          alternativesConsidered,
           ...(remapped ? { remappedFrom: originalCode } : {}),
         };
       });
@@ -657,12 +665,17 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
         items: cleanedItems,
         total: 0, // set after monotonic enforcement below
       };
+      const evidenceCoverage = items.length > 0
+        ? Math.round((evidenceTracedCount / items.length) * 100)
+        : 100;
       accuracy[key] = {
         total: 0,
         itemCount: cleanedItems.length,
         invalidCodes,
         remappedCount,
-        valid: invalidCodes.length === 0,
+        hallucinationsDropped,
+        evidenceCoverage,
+        valid: invalidCodes.length === 0 && hallucinationsDropped === 0,
       };
     }
 
