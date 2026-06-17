@@ -85,13 +85,23 @@ export const AIWorkConverter = ({ onConvert, onClose, existingWorks, initialDesc
   const handleConfirm = () => {
     if (!result) return;
     const tier = result.tiers[selectedTier];
-    const workItems: WorkItem[] = tier.items.map((it) => ({
-      id: crypto.randomUUID(),
-      description: it.description,
-      sorCode: it.code,
-      qty: it.qty,
-      cost: it.cost,
-    }));
+    const workItems: WorkItem[] = tier.items.map((it) => {
+      // AI returns `cost` as the LINE TOTAL (qty × unit price).
+      // WorkItem.cost must be the UNIT price — the works table computes
+      // line total as qty × cost. Storing the line total here caused the
+      // saved works to be inflated by a factor of qty (e.g. a £642.96
+      // line at qty 19 became £12,216 after save).
+      const qty = typeof it.qty === 'number' && it.qty > 0 ? it.qty : 1;
+      const lineTotal = typeof it.cost === 'number' ? it.cost : 0;
+      const unitCost = Math.round((lineTotal / qty) * 100) / 100;
+      return {
+        id: crypto.randomUUID(),
+        description: it.description,
+        sorCode: it.code,
+        qty,
+        cost: unitCost,
+      };
+    });
     onConvert(workItems, incorporateExisting && hasExisting, description);
   };
 
