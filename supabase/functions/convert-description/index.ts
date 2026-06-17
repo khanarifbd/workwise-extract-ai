@@ -439,14 +439,27 @@ ${minCostInstruction}
 
 Return STRICTLY a JSON object of this shape (no markdown, no commentary):
 {
+  "surveyorUnderstanding": {
+    "rootCause": string,
+    "consequentialDamage": string,
+    "scope": string[],
+    "tradeAllocation": string[]
+  },
   "tiers": {
-    "baseline": { "label": "Baseline", "items": [ { "description": string, "code": string, "qty": number, "confidence": number, "rationale": string } ], "notes": string },
+    "baseline": { "label": "Baseline", "items": [ { "description": string, "code": string, "qty": number, "confidence": number, "rationale": string, "evidence": string, "alternativesConsidered": [ { "code": string, "reason": string } ] } ], "notes": string },
     "enhanced": { "label": "Enhanced", "items": [ ... ], "notes": string },
     "premium":  { "label": "Premium",  "items": [ ... ], "notes": string }
   }
 }
 
-Each items[] entry: description = clear, professional, NPH-portal-ready human-readable line; code = exact SOR code from the catalogue; qty = integer >= 1; confidence = integer 0-100; rationale = <=160 char justification.
+Each items[] entry:
+- description = clear, professional, NPH-portal-ready human-readable line
+- code = exact SOR code from the catalogue
+- qty = integer >= 1
+- confidence = integer 0-100
+- rationale = <=160 char justification
+- evidence = VERBATIM quote (<=240 chars) from the source description proving this task exists. NO EVIDENCE → DO NOT EMIT.
+- alternativesConsidered = at least one rejected catalogue code with a short reason.
 Notes: 1-2 sentences explaining the scope rationale for that tier. FINAL CHECK before returning: re-verify every code semantically matches its line description against the catalogue.`;
 
     const existingWorksBlock = (existingWorks && existingWorks.length > 0)
