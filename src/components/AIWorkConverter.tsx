@@ -619,6 +619,49 @@ export const AIWorkConverter = ({ onConvert, onClose, existingWorks, initialDesc
             ))}
           </div>
 
+          {(result.surveyorUnderstanding || result.approvalGate) && (
+            <div className="rounded-lg border border-border bg-card p-3 space-y-2">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="text-xs font-semibold flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-primary" /> Surveyor Understanding & Approval Gate
+                </div>
+                {result.approvalGate && (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <Badge variant="outline" className={cn('text-[10px]', result.approvalGate.passed ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-700' : 'border-amber-500/50 bg-amber-500/10 text-amber-700')}>
+                      {result.approvalGate.passed ? 'Gate: PASSED' : 'Gate: REVIEW'}
+                    </Badge>
+                    <Badge variant="outline" className="text-[10px]">Evidence {result.approvalGate.evidenceCoverage}%</Badge>
+                    <Badge variant="outline" className="text-[10px]">Hallucinations {result.approvalGate.hallucinations}</Badge>
+                  </div>
+                )}
+              </div>
+              {result.surveyorUnderstanding && (
+                <div className="grid sm:grid-cols-2 gap-2 text-[11px]">
+                  {result.surveyorUnderstanding.rootCause && (
+                    <p><span className="font-medium">Root cause:</span> {result.surveyorUnderstanding.rootCause}</p>
+                  )}
+                  {result.surveyorUnderstanding.consequentialDamage && (
+                    <p><span className="font-medium">Consequential damage:</span> {result.surveyorUnderstanding.consequentialDamage}</p>
+                  )}
+                  {result.surveyorUnderstanding.scope?.length > 0 && (
+                    <div className="sm:col-span-2">
+                      <span className="font-medium">Scope ({result.surveyorUnderstanding.scope.length}):</span>
+                      <ol className="list-decimal list-inside mt-0.5 space-y-0.5">
+                        {result.surveyorUnderstanding.scope.slice(0, 12).map((s, i) => <li key={i}>{s}</li>)}
+                      </ol>
+                    </div>
+                  )}
+                  {result.surveyorUnderstanding.tradeAllocation?.length > 0 && (
+                    <div className="sm:col-span-2">
+                      <span className="font-medium">Trades:</span>{' '}
+                      {result.surveyorUnderstanding.tradeAllocation.join(' · ')}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {renderTierPanel(selectedTier, result.tiers[selectedTier])}
 
           <div className="flex flex-wrap gap-2">
