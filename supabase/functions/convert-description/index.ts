@@ -259,25 +259,32 @@ serve(async (req) => {
     try {
       const { data: fb } = await admin
         .from('sor_match_feedback')
-        .select('sor_code,line_description,source_description,rating,note')
+        .select('sor_code,line_description,source_description,rating,note,feedback_scope')
         .order('created_at', { ascending: false })
         .limit(500);
       if (fb && fb.length > 0) {
-        const withNote = (fb as any[]).filter((r) => r.note && String(r.note).trim().length > 0);
-        const good = (fb as any[]).filter((r) => r.rating === 'good').slice(0, 30);
-        const bad = (fb as any[]).filter((r) => r.rating === 'bad').slice(0, 30);
+        const lineFb = (fb as any[]).filter((r) => (r.feedback_scope ?? 'line') === 'line');
+        const overallFb = (fb as any[]).filter((r) => r.feedback_scope === 'overall' || r.feedback_scope === 'missing_task');
+        const withNote = lineFb.filter((r) => r.note && String(r.note).trim().length > 0);
+        const good = lineFb.filter((r) => r.rating === 'good').slice(0, 30);
+        const bad = lineFb.filter((r) => r.rating === 'bad').slice(0, 30);
         const notesGood = withNote.filter((r) => r.rating === 'good').slice(0, 25);
         const notesBad = withNote.filter((r) => r.rating === 'bad' || r.rating === 'fair').slice(0, 30);
         const fmt = (r: any) => `  • ${r.sor_code} for "${String(r.line_description).slice(0, 80)}" (job: "${String(r.source_description).slice(0, 80)}")`;
         const fmtNote = (r: any) => `  • [${r.rating.toUpperCase()}] code ${r.sor_code} on "${String(r.line_description).slice(0, 70)}" — surveyor said: "${String(r.note).slice(0, 240)}"`;
+        const fmtOverall = (r: any) => `  • [${String(r.feedback_scope).toUpperCase()} · ${String(r.rating).toUpperCase()}] on job "${String(r.source_description).slice(0, 120)}" — surveyor said: "${String(r.note || '').slice(0, 320)}"`;
         const parts: string[] = [];
+        if (overallFb.length) {
+          const overallLines = overallFb.slice(0, 25).map(fmtOverall).join('\n');
+          parts.push(`OVERALL-DESCRIPTION FEEDBACK (HIGHEST WEIGHT — these describe TASKS THAT WERE MISSED ENTIRELY or coverage gaps. When the current job description contains similar wording / tasks, you MUST enumerate them as separate SOR lines this time):\n${overallLines}`);
+        }
         if (notesGood.length || notesBad.length) {
           const noteLines = [...notesBad, ...notesGood].map(fmtNote).join('\n');
-          parts.push(`SURVEYOR REFINEMENT NOTES (HIGHEST-WEIGHT TRAINING — obey these corrections; they tell you exactly why prior pairings were right or wrong):\n${noteLines}`);
+          parts.push(`SURVEYOR REFINEMENT NOTES (HIGH WEIGHT — obey these corrections; they tell you exactly why prior pairings were right or wrong):\n${noteLines}`);
         }
         if (good.length) parts.push(`PRIOR GOOD MATCHES (reinforce these patterns — same code/task pairings should score high confidence):\n${good.map(fmt).join('\n')}`);
         if (bad.length) parts.push(`PRIOR BAD MATCHES (AVOID re-emitting these code/task pairings — the senior surveyor rejected them):\n${bad.map(fmt).join('\n')}`);
-        if (parts.length) feedbackBlock = `\n\nUSER-RATED MATCH HISTORY (training signal — weight matching toward GOOD notes, away from BAD/FAIR notes and rejected pairings):\n${parts.join('\n\n')}`;
+        if (parts.length) feedbackBlock = `\n\nUSER-RATED MATCH HISTORY (training signal):\n${parts.join('\n\n')}`;
       }
     } catch (e) {
       console.warn('feedback load failed', (e as any)?.message);
