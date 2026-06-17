@@ -238,10 +238,10 @@ serve(async (req) => {
         .map((c) => ({ c, s: scoreEntry(c) + (forcedCodes.has(c.code) ? 999 : 0) }))
         .filter((x) => x.s > 0)
         .sort((a, b) => b.s - a.s)
-        .slice(0, 220)
+        .slice(0, 400)
         .map((x) => x.c);
-      // Fallback: if no tokens matched (very short desc), use first 220 codes
-      const shortlist = scored.length >= 20 ? scored : codes.slice(0, 220);
+      // Fallback: if no tokens matched (very short desc), use first 400 codes
+      const shortlist = scored.length >= 20 ? scored : codes.slice(0, 400);
       sorContext = shortlist.map((c) => `${c.code} | ${c.description} | ${c.category || 'General'} | ${c.unit || 'each'} | £${c.cost}`).join('\n');
       codeSource = 'nph_books';
     } else {
