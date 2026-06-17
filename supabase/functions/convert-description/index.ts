@@ -321,7 +321,34 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
         }
         const cost = entry.cost * qty;
         total += cost;
-        return { description: desc || entry.description, code: codeUsed, qty, cost, unit: entry.unit, category: entry.category, entryCost: entry.cost, valid: true, ...(remapped ? { remappedFrom: originalCode } : {}) };
+        // Confidence: prefer AI-supplied; otherwise derive from semantic token overlap.
+        let confidence = Math.round(Number(it.confidence));
+        if (!Number.isFinite(confidence) || confidence <= 0) {
+          const lineToks = tokenize(desc);
+          const hay = `${entry.description} ${entry.category || ''}`.toLowerCase();
+          let hits = 0;
+          for (const t of lineToks) if (hay.includes(t)) hits += 1;
+          confidence = lineToks.length > 0
+            ? Math.min(95, Math.round((hits / lineToks.length) * 100))
+            : 60;
+        }
+        if (remapped) confidence = Math.min(confidence, 55); // remapped = lower trust
+        confidence = Math.max(0, Math.min(100, confidence));
+        const rationale = String(it.rationale || '').slice(0, 200) ||
+          `Matched on ${entry.category || 'catalogue'} entry "${entry.description.slice(0, 70)}" (${entry.unit || 'each'} @ £${entry.cost}).`;
+        return {
+          description: desc || entry.description,
+          code: codeUsed,
+          qty,
+          cost,
+          unit: entry.unit,
+          category: entry.category,
+          entryCost: entry.cost,
+          valid: true,
+          confidence,
+          rationale,
+          ...(remapped ? { remappedFrom: originalCode } : {}),
+        };
       });
       const cleanedItems: any[] = cleanedItemsRaw.filter((x) => x !== null) as any[];
 
