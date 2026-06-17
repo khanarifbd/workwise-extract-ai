@@ -216,7 +216,7 @@ export const SORTrainingLoop = ({ open, onClose, initialDescription }: Props) =>
         </div>
 
 
-        <ScrollArea className="flex-1 px-6 py-4">
+        <ScrollArea className="flex-1 min-h-0 px-6 py-4">
           <div className="space-y-4">
             <div className="space-y-2">
               <label className="text-xs font-medium text-muted-foreground">Works description</label>
