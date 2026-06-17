@@ -1,11 +1,11 @@
-import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, GraduationCap, ThumbsUp, ThumbsDown, Minus, RefreshCw, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Loader2, GraduationCap, ThumbsUp, ThumbsDown, Minus, RefreshCw, Sparkles, CheckCircle2, X } from 'lucide-react';
 import {
   convertDescriptionToTieredQuotes,
   ConvertResponse,
@@ -136,27 +136,46 @@ export const SORTrainingLoop = ({ open, onClose, initialDescription }: Props) =>
     );
   };
 
-  return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <GraduationCap className="w-5 h-5 text-primary" />
-            SOR Training Loop
-            {iteration > 0 && (
-              <Badge variant="outline" className="ml-2 text-xs">
-                Iteration {iteration}
-              </Badge>
-            )}
-          </DialogTitle>
-          <DialogDescription>
-            Paste a description, rate each AI pairing, and re-convert. Every rating, note and
-            "correct code" suggestion is stored in <code className="text-xs">sor_match_feedback</code>
-            and fed back into the next conversion as high-weight training signal.
-          </DialogDescription>
-        </DialogHeader>
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => { document.body.style.overflow = prev; window.removeEventListener('keydown', onKey); };
+  }, [open, onClose]);
 
-        <ScrollArea className="flex-1 pr-3 -mr-3">
+  if (!open) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onClose}>
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-background border rounded-lg shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col"
+      >
+        <div className="flex items-start justify-between p-6 pb-3 border-b">
+          <div>
+            <h2 className="text-lg font-semibold leading-none tracking-tight flex items-center gap-2">
+              <GraduationCap className="w-5 h-5 text-primary" />
+              SOR Training Loop
+              {iteration > 0 && (
+                <Badge variant="outline" className="ml-2 text-xs">
+                  Iteration {iteration}
+                </Badge>
+              )}
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1.5">
+              Paste a description, rate each AI pairing, and re-convert. Every rating, note and
+              correct-code suggestion is stored and fed back into the next conversion as high-weight training signal.
+            </p>
+          </div>
+          <button onClick={onClose} className="p-1 rounded-md hover:bg-muted transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+
+        <ScrollArea className="flex-1 px-6 py-4">
           <div className="space-y-4">
             <div className="space-y-2">
               <label className="text-xs font-medium text-muted-foreground">Works description</label>
@@ -287,7 +306,9 @@ export const SORTrainingLoop = ({ open, onClose, initialDescription }: Props) =>
             )}
           </div>
         </ScrollArea>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>,
+    document.body,
   );
+
 };
