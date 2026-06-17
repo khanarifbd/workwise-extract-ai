@@ -1,4 +1,4 @@
-import { Component, lazy, Suspense, type ReactNode } from "react";
+import { Component, lazy, Suspense, type ComponentType, type ReactNode } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -19,7 +19,7 @@ import { LastRouteRestorer } from "./components/LastRouteRestorer";
 // Lazy load heavy pages. Never force-refresh the whole app: a reload loses the
 // team's current job/sign-off/upload state and is more disruptive than showing
 // a retry surface for stale chunks after deployments.
-const lazyRetry = (importFn: () => Promise<any>) => {
+const lazyRetry = (importFn: () => Promise<{ default: ComponentType }>) => {
   return importFn().catch((err) => {
     console.error("Page chunk failed to load without refreshing:", err);
     throw err;
