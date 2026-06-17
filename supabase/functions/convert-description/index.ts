@@ -383,7 +383,6 @@ STEP B — CODE MATCHING (one pass per task):
 STEP C — COVERAGE SELF-CHECK (run before returning):
 1. Re-scan the original description and confirm every named component / fault / treatment / fixture is represented by at least one emitted SOR line OR was correctly dropped because no catalogue code fits.
 2. Common misses to actively check for: mould-treatment lines, insulation lift-and-relay, sealant renewal, gutter clearance, decoration after repair, debris removal, access works.
-${minCostInstruction}
 
 CATALOGUE — these are the ONLY codes you may emit (pipe-separated: code | description | category | unit | cost):
 ${sorContext}
