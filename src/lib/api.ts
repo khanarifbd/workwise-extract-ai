@@ -301,6 +301,8 @@ export interface ConvertTierItem {
   valid: boolean;
   confidence?: number;
   rationale?: string;
+  evidence?: string;
+  alternativesConsidered?: Array<{ code: string; reason: string }>;
 }
 export interface ConvertTier {
   label: string;
@@ -308,13 +310,21 @@ export interface ConvertTier {
   items: ConvertTierItem[];
   total: number;
 }
+export interface SurveyorUnderstanding {
+  rootCause: string;
+  consequentialDamage: string;
+  scope: string[];
+  tradeAllocation: string[];
+}
 export interface ConvertResponse {
   tiers: Record<'baseline' | 'enhanced' | 'premium', ConvertTier>;
-  accuracy: Record<string, { total: number; itemCount: number; invalidCodes: string[]; valid: boolean }>;
+  accuracy: Record<string, { total: number; itemCount: number; invalidCodes: string[]; valid: boolean; hallucinationsDropped?: number; evidenceCoverage?: number }>;
   review: any;
   codeSource: 'nph_books' | 'fallback';
   codeCount: number;
   minimumCost: number;
+  surveyorUnderstanding?: SurveyorUnderstanding | null;
+  approvalGate?: { hallucinations: number; evidenceCoverage: number; codesValid: boolean; passed: boolean } | null;
 }
 
 export interface ExistingWorkInput {
