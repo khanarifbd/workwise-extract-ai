@@ -578,11 +578,43 @@ export const AIWorkConverter = ({ onConvert, onClose, existingWorks, initialDesc
               <Download className="w-4 h-4 mr-2" />
               Save Results
             </Button>
+            <Button
+              variant="outline"
+              onClick={runQAAudit}
+              disabled={qaRunning}
+              className="flex-1 min-w-[160px] border-amber-500/50 text-amber-700 hover:bg-amber-500/10"
+              title="Independent senior-surveyor audit that challenges this schedule for missing tasks, hallucinations, wrong codes, and revenue leakage"
+            >
+              {qaRunning
+                ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Auditing…</>
+                : <><Gavel className="w-4 h-4 mr-2" />QA Audit ({TIER_META[selectedTier].label})</>}
+            </Button>
             <Button onClick={handleConfirm} className="flex-1 min-w-[160px]">
               <Check className="w-4 h-4 mr-2" />
               Use {TIER_META[selectedTier].label} ({result.tiers[selectedTier].items.length} items)
             </Button>
           </div>
+
+          <Dialog open={qaOpen} onOpenChange={setQaOpen}>
+            <DialogContent className="max-w-3xl">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Gavel className="w-5 h-5 text-amber-600" />
+                  Surveyor QA Audit{qaTierAudited ? ` — ${TIER_META[qaTierAudited].label}` : ''}
+                </DialogTitle>
+                <DialogDescription>
+                  Independent senior surveyor reviewing Convert AI's schedule. Built its OWN scope first, then compared.
+                </DialogDescription>
+              </DialogHeader>
+              {qaRunning && !qaAudit ? (
+                <div className="flex items-center justify-center py-12 text-sm text-muted-foreground gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" /> Running independent surveyor analysis…
+                </div>
+              ) : qaAudit ? (
+                <SurveyorQAAuditPanel audit={qaAudit} />
+              ) : null}
+            </DialogContent>
+          </Dialog>
 
         </>
       )}
