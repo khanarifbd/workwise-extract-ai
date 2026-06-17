@@ -417,6 +417,9 @@ export const runSurveyorQAAudit = async (params: {
   if (error) throw error;
   if (!data?.success) throw new Error(data?.error || 'QA audit failed');
   return (data.audit ?? {}) as SurveyorQAAudit;
+};
+
+
 
 // Legacy single-list helper kept for backwards compatibility (returns baseline tier as WorkItem[])
 export const convertDescriptionToWorkItems = async (description: string): Promise<WorkItem[]> => {
