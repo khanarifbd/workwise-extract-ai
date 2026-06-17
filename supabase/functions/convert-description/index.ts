@@ -482,12 +482,19 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
         }
         if (remapped) confidence = Math.min(confidence, 55); // remapped = lower trust
         confidence = Math.max(0, Math.min(100, confidence));
-        // STRICT semantic guard: if the AI's chosen catalogue entry shares NO trade-anchor
-        // with the line AND has weak token overlap AND isn't an explicit existing-works
-        // pin, drop the line silently rather than emit a weak pairing.
+        // STRICT semantic guard: drop pairings where the catalogue entry contradicts the
+        // line's action verb (e.g. "remove & relay" mapped to "install new") or surface
+        // (e.g. "wall tile" mapped to "floor tile"; "loft insulation" to "cavity insulation";
+        // "repoint brickwork" to a tile/grout code). Also drop weak no-anchor matches.
         const isPinned = (rawExistingWorks ?? []).some((w: any) => String(w.code || '').trim() === codeUsed);
-        if (!isPinned && lineToks.length >= 3 && anchorHits === 0 && bgHits === 0 && tokHits < 2) {
-          return null;
+        const lineActs = detectActions(desc);
+        const lineSurfs = detectSurfaces(desc);
+        const hayActs = detectActions(hay);
+        const haySurfs = detectSurfaces(hay);
+        if (!isPinned) {
+          if (lineActs.size > 0 && hayActs.size > 0 && conflictsAction(lineActs, hayActs)) return null;
+          if (lineSurfs.size > 0 && haySurfs.size > 0 && conflictsSurface(lineSurfs, haySurfs)) return null;
+          if (lineToks.length >= 3 && anchorHits === 0 && bgHits === 0 && tokHits < 2) return null;
         }
         const rationale = String(it.rationale || '').slice(0, 200) ||
           `Matched on ${entry.category || 'catalogue'} entry "${entry.description.slice(0, 70)}" (${entry.unit || 'each'} @ £${entry.cost}).`;
