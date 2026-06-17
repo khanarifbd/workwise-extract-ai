@@ -408,7 +408,10 @@ export const sendWhatsAppNotification = async (
 // timeouts under load — the same query was being issued 5-10x concurrently).
 const _jobsInflight = new Map<string, Promise<Job[]>>();
 const _jobsCache = new Map<string, { at: number; data: Job[] }>();
-const JOBS_DEDUPE_TTL = 1500; // ms
+// Coalesce bursts AND serve a recent result for ~15s so rapid remounts /
+// multiple hooks subscribing to the same category don't each issue their
+// own /jobs query (every duplicate request was costing ~1s of DB time).
+const JOBS_DEDUPE_TTL = 15_000;
 
 const _runFetchJobs = async (categoryId?: string): Promise<Job[]> => {
   const batchSize = 1000;
@@ -462,11 +465,9 @@ const _runFetchJobs = async (categoryId?: string): Promise<Job[]> => {
 export const fetchJobs = async (categoryId?: string): Promise<Job[]> => {
   const key = categoryId || '__all__';
 
-  // Serve a very recent result without hitting the DB again (request burst dedupe)
   const cached = _jobsCache.get(key);
   if (cached && Date.now() - cached.at < JOBS_DEDUPE_TTL) return cached.data;
 
-  // Coalesce concurrent callers onto one promise
   const inflight = _jobsInflight.get(key);
   if (inflight) return inflight;
 
@@ -475,6 +476,15 @@ export const fetchJobs = async (categoryId?: string): Promise<Job[]> => {
       const data = await _runFetchJobs(categoryId);
       _jobsCache.set(key, { at: Date.now(), data });
       return data;
+    } catch (err) {
+      // Stale-while-error: if we have a previous successful result, return it
+      // so transient DB blips don't surface as a "Failed to load" toast.
+      const stale = _jobsCache.get(key);
+      if (stale) {
+        console.warn('fetchJobs failed, serving stale cache:', (err as any)?.message);
+        return stale.data;
+      }
+      throw err;
     } finally {
       _jobsInflight.delete(key);
     }

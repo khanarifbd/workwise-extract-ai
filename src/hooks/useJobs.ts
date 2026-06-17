@@ -92,11 +92,16 @@ export const useJobs = (categoryId?: string) => {
       } catch {}
     } catch (error) {
       console.error('Error loading jobs:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load jobs from database",
-        variant: "destructive",
-      });
+      // Only show the toast on the initial foreground load when we have nothing
+      // to render. Background polls / realtime refreshes must never flash a
+      // "Failed to load" toast — stale cache keeps the UI usable.
+      if (!background && jobsLengthRef.current === 0) {
+        toast({
+          title: "Error",
+          description: "Failed to load jobs from database",
+          variant: "destructive",
+        });
+      }
     } finally {
       loadingRef.current = false;
       if (!background) setIsLoading(false);
