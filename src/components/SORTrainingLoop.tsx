@@ -1,11 +1,11 @@
-import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, GraduationCap, ThumbsUp, ThumbsDown, Minus, RefreshCw, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Loader2, GraduationCap, ThumbsUp, ThumbsDown, Minus, RefreshCw, Sparkles, CheckCircle2, X } from 'lucide-react';
 import {
   convertDescriptionToTieredQuotes,
   ConvertResponse,
