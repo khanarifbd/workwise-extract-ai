@@ -101,3 +101,6 @@ verify_jwt = false
 
 [functions.extract-roadmap-items]
 verify_jwt = true
+
+[functions.surveyor-qa-audit]
+verify_jwt = true
