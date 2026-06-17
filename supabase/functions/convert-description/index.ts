@@ -356,11 +356,34 @@ HARD RULES:
 - Use whichever source has the MORE SPECIFIC data for each line: prefer the existing Works List where it names a precise code/scope; prefer the free-text description where it adds location, dimensions, material, fault detail, or extent.
 - Do NOT fabricate. If the data doesn't imply a code, don't add it.
 
-TASK ENCAPSULATION (MANDATORY):
-1. After the semantic clean-up above, enumerate EVERY remaining discrete task with specific scope.
-2. For EACH enumerated task, emit at least one SOR line that covers it — at base rate.
-3. Where one SOR code naturally covers several mentioned sub-actions, state that consolidation in the line description.
-4. If a task is mentioned but no catalogue code fits, omit the line silently — never emit a placeholder/invented code.
+TASK ENCAPSULATION (MANDATORY — COVERAGE FAILURES ARE THE #1 REJECTION REASON):
+You are graded on whether EVERY discrete task implied by the data has its own SOR line. Missing tasks is worse than weak matches.
+
+STEP A — EXHAUSTIVE TASK EXTRACTION (do this before scoring any code):
+1. Read the FULL combined input character-by-character. List EVERY noun-phrase that names a component, fixture, material, surface, fault, treatment or trade action — no matter how briefly mentioned.
+2. Expand domain-specific abbreviations and trade jargon into the real underlying task. Examples of signals that MUST become tasks:
+   • "BACT DET" / "HALOPHEN" / "fungicidal wash" / "anti-mould" → mould treatment task (washdown + biocide application to affected surfaces).
+   • "wash down mould from PVCu window" → separate mould-cleaning task on window.
+   • "remove and relay X rolls of loft insulation" → LIFT-AND-RELAY loft insulation task; the roll count is a SIZE INDICATOR (1 roll ≈ 8m²) — use it to set qty/area and add a "make good" companion line if implied.
+   • "rake out and regrout wall tiles (Nm²)" → tile regrout task at the stated m².
+   • "renew silicone sealant to bath/basin/shower" → sealant renewal task.
+   • "clean gutter prior to decoration" → gutter clearance task.
+   • "client inspection" → inspection/quality-check task if a code exists for it.
+   • Any mention of cables, wagos, chop boxes, sockets, fittings → electrical containment/repair task.
+   • Any mention of squirrels / pests / roof access damage → pest-related make-good or roof repair task.
+3. Use quantitative hints (rolls, m², m, units, "all", "throughout", room count) to set REALISTIC quantities — don't default everything to 1. "11 rolls of loft insulation" → qty reflecting ~88m² of loft coverage.
+4. If the data lists an NPH works line ("227007 - CLIENT INSPECTION:REMOVE AND RELAY INSULATION 1"), that IS a discrete task — include it AND add any companion tasks the free-text implies (make good, debris removal, redecoration).
+5. After extraction, write your internal task list. Count the tasks. If the input mentions ≥5 distinct trade actions and you have <5 tasks, you have MISSED tasks — go back and re-extract.
+
+STEP B — CODE MATCHING (one pass per task):
+1. For EACH extracted task, pick the SINGLE catalogue line whose description most closely matches it semantically (action + component + surface + material).
+2. Where one SOR code naturally covers several mentioned sub-actions, state that consolidation in the line description.
+3. If a task is mentioned but NO catalogue code fits, omit that line silently — never emit a placeholder/invented code, but record nothing rather than force a weak match.
+
+STEP C — COVERAGE SELF-CHECK (run before returning):
+1. Re-scan the original description and confirm every named component / fault / treatment / fixture is represented by at least one emitted SOR line OR was correctly dropped because no catalogue code fits.
+2. Common misses to actively check for: mould-treatment lines, insulation lift-and-relay, sealant renewal, gutter clearance, decoration after repair, debris removal, access works.
+${minCostInstruction}
 
 CATALOGUE — these are the ONLY codes you may emit (pipe-separated: code | description | category | unit | cost):
 ${sorContext}
