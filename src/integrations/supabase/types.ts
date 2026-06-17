@@ -1283,6 +1283,45 @@ export type Database = {
           },
         ]
       }
+      sor_match_feedback: {
+        Row: {
+          confidence: number | null
+          created_at: string
+          id: string
+          line_description: string
+          rating: string
+          rationale: string | null
+          sor_code: string
+          source_description: string
+          tier: string | null
+          user_id: string | null
+        }
+        Insert: {
+          confidence?: number | null
+          created_at?: string
+          id?: string
+          line_description: string
+          rating: string
+          rationale?: string | null
+          sor_code: string
+          source_description: string
+          tier?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          confidence?: number | null
+          created_at?: string
+          id?: string
+          line_description?: string
+          rating?: string
+          rationale?: string | null
+          sor_code?: string
+          source_description?: string
+          tier?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       subcontractors: {
         Row: {
           company: string | null
