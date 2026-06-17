@@ -145,7 +145,7 @@ export const useTeamAuth = () => {
       }
 
       return {
-        jobs: data.jobs as any[],
+        jobs: data.jobs as unknown[],
         serverTime: (data.serverTime as string | undefined) || undefined,
       };
     },
