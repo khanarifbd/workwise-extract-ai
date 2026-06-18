@@ -1131,6 +1131,39 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
           !contaminationContains(t.product))
       : [];
 
+    // V10.0 TASK-PRESERVATION SAFETY NET — "A task may never disappear because
+    // a code is uncertain." Any taskRegister entry that is NOT represented in the
+    // priced baseline items AND NOT in tasksWithoutSorMatch is auto-rescued into
+    // tasksWithoutSorMatch with "Surveyor Review Required". This guarantees no
+    // identified task is silently suppressed because of low SOR confidence.
+    const _norm = (s: string) => normalize(s || '').slice(0, 80);
+    const _pricedTaskKeys = new Set<string>(
+      (tierItemsRef['baseline'] || []).map((i: any) => _norm(i.description || ''))
+    );
+    const _unmatchedTaskKeys = new Set<string>(
+      tasksWithoutSorMatch.map((t: any) => _norm(t.task || ''))
+    );
+    for (const tr of taskRegister) {
+      const key = _norm(tr.task);
+      if (!key) continue;
+      if (_pricedTaskKeys.has(key) || _unmatchedTaskKeys.has(key)) continue;
+      tasksWithoutSorMatch.push({
+        task: tr.task,
+        evidence: tr.evidence,
+        sourceSentence: tr.sourceSentence,
+        sourcePhrase: tr.sourcePhrase,
+        location: tr.location,
+        product: tr.product,
+        repairAction: tr.repairAction,
+        trade: tr.trade,
+        status: 'SOR Match Not Found',
+        action: 'Surveyor Review Required',
+        candidateCode: tr.code || '',
+        reason: 'Auto-rescued: identified task with no SOR match — surveyor review required (V10 task-preservation rule).',
+      });
+      _unmatchedTaskKeys.add(key);
+    }
+
     // V7.0 — Task Coverage self-audit.
     const tcRaw = tiersRaw.taskCoverage && typeof tiersRaw.taskCoverage === 'object' ? tiersRaw.taskCoverage : {};
     const tasksIdentified = Math.max(0, Math.round(Number(tcRaw.tasksIdentified) || (taskRegister.length || ((tierItemsRef['baseline']?.length || 0) + tasksWithoutSorMatch.length))));
