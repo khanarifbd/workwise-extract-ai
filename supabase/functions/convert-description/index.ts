@@ -875,11 +875,11 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
 
     // V4 STAGE 10 — Final Approval Gate. Schedule passes only when ALL conditions met.
     const baselineAcc = accuracy['baseline'];
-    const baselineItems = tierItemsRef['baseline'] || [];
-    const codesValidatedCount = baselineItems.filter((i: any) => i.codeValidation?.valid !== false).length;
-    const codeValidationPct = baselineItems.length > 0 ? Math.round((codesValidatedCount / baselineItems.length) * 100) : 100;
-    const quantityConfidencePct = baselineItems.length > 0
-      ? Math.round((baselineItems.filter((i: any) => (i.confidence || 0) >= 70).length / baselineItems.length) * 100)
+    const baselineItemsGate = tierItemsRef['baseline'] || [];
+    const codesValidatedCount = baselineItemsGate.filter((i: any) => i.codeValidation?.valid !== false).length;
+    const codeValidationPct = baselineItemsGate.length > 0 ? Math.round((codesValidatedCount / baselineItemsGate.length) * 100) : 100;
+    const quantityConfidencePct = baselineItemsGate.length > 0
+      ? Math.round((baselineItemsGate.filter((i: any) => (i.confidence || 0) >= 70).length / baselineItemsGate.length) * 100)
       : 100;
     const approvalGate = baselineAcc ? {
       hallucinations: baselineAcc.hallucinationsDropped || 0,
