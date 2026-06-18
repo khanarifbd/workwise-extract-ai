@@ -1013,12 +1013,17 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
       codeValidationPct,
       quantityConfidencePct,
       genericCodeWarnings: genericCodeWarnings.length,
+      taskCoveragePct: taskCoverage.coveragePct,
+      tasksWithoutSorMatch: tasksWithoutSorMatch.length,
+      // V7.0 — Approval gate uses TASK coverage, not SOR-match coverage. Unmatched tasks are valid.
       passed:
         (baselineAcc.hallucinationsDropped || 0) === 0 &&
         baselineAcc.evidenceCoverage >= 100 &&
         baselineAcc.invalidCodes.length === 0 &&
-        codeValidationPct >= 95 &&
-        quantityConfidencePct >= 95,
+        taskCoverage.coveragePct >= 90 &&
+        taskCoverage.missingProducts.length === 0 &&
+        taskCoverage.missingLocations.length === 0 &&
+        taskCoverage.missingRepairVerbs.length === 0,
     } : null;
 
     return new Response(JSON.stringify({
@@ -1030,9 +1035,13 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
       codeCount: codes.length,
       minimumCost,
       surveyorUnderstanding: su,
+      taskRegister,
+      tasksWithoutSorMatch,
+      taskCoverage,
       genericCodeWarnings,
       approvalGate,
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
 
   } catch (error: any) {
     console.error('convert-description error', error);
