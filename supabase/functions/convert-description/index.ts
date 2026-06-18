@@ -630,7 +630,7 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
       method: 'POST',
       headers: { 'Authorization': `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'openai/gpt-5',
         messages: [
           { role: 'system', content: systemPrompt + existingWorksBlock },
           { role: 'user', content: `Description to convert:\n\n${description}` },
