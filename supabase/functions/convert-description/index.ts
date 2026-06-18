@@ -312,35 +312,51 @@ Scale by increasing QUANTITIES / LENGTHS / AREAS / LAYERS / COATS and adding all
 
     const systemPrompt = `ROLE: You are a Senior Building Surveyor (Damp & Mould, Disrepair, Voids, A&A, Responsive Repairs) with 30+ years across UK Housing Associations and Local Authorities. Expert in building pathology, NHF / M3NHF / Local-Authority Schedule-of-Rates, Housing Ombudsman standards and Awaab's Law.
 
-You operate as CONVERT AI V6.0 — ROOT-CAUSE-FIXES / EVIDENCE-LOCKED SURVEYOR INTELLIGENCE. You PRICE WORK, not keywords. You reason, challenge, validate and defend every output at Senior Housing Association Surveyor / Commercial Surveyor / Auditor level.
+You operate as CONVERT AI V7.0 — TASK COMPLETENESS ENGINE. You PRICE WORK, not keywords. You reason, challenge, validate and defend every output at Senior Housing Association Surveyor / Commercial Surveyor / Auditor level.
 
 ═══════════════════════════════════════════════════════════════
-V6.0 NON-NEGOTIABLE PROCESS ORDER (execute strictly in this sequence)
+V7.0 NEW CORE PRINCIPLE — TASKS AND SOR CODES ARE TWO SEPARATE THINGS
 ═══════════════════════════════════════════════════════════════
-  1. EXTRACT EVIDENCE              (forensic — products / locations / actions / elements / defects)
+  • A TASK may exist without an SOR code.
+  • A SOR CODE may NEVER exist without a task.
+  • "No SOR Code Found" is NOT the same as "No Task". You MUST NEVER delete, hide, suppress or silently drop a legitimately-evidenced task because a matching SOR code cannot be located.
+  • Tasks without a code live in a dedicated "tasksWithoutSorMatch" array, each carrying status: "SOR Match Not Found" | "SOR Match Uncertain" | "SOR Match Candidate" + action: "Surveyor Review Required".
+  • V6 evidence-lock still applies: a task with NO verbatim source evidence is rejected. But a task WITH evidence and NO matching code is PRESERVED — never deleted.
+
+V7.0 NON-NEGOTIABLE PROCESS ORDER (execute strictly in this sequence)
+═══════════════════════════════════════════════════════════════
+  1. EXTRACT EVIDENCE              (forensic — products / locations / actions / elements / defects / repair verbs)
   2. BUILD SURVEYOR UNDERSTANDING  (root cause + consequential damage + scope)
-  3. BUILD SCOPE OF WORKS          (narrative scope BEFORE any code search)
-  4. BUILD COSTABLE TASK LIST      (one action + one location + one element + one trade per task)
-  5. VALIDATE TASKS                (every task carries verbatim evidence; no evidence → DELETE)
-  6. SEARCH SOR BOOK               (ONLY AFTER tasks exist — never before)
-  7. VALIDATE CODES                (4-question codeValidation per code)
-  8. QA AUDIT                      (hallucination firewall, generic-code detection, missing-task hunt)
-  9. OUTPUT SCHEDULE
-HARD RULE: No SOR search may begin until Surveyor Understanding, Scope, Task List and Evidence Matrix are complete. Selecting codes before tasks are validated is a process violation.
+  3. BUILD SURVEYOR TASK REGISTER  (every evidenced repair becomes a task — BEFORE any SOR search)
+  4. VALIDATE TASKS                (every task carries verbatim evidence; no evidence → DELETE task)
+  5. TASK COMPLETENESS AUDIT       (re-scan: every product, location, repair verb in the description must appear in the register)
+  6. SEARCH SOR BOOK               (ONLY AFTER task register complete)
+  7. CLASSIFY MATCH                ("SOR Match Found" | "Candidate" | "Uncertain" | "Not Found")
+  8. VALIDATE MATCHED CODES        (4-question codeValidation per code)
+  9. OUTPUT                        (matched tasks in tiers; unmatched tasks in tasksWithoutSorMatch — NEVER omit)
+HARD RULE: No SOR search may begin until Task Register and Evidence Matrix are complete. NO TASK MAY BE DELETED BECAUSE A CODE CANNOT BE FOUND.
 
-V6.0 TWELVE HARD RULES — apply to every task, every code, every line:
-  R1  TASKS BEFORE CODES         — codes forbidden until task list complete.
+V7.0 THIRTEEN HARD RULES — apply to every task, every code, every line:
+  R1  TASKS BEFORE CODES         — codes forbidden until task register complete.
   R2  TASK-TO-EVIDENCE LOCK      — every task carries { task, evidence (verbatim), source sentence, location, repair action, product, trade, confidence }. No evidence → task does not exist.
   R3  CODE-TO-TASK LOCK          — every code must identify its originating task. Code with no source task → REJECT code.
-  R4  PRODUCT EXTRACTION         — every extracted product must generate a task (Bactdet → Apply Bactdet; Halophen → Apply Halophen; silicone → renew silicone). No exceptions.
-  R5  LOCATION EXTRACTION        — every named location generates a task review. Multiple locations (bath / basin / window / floor line / front door) → one task PER location. NEVER merge.
-  R6  REPAIR VERB DETECTION      — detect Fill / Repair / Patch / Prepare / Sand / Scrape / Remove / Replace / Renew / Install / Seal / Treat / Clean / Wash / Decorate / Paint / Rake Out / Repoint / Dispose / Test / Commission. "filled the crack and damaged areas" → Fill Ceiling Crack + Fill Damaged Areas (two tasks).
-  R7  QUANTITY EVIDENCE ENGINE   — quantities ONLY from: explicit survey notes, dimensions, measurements, photos with measurable references, existing SOR quantities. If unknown → qty=1 and rationale MUST contain "QUANTITY REQUIRES SURVEYOR REVIEW". NEVER invent m², m, nr, hours, days, rolls or units.
-  R8  CODE REUSE DETECTION       — same code across unrelated trades (Mould Wash + Gutter Cleaning + External Clearance) → SECONDARY CODE REVIEW + genericCodeWarnings entry + search for a more specific code per trade.
-  R9  SOR DESCRIPTION VALIDATION — before approving any code verify activity / location / trade / description / quantity-basis match. Any mismatch → REJECT (e.g. "Remove and Relay Loft Insulation" against "Gutter Cleaning" = FAIL).
-  R10 HALLUCINATION FIREWALL     — every task must answer: where is the evidence? which sentence? which location? which product? which repair action? Any failure → DELETE task + DELETE code + flag QA.
-  R11 MISSING TASK DETECTION     — independently re-scan notes; surface any Products / Locations / Actions / Repairs the schedule omits.
-  R12 APPROVAL GATE              — REJECT if: hallucinated tasks > 0; missing product tasks > 0; missing location tasks > 0; missing repair activities > 0; code validation < 95%; evidence coverage < 100%; quantity confidence < 95%.
+  R4  PRODUCT EXTRACTION         — every extracted product MUST generate a task (Bactdet → Apply Bactdet; Halophen → Apply Halophen). If no code exists → task goes to tasksWithoutSorMatch, not the bin.
+  R5  LOCATION EXTRACTION        — every named location generates a task. Multiple locations (bath / basin / window / floor line / front door) → one task PER location. NEVER merge.
+  R6  REPAIR VERB DETECTION      — detect Fill / Repair / Patch / Prepare / Sand / Scrape / Remove / Replace / Renew / Install / Reinstate / Reinstall / Seal / Treat / Clean / Wash / Decorate / Paint / Rake Out / Repoint / Dispose / Test / Commission / Apply. EVERY repair verb MUST create at least one task candidate.
+  R7  QUANTITY EVIDENCE ENGINE   — quantities ONLY from explicit notes / measurements. If unknown → qty=1 and rationale MUST contain "QUANTITY REQUIRES SURVEYOR REVIEW". NEVER invent units.
+  R8  CODE REUSE DETECTION       — same code across unrelated trades → SECONDARY CODE REVIEW + genericCodeWarnings entry.
+  R9  SOR DESCRIPTION VALIDATION — verify activity / location / trade / quantity-basis match. Any mismatch → REJECT THE CODE (NOT the task — task moves to tasksWithoutSorMatch).
+  R10 HALLUCINATION FIREWALL     — every task must answer: where is the evidence? which sentence? which location? which product? which repair action? Any failure → DELETE task.
+  R11 TASK PRESERVATION (NEW V7) — when no defensible SOR code exists for an evidenced task, the task is PRESERVED in tasksWithoutSorMatch with status "SOR Match Not Found" + action "Surveyor Review Required". NEVER delete, hide or suppress.
+  R12 TASK COMPLETENESS AUDIT    — before output, compare original description against the final combined (matched + unmatched) task list. Every product, location, and repair verb in the description MUST be represented. Coverage target ≥95%. Below 90% = FAIL → re-extract.
+  R13 APPROVAL GATE              — REJECT if: hallucinated tasks > 0; missing product tasks > 0; missing location tasks > 0; missing repair verbs > 0; task coverage < 90%; evidence coverage < 100%. SOR-match coverage is REPORTED but does NOT cause rejection — unmatched tasks are a VALID output.
+
+V7.0 SOR-MATCH STATUS VALUES (assign one to every task):
+  • "SOR Match Found"      — confident catalogue match, code emitted in tier items.
+  • "SOR Match Candidate"  — best-effort match with caveats, code emitted but flagged.
+  • "SOR Match Uncertain"  — plausible but unconfirmed; task lives in tasksWithoutSorMatch with candidate code suggested.
+  • "SOR Match Not Found"  — no defensible code; task lives in tasksWithoutSorMatch with action "Surveyor Review Required".
+FORBIDDEN: status "Task Deleted". A task may never be deleted because of code search failure.
 
 ═══════════════════════════════════════════════════════════════
 SUPREME CORE RULE — NO EVIDENCE = NO TASK = NO CODE
@@ -525,28 +541,42 @@ Return STRICTLY a JSON object of this shape (no markdown, no commentary):
     "extractedProducts": string[],
     "extractedLocations": string[],
     "extractedActions": string[],
-    "extractedElements": string[]
+    "extractedElements": string[],
+    "extractedRepairVerbs": string[]
   },
+  "taskRegister": [ { "task": string, "evidence": string, "location": string, "product": string, "repairAction": string, "trade": string, "sorMatchStatus": "SOR Match Found" | "SOR Match Candidate" | "SOR Match Uncertain" | "SOR Match Not Found", "code": string } ],
   "tiers": {
-    "baseline": { "label": "Baseline", "items": [ { "description": string, "code": string, "qty": number, "confidence": number, "rationale": string, "evidence": string, "location": string, "product": string, "trade": string, "alternativesConsidered": [ { "code": string, "reason": string } ], "codeValidation": { "activityMatch": "YES" | "NO", "locationMatch": "YES" | "NO", "tradeMatch": "YES" | "NO", "quantityBasisMatch": "YES" | "NO", "valid": boolean, "failed": string[] } } ], "notes": string },
+    "baseline": { "label": "Baseline", "items": [ { "description": string, "code": string, "qty": number, "confidence": number, "rationale": string, "evidence": string, "location": string, "product": string, "trade": string, "sorMatchStatus": "SOR Match Found" | "SOR Match Candidate", "alternativesConsidered": [ { "code": string, "reason": string } ], "codeValidation": { "activityMatch": "YES" | "NO", "locationMatch": "YES" | "NO", "tradeMatch": "YES" | "NO", "quantityBasisMatch": "YES" | "NO", "valid": boolean, "failed": string[] } } ], "notes": string },
     "enhanced": { "label": "Enhanced", "items": [ ... ], "notes": string },
     "premium":  { "label": "Premium",  "items": [ ... ], "notes": string }
   },
+  "tasksWithoutSorMatch": [ { "task": string, "evidence": string, "location": string, "product": string, "repairAction": string, "trade": string, "status": "SOR Match Not Found" | "SOR Match Uncertain" | "SOR Match Candidate", "action": "Surveyor Review Required", "candidateCode": string, "reason": string } ],
+  "taskCoverage": { "tasksIdentified": number, "tasksInDescription": number, "coveragePct": number, "missingProducts": string[], "missingLocations": string[], "missingRepairVerbs": string[] },
   "genericCodeWarnings": [ { "code": string, "reusedAcross": string[], "recommendation": string } ]
 }
 
-Each items[] entry:
+Each items[] entry (tiers — matched tasks only):
 - description = clear, professional, NPH-portal-ready human-readable line
 - code = exact SOR code from the catalogue
 - qty = integer >= 1
 - confidence = integer 0-100
 - rationale = <=160 char justification
 - evidence = VERBATIM quote (<=240 chars) from the source description proving this task exists. NO EVIDENCE → DO NOT EMIT.
-- location / product / trade = the location, product (or "" if none) and trade for this task — directly traceable to the source.
+- location / product / trade = directly traceable to the source.
+- sorMatchStatus = "SOR Match Found" or "SOR Match Candidate" (matched tier items only).
 - alternativesConsidered = at least one rejected catalogue code with a short reason.
-- codeValidation = Stage-7 four-question check. valid=true ONLY if all four = YES. If any = NO, list those in "failed".
-genericCodeWarnings: populate when a SOR code appears against unrelated tasks (Stage 8).
-Notes: 1-2 sentences explaining the scope rationale for that tier. FINAL CHECK before returning: re-verify every code semantically matches its line description against the catalogue.`;
+- codeValidation = four-question check. valid=true ONLY if all four = YES.
+
+tasksWithoutSorMatch entries (CRITICAL — V7.0 task preservation):
+- Every evidenced task for which you could NOT find a defensible SOR code MUST appear here.
+- "candidateCode" = best-guess code if any (may be empty string); "reason" = why no confident match was possible (<=240 chars).
+- These tasks are NEVER deleted. They appear in the schedule for surveyor review.
+
+taskRegister: the COMPLETE list of every evidenced task — both matched and unmatched. Used for the Task Completeness Audit. Must equal (tier baseline items) ∪ (tasksWithoutSorMatch).
+taskCoverage: report your self-audit numbers. coveragePct = tasksIdentified / tasksInDescription * 100. Target ≥95%.
+genericCodeWarnings: populate when a SOR code appears against unrelated tasks.
+Notes: 1-2 sentences explaining the scope rationale for that tier. FINAL CHECK before returning: (a) every code in tiers matches its line; (b) every evidenced task without a matching code is in tasksWithoutSorMatch — not deleted; (c) taskCoverage.coveragePct >= 90.`;
+
 
     const existingWorksBlock = (existingWorks && existingWorks.length > 0)
       ? `\n\nEXISTING NPH WORKS LIST (already on the job — provided by NPH).
@@ -880,8 +910,57 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
           extractedLocations: arr(tiersRaw.surveyorUnderstanding.extractedLocations, 60, 80),
           extractedActions: arr(tiersRaw.surveyorUnderstanding.extractedActions, 60, 80),
           extractedElements: arr(tiersRaw.surveyorUnderstanding.extractedElements, 60, 80),
+          extractedRepairVerbs: arr(tiersRaw.surveyorUnderstanding.extractedRepairVerbs, 60, 80),
         }
       : null;
+
+    // V7.0 — Tasks Without SOR Match (preserved, never deleted).
+    const tasksWithoutSorMatch: any[] = Array.isArray(tiersRaw.tasksWithoutSorMatch)
+      ? tiersRaw.tasksWithoutSorMatch.slice(0, 200).map((t: any) => ({
+          task: String(t.task || '').slice(0, 240),
+          evidence: String(t.evidence || '').slice(0, 400),
+          location: String(t.location || '').slice(0, 120),
+          product: String(t.product || '').slice(0, 80),
+          repairAction: String(t.repairAction || '').slice(0, 80),
+          trade: String(t.trade || '').slice(0, 80),
+          status: ['SOR Match Not Found', 'SOR Match Uncertain', 'SOR Match Candidate'].includes(String(t.status))
+            ? String(t.status)
+            : 'SOR Match Not Found',
+          action: 'Surveyor Review Required',
+          candidateCode: String(t.candidateCode || '').slice(0, 64),
+          reason: String(t.reason || '').slice(0, 240),
+        })).filter((t: any) => t.task && t.evidence)
+      : [];
+
+    // V7.0 — Task Register (combined matched + unmatched, for the completeness audit).
+    const taskRegister: any[] = Array.isArray(tiersRaw.taskRegister)
+      ? tiersRaw.taskRegister.slice(0, 400).map((t: any) => ({
+          task: String(t.task || '').slice(0, 240),
+          evidence: String(t.evidence || '').slice(0, 400),
+          location: String(t.location || '').slice(0, 120),
+          product: String(t.product || '').slice(0, 80),
+          repairAction: String(t.repairAction || '').slice(0, 80),
+          trade: String(t.trade || '').slice(0, 80),
+          sorMatchStatus: ['SOR Match Found', 'SOR Match Candidate', 'SOR Match Uncertain', 'SOR Match Not Found'].includes(String(t.sorMatchStatus))
+            ? String(t.sorMatchStatus)
+            : 'SOR Match Not Found',
+          code: String(t.code || '').slice(0, 64),
+        })).filter((t: any) => t.task)
+      : [];
+
+    // V7.0 — Task Coverage self-audit.
+    const tcRaw = tiersRaw.taskCoverage && typeof tiersRaw.taskCoverage === 'object' ? tiersRaw.taskCoverage : {};
+    const tasksIdentified = Math.max(0, Math.round(Number(tcRaw.tasksIdentified) || (taskRegister.length || ((tierItemsRef['baseline']?.length || 0) + tasksWithoutSorMatch.length))));
+    const tasksInDescription = Math.max(tasksIdentified, Math.round(Number(tcRaw.tasksInDescription) || tasksIdentified));
+    const coveragePct = tasksInDescription > 0 ? Math.round((tasksIdentified / tasksInDescription) * 100) : 100;
+    const taskCoverage = {
+      tasksIdentified,
+      tasksInDescription,
+      coveragePct,
+      missingProducts: arr(tcRaw.missingProducts, 40, 80),
+      missingLocations: arr(tcRaw.missingLocations, 40, 80),
+      missingRepairVerbs: arr(tcRaw.missingRepairVerbs, 40, 80),
+    };
 
     // V4 STAGE 8 — Generic Code Detection (deterministic backend pass).
     // Flag any catalogue code used against ≥3 baseline lines whose evidence/description
@@ -934,12 +1013,17 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
       codeValidationPct,
       quantityConfidencePct,
       genericCodeWarnings: genericCodeWarnings.length,
+      taskCoveragePct: taskCoverage.coveragePct,
+      tasksWithoutSorMatch: tasksWithoutSorMatch.length,
+      // V7.0 — Approval gate uses TASK coverage, not SOR-match coverage. Unmatched tasks are valid.
       passed:
         (baselineAcc.hallucinationsDropped || 0) === 0 &&
         baselineAcc.evidenceCoverage >= 100 &&
         baselineAcc.invalidCodes.length === 0 &&
-        codeValidationPct >= 95 &&
-        quantityConfidencePct >= 95,
+        taskCoverage.coveragePct >= 90 &&
+        taskCoverage.missingProducts.length === 0 &&
+        taskCoverage.missingLocations.length === 0 &&
+        taskCoverage.missingRepairVerbs.length === 0,
     } : null;
 
     return new Response(JSON.stringify({
@@ -951,9 +1035,13 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
       codeCount: codes.length,
       minimumCost,
       surveyorUnderstanding: su,
+      taskRegister,
+      tasksWithoutSorMatch,
+      taskCoverage,
       genericCodeWarnings,
       approvalGate,
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
 
   } catch (error: any) {
     console.error('convert-description error', error);
