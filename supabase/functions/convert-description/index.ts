@@ -910,8 +910,57 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
           extractedLocations: arr(tiersRaw.surveyorUnderstanding.extractedLocations, 60, 80),
           extractedActions: arr(tiersRaw.surveyorUnderstanding.extractedActions, 60, 80),
           extractedElements: arr(tiersRaw.surveyorUnderstanding.extractedElements, 60, 80),
+          extractedRepairVerbs: arr(tiersRaw.surveyorUnderstanding.extractedRepairVerbs, 60, 80),
         }
       : null;
+
+    // V7.0 — Tasks Without SOR Match (preserved, never deleted).
+    const tasksWithoutSorMatch: any[] = Array.isArray(tiersRaw.tasksWithoutSorMatch)
+      ? tiersRaw.tasksWithoutSorMatch.slice(0, 200).map((t: any) => ({
+          task: String(t.task || '').slice(0, 240),
+          evidence: String(t.evidence || '').slice(0, 400),
+          location: String(t.location || '').slice(0, 120),
+          product: String(t.product || '').slice(0, 80),
+          repairAction: String(t.repairAction || '').slice(0, 80),
+          trade: String(t.trade || '').slice(0, 80),
+          status: ['SOR Match Not Found', 'SOR Match Uncertain', 'SOR Match Candidate'].includes(String(t.status))
+            ? String(t.status)
+            : 'SOR Match Not Found',
+          action: 'Surveyor Review Required',
+          candidateCode: String(t.candidateCode || '').slice(0, 64),
+          reason: String(t.reason || '').slice(0, 240),
+        })).filter((t: any) => t.task && t.evidence)
+      : [];
+
+    // V7.0 — Task Register (combined matched + unmatched, for the completeness audit).
+    const taskRegister: any[] = Array.isArray(tiersRaw.taskRegister)
+      ? tiersRaw.taskRegister.slice(0, 400).map((t: any) => ({
+          task: String(t.task || '').slice(0, 240),
+          evidence: String(t.evidence || '').slice(0, 400),
+          location: String(t.location || '').slice(0, 120),
+          product: String(t.product || '').slice(0, 80),
+          repairAction: String(t.repairAction || '').slice(0, 80),
+          trade: String(t.trade || '').slice(0, 80),
+          sorMatchStatus: ['SOR Match Found', 'SOR Match Candidate', 'SOR Match Uncertain', 'SOR Match Not Found'].includes(String(t.sorMatchStatus))
+            ? String(t.sorMatchStatus)
+            : 'SOR Match Not Found',
+          code: String(t.code || '').slice(0, 64),
+        })).filter((t: any) => t.task)
+      : [];
+
+    // V7.0 — Task Coverage self-audit.
+    const tcRaw = tiersRaw.taskCoverage && typeof tiersRaw.taskCoverage === 'object' ? tiersRaw.taskCoverage : {};
+    const tasksIdentified = Math.max(0, Math.round(Number(tcRaw.tasksIdentified) || (taskRegister.length || ((tierItemsRef['baseline']?.length || 0) + tasksWithoutSorMatch.length))));
+    const tasksInDescription = Math.max(tasksIdentified, Math.round(Number(tcRaw.tasksInDescription) || tasksIdentified));
+    const coveragePct = tasksInDescription > 0 ? Math.round((tasksIdentified / tasksInDescription) * 100) : 100;
+    const taskCoverage = {
+      tasksIdentified,
+      tasksInDescription,
+      coveragePct,
+      missingProducts: arr(tcRaw.missingProducts, 40, 80),
+      missingLocations: arr(tcRaw.missingLocations, 40, 80),
+      missingRepairVerbs: arr(tcRaw.missingRepairVerbs, 40, 80),
+    };
 
     // V4 STAGE 8 — Generic Code Detection (deterministic backend pass).
     // Flag any catalogue code used against ≥3 baseline lines whose evidence/description
