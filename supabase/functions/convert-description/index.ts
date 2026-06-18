@@ -541,28 +541,42 @@ Return STRICTLY a JSON object of this shape (no markdown, no commentary):
     "extractedProducts": string[],
     "extractedLocations": string[],
     "extractedActions": string[],
-    "extractedElements": string[]
+    "extractedElements": string[],
+    "extractedRepairVerbs": string[]
   },
+  "taskRegister": [ { "task": string, "evidence": string, "location": string, "product": string, "repairAction": string, "trade": string, "sorMatchStatus": "SOR Match Found" | "SOR Match Candidate" | "SOR Match Uncertain" | "SOR Match Not Found", "code": string } ],
   "tiers": {
-    "baseline": { "label": "Baseline", "items": [ { "description": string, "code": string, "qty": number, "confidence": number, "rationale": string, "evidence": string, "location": string, "product": string, "trade": string, "alternativesConsidered": [ { "code": string, "reason": string } ], "codeValidation": { "activityMatch": "YES" | "NO", "locationMatch": "YES" | "NO", "tradeMatch": "YES" | "NO", "quantityBasisMatch": "YES" | "NO", "valid": boolean, "failed": string[] } } ], "notes": string },
+    "baseline": { "label": "Baseline", "items": [ { "description": string, "code": string, "qty": number, "confidence": number, "rationale": string, "evidence": string, "location": string, "product": string, "trade": string, "sorMatchStatus": "SOR Match Found" | "SOR Match Candidate", "alternativesConsidered": [ { "code": string, "reason": string } ], "codeValidation": { "activityMatch": "YES" | "NO", "locationMatch": "YES" | "NO", "tradeMatch": "YES" | "NO", "quantityBasisMatch": "YES" | "NO", "valid": boolean, "failed": string[] } } ], "notes": string },
     "enhanced": { "label": "Enhanced", "items": [ ... ], "notes": string },
     "premium":  { "label": "Premium",  "items": [ ... ], "notes": string }
   },
+  "tasksWithoutSorMatch": [ { "task": string, "evidence": string, "location": string, "product": string, "repairAction": string, "trade": string, "status": "SOR Match Not Found" | "SOR Match Uncertain" | "SOR Match Candidate", "action": "Surveyor Review Required", "candidateCode": string, "reason": string } ],
+  "taskCoverage": { "tasksIdentified": number, "tasksInDescription": number, "coveragePct": number, "missingProducts": string[], "missingLocations": string[], "missingRepairVerbs": string[] },
   "genericCodeWarnings": [ { "code": string, "reusedAcross": string[], "recommendation": string } ]
 }
 
-Each items[] entry:
+Each items[] entry (tiers — matched tasks only):
 - description = clear, professional, NPH-portal-ready human-readable line
 - code = exact SOR code from the catalogue
 - qty = integer >= 1
 - confidence = integer 0-100
 - rationale = <=160 char justification
 - evidence = VERBATIM quote (<=240 chars) from the source description proving this task exists. NO EVIDENCE → DO NOT EMIT.
-- location / product / trade = the location, product (or "" if none) and trade for this task — directly traceable to the source.
+- location / product / trade = directly traceable to the source.
+- sorMatchStatus = "SOR Match Found" or "SOR Match Candidate" (matched tier items only).
 - alternativesConsidered = at least one rejected catalogue code with a short reason.
-- codeValidation = Stage-7 four-question check. valid=true ONLY if all four = YES. If any = NO, list those in "failed".
-genericCodeWarnings: populate when a SOR code appears against unrelated tasks (Stage 8).
-Notes: 1-2 sentences explaining the scope rationale for that tier. FINAL CHECK before returning: re-verify every code semantically matches its line description against the catalogue.`;
+- codeValidation = four-question check. valid=true ONLY if all four = YES.
+
+tasksWithoutSorMatch entries (CRITICAL — V7.0 task preservation):
+- Every evidenced task for which you could NOT find a defensible SOR code MUST appear here.
+- "candidateCode" = best-guess code if any (may be empty string); "reason" = why no confident match was possible (<=240 chars).
+- These tasks are NEVER deleted. They appear in the schedule for surveyor review.
+
+taskRegister: the COMPLETE list of every evidenced task — both matched and unmatched. Used for the Task Completeness Audit. Must equal (tier baseline items) ∪ (tasksWithoutSorMatch).
+taskCoverage: report your self-audit numbers. coveragePct = tasksIdentified / tasksInDescription * 100. Target ≥95%.
+genericCodeWarnings: populate when a SOR code appears against unrelated tasks.
+Notes: 1-2 sentences explaining the scope rationale for that tier. FINAL CHECK before returning: (a) every code in tiers matches its line; (b) every evidenced task without a matching code is in tasksWithoutSorMatch — not deleted; (c) taskCoverage.coveragePct >= 90.`;
+
 
     const existingWorksBlock = (existingWorks && existingWorks.length > 0)
       ? `\n\nEXISTING NPH WORKS LIST (already on the job — provided by NPH).
