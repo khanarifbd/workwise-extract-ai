@@ -833,19 +833,67 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
           extractedProducts: arr(tiersRaw.surveyorUnderstanding.extractedProducts, 60, 80),
           extractedLocations: arr(tiersRaw.surveyorUnderstanding.extractedLocations, 60, 80),
           extractedActions: arr(tiersRaw.surveyorUnderstanding.extractedActions, 60, 80),
+          extractedElements: arr(tiersRaw.surveyorUnderstanding.extractedElements, 60, 80),
         }
       : null;
 
-    // Approval gate per spec — baseline-tier scored. Hallucinations=0, evidence=100%, codes valid.
+    // V4 STAGE 8 — Generic Code Detection (deterministic backend pass).
+    // Flag any catalogue code used against ≥3 baseline lines whose evidence/description
+    // tokens diverge — strong signal of generic re-use across unrelated trades.
+    const aiGenericWarnings: any[] = Array.isArray(tiersRaw.genericCodeWarnings)
+      ? tiersRaw.genericCodeWarnings.slice(0, 20).map((w: any) => ({
+          code: String(w.code || '').slice(0, 64),
+          reusedAcross: Array.isArray(w.reusedAcross) ? w.reusedAcross.slice(0, 8).map((s: any) => String(s).slice(0, 160)) : [],
+          recommendation: String(w.recommendation || '').slice(0, 240),
+        })).filter((w: any) => w.code)
+      : [];
+    const baselineItemsForWarn = tierItemsRef['baseline'] || [];
+    const byCode = new Map<string, any[]>();
+    for (const it of baselineItemsForWarn) {
+      if (!it?.code) continue;
+      if (!byCode.has(it.code)) byCode.set(it.code, []);
+      byCode.get(it.code)!.push(it);
+    }
+    const detectedGeneric: any[] = [];
+    for (const [code, lines] of byCode.entries()) {
+      if (lines.length < 3) continue;
+      const surfaceGroups = new Set<string>();
+      const actionGroups = new Set<string>();
+      for (const ln of lines) {
+        for (const s of detectSurfaces(ln.description || '')) surfaceGroups.add(s);
+        for (const a of detectActions(ln.description || '')) actionGroups.add(a);
+      }
+      if (surfaceGroups.size >= 2 || actionGroups.size >= 2) {
+        detectedGeneric.push({
+          code,
+          reusedAcross: lines.slice(0, 6).map((l) => String(l.description || '').slice(0, 140)),
+          recommendation: `Code "${code}" applied to ${lines.length} tasks spanning ${surfaceGroups.size} surfaces / ${actionGroups.size} action groups. Search the catalogue for more specific codes per task.`,
+        });
+      }
+    }
+    const genericCodeWarnings = [...detectedGeneric, ...aiGenericWarnings].slice(0, 30);
+
+    // V4 STAGE 10 — Final Approval Gate. Schedule passes only when ALL conditions met.
     const baselineAcc = accuracy['baseline'];
+    const baselineItems = tierItemsRef['baseline'] || [];
+    const codesValidatedCount = baselineItems.filter((i: any) => i.codeValidation?.valid !== false).length;
+    const codeValidationPct = baselineItems.length > 0 ? Math.round((codesValidatedCount / baselineItems.length) * 100) : 100;
+    const quantityConfidencePct = baselineItems.length > 0
+      ? Math.round((baselineItems.filter((i: any) => (i.confidence || 0) >= 70).length / baselineItems.length) * 100)
+      : 100;
     const approvalGate = baselineAcc ? {
       hallucinations: baselineAcc.hallucinationsDropped || 0,
       evidenceCoverage: baselineAcc.evidenceCoverage,
       codesValid: baselineAcc.invalidCodes.length === 0,
+      codeValidationPct,
+      quantityConfidencePct,
+      genericCodeWarnings: genericCodeWarnings.length,
       passed:
         (baselineAcc.hallucinationsDropped || 0) === 0 &&
         baselineAcc.evidenceCoverage >= 100 &&
-        baselineAcc.invalidCodes.length === 0,
+        baselineAcc.invalidCodes.length === 0 &&
+        codeValidationPct >= 95 &&
+        quantityConfidencePct >= 95,
     } : null;
 
     return new Response(JSON.stringify({
@@ -857,6 +905,7 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
       codeCount: codes.length,
       minimumCost,
       surveyorUnderstanding: su,
+      genericCodeWarnings,
       approvalGate,
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
