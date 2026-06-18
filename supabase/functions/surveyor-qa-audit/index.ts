@@ -201,6 +201,8 @@ ${JSON.stringify(items.map((i) => ({ code: i.code, description: i.description, q
           { role: 'user', content: userBlock },
         ],
         response_format: { type: 'json_object' },
+        reasoning_effort: 'minimal',
+        max_completion_tokens: 16000,
       }),
     });
 
