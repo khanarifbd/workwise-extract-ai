@@ -315,6 +315,9 @@ export interface SurveyorUnderstanding {
   consequentialDamage: string;
   scope: string[];
   tradeAllocation: string[];
+  extractedProducts?: string[];
+  extractedLocations?: string[];
+  extractedActions?: string[];
 }
 export interface ConvertResponse {
   tiers: Record<'baseline' | 'enhanced' | 'premium', ConvertTier>;
