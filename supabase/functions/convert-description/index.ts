@@ -873,7 +873,7 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
         // sourceSentence cannot be located verbatim inside the supplied description.
         const _ss = String(it.sourceSentence || '');
         const _sp = String(it.sourcePhrase || '');
-        if (!phraseInDescription(_sp, _ss)) {
+        if (!phraseInDescription(_sp, _ss, rawEvidence)) {
           hallucinationsDropped += 1;
           return null;
         }
