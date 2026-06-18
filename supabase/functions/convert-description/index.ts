@@ -845,6 +845,14 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
           hallucinationsDropped += 1;
           return null;
         }
+        // STRICT SOURCE-ATTRIBUTION GATE — drop any line whose sourcePhrase /
+        // sourceSentence cannot be located verbatim inside the supplied description.
+        const _ss = String(it.sourceSentence || '');
+        const _sp = String(it.sourcePhrase || '');
+        if (!phraseInDescription(_sp, _ss)) {
+          hallucinationsDropped += 1;
+          return null;
+        }
         evidenceTracedCount += 1;
         let entry = codeIndex.get(originalCode);
         let codeUsed = originalCode;
