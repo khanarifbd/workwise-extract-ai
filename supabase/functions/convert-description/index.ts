@@ -703,6 +703,38 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
       return hits / toks.length >= 0.6;
     };
 
+    // V8.0 CONTEXT CONTAMINATION FIREWALL — deterministically drop any line that
+    // references concepts NOT present in the source description. These are the
+    // most common hallucinations bleeding in from training data / SOR catalogue / prior runs.
+    const FORBIDDEN_TERMS = [
+      'roof', 'roof tile', 'roof tiles', 'slate', 'slates', 'tiling roof',
+      'loft', 'attic', 'roof space',
+      'loft insulation', 'cavity insulation', 'cavity wall insulation', 'insulation',
+      'electrical', 'electrics', 'cable', 'cabling', 'wago', 'wagos', 'chop box', 'chop boxes',
+      'consumer unit', 'rcd', 'circuit', 'rewire',
+      'dpc', 'damp proof course', 'damp-proof course', 'damp proof',
+      'drainage', 'drain', 'drains', 'soil pipe', 'soil stack',
+      'leak', 'leaks', 'leaking', 'water ingress',
+      'squirrel', 'squirrels', 'rodent', 'rodents', 'pest', 'vermin',
+      'subsidence', 'structural defect',
+    ];
+    // Pre-compute which forbidden terms ARE actually in the source — those are allowed through.
+    const descLower = ` ${descNorm} `;
+    const allowedForbidden = new Set<string>();
+    for (const term of FORBIDDEN_TERMS) {
+      if (descLower.includes(` ${term} `) || descLower.includes(` ${term}s `)) allowedForbidden.add(term);
+    }
+    const contaminationContains = (text: string): string | null => {
+      const haystack = ` ${normalize(text)} `;
+      for (const term of FORBIDDEN_TERMS) {
+        if (allowedForbidden.has(term)) continue;
+        if (haystack.includes(` ${term} `)) return term;
+      }
+      return null;
+    };
+
+
+
 
     for (const key of tierKeys) {
       const t = tiersRaw.tiers[key];
