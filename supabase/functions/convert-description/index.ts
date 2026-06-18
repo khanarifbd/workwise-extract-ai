@@ -853,6 +853,8 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
           confidence,
           rationale,
           evidence: rawEvidence,
+          sourceSentence: String(it.sourceSentence || '').slice(0, 300),
+          sourcePhrase: String(it.sourcePhrase || '').slice(0, 120),
           location: String(it.location || '').slice(0, 120),
           product: String(it.product || '').slice(0, 80),
           trade: String(it.trade || entry.category || '').slice(0, 80),
