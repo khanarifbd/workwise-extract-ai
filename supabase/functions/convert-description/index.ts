@@ -444,7 +444,10 @@ Return STRICTLY a JSON object of this shape (no markdown, no commentary):
     "rootCause": string,
     "consequentialDamage": string,
     "scope": string[],
-    "tradeAllocation": string[]
+    "tradeAllocation": string[],
+    "extractedProducts": string[],
+    "extractedLocations": string[],
+    "extractedActions": string[]
   },
   "tiers": {
     "baseline": { "label": "Baseline", "items": [ { "description": string, "code": string, "qty": number, "confidence": number, "rationale": string, "evidence": string, "alternativesConsidered": [ { "code": string, "reason": string } ] } ], "notes": string },
