@@ -702,25 +702,59 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
       return total;
     };
 
-    // Enforce HARD ordering: minimumCost <= baseline < enhanced < premium.
-    // Baseline floor = minimumCost (if set), otherwise whatever AI returned.
-    // Enhanced >= baseline * 1.20, Premium >= baseline * 1.45 AND > enhanced.
+    // V3 QUANTITY PROTECTION ENGINE — scope, qty and evidence are FIXED by the source.
+    // Baseline is the authoritative scope. Enhanced/Premium MUST contain the SAME items
+    // at the SAME quantities; they may only differ in confidence, rationale, alternatives.
+    // Baseline alone may still be scaled up to honour an explicit minimumCost floor.
     if (tierItemsRef['baseline']) {
       const baselineTarget = minimumCost > 0 ? minimumCost : (tierTotals['baseline'] || 0);
       tierTotals['baseline'] = scaleUpToTarget(tierItemsRef['baseline'], tierTotals['baseline'] || 0, baselineTarget);
     }
-    const baseTotal = tierTotals['baseline'] || (minimumCost > 0 ? minimumCost : 0);
 
-    if (tierItemsRef['enhanced']) {
-      const enhancedTarget = Math.max(baseTotal * 1.20, tierTotals['enhanced'] || 0);
-      tierTotals['enhanced'] = scaleUpToTarget(tierItemsRef['enhanced'], tierTotals['enhanced'] || 0, enhancedTarget);
+    // Lock enhanced & premium scope to baseline.
+    const baselineItems = tierItemsRef['baseline'] || [];
+    for (const tierKey of ['enhanced', 'premium'] as const) {
+      if (!validatedTiers[tierKey]) continue;
+      // Map baseline items by normalized evidence (fallback to code+description).
+      const tierItems = tierItemsRef[tierKey] || [];
+      const tierByKey = new Map<string, any>();
+      for (const it of tierItems) {
+        const k = `${normalize(it.evidence || '').slice(0, 80)}|${(it.description || '').toLowerCase().slice(0, 60)}`;
+        tierByKey.set(k, it);
+      }
+      const locked: any[] = [];
+      let lockedTotal = 0;
+      for (const base of baselineItems) {
+        const k = `${normalize(base.evidence || '').slice(0, 80)}|${(base.description || '').toLowerCase().slice(0, 60)}`;
+        const match = tierByKey.get(k);
+        // Adopt baseline qty & cost; keep tier-specific code/confidence/rationale/alternatives if available.
+        const src = match || base;
+        const entryCost = src.entryCost ?? base.entryCost;
+        const cost = entryCost * base.qty;
+        lockedTotal += cost;
+        locked.push({
+          ...base,
+          // Premium/Enhanced may suggest a better code — preserve it.
+          code: src.code || base.code,
+          description: src.description || base.description,
+          confidence: typeof src.confidence === 'number' ? src.confidence : base.confidence,
+          rationale: src.rationale || base.rationale,
+          alternativesConsidered: Array.isArray(src.alternativesConsidered) && src.alternativesConsidered.length > 0
+            ? src.alternativesConsidered
+            : base.alternativesConsidered,
+          qty: base.qty,
+          cost,
+          entryCost,
+        });
+      }
+      tierItemsRef[tierKey] = locked;
+      validatedTiers[tierKey].items = locked;
+      tierTotals[tierKey] = lockedTotal;
+      if (accuracy[tierKey]) {
+        accuracy[tierKey].itemCount = locked.length;
+      }
     }
-    const enhTotal = tierTotals['enhanced'] || baseTotal * 1.20;
 
-    if (tierItemsRef['premium']) {
-      const premiumTarget = Math.max(baseTotal * 1.45, enhTotal * 1.05, tierTotals['premium'] || 0);
-      tierTotals['premium'] = scaleUpToTarget(tierItemsRef['premium'], tierTotals['premium'] || 0, premiumTarget);
-    }
 
     for (const key of tierKeys) {
       if (!validatedTiers[key]) continue;
