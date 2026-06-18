@@ -770,16 +770,18 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
     const review: any = null;
 
     // Extract surveyor understanding payload safely.
+    const arr = (v: any, max: number, len: number) => Array.isArray(v)
+      ? v.slice(0, max).map((s: any) => String(s).slice(0, len)).filter((s: string) => s.trim().length > 0)
+      : [];
     const su = tiersRaw.surveyorUnderstanding && typeof tiersRaw.surveyorUnderstanding === 'object'
       ? {
           rootCause: String(tiersRaw.surveyorUnderstanding.rootCause || '').slice(0, 600),
           consequentialDamage: String(tiersRaw.surveyorUnderstanding.consequentialDamage || '').slice(0, 600),
-          scope: Array.isArray(tiersRaw.surveyorUnderstanding.scope)
-            ? tiersRaw.surveyorUnderstanding.scope.slice(0, 50).map((s: any) => String(s).slice(0, 240))
-            : [],
-          tradeAllocation: Array.isArray(tiersRaw.surveyorUnderstanding.tradeAllocation)
-            ? tiersRaw.surveyorUnderstanding.tradeAllocation.slice(0, 30).map((s: any) => String(s).slice(0, 240))
-            : [],
+          scope: arr(tiersRaw.surveyorUnderstanding.scope, 50, 240),
+          tradeAllocation: arr(tiersRaw.surveyorUnderstanding.tradeAllocation, 30, 240),
+          extractedProducts: arr(tiersRaw.surveyorUnderstanding.extractedProducts, 60, 80),
+          extractedLocations: arr(tiersRaw.surveyorUnderstanding.extractedLocations, 60, 80),
+          extractedActions: arr(tiersRaw.surveyorUnderstanding.extractedActions, 60, 80),
         }
       : null;
 
