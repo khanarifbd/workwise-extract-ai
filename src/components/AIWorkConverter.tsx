@@ -657,6 +657,24 @@ export const AIWorkConverter = ({ onConvert, onClose, existingWorks, initialDesc
                       {result.surveyorUnderstanding.tradeAllocation.join(' · ')}
                     </div>
                   )}
+                  {(result.surveyorUnderstanding.extractedProducts?.length ?? 0) > 0 && (
+                    <div className="sm:col-span-2">
+                      <span className="font-medium">Extracted products:</span>{' '}
+                      <span className="text-muted-foreground">{result.surveyorUnderstanding.extractedProducts!.join(' · ')}</span>
+                    </div>
+                  )}
+                  {(result.surveyorUnderstanding.extractedLocations?.length ?? 0) > 0 && (
+                    <div className="sm:col-span-2">
+                      <span className="font-medium">Extracted locations:</span>{' '}
+                      <span className="text-muted-foreground">{result.surveyorUnderstanding.extractedLocations!.join(' · ')}</span>
+                    </div>
+                  )}
+                  {(result.surveyorUnderstanding.extractedActions?.length ?? 0) > 0 && (
+                    <div className="sm:col-span-2">
+                      <span className="font-medium">Extracted repair actions:</span>{' '}
+                      <span className="text-muted-foreground">{result.surveyorUnderstanding.extractedActions!.join(' · ')}</span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
