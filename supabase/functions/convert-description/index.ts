@@ -1122,7 +1122,7 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
           reason: String(t.reason || '').slice(0, 240),
         })).filter((t: any) =>
           t.task && t.evidence &&
-          phraseInDescription(t.sourcePhrase, t.sourceSentence) &&
+          phraseInDescription(t.sourcePhrase, t.sourceSentence, t.evidence) &&
           !contaminationContains(t.task) &&
           !contaminationContains(t.location) &&
           !contaminationContains(t.product))
