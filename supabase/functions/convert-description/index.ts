@@ -576,13 +576,13 @@ Return STRICTLY a JSON object of this shape (no markdown, no commentary):
     "extractedElements": string[],
     "extractedRepairVerbs": string[]
   },
-  "taskRegister": [ { "task": string, "evidence": string, "location": string, "product": string, "repairAction": string, "trade": string, "sorMatchStatus": "SOR Match Found" | "SOR Match Candidate" | "SOR Match Uncertain" | "SOR Match Not Found", "code": string } ],
+  "taskRegister": [ { "task": string, "evidence": string, "sourceSentence": string, "sourcePhrase": string, "location": string, "product": string, "repairAction": string, "trade": string, "sorMatchStatus": "SOR Match Found" | "SOR Match Candidate" | "SOR Match Uncertain" | "SOR Match Not Found", "code": string } ],
   "tiers": {
-    "baseline": { "label": "Baseline", "items": [ { "description": string, "code": string, "qty": number, "confidence": number, "rationale": string, "evidence": string, "location": string, "product": string, "trade": string, "sorMatchStatus": "SOR Match Found" | "SOR Match Candidate", "alternativesConsidered": [ { "code": string, "reason": string } ], "codeValidation": { "activityMatch": "YES" | "NO", "locationMatch": "YES" | "NO", "tradeMatch": "YES" | "NO", "quantityBasisMatch": "YES" | "NO", "valid": boolean, "failed": string[] } } ], "notes": string },
+    "baseline": { "label": "Baseline", "items": [ { "description": string, "code": string, "qty": number, "confidence": number, "rationale": string, "evidence": string, "sourceSentence": string, "sourcePhrase": string, "location": string, "product": string, "trade": string, "sorMatchStatus": "SOR Match Found" | "SOR Match Candidate", "alternativesConsidered": [ { "code": string, "reason": string } ], "codeValidation": { "activityMatch": "YES" | "NO", "locationMatch": "YES" | "NO", "tradeMatch": "YES" | "NO", "quantityBasisMatch": "YES" | "NO", "valid": boolean, "failed": string[] } } ], "notes": string },
     "enhanced": { "label": "Enhanced", "items": [ ... ], "notes": string },
     "premium":  { "label": "Premium",  "items": [ ... ], "notes": string }
   },
-  "tasksWithoutSorMatch": [ { "task": string, "evidence": string, "location": string, "product": string, "repairAction": string, "trade": string, "status": "SOR Match Not Found" | "SOR Match Uncertain" | "SOR Match Candidate", "action": "Surveyor Review Required", "candidateCode": string, "reason": string } ],
+  "tasksWithoutSorMatch": [ { "task": string, "evidence": string, "sourceSentence": string, "sourcePhrase": string, "location": string, "product": string, "repairAction": string, "trade": string, "status": "SOR Match Not Found" | "SOR Match Uncertain" | "SOR Match Candidate", "action": "Surveyor Review Required", "candidateCode": string, "reason": string } ],
   "taskCoverage": { "tasksIdentified": number, "tasksInDescription": number, "coveragePct": number, "missingProducts": string[], "missingLocations": string[], "missingRepairVerbs": string[] },
   "genericCodeWarnings": [ { "code": string, "reusedAcross": string[], "recommendation": string } ]
 }
