@@ -402,6 +402,9 @@ V8.0 PROVENANCE FIELDS — every items[] entry, every taskRegister entry, every 
   • sourcePhrase   — the EXACT phrase within that sentence (≤120 chars)
 These are in addition to the existing "evidence" field. Lines missing either field will be deleted.
 
+ABSOLUTE SOURCE-ATTRIBUTION RULE (HARD ENFORCED BY BACKEND):
+Before adding ANY task you MUST be able to show (1) the exact source sentence and (2) the exact source phrase, both copied verbatim from the supplied description. If either cannot be shown → DELETE the task. No exceptions. The backend will run a verbatim substring check on sourcePhrase / sourceSentence against the description and will silently drop any task that fails. Existing NPH works, previous jobs, previous AI runs, historical notes, similar jobs, SOR descriptions, catalogue entries and training examples must NEVER be used to create scope. Examples that MUST be deleted unless the literal words appear in the description: Roof repair, Loft insulation, Electrical cable, Wagos, Chop boxes, DPC, Drainage, Leak detection, Squirrel damage.
+
 
 ═══════════════════════════════════════════════════════════════
 V7.0 NEW CORE PRINCIPLE — TASKS AND SOR CODES ARE TWO SEPARATE THINGS
@@ -800,6 +803,17 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
       }
       return null;
     };
+    // STRICT SOURCE-ATTRIBUTION GATE — a task may only survive if its sourcePhrase
+    // (and/or sourceSentence) actually appears, verbatim (normalized), inside the
+    // supplied description. No source phrase = no traceability = DELETE.
+    const descNormPadded = ` ${descNorm} `;
+    const phraseInDescription = (phrase: string, sentence: string): boolean => {
+      const p = normalize(phrase || '').trim();
+      const s = normalize(sentence || '').trim();
+      if (p && p.length >= 3 && descNormPadded.includes(p)) return true;
+      if (s && s.length >= 6 && descNormPadded.includes(s)) return true;
+      return false;
+    };
 
 
 
@@ -831,6 +845,14 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
           contaminationContains(String(it.product || '')) ||
           contaminationContains(String(it.trade || ''));
         if (contaminatedTerm) {
+          hallucinationsDropped += 1;
+          return null;
+        }
+        // STRICT SOURCE-ATTRIBUTION GATE — drop any line whose sourcePhrase /
+        // sourceSentence cannot be located verbatim inside the supplied description.
+        const _ss = String(it.sourceSentence || '');
+        const _sp = String(it.sourcePhrase || '');
+        if (!phraseInDescription(_sp, _ss)) {
           hallucinationsDropped += 1;
           return null;
         }
@@ -1079,6 +1101,7 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
           reason: String(t.reason || '').slice(0, 240),
         })).filter((t: any) =>
           t.task && t.evidence &&
+          phraseInDescription(t.sourcePhrase, t.sourceSentence) &&
           !contaminationContains(t.task) &&
           !contaminationContains(t.location) &&
           !contaminationContains(t.product))
@@ -1102,6 +1125,7 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
           code: String(t.code || '').slice(0, 64),
         })).filter((t: any) =>
           t.task &&
+          phraseInDescription(t.sourcePhrase, t.sourceSentence) &&
           !contaminationContains(t.task) &&
           !contaminationContains(t.location) &&
           !contaminationContains(t.product))
