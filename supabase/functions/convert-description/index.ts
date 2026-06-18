@@ -992,10 +992,13 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
       : null;
 
     // V7.0 — Tasks Without SOR Match (preserved, never deleted).
+    // V8.0 — Also filtered through Context Contamination Firewall.
     const tasksWithoutSorMatch: any[] = Array.isArray(tiersRaw.tasksWithoutSorMatch)
       ? tiersRaw.tasksWithoutSorMatch.slice(0, 200).map((t: any) => ({
           task: String(t.task || '').slice(0, 240),
           evidence: String(t.evidence || '').slice(0, 400),
+          sourceSentence: String(t.sourceSentence || '').slice(0, 300),
+          sourcePhrase: String(t.sourcePhrase || '').slice(0, 120),
           location: String(t.location || '').slice(0, 120),
           product: String(t.product || '').slice(0, 80),
           repairAction: String(t.repairAction || '').slice(0, 80),
@@ -1006,14 +1009,21 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
           action: 'Surveyor Review Required',
           candidateCode: String(t.candidateCode || '').slice(0, 64),
           reason: String(t.reason || '').slice(0, 240),
-        })).filter((t: any) => t.task && t.evidence)
+        })).filter((t: any) =>
+          t.task && t.evidence &&
+          !contaminationContains(t.task) &&
+          !contaminationContains(t.location) &&
+          !contaminationContains(t.product))
       : [];
 
     // V7.0 — Task Register (combined matched + unmatched, for the completeness audit).
+    // V8.0 — Also filtered through Context Contamination Firewall.
     const taskRegister: any[] = Array.isArray(tiersRaw.taskRegister)
       ? tiersRaw.taskRegister.slice(0, 400).map((t: any) => ({
           task: String(t.task || '').slice(0, 240),
           evidence: String(t.evidence || '').slice(0, 400),
+          sourceSentence: String(t.sourceSentence || '').slice(0, 300),
+          sourcePhrase: String(t.sourcePhrase || '').slice(0, 120),
           location: String(t.location || '').slice(0, 120),
           product: String(t.product || '').slice(0, 80),
           repairAction: String(t.repairAction || '').slice(0, 80),
@@ -1022,7 +1032,11 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
             ? String(t.sorMatchStatus)
             : 'SOR Match Not Found',
           code: String(t.code || '').slice(0, 64),
-        })).filter((t: any) => t.task)
+        })).filter((t: any) =>
+          t.task &&
+          !contaminationContains(t.task) &&
+          !contaminationContains(t.location) &&
+          !contaminationContains(t.product))
       : [];
 
     // V7.0 — Task Coverage self-audit.
