@@ -755,6 +755,17 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
           hallucinationsDropped += 1;
           return null;
         }
+        // V8.0 CONTEXT CONTAMINATION FIREWALL — reject lines that mention
+        // concepts absent from the source description (roof, loft, electrical, etc.).
+        const contaminatedTerm =
+          contaminationContains(desc) ||
+          contaminationContains(String(it.location || '')) ||
+          contaminationContains(String(it.product || '')) ||
+          contaminationContains(String(it.trade || ''));
+        if (contaminatedTerm) {
+          hallucinationsDropped += 1;
+          return null;
+        }
         evidenceTracedCount += 1;
         let entry = codeIndex.get(originalCode);
         let codeUsed = originalCode;
