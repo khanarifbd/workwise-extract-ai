@@ -173,7 +173,10 @@ Return STRICTLY this JSON shape (no markdown, no commentary):
   "revenueLeakage": [ { "missedActivity": string, "estimatedImpact": "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" } ],
   "scores": { "scope": number, "task": number, "sor": number, "quantity": number, "commercial": number, "overall": number },
   "decision": "APPROVED" | "REJECTED",
-  "requiredCorrections": string[]
+  "requiredCorrections": string[],
+  "sourceAttributionReport": [ { "task": string, "sourceSentence": string, "sourcePhrase": string, "confidence": number, "status": "VALID" | "INVALID" } ],
+  "contextContaminationReport": [ { "task": string, "contaminatingTerm": string, "reason": string } ],
+  "descriptionCoverageReport": { "activitiesFound": string[], "activitiesMissing": string[], "coveragePct": number }
 }`;
 
     const userBlock = `SOURCE NOTES (the ONLY ground truth — Convert AI's output below must be challenged against THIS):
