@@ -800,6 +800,17 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
       }
       return null;
     };
+    // STRICT SOURCE-ATTRIBUTION GATE — a task may only survive if its sourcePhrase
+    // (and/or sourceSentence) actually appears, verbatim (normalized), inside the
+    // supplied description. No source phrase = no traceability = DELETE.
+    const descNormPadded = ` ${descNorm} `;
+    const phraseInDescription = (phrase: string, sentence: string): boolean => {
+      const p = normalize(phrase || '').trim();
+      const s = normalize(sentence || '').trim();
+      if (p && p.length >= 3 && descNormPadded.includes(p)) return true;
+      if (s && s.length >= 6 && descNormPadded.includes(s)) return true;
+      return false;
+    };
 
 
 
