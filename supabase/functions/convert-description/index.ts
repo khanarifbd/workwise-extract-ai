@@ -402,6 +402,9 @@ V8.0 PROVENANCE FIELDS — every items[] entry, every taskRegister entry, every 
   • sourcePhrase   — the EXACT phrase within that sentence (≤120 chars)
 These are in addition to the existing "evidence" field. Lines missing either field will be deleted.
 
+ABSOLUTE SOURCE-ATTRIBUTION RULE (HARD ENFORCED BY BACKEND):
+Before adding ANY task you MUST be able to show (1) the exact source sentence and (2) the exact source phrase, both copied verbatim from the supplied description. If either cannot be shown → DELETE the task. No exceptions. The backend will run a verbatim substring check on sourcePhrase / sourceSentence against the description and will silently drop any task that fails. Existing NPH works, previous jobs, previous AI runs, historical notes, similar jobs, SOR descriptions, catalogue entries and training examples must NEVER be used to create scope. Examples that MUST be deleted unless the literal words appear in the description: Roof repair, Loft insulation, Electrical cable, Wagos, Chop boxes, DPC, Drainage, Leak detection, Squirrel damage.
+
 
 ═══════════════════════════════════════════════════════════════
 V7.0 NEW CORE PRINCIPLE — TASKS AND SOR CODES ARE TWO SEPARATE THINGS
