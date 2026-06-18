@@ -405,6 +405,13 @@ These are in addition to the existing "evidence" field. Lines missing either fie
 ABSOLUTE SOURCE-ATTRIBUTION RULE (HARD ENFORCED BY BACKEND):
 Before adding ANY task you MUST be able to show (1) the exact source sentence and (2) the exact source phrase, both copied verbatim from the supplied description. If either cannot be shown → DELETE the task. No exceptions. The backend will run a verbatim substring check on sourcePhrase / sourceSentence against the description and will silently drop any task that fails. Existing NPH works, previous jobs, previous AI runs, historical notes, similar jobs, SOR descriptions, catalogue entries and training examples must NEVER be used to create scope. Examples that MUST be deleted unless the literal words appear in the description: Roof repair, Loft insulation, Electrical cable, Wagos, Chop boxes, DPC, Drainage, Leak detection, Squirrel damage.
 
+ABSOLUTE TASK-PRESERVATION RULE (HARD ENFORCED BY BACKEND):
+The absence of an SOR code does NOT invalidate a task. Tasks and codes are SEPARATE entities. For every task you must search in this order: (1) exact match, (2) semantic match, (3) trade match, (4) generic match. Then assign:
+  • confidence > 80%  → return recommended code (Tier A/B)
+  • confidence 60-79% → return possible match (Tier C)
+  • confidence < 60%  → KEEP THE TASK and place it in tasksWithoutSorMatch with status "SOR Match Not Found" and action "Surveyor Review Required"
+NEVER suppress a task because no code exists. NEVER output a schedule containing fewer than 50% of identified tasks without explicitly listing every omitted task in tasksWithoutSorMatch. The backend automatically rescues any taskRegister entry missing from BOTH priced items AND tasksWithoutSorMatch — suppression is impossible by design and will be flagged as a critical failure.
+
 
 ═══════════════════════════════════════════════════════════════
 V7.0 NEW CORE PRINCIPLE — TASKS AND SOR CODES ARE TWO SEPARATE THINGS
