@@ -810,15 +810,29 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
       }
       return null;
     };
-    // STRICT SOURCE-ATTRIBUTION GATE — a task may only survive if its sourcePhrase
-    // (and/or sourceSentence) actually appears, verbatim (normalized), inside the
-    // supplied description. No source phrase = no traceability = DELETE.
+    // SOURCE-ATTRIBUTION GATE — verbatim substring OR ≥70% token overlap with the
+    // description. Accepts sourcePhrase, sourceSentence, or evidence. This blocks
+    // hallucinations (no real overlap) while allowing minor wording differences
+    // so legitimate evidenced tasks are NOT silently suppressed.
     const descNormPadded = ` ${descNorm} `;
-    const phraseInDescription = (phrase: string, sentence: string): boolean => {
+    const tokenOverlap = (s: string): number => {
+      const toks = tokenize(s || '');
+      if (toks.length === 0) return 0;
+      let hits = 0;
+      for (const t of toks) if (descTokenSet.has(t)) hits++;
+      return hits / toks.length;
+    };
+    const phraseInDescription = (phrase: string, sentence: string, evidence?: string): boolean => {
       const p = normalize(phrase || '').trim();
       const s = normalize(sentence || '').trim();
+      const e = normalize(evidence || '').trim();
       if (p && p.length >= 3 && descNormPadded.includes(p)) return true;
       if (s && s.length >= 6 && descNormPadded.includes(s)) return true;
+      if (e && e.length >= 6 && descNormPadded.includes(e)) return true;
+      // Token-overlap fallback for paraphrased provenance fields.
+      if (tokenOverlap(phrase) >= 0.7) return true;
+      if (tokenOverlap(sentence) >= 0.6) return true;
+      if (tokenOverlap(evidence || '') >= 0.6) return true;
       return false;
     };
 
@@ -859,7 +873,7 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
         // sourceSentence cannot be located verbatim inside the supplied description.
         const _ss = String(it.sourceSentence || '');
         const _sp = String(it.sourcePhrase || '');
-        if (!phraseInDescription(_sp, _ss)) {
+        if (!phraseInDescription(_sp, _ss, rawEvidence)) {
           hallucinationsDropped += 1;
           return null;
         }
@@ -1108,7 +1122,7 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
           reason: String(t.reason || '').slice(0, 240),
         })).filter((t: any) =>
           t.task && t.evidence &&
-          phraseInDescription(t.sourcePhrase, t.sourceSentence) &&
+          phraseInDescription(t.sourcePhrase, t.sourceSentence, t.evidence) &&
           !contaminationContains(t.task) &&
           !contaminationContains(t.location) &&
           !contaminationContains(t.product))
@@ -1132,7 +1146,7 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
           code: String(t.code || '').slice(0, 64),
         })).filter((t: any) =>
           t.task &&
-          phraseInDescription(t.sourcePhrase, t.sourceSentence) &&
+          phraseInDescription(t.sourcePhrase, t.sourceSentence, t.evidence) &&
           !contaminationContains(t.task) &&
           !contaminationContains(t.location) &&
           !contaminationContains(t.product))
