@@ -679,6 +679,17 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
               .slice(0, 4)
               .map((a: any) => ({ code: String(a.code || '').slice(0, 64), reason: String(a.reason || '').slice(0, 200) }))
           : [];
+        // V4 Stage-7 codeValidation passthrough — derive a fallback when AI omits it.
+        const cvRaw = (it.codeValidation && typeof it.codeValidation === 'object') ? it.codeValidation : null;
+        const yn = (v: any): 'YES' | 'NO' => String(v || '').toUpperCase() === 'YES' ? 'YES' : (String(v || '').toUpperCase() === 'NO' ? 'NO' : 'YES');
+        const cv = cvRaw ? {
+          activityMatch: yn(cvRaw.activityMatch),
+          locationMatch: yn(cvRaw.locationMatch),
+          tradeMatch: yn(cvRaw.tradeMatch),
+          quantityBasisMatch: yn(cvRaw.quantityBasisMatch),
+          valid: cvRaw.valid !== false && [cvRaw.activityMatch, cvRaw.locationMatch, cvRaw.tradeMatch, cvRaw.quantityBasisMatch].every((v) => yn(v) === 'YES'),
+          failed: Array.isArray(cvRaw.failed) ? cvRaw.failed.slice(0, 4).map((s: any) => String(s).slice(0, 80)) : [],
+        } : { activityMatch: 'YES' as const, locationMatch: 'YES' as const, tradeMatch: 'YES' as const, quantityBasisMatch: 'YES' as const, valid: true, failed: [] };
         return {
           description: desc || entry.description,
           code: codeUsed,
@@ -691,7 +702,11 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
           confidence,
           rationale,
           evidence: rawEvidence,
+          location: String(it.location || '').slice(0, 120),
+          product: String(it.product || '').slice(0, 80),
+          trade: String(it.trade || entry.category || '').slice(0, 80),
           alternativesConsidered,
+          codeValidation: cv,
           ...(remapped ? { remappedFrom: originalCode } : {}),
         };
       });
