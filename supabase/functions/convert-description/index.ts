@@ -478,13 +478,15 @@ Return STRICTLY a JSON object of this shape (no markdown, no commentary):
     "tradeAllocation": string[],
     "extractedProducts": string[],
     "extractedLocations": string[],
-    "extractedActions": string[]
+    "extractedActions": string[],
+    "extractedElements": string[]
   },
   "tiers": {
-    "baseline": { "label": "Baseline", "items": [ { "description": string, "code": string, "qty": number, "confidence": number, "rationale": string, "evidence": string, "alternativesConsidered": [ { "code": string, "reason": string } ] } ], "notes": string },
+    "baseline": { "label": "Baseline", "items": [ { "description": string, "code": string, "qty": number, "confidence": number, "rationale": string, "evidence": string, "location": string, "product": string, "trade": string, "alternativesConsidered": [ { "code": string, "reason": string } ], "codeValidation": { "activityMatch": "YES" | "NO", "locationMatch": "YES" | "NO", "tradeMatch": "YES" | "NO", "quantityBasisMatch": "YES" | "NO", "valid": boolean, "failed": string[] } } ], "notes": string },
     "enhanced": { "label": "Enhanced", "items": [ ... ], "notes": string },
     "premium":  { "label": "Premium",  "items": [ ... ], "notes": string }
-  }
+  },
+  "genericCodeWarnings": [ { "code": string, "reusedAcross": string[], "recommendation": string } ]
 }
 
 Each items[] entry:
@@ -494,7 +496,10 @@ Each items[] entry:
 - confidence = integer 0-100
 - rationale = <=160 char justification
 - evidence = VERBATIM quote (<=240 chars) from the source description proving this task exists. NO EVIDENCE → DO NOT EMIT.
+- location / product / trade = the location, product (or "" if none) and trade for this task — directly traceable to the source.
 - alternativesConsidered = at least one rejected catalogue code with a short reason.
+- codeValidation = Stage-7 four-question check. valid=true ONLY if all four = YES. If any = NO, list those in "failed".
+genericCodeWarnings: populate when a SOR code appears against unrelated tasks (Stage 8).
 Notes: 1-2 sentences explaining the scope rationale for that tier. FINAL CHECK before returning: re-verify every code semantically matches its line description against the catalogue.`;
 
     const existingWorksBlock = (existingWorks && existingWorks.length > 0)
