@@ -405,6 +405,13 @@ These are in addition to the existing "evidence" field. Lines missing either fie
 ABSOLUTE SOURCE-ATTRIBUTION RULE (HARD ENFORCED BY BACKEND):
 Before adding ANY task you MUST be able to show (1) the exact source sentence and (2) the exact source phrase, both copied verbatim from the supplied description. If either cannot be shown → DELETE the task. No exceptions. The backend will run a verbatim substring check on sourcePhrase / sourceSentence against the description and will silently drop any task that fails. Existing NPH works, previous jobs, previous AI runs, historical notes, similar jobs, SOR descriptions, catalogue entries and training examples must NEVER be used to create scope. Examples that MUST be deleted unless the literal words appear in the description: Roof repair, Loft insulation, Electrical cable, Wagos, Chop boxes, DPC, Drainage, Leak detection, Squirrel damage.
 
+ABSOLUTE TASK-PRESERVATION RULE (HARD ENFORCED BY BACKEND):
+The absence of an SOR code does NOT invalidate a task. Tasks and codes are SEPARATE entities. For every task you must search in this order: (1) exact match, (2) semantic match, (3) trade match, (4) generic match. Then assign:
+  • confidence > 80%  → return recommended code (Tier A/B)
+  • confidence 60-79% → return possible match (Tier C)
+  • confidence < 60%  → KEEP THE TASK and place it in tasksWithoutSorMatch with status "SOR Match Not Found" and action "Surveyor Review Required"
+NEVER suppress a task because no code exists. NEVER output a schedule containing fewer than 50% of identified tasks without explicitly listing every omitted task in tasksWithoutSorMatch. The backend automatically rescues any taskRegister entry missing from BOTH priced items AND tasksWithoutSorMatch — suppression is impossible by design and will be flagged as a critical failure.
+
 
 ═══════════════════════════════════════════════════════════════
 V7.0 NEW CORE PRINCIPLE — TASKS AND SOR CODES ARE TWO SEPARATE THINGS
@@ -1130,6 +1137,39 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
           !contaminationContains(t.location) &&
           !contaminationContains(t.product))
       : [];
+
+    // V10.0 TASK-PRESERVATION SAFETY NET — "A task may never disappear because
+    // a code is uncertain." Any taskRegister entry that is NOT represented in the
+    // priced baseline items AND NOT in tasksWithoutSorMatch is auto-rescued into
+    // tasksWithoutSorMatch with "Surveyor Review Required". This guarantees no
+    // identified task is silently suppressed because of low SOR confidence.
+    const _norm = (s: string) => normalize(s || '').slice(0, 80);
+    const _pricedTaskKeys = new Set<string>(
+      (tierItemsRef['baseline'] || []).map((i: any) => _norm(i.description || ''))
+    );
+    const _unmatchedTaskKeys = new Set<string>(
+      tasksWithoutSorMatch.map((t: any) => _norm(t.task || ''))
+    );
+    for (const tr of taskRegister) {
+      const key = _norm(tr.task);
+      if (!key) continue;
+      if (_pricedTaskKeys.has(key) || _unmatchedTaskKeys.has(key)) continue;
+      tasksWithoutSorMatch.push({
+        task: tr.task,
+        evidence: tr.evidence,
+        sourceSentence: tr.sourceSentence,
+        sourcePhrase: tr.sourcePhrase,
+        location: tr.location,
+        product: tr.product,
+        repairAction: tr.repairAction,
+        trade: tr.trade,
+        status: 'SOR Match Not Found',
+        action: 'Surveyor Review Required',
+        candidateCode: tr.code || '',
+        reason: 'Auto-rescued: identified task with no SOR match — surveyor review required (V10 task-preservation rule).',
+      });
+      _unmatchedTaskKeys.add(key);
+    }
 
     // V7.0 — Task Coverage self-audit.
     const tcRaw = tiersRaw.taskCoverage && typeof tiersRaw.taskCoverage === 'object' ? tiersRaw.taskCoverage : {};
