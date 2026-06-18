@@ -312,7 +312,39 @@ Scale by increasing QUANTITIES / LENGTHS / AREAS / LAYERS / COATS and adding all
 
     const systemPrompt = `ROLE: You are a Senior Building Surveyor (Damp & Mould, Disrepair, Voids, A&A, Responsive Repairs) with 30+ years across UK Housing Associations and Local Authorities. Expert in building pathology, NHF / M3NHF / Local-Authority Schedule-of-Rates, Housing Ombudsman standards and Awaab's Law.
 
-You operate as CONVERT AI V7.0 — TASK COMPLETENESS ENGINE. You PRICE WORK, not keywords. You reason, challenge, validate and defend every output at Senior Housing Association Surveyor / Commercial Surveyor / Auditor level.
+You operate as CONVERT AI V8.0 — SCOPE LOCK & SOURCE ATTRIBUTION ENGINE. You PRICE WORK, not keywords. You reason, challenge, validate and defend every output at Senior Housing Association Surveyor / Commercial Surveyor / Auditor level.
+
+═══════════════════════════════════════════════════════════════
+V8.0 SUPREME LAW — THE DESCRIPTION IS THE ONLY SOURCE OF TRUTH
+═══════════════════════════════════════════════════════════════
+The current job description supplied in the user message is the SOLE authority. Nothing may override, expand, supplement, or infer beyond it. If a task / defect / location / product / cause / trade / material is not explicitly present in the description, IT DOES NOT EXIST.
+
+FORBIDDEN SOURCES OF SCOPE (NEVER allow these to introduce tasks):
+  • Historical jobs • Previous AI runs • Training examples • SOR search results • Vector / semantic similarity • Cached jobs • Pattern inference • Common-sense assumptions about "what usually goes with this kind of work".
+
+V8.0 STAGE 1 — SOURCE ATTRIBUTION ENGINE (MANDATORY, BEFORE ANY SCOPE):
+Every extracted item (product, location, defect, repair action, element) MUST be tied to an EXACT verbatim source sentence AND an exact source phrase from the description. If none exists → INVALID → DELETE.
+
+V8.0 STAGE 2 — SCOPE LOCK ENGINE:
+Once the description-derived scope is built, it is IMMUTABLE. No later stage (SOR search, code matching, audit) may add defects, repairs, causes, locations, products, materials, or trades. SOR search may ONLY explain or price scope already locked from the description — it MAY NEVER create scope.
+
+V8.0 STAGE 3 — ROOT CAUSE LOCK:
+Root causes must be evidenced verbatim. Inventing "roof leak", "squirrel ingress", "electrical damage", "DPC failure", "drainage defect" without an evidencing sentence = INVALID → DELETE.
+
+V8.0 STAGE 6 — PROHIBITED ASSUMPTION ENGINE:
+You MAY NEVER infer the following unless the literal word appears in the description: roof, roof tile, slate, loft, loft insulation, cavity insulation, electrical, cable, wago, chop box, consumer unit, DPC, damp-proof course, drainage, drain, soil pipe, leak, squirrel, rodent, ingress, structural defect, subsidence. "Clean gutters" does NOT entitle roof repairs. "Bathroom mould" does NOT entitle loft insulation.
+
+V8.0 STAGE 7 — SOR IS SUBORDINATE TO SCOPE:
+Required hierarchy: Description → Scope → Tasks → SOR Search. SOR codes may explain tasks; SOR codes may never create tasks.
+
+V8.0 STAGE 9 — CONTEXT CONTAMINATION DETECTOR (run before output):
+For every emitted task, check every noun/adjective against the description. Words ABSENT from the description (e.g. "roof", "loft", "insulation", "cable", "wago", "chop box", "DPC", "drainage", "leak", "squirrel") = CONTAMINATION → DELETE. The backend runs an independent firewall — contaminated tasks will be silently dropped and your accuracy score will fall.
+
+V8.0 PROVENANCE FIELDS — every items[] entry, every taskRegister entry, every tasksWithoutSorMatch entry MUST carry:
+  • sourceSentence — VERBATIM sentence from the description that creates this task (≤300 chars)
+  • sourcePhrase   — the EXACT phrase within that sentence (≤120 chars)
+These are in addition to the existing "evidence" field. Lines missing either field will be deleted.
+
 
 ═══════════════════════════════════════════════════════════════
 V7.0 NEW CORE PRINCIPLE — TASKS AND SOR CODES ARE TWO SEPARATE THINGS
@@ -544,13 +576,13 @@ Return STRICTLY a JSON object of this shape (no markdown, no commentary):
     "extractedElements": string[],
     "extractedRepairVerbs": string[]
   },
-  "taskRegister": [ { "task": string, "evidence": string, "location": string, "product": string, "repairAction": string, "trade": string, "sorMatchStatus": "SOR Match Found" | "SOR Match Candidate" | "SOR Match Uncertain" | "SOR Match Not Found", "code": string } ],
+  "taskRegister": [ { "task": string, "evidence": string, "sourceSentence": string, "sourcePhrase": string, "location": string, "product": string, "repairAction": string, "trade": string, "sorMatchStatus": "SOR Match Found" | "SOR Match Candidate" | "SOR Match Uncertain" | "SOR Match Not Found", "code": string } ],
   "tiers": {
-    "baseline": { "label": "Baseline", "items": [ { "description": string, "code": string, "qty": number, "confidence": number, "rationale": string, "evidence": string, "location": string, "product": string, "trade": string, "sorMatchStatus": "SOR Match Found" | "SOR Match Candidate", "alternativesConsidered": [ { "code": string, "reason": string } ], "codeValidation": { "activityMatch": "YES" | "NO", "locationMatch": "YES" | "NO", "tradeMatch": "YES" | "NO", "quantityBasisMatch": "YES" | "NO", "valid": boolean, "failed": string[] } } ], "notes": string },
+    "baseline": { "label": "Baseline", "items": [ { "description": string, "code": string, "qty": number, "confidence": number, "rationale": string, "evidence": string, "sourceSentence": string, "sourcePhrase": string, "location": string, "product": string, "trade": string, "sorMatchStatus": "SOR Match Found" | "SOR Match Candidate", "alternativesConsidered": [ { "code": string, "reason": string } ], "codeValidation": { "activityMatch": "YES" | "NO", "locationMatch": "YES" | "NO", "tradeMatch": "YES" | "NO", "quantityBasisMatch": "YES" | "NO", "valid": boolean, "failed": string[] } } ], "notes": string },
     "enhanced": { "label": "Enhanced", "items": [ ... ], "notes": string },
     "premium":  { "label": "Premium",  "items": [ ... ], "notes": string }
   },
-  "tasksWithoutSorMatch": [ { "task": string, "evidence": string, "location": string, "product": string, "repairAction": string, "trade": string, "status": "SOR Match Not Found" | "SOR Match Uncertain" | "SOR Match Candidate", "action": "Surveyor Review Required", "candidateCode": string, "reason": string } ],
+  "tasksWithoutSorMatch": [ { "task": string, "evidence": string, "sourceSentence": string, "sourcePhrase": string, "location": string, "product": string, "repairAction": string, "trade": string, "status": "SOR Match Not Found" | "SOR Match Uncertain" | "SOR Match Candidate", "action": "Surveyor Review Required", "candidateCode": string, "reason": string } ],
   "taskCoverage": { "tasksIdentified": number, "tasksInDescription": number, "coveragePct": number, "missingProducts": string[], "missingLocations": string[], "missingRepairVerbs": string[] },
   "genericCodeWarnings": [ { "code": string, "reusedAcross": string[], "recommendation": string } ]
 }
@@ -671,6 +703,38 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
       return hits / toks.length >= 0.6;
     };
 
+    // V8.0 CONTEXT CONTAMINATION FIREWALL — deterministically drop any line that
+    // references concepts NOT present in the source description. These are the
+    // most common hallucinations bleeding in from training data / SOR catalogue / prior runs.
+    const FORBIDDEN_TERMS = [
+      'roof', 'roof tile', 'roof tiles', 'slate', 'slates', 'tiling roof',
+      'loft', 'attic', 'roof space',
+      'loft insulation', 'cavity insulation', 'cavity wall insulation', 'insulation',
+      'electrical', 'electrics', 'cable', 'cabling', 'wago', 'wagos', 'chop box', 'chop boxes',
+      'consumer unit', 'rcd', 'circuit', 'rewire',
+      'dpc', 'damp proof course', 'damp-proof course', 'damp proof',
+      'drainage', 'drain', 'drains', 'soil pipe', 'soil stack',
+      'leak', 'leaks', 'leaking', 'water ingress',
+      'squirrel', 'squirrels', 'rodent', 'rodents', 'pest', 'vermin',
+      'subsidence', 'structural defect',
+    ];
+    // Pre-compute which forbidden terms ARE actually in the source — those are allowed through.
+    const descLower = ` ${descNorm} `;
+    const allowedForbidden = new Set<string>();
+    for (const term of FORBIDDEN_TERMS) {
+      if (descLower.includes(` ${term} `) || descLower.includes(` ${term}s `)) allowedForbidden.add(term);
+    }
+    const contaminationContains = (text: string): string | null => {
+      const haystack = ` ${normalize(text)} `;
+      for (const term of FORBIDDEN_TERMS) {
+        if (allowedForbidden.has(term)) continue;
+        if (haystack.includes(` ${term} `)) return term;
+      }
+      return null;
+    };
+
+
+
 
     for (const key of tierKeys) {
       const t = tiersRaw.tiers[key];
@@ -688,6 +752,17 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
         const rawEvidence = String(it.evidence || '').slice(0, 400);
         // EVIDENCE-OR-NOTHING — drop any line without a traceable evidence quote.
         if (!evidenceTraceable(rawEvidence)) {
+          hallucinationsDropped += 1;
+          return null;
+        }
+        // V8.0 CONTEXT CONTAMINATION FIREWALL — reject lines that mention
+        // concepts absent from the source description (roof, loft, electrical, etc.).
+        const contaminatedTerm =
+          contaminationContains(desc) ||
+          contaminationContains(String(it.location || '')) ||
+          contaminationContains(String(it.product || '')) ||
+          contaminationContains(String(it.trade || ''));
+        if (contaminatedTerm) {
           hallucinationsDropped += 1;
           return null;
         }
@@ -778,6 +853,8 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
           confidence,
           rationale,
           evidence: rawEvidence,
+          sourceSentence: String(it.sourceSentence || '').slice(0, 300),
+          sourcePhrase: String(it.sourcePhrase || '').slice(0, 120),
           location: String(it.location || '').slice(0, 120),
           product: String(it.product || '').slice(0, 80),
           trade: String(it.trade || entry.category || '').slice(0, 80),
@@ -915,10 +992,13 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
       : null;
 
     // V7.0 — Tasks Without SOR Match (preserved, never deleted).
+    // V8.0 — Also filtered through Context Contamination Firewall.
     const tasksWithoutSorMatch: any[] = Array.isArray(tiersRaw.tasksWithoutSorMatch)
       ? tiersRaw.tasksWithoutSorMatch.slice(0, 200).map((t: any) => ({
           task: String(t.task || '').slice(0, 240),
           evidence: String(t.evidence || '').slice(0, 400),
+          sourceSentence: String(t.sourceSentence || '').slice(0, 300),
+          sourcePhrase: String(t.sourcePhrase || '').slice(0, 120),
           location: String(t.location || '').slice(0, 120),
           product: String(t.product || '').slice(0, 80),
           repairAction: String(t.repairAction || '').slice(0, 80),
@@ -929,14 +1009,21 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
           action: 'Surveyor Review Required',
           candidateCode: String(t.candidateCode || '').slice(0, 64),
           reason: String(t.reason || '').slice(0, 240),
-        })).filter((t: any) => t.task && t.evidence)
+        })).filter((t: any) =>
+          t.task && t.evidence &&
+          !contaminationContains(t.task) &&
+          !contaminationContains(t.location) &&
+          !contaminationContains(t.product))
       : [];
 
     // V7.0 — Task Register (combined matched + unmatched, for the completeness audit).
+    // V8.0 — Also filtered through Context Contamination Firewall.
     const taskRegister: any[] = Array.isArray(tiersRaw.taskRegister)
       ? tiersRaw.taskRegister.slice(0, 400).map((t: any) => ({
           task: String(t.task || '').slice(0, 240),
           evidence: String(t.evidence || '').slice(0, 400),
+          sourceSentence: String(t.sourceSentence || '').slice(0, 300),
+          sourcePhrase: String(t.sourcePhrase || '').slice(0, 120),
           location: String(t.location || '').slice(0, 120),
           product: String(t.product || '').slice(0, 80),
           repairAction: String(t.repairAction || '').slice(0, 80),
@@ -945,7 +1032,11 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
             ? String(t.sorMatchStatus)
             : 'SOR Match Not Found',
           code: String(t.code || '').slice(0, 64),
-        })).filter((t: any) => t.task)
+        })).filter((t: any) =>
+          t.task &&
+          !contaminationContains(t.task) &&
+          !contaminationContains(t.location) &&
+          !contaminationContains(t.product))
       : [];
 
     // V7.0 — Task Coverage self-audit.
