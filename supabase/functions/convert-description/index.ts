@@ -655,6 +655,8 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
           { role: 'user', content: `Description to convert:\n\n${description}` },
         ],
         response_format: { type: 'json_object' },
+        reasoning_effort: 'minimal',
+        max_completion_tokens: 16000,
       }),
     });
 
@@ -662,16 +664,25 @@ ${JSON.stringify(existingWorks.map((w: any) => ({ description: w.description, co
       if (genRes.status === 429) return new Response(JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }), { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       if (genRes.status === 402) return new Response(JSON.stringify({ error: 'AI credits exhausted.' }), { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       const txt = await genRes.text();
+      console.error('convert-description AI gateway error', genRes.status, txt.slice(0, 500));
       throw new Error(`AI gateway ${genRes.status}: ${txt.slice(0, 200)}`);
     }
     const genData = await genRes.json();
     const genContent = genData.choices?.[0]?.message?.content ?? '';
+    const finishReason = genData.choices?.[0]?.finish_reason;
+    if (!genContent) {
+      console.error('convert-description empty content', JSON.stringify({ finishReason, usage: genData.usage }).slice(0, 500));
+      throw new Error(`AI returned empty content (finish_reason=${finishReason}). The job description may be too long — try shortening it or splitting into parts.`);
+    }
 
     let tiersRaw: any = null;
     try { tiersRaw = JSON.parse(genContent); } catch {
       const m = genContent.match(/\{[\s\S]*\}/); if (m) { try { tiersRaw = JSON.parse(m[0]); } catch {} }
     }
-    if (!tiersRaw?.tiers) throw new Error('AI returned no tiers');
+    if (!tiersRaw?.tiers) {
+      console.error('convert-description no tiers in response', genContent.slice(0, 500));
+      throw new Error('AI returned no tiers');
+    }
 
     // Deterministic accuracy: resolve every code against catalogue, recompute totals.
     // For codes the AI invented, deterministically remap to the closest legitimate catalogue
