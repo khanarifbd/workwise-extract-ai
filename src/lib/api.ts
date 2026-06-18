@@ -302,7 +302,18 @@ export interface ConvertTierItem {
   confidence?: number;
   rationale?: string;
   evidence?: string;
+  location?: string;
+  product?: string;
+  trade?: string;
   alternativesConsidered?: Array<{ code: string; reason: string }>;
+  codeValidation?: {
+    activityMatch: 'YES' | 'NO';
+    locationMatch: 'YES' | 'NO';
+    tradeMatch: 'YES' | 'NO';
+    quantityBasisMatch: 'YES' | 'NO';
+    valid: boolean;
+    failed: string[];
+  };
 }
 export interface ConvertTier {
   label: string;
@@ -318,6 +329,12 @@ export interface SurveyorUnderstanding {
   extractedProducts?: string[];
   extractedLocations?: string[];
   extractedActions?: string[];
+  extractedElements?: string[];
+}
+export interface GenericCodeWarning {
+  code: string;
+  reusedAcross: string[];
+  recommendation: string;
 }
 export interface ConvertResponse {
   tiers: Record<'baseline' | 'enhanced' | 'premium', ConvertTier>;
@@ -327,7 +344,8 @@ export interface ConvertResponse {
   codeCount: number;
   minimumCost: number;
   surveyorUnderstanding?: SurveyorUnderstanding | null;
-  approvalGate?: { hallucinations: number; evidenceCoverage: number; codesValid: boolean; passed: boolean } | null;
+  genericCodeWarnings?: GenericCodeWarning[];
+  approvalGate?: { hallucinations: number; evidenceCoverage: number; codesValid: boolean; codeValidationPct?: number; quantityConfidencePct?: number; genericCodeWarnings?: number; passed: boolean } | null;
 }
 
 export interface ExistingWorkInput {
