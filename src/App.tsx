@@ -105,6 +105,7 @@ const App = () => (
           ) : (
             <>
               {/* Web app routes - Full admin access */}
+              <Route path="/welcome" element={<PortalSelect />} />
               <Route path="/admin" element={<AdminAuth />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/" element={
