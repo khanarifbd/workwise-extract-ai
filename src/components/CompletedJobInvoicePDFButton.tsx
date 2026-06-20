@@ -68,11 +68,39 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
     return format(range.start, 'MMMM yyyy');
   }, [mode, range]);
 
+  // Accuracy checker: verify every job in selected range has all required fields
+  const accuracyReport = useMemo(() => {
+    const issues: { jobNumber: string; missing: string[] }[] = [];
+    filteredJobs.forEach((job) => {
+      const missing: string[] = [];
+      if (!job.jobNumber) missing.push('Job Number');
+      if (!job.address) missing.push('Address');
+      if (!job.name) missing.push('Tenant Name');
+      if (!stripHtml(job.summaryOfWorks || job.description)) missing.push('Description');
+      if (!stripHtml(job.progressNotes)) missing.push('Progress Description');
+      if (!job.team && !job.team2) missing.push('Assigned Team');
+      const ref = job.completionDate || job.bookedDate;
+      if (!ref || !isWithinInterval(new Date(ref), range)) missing.push('Out of range');
+      if (missing.length > 0) issues.push({ jobNumber: job.jobNumber || '(no #)', missing });
+    });
+    return {
+      total: filteredJobs.length,
+      clean: filteredJobs.length - issues.length,
+      issues,
+    };
+  }, [filteredJobs, range]);
+
   const handleGenerate = () => {
     if (filteredJobs.length === 0) {
       alert('No completed jobs found for the selected ' + mode);
       return;
     }
+
+    // STRICT filter: only jobs whose completionDate/bookedDate falls within the selected range
+    const strictJobs = filteredJobs.filter((job) => {
+      const ref = job.completionDate || job.bookedDate;
+      return ref && isWithinInterval(new Date(ref), range);
+    });
 
     const doc = new jsPDF('landscape', 'mm', 'a4');
 
@@ -85,9 +113,24 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
     doc.text(`Category: ${categoryName}`, 14, 23);
     doc.text(`Range (${mode}): ${rangeLabel}`, 14, 29);
     doc.text(`Generated: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 14, 35);
-    doc.text(`Total Jobs: ${filteredJobs.length}`, 14, 41);
+    doc.text(`Total Jobs: ${strictJobs.length}`, 14, 41);
 
-    const tableData = filteredJobs.map((job) => {
+    // Accuracy summary line
+    const accColor: [number, number, number] =
+      accuracyReport.issues.length === 0 ? [16, 129, 81] : [185, 28, 28];
+    doc.setTextColor(...accColor);
+    doc.setFont('helvetica', 'bold');
+    doc.text(
+      `Accuracy: ${accuracyReport.clean}/${accuracyReport.total} complete${
+        accuracyReport.issues.length > 0 ? ` • ${accuracyReport.issues.length} with missing fields` : ' • all fields present'
+      }`,
+      80,
+      41,
+    );
+    doc.setTextColor(0, 0, 0);
+    doc.setFont('helvetica', 'normal');
+
+    const tableData = strictJobs.map((job) => {
       const ongoingInfo: string[] = [];
       if (job.isOngoing) ongoingInfo.push('ONGOING');
       if (job.ongoingReason) ongoingInfo.push(stripHtml(job.ongoingReason));
@@ -104,10 +147,13 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
         if (trades) ongoingInfo.push(trades);
       }
 
+      const teams = [job.team, job.team2].filter(Boolean).join(' + ') || '-';
+
       return [
         job.jobNumber || '-',
         job.address || '-',
         job.name || '-',
+        teams,
         stripHtml(job.summaryOfWorks || job.description) || '-',
         stripHtml(job.progressNotes) || '-',
         ongoingInfo.join('\n') || '-',
@@ -115,7 +161,7 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
     });
 
     autoTable(doc, {
-      head: [['Job Number', 'Address', 'Tenant Name', 'Description', 'Progress Description', 'Ongoing Information']],
+      head: [['Job Number', 'Address', 'Tenant Name', 'Assigned Teams', 'Description', 'Progress Description', 'Ongoing Information']],
       body: tableData,
       startY: 46,
       styles: {
@@ -131,12 +177,13 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
         halign: 'left',
       },
       columnStyles: {
-        0: { cellWidth: 25 },
-        1: { cellWidth: 55 },
-        2: { cellWidth: 35 },
-        3: { cellWidth: 70 },
-        4: { cellWidth: 55 },
-        5: { cellWidth: 40 },
+        0: { cellWidth: 22 },
+        1: { cellWidth: 50 },
+        2: { cellWidth: 30 },
+        3: { cellWidth: 28 },
+        4: { cellWidth: 60 },
+        5: { cellWidth: 48 },
+        6: { cellWidth: 40 },
       },
       alternateRowStyles: { fillColor: [245, 245, 245] },
       didDrawPage: (data) => {
