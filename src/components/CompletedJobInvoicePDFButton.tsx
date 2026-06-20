@@ -108,8 +108,10 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
   }, [filteredJobs, range]);
 
   const handleGenerate = () => {
+    const targetWindow = preparePDFWindow();
+
     if (filteredJobs.length === 0) {
-      alert('No completed jobs found for the selected ' + mode);
+      alert('No invoice jobs found for the selected ' + mode);
       return;
     }
 
@@ -120,7 +122,7 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
 
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
-    doc.text('COMPLETED JOBS - INVOICE DATA', 14, 16);
+    doc.text('INVOICE DATA - BOOKED & COMPLETED JOBS', 14, 16);
 
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
@@ -165,13 +167,16 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
       const dateLine = [
         job.bookedDate ? `Booked: ${format(new Date(job.bookedDate), 'dd/MM/yyyy')}` : null,
         job.completionDate ? `Completed: ${format(new Date(job.completionDate), 'dd/MM/yyyy')}` : null,
+        job.isOngoing ? 'ONGOING' : null,
       ].filter(Boolean).join(' • ');
       if (dateLine) ongoingInfo.unshift(dateLine);
 
       const teams = [job.team, job.team2].filter(Boolean).join(' + ') || '-';
+      const statusLabel = isCompleteJob(job) ? 'Complete' : job.isOngoing ? 'Ongoing / Booked' : 'Booked';
 
       return [
         job.jobNumber || '-',
+        statusLabel,
         job.address || '-',
         job.name || '-',
         teams,
@@ -182,12 +187,12 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
     });
 
     autoTable(doc, {
-      head: [['Job Number', 'Address', 'Tenant Name', 'Assigned Teams', 'Description', 'Progress Description', 'Ongoing Information']],
+      head: [['Job Number', 'Status', 'Address', 'Tenant Name', 'Assigned Teams', 'Description', 'Progress Description', 'Ongoing Information']],
       body: tableData,
       startY: 46,
       styles: {
-        fontSize: 8,
-        cellPadding: 2.5,
+        fontSize: 7,
+        cellPadding: 2,
         overflow: 'linebreak',
         valign: 'top',
       },
@@ -199,12 +204,13 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
       },
       columnStyles: {
         0: { cellWidth: 22 },
-        1: { cellWidth: 50 },
-        2: { cellWidth: 30 },
-        3: { cellWidth: 28 },
-        4: { cellWidth: 60 },
-        5: { cellWidth: 48 },
-        6: { cellWidth: 40 },
+        1: { cellWidth: 22 },
+        2: { cellWidth: 43 },
+        3: { cellWidth: 27 },
+        4: { cellWidth: 25 },
+        5: { cellWidth: 54 },
+        6: { cellWidth: 43 },
+        7: { cellWidth: 35 },
       },
       alternateRowStyles: { fillColor: [245, 245, 245] },
       didDrawPage: (data) => {
@@ -248,8 +254,8 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
     }
 
     const stamp = format(new Date(), 'yyyyMMdd');
-    const filename = `completed-invoice-data_${mode}_${format(range.start, 'yyyyMMdd')}-${format(range.end, 'yyyyMMdd')}_${stamp}.pdf`;
-    downloadPDF(doc, filename);
+    const filename = `invoice-data_${mode}_${format(range.start, 'yyyyMMdd')}-${format(range.end, 'yyyyMMdd')}_${stamp}.pdf`;
+    downloadPDF(doc, filename, { targetWindow });
     setIsOpen(false);
   };
 
@@ -259,7 +265,7 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
         <Button
           variant="outline"
           className="bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 hover:text-blue-800"
-          disabled={completedJobs.length === 0}
+          disabled={invoiceEligibleJobs.length === 0}
         >
           <FileText className="w-4 h-4 mr-2" />
           Invoice Data PDF
