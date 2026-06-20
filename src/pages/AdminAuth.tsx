@@ -280,7 +280,14 @@ export default function AdminAuth() {
                   {(error || validationError) && (
                     <Alert variant="destructive">
                       <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>{validationError || error}</AlertDescription>
+                      <AlertDescription>
+                        {validationError || error}
+                        {error && failedSignInCount > 0 && !validationError && (
+                          <span className="mt-2 block text-sm">
+                            I have cleared the password box. Type the password manually again so the browser cannot reuse a saved value.
+                          </span>
+                        )}
+                      </AlertDescription>
                     </Alert>
                   )}
 
@@ -310,11 +317,17 @@ export default function AdminAuth() {
                     </div>
                     <Input
                       id="signin-password"
+                      ref={passwordInputRef}
                       type="password"
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        if (error) clearError();
+                      }}
                       disabled={isSubmitting}
                       autoComplete="current-password"
+                      data-1p-ignore="true"
+                      data-lpignore="true"
                     />
                   </div>
                 </CardContent>
