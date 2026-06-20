@@ -294,8 +294,16 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
             </Popover>
           </div>
 
-          <div className="text-xs text-muted-foreground">
-            {filteredJobs.length} completed job{filteredJobs.length === 1 ? '' : 's'} in this {mode}.
+          <div className="text-xs space-y-1">
+            <div className="text-muted-foreground">
+              {filteredJobs.length} completed job{filteredJobs.length === 1 ? '' : 's'} in this {mode}.
+            </div>
+            {filteredJobs.length > 0 && (
+              <div className={accuracyReport.issues.length === 0 ? 'text-emerald-600 font-medium' : 'text-amber-600 font-medium'}>
+                Accuracy: {accuracyReport.clean}/{accuracyReport.total} complete
+                {accuracyReport.issues.length > 0 && ` • ${accuracyReport.issues.length} need attention`}
+              </div>
+            )}
           </div>
 
           <Button
