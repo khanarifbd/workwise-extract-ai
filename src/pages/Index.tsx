@@ -1764,6 +1764,10 @@ const Index = () => {
                     jobs={jobs} 
                     categoryName={categories.find(c => c.id === activeCategory)?.name || 'Damp & Mold'} 
                   />
+                  <CompletedJobInvoicePDFButton
+                    jobs={jobs}
+                    categoryName={categories.find(c => c.id === activeCategory)?.name || 'Damp & Mold'}
+                  />
                   <Select value={completedSortOrder} onValueChange={(v) => setCompletedSortOrder(v as CompletedSortOrder)}>
                     <SelectTrigger className="w-44 h-8 text-xs">
                       <SelectValue />
