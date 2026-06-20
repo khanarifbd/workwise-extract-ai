@@ -198,6 +198,34 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
       },
     });
 
+    // Accuracy report appendix
+    doc.addPage('a4', 'landscape');
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('ACCURACY REPORT', 14, 16);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Range (${mode}): ${rangeLabel}`, 14, 23);
+    doc.text(`Jobs checked: ${accuracyReport.total}`, 14, 29);
+    doc.text(`Fully populated: ${accuracyReport.clean}`, 14, 35);
+    doc.text(`With missing fields: ${accuracyReport.issues.length}`, 14, 41);
+
+    if (accuracyReport.issues.length > 0) {
+      autoTable(doc, {
+        head: [['Job Number', 'Missing / Issue']],
+        body: accuracyReport.issues.map((i) => [i.jobNumber, i.missing.join(', ')]),
+        startY: 48,
+        styles: { fontSize: 9, cellPadding: 2.5 },
+        headStyles: { fillColor: [185, 28, 28], textColor: [255, 255, 255], fontStyle: 'bold' },
+        columnStyles: { 0: { cellWidth: 40 }, 1: { cellWidth: 220 } },
+      });
+    } else {
+      doc.setTextColor(16, 129, 81);
+      doc.setFont('helvetica', 'bold');
+      doc.text('✓ All jobs in this range have complete data.', 14, 52);
+      doc.setTextColor(0, 0, 0);
+    }
+
     const stamp = format(new Date(), 'yyyyMMdd');
     const filename = `completed-invoice-data_${mode}_${format(range.start, 'yyyyMMdd')}-${format(range.end, 'yyyyMMdd')}_${stamp}.pdf`;
     downloadPDF(doc, filename);
