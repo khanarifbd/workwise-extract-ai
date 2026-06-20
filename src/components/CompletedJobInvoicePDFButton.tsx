@@ -4,7 +4,7 @@ import { FileText, Calendar as CalendarIcon } from 'lucide-react';
 import { Job } from '@/types/job';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { downloadPDF } from '@/lib/pdfDownload';
+import { downloadPDF, preparePDFWindow } from '@/lib/pdfDownload';
 import {
   format,
   isWithinInterval,
@@ -33,6 +33,16 @@ const stripHtml = (s: string | null | undefined) =>
     .replace(/\s+/g, ' ')
     .trim();
 
+const isCompleteJob = (job: Job) => job.status === 'complete' || job.isCompleted;
+
+const isBookedJob = (job: Job) => Boolean(job.bookedDate);
+
+const formatJobDate = (date: Date | string | null | undefined) => {
+  if (!date) return null;
+  const parsed = date instanceof Date ? date : new Date(date);
+  return Number.isNaN(parsed.getTime()) ? null : format(parsed, 'dd/MM/yyyy');
+};
+
 export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold' }: Props) => {
   const [isOpen, setIsOpen] = useState(false);
   const [mode, setMode] = useState<RangeMode>('month');
@@ -48,14 +58,14 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
     return { start: startOfMonth(anchorDate), end: endOfMonth(anchorDate) };
   }, [mode, anchorDate]);
 
-  const completedJobs = useMemo(
-    () => jobs.filter((j) => j.status === 'complete' || j.isCompleted),
+  const invoiceEligibleJobs = useMemo(
+    () => jobs.filter((j) => isCompleteJob(j) || isBookedJob(j) || j.isOngoing),
     [jobs],
   );
 
-  // Include a job if EITHER its bookedDate OR completionDate falls inside the range.
-  // Many jobs are booked in one month but admin marks them complete weeks later — both
-  // should count toward the booked month's invoice run.
+  // Include booked, completed, and ongoing jobs if their booked OR completion date
+  // falls inside the selected period. This keeps May booked jobs such as N2640150
+  // in the May invoice even when completion is recorded later.
   const inRange = (job: Job) => {
     const b = job.bookedDate ? new Date(job.bookedDate) : null;
     const c = job.completionDate ? new Date(job.completionDate) : null;
@@ -65,8 +75,8 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
   };
 
   const filteredJobs = useMemo(
-    () => completedJobs.filter(inRange),
-    [completedJobs, range],
+    () => invoiceEligibleJobs.filter(inRange),
+    [invoiceEligibleJobs, range],
   );
 
   const rangeLabel = useMemo(() => {
