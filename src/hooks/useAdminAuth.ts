@@ -153,13 +153,34 @@ export const useAdminAuth = () => {
 
   const signIn = async (email: string, password: string): Promise<{ error: Error | null }> => {
     setState(prev => ({ ...prev, error: null }));
-    
+
+    // Ensure no stale session is interfering with the new sign-in attempt.
+    // A lingering refresh token can occasionally cause GoTrue to reject the
+    // first password attempt after a tab has been idle.
+    try {
+      await supabase.auth.signOut({ scope: 'local' });
+    } catch {
+      // ignore - we just want a clean slate
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    // Trim outer whitespace only — autofill / copy-paste frequently adds a
+    // trailing space which GoTrue treats as a different password.
+    const cleanPassword = password.replace(/^\s+|\s+$/g, '');
+
     const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
+      email: cleanEmail,
+      password: cleanPassword,
     });
 
     if (error) {
+      console.warn('[admin-auth] sign-in failed', {
+        emailLength: cleanEmail.length,
+        passwordLength: cleanPassword.length,
+        rawPasswordLength: password.length,
+        code: (error as { code?: string }).code ?? null,
+        message: error.message,
+      });
       setState(prev => ({ ...prev, error: error.message }));
       return { error };
     }
