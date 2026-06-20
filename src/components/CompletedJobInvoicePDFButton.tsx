@@ -137,7 +137,8 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
     const tableData = strictJobs.map((job) => {
       const ongoingInfo: string[] = [];
       if (job.isOngoing) ongoingInfo.push('ONGOING');
-      if (job.ongoingReason) ongoingInfo.push(stripHtml(job.ongoingReason));
+      const reason = stripHtml(job.ongoingReason);
+      if (reason) ongoingInfo.push(reason);
       if (Array.isArray(job.scheduledTrades) && job.scheduledTrades.length > 0) {
         const trades = job.scheduledTrades
           .map((t: any) => {
@@ -150,6 +151,12 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
           .join('\n');
         if (trades) ongoingInfo.push(trades);
       }
+      // Booking + completion dates so invoicing sees both
+      const dateLine = [
+        job.bookedDate ? `Booked: ${format(new Date(job.bookedDate), 'dd/MM/yyyy')}` : null,
+        job.completionDate ? `Completed: ${format(new Date(job.completionDate), 'dd/MM/yyyy')}` : null,
+      ].filter(Boolean).join(' • ');
+      if (dateLine) ongoingInfo.unshift(dateLine);
 
       const teams = [job.team, job.team2].filter(Boolean).join(' + ') || '-';
 
