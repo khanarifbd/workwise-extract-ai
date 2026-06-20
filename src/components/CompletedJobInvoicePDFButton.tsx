@@ -103,11 +103,8 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
       return;
     }
 
-    // STRICT filter: only jobs whose completionDate/bookedDate falls within the selected range
-    const strictJobs = filteredJobs.filter((job) => {
-      const ref = job.completionDate || job.bookedDate;
-      return ref && isWithinInterval(new Date(ref), range);
-    });
+    // Use the same range definition as the preview/accuracy report so every counted job is included.
+    const strictJobs = filteredJobs.filter(inRange);
 
     const doc = new jsPDF('landscape', 'mm', 'a4');
 
