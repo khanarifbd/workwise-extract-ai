@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 
 const STORAGE_KEY = 'genie:last-route';
 // Routes that should never be persisted/restored (auth + transient screens)
-const EXCLUDED_PREFIXES = ['/admin', '/reset-password', '/progressor-login'];
+const EXCLUDED_PREFIXES = ['/admin', '/reset-password', '/progressor-login', '/welcome'];
 
 /**
  * Mount once inside the Router. Persists the user's current in-app route
