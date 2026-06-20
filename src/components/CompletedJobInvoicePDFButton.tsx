@@ -53,13 +53,21 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
     [jobs],
   );
 
-  const filteredJobs = useMemo(() => {
-    return completedJobs.filter((job) => {
-      const ref = job.completionDate || job.bookedDate;
-      if (!ref) return false;
-      return isWithinInterval(new Date(ref), range);
-    });
-  }, [completedJobs, range]);
+  // Include a job if EITHER its bookedDate OR completionDate falls inside the range.
+  // Many jobs are booked in one month but admin marks them complete weeks later — both
+  // should count toward the booked month's invoice run.
+  const inRange = (job: Job) => {
+    const b = job.bookedDate ? new Date(job.bookedDate) : null;
+    const c = job.completionDate ? new Date(job.completionDate) : null;
+    if (b && isWithinInterval(b, range)) return true;
+    if (c && isWithinInterval(c, range)) return true;
+    return false;
+  };
+
+  const filteredJobs = useMemo(
+    () => completedJobs.filter(inRange),
+    [completedJobs, range],
+  );
 
   const rangeLabel = useMemo(() => {
     if (mode === 'day') return format(range.start, 'EEEE, dd MMM yyyy');
