@@ -19,11 +19,11 @@ export const AdminRoute = ({ children }: AdminRouteProps) => {
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/admin" replace />;
+    return <Navigate to="/welcome" replace />;
   }
 
   if (!hasAccess) {
-    return <Navigate to="/admin" replace />;
+    return <Navigate to="/welcome" replace />;
   }
 
   return <>{children}</>;
