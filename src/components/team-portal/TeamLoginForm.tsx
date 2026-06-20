@@ -1,8 +1,9 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, ArrowRight, Shield } from 'lucide-react';
+import { Loader2, ArrowRight, Shield, ArrowLeft } from 'lucide-react';
 import allsaintsLogo from '@/assets/allsaints-logo.png';
 
 interface TeamLoginFormProps {
