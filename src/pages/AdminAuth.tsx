@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { usePasswordBreachCheck } from '@/hooks/usePasswordBreachCheck';
@@ -25,6 +25,7 @@ export default function AdminAuth() {
   const navigate = useNavigate();
   const { isAuthenticated, isAdmin, isViewer, hasAccess, isLoading, isCheckingRoles, error, signIn, signUp, clearError } = useAdminAuth();
   const { checkPassword, isChecking: isCheckingBreach } = usePasswordBreachCheck();
+  const passwordInputRef = useRef<HTMLInputElement>(null);
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -35,6 +36,7 @@ export default function AdminAuth() {
   const [signUpSuccess, setSignUpSuccess] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetEmailSent, setResetEmailSent] = useState(false);
+  const [failedSignInCount, setFailedSignInCount] = useState(0);
 
   // Redirect if already authenticated with access
   useEffect(() => {
@@ -78,12 +80,18 @@ export default function AdminAuth() {
     e.preventDefault();
     if (!validateForm(false)) return;
 
+    const latestPassword = passwordInputRef.current?.value ?? password;
+
     setIsSubmitting(true);
-    const { error } = await signIn(email, password);
+    const { error } = await signIn(email, latestPassword);
     setIsSubmitting(false);
 
-    if (!error) {
-      // Check will happen in useEffect after auth state updates
+    if (error) {
+      setFailedSignInCount((count) => count + 1);
+      setPassword('');
+      requestAnimationFrame(() => passwordInputRef.current?.focus());
+    } else {
+      setFailedSignInCount(0);
     }
   };
 
@@ -272,7 +280,14 @@ export default function AdminAuth() {
                   {(error || validationError) && (
                     <Alert variant="destructive">
                       <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>{validationError || error}</AlertDescription>
+                      <AlertDescription>
+                        {validationError || error}
+                        {error && failedSignInCount > 0 && !validationError && (
+                          <span className="mt-2 block text-sm">
+                            I have cleared the password box. Type the password manually again so the browser cannot reuse a saved value.
+                          </span>
+                        )}
+                      </AlertDescription>
                     </Alert>
                   )}
 
@@ -302,11 +317,17 @@ export default function AdminAuth() {
                     </div>
                     <Input
                       id="signin-password"
+                      ref={passwordInputRef}
                       type="password"
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        if (error) clearError();
+                      }}
                       disabled={isSubmitting}
                       autoComplete="current-password"
+                      data-1p-ignore="true"
+                      data-lpignore="true"
                     />
                   </div>
                 </CardContent>
