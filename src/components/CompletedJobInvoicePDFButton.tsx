@@ -85,10 +85,9 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
       if (!job.address) missing.push('Address');
       if (!job.name) missing.push('Tenant Name');
       if (!stripHtml(job.summaryOfWorks || job.description)) missing.push('Description');
-      if (!stripHtml(job.progressNotes)) missing.push('Progress Description');
+      if (!stripHtml(job.progressNotes) && !stripHtml(job.ongoingReason)) missing.push('Progress / Ongoing Notes');
       if (!job.team && !job.team2) missing.push('Assigned Team');
-      const ref = job.completionDate || job.bookedDate;
-      if (!ref || !isWithinInterval(new Date(ref), range)) missing.push('Out of range');
+      if (!inRange(job)) missing.push('Out of range');
       if (missing.length > 0) issues.push({ jobNumber: job.jobNumber || '(no #)', missing });
     });
     return {
