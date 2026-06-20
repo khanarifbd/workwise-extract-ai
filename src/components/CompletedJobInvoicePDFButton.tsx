@@ -53,13 +53,21 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
     [jobs],
   );
 
-  const filteredJobs = useMemo(() => {
-    return completedJobs.filter((job) => {
-      const ref = job.completionDate || job.bookedDate;
-      if (!ref) return false;
-      return isWithinInterval(new Date(ref), range);
-    });
-  }, [completedJobs, range]);
+  // Include a job if EITHER its bookedDate OR completionDate falls inside the range.
+  // Many jobs are booked in one month but admin marks them complete weeks later — both
+  // should count toward the booked month's invoice run.
+  const inRange = (job: Job) => {
+    const b = job.bookedDate ? new Date(job.bookedDate) : null;
+    const c = job.completionDate ? new Date(job.completionDate) : null;
+    if (b && isWithinInterval(b, range)) return true;
+    if (c && isWithinInterval(c, range)) return true;
+    return false;
+  };
+
+  const filteredJobs = useMemo(
+    () => completedJobs.filter(inRange),
+    [completedJobs, range],
+  );
 
   const rangeLabel = useMemo(() => {
     if (mode === 'day') return format(range.start, 'EEEE, dd MMM yyyy');
@@ -77,10 +85,9 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
       if (!job.address) missing.push('Address');
       if (!job.name) missing.push('Tenant Name');
       if (!stripHtml(job.summaryOfWorks || job.description)) missing.push('Description');
-      if (!stripHtml(job.progressNotes)) missing.push('Progress Description');
+      if (!stripHtml(job.progressNotes) && !stripHtml(job.ongoingReason)) missing.push('Progress / Ongoing Notes');
       if (!job.team && !job.team2) missing.push('Assigned Team');
-      const ref = job.completionDate || job.bookedDate;
-      if (!ref || !isWithinInterval(new Date(ref), range)) missing.push('Out of range');
+      if (!inRange(job)) missing.push('Out of range');
       if (missing.length > 0) issues.push({ jobNumber: job.jobNumber || '(no #)', missing });
     });
     return {
@@ -96,11 +103,8 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
       return;
     }
 
-    // STRICT filter: only jobs whose completionDate/bookedDate falls within the selected range
-    const strictJobs = filteredJobs.filter((job) => {
-      const ref = job.completionDate || job.bookedDate;
-      return ref && isWithinInterval(new Date(ref), range);
-    });
+    // Use the same range definition as the preview/accuracy report so every counted job is included.
+    const strictJobs = filteredJobs.filter(inRange);
 
     const doc = new jsPDF('landscape', 'mm', 'a4');
 
@@ -133,7 +137,8 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
     const tableData = strictJobs.map((job) => {
       const ongoingInfo: string[] = [];
       if (job.isOngoing) ongoingInfo.push('ONGOING');
-      if (job.ongoingReason) ongoingInfo.push(stripHtml(job.ongoingReason));
+      const reason = stripHtml(job.ongoingReason);
+      if (reason) ongoingInfo.push(reason);
       if (Array.isArray(job.scheduledTrades) && job.scheduledTrades.length > 0) {
         const trades = job.scheduledTrades
           .map((t: any) => {
@@ -146,6 +151,12 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
           .join('\n');
         if (trades) ongoingInfo.push(trades);
       }
+      // Booking + completion dates so invoicing sees both
+      const dateLine = [
+        job.bookedDate ? `Booked: ${format(new Date(job.bookedDate), 'dd/MM/yyyy')}` : null,
+        job.completionDate ? `Completed: ${format(new Date(job.completionDate), 'dd/MM/yyyy')}` : null,
+      ].filter(Boolean).join(' • ');
+      if (dateLine) ongoingInfo.unshift(dateLine);
 
       const teams = [job.team, job.team2].filter(Boolean).join(' + ') || '-';
 
