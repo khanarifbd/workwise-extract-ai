@@ -29,6 +29,9 @@ export const TeamLoginForm = ({ onLogin, error }: TeamLoginFormProps) => {
     <div className="min-h-screen flex flex-col bg-background">
       {/* Full-bleed branded header */}
       <div className="relative bg-gradient-to-br from-[hsl(220,25%,10%)] to-[hsl(220,25%,18%)] pt-16 pb-12 px-6 text-center overflow-hidden">
+        <Link to="/welcome" className="absolute top-4 left-4 z-20 inline-flex items-center gap-1 text-xs text-white/60 hover:text-white transition-colors">
+          <ArrowLeft className="h-3.5 w-3.5" /> Switch portal
+        </Link>
         {/* Subtle pattern overlay */}
         <div className="absolute inset-0 opacity-[0.03]" style={{
           backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)',
