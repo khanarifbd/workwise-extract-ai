@@ -1,7 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { FileText, Calendar as CalendarIcon } from 'lucide-react';
-import { Job } from '@/types/job';
+import { Job, ScheduledTrade } from '@/types/job';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { downloadPDF, preparePDFWindow } from '@/lib/pdfDownload';
@@ -60,17 +60,17 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
   // Include booked, completed, and ongoing jobs if their booked OR completion date
   // falls inside the selected period. This keeps May booked jobs such as N2640150
   // in the May invoice even when completion is recorded later.
-  const inRange = (job: Job) => {
+  const inRange = useCallback((job: Job) => {
     const b = job.bookedDate ? new Date(job.bookedDate) : null;
     const c = job.completionDate ? new Date(job.completionDate) : null;
     if (b && isWithinInterval(b, range)) return true;
     if (c && isWithinInterval(c, range)) return true;
     return false;
-  };
+  }, [range]);
 
   const filteredJobs = useMemo(
     () => invoiceEligibleJobs.filter(inRange),
-    [invoiceEligibleJobs, range],
+    [invoiceEligibleJobs, inRange],
   );
 
   const rangeLabel = useMemo(() => {
@@ -99,7 +99,7 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
       clean: filteredJobs.length - issues.length,
       issues,
     };
-  }, [filteredJobs, range]);
+  }, [filteredJobs, inRange]);
 
   const handleGenerate = () => {
     if (filteredJobs.length === 0) {
@@ -147,7 +147,7 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
       if (reason) ongoingInfo.push(reason);
       if (Array.isArray(job.scheduledTrades) && job.scheduledTrades.length > 0) {
         const trades = job.scheduledTrades
-          .map((t: any) => {
+          .map((t: ScheduledTrade & { tradeType?: string }) => {
             const parts = [t.tradeType || t.trade, t.tradesman, t.date]
               .filter(Boolean)
               .join(' • ');
