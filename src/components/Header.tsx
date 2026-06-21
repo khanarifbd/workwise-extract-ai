@@ -1,4 +1,6 @@
-import { FileDown, Moon, Sun, Settings, History, KeyRound, Users, LogOut, ChevronDown, CalendarDays, CheckCircle2, Briefcase, AlertTriangle, Mic, MessageSquare, StickyNote, MoreHorizontal, Package, Workflow, Sparkles, HardHat } from 'lucide-react';
+import { FileDown, Moon, Sun, Settings, History, KeyRound, Users, LogOut, ChevronDown, CalendarDays, CheckCircle2, Briefcase, AlertTriangle, Mic, MessageSquare, StickyNote, MoreHorizontal, Package, Workflow, Sparkles, HardHat, Scan } from 'lucide-react';
+import { backfillTradeScans } from '@/lib/backfillTradeScans';
+import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
