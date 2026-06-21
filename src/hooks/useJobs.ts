@@ -326,6 +326,7 @@ export const useJobs = (categoryId?: string) => {
         if (updates.roofingInfo && updates.roofingInfo[0]?.type !== '__SCANNED_NO_ROOFING__') slugsNeeded.push('roofing');
         if (updates.flooringInfo && updates.flooringInfo[0]?.type !== '__SCANNED_NO_FLOORING__') slugsNeeded.push('flooring');
         if (updates.insulationInfo && updates.insulationInfo[0]?.type !== '__SCANNED_NO_INSULATION__') slugsNeeded.push('insulation');
+        if (updates.fireDoorInfo && updates.fireDoorInfo[0]?.type !== '__NO_FIRE_DOORS__') slugsNeeded.push('firedoor');
         if (slugsNeeded.length > 0) {
           const { data: cats } = await supabase.from('categories').select('id, slug').in('slug', slugsNeeded);
           const bySlug = new Map((cats || []).map((c: any) => [c.slug, c.id as string]));
