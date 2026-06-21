@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useRef, createElement } from 'react';
-import { Job, FanInfo, RoofingInfo, FlooringInfo, InsulationInfo } from '@/types/job';
+import { Job, FanInfo, RoofingInfo, FlooringInfo, InsulationInfo, FireDoorInfo } from '@/types/job';
 import {
   fetchJobs, createJob, updateJob, deleteJob, restoreJob,
-  extractFansWithAI, extractRoofingWithAI, extractFlooringWithAI, extractInsulationWithAI,
-  createLinkedFanJob, createLinkedRoofingJob, createLinkedFlooringJob, createLinkedInsulationJob,
+  extractFansWithAI, extractRoofingWithAI, extractFlooringWithAI, extractInsulationWithAI, extractFireDoorsWithAI,
+  createLinkedFanJob, createLinkedRoofingJob, createLinkedFlooringJob, createLinkedInsulationJob, createLinkedFireDoorJob,
   mapDatabaseJobToJob,
 } from '@/lib/api';
 import { supabase } from '@/integrations/supabase/client';
@@ -252,11 +252,12 @@ export const useJobs = (categoryId?: string) => {
     if (!desc.trim()) return;
     const works = newJob.workItems || [];
     const updates: Partial<Job> = {};
-    const [fans, roof, floor, insul] = await Promise.allSettled([
+    const [fans, roof, floor, insul, doors] = await Promise.allSettled([
       newJob.fanInfo && newJob.fanInfo.length ? Promise.resolve(null) : extractFansWithAI(desc, works),
       newJob.roofingInfo && newJob.roofingInfo.length ? Promise.resolve(null) : extractRoofingWithAI(desc, works),
       newJob.flooringInfo && newJob.flooringInfo.length ? Promise.resolve(null) : extractFlooringWithAI(desc, works),
       newJob.insulationInfo && newJob.insulationInfo.length ? Promise.resolve(null) : extractInsulationWithAI(desc, works),
+      newJob.fireDoorInfo && newJob.fireDoorInfo.length ? Promise.resolve(null) : extractFireDoorsWithAI(desc, works),
     ]);
     if (fans.status === 'fulfilled' && fans.value) {
       const r = fans.value;
@@ -282,6 +283,12 @@ export const useJobs = (categoryId?: string) => {
         ? r.insulation
         : [{ type: '__SCANNED_NO_INSULATION__', quantity: 0, location: '' } as InsulationInfo];
     }
+    if (doors.status === 'fulfilled' && doors.value) {
+      const r = doors.value;
+      updates.fireDoorInfo = (r.hasFireDoors && r.fireDoors.length > 0)
+        ? r.fireDoors
+        : [{ type: '__NO_FIRE_DOORS__', quantity: 0, location: '' } as FireDoorInfo];
+    }
     if (Object.keys(updates).length === 0) return;
     try {
       const saved = await updateJob(newJob.id, updates);
@@ -300,6 +307,10 @@ export const useJobs = (categoryId?: string) => {
       if (updates.insulationInfo && updates.insulationInfo[0]?.type !== '__SCANNED_NO_INSULATION__') {
         summary.push(`${updates.insulationInfo.length} loft/insulation`);
       }
+      if (updates.fireDoorInfo && updates.fireDoorInfo[0]?.type !== '__NO_FIRE_DOORS__') {
+        const total = updates.fireDoorInfo.reduce((s, f: any) => s + (f.quantity || 0), 0);
+        summary.push(`${total} fire door${total === 1 ? '' : 's'}`);
+      }
       if (summary.length > 0) {
         toast({
           title: `Auto-scan: ${newJob.jobNumber || 'job'}`,
@@ -315,6 +326,7 @@ export const useJobs = (categoryId?: string) => {
         if (updates.roofingInfo && updates.roofingInfo[0]?.type !== '__SCANNED_NO_ROOFING__') slugsNeeded.push('roofing');
         if (updates.flooringInfo && updates.flooringInfo[0]?.type !== '__SCANNED_NO_FLOORING__') slugsNeeded.push('flooring');
         if (updates.insulationInfo && updates.insulationInfo[0]?.type !== '__SCANNED_NO_INSULATION__') slugsNeeded.push('insulation');
+        if (updates.fireDoorInfo && updates.fireDoorInfo[0]?.type !== '__NO_FIRE_DOORS__') slugsNeeded.push('firedoor');
         if (slugsNeeded.length > 0) {
           const { data: cats } = await supabase.from('categories').select('id, slug').in('slug', slugsNeeded);
           const bySlug = new Map((cats || []).map((c: any) => [c.slug, c.id as string]));
@@ -335,6 +347,10 @@ export const useJobs = (categoryId?: string) => {
           const insCatId = bySlug.get('insulation');
           if (insCatId && updates.insulationInfo && updates.insulationInfo[0]?.type !== '__SCANNED_NO_INSULATION__' && !parentJob.linkedInsulationJobId) {
             linkOps.push(createLinkedInsulationJob(parentJob, updates.insulationInfo, insCatId, null));
+          }
+          const doorCatId = bySlug.get('firedoor');
+          if (doorCatId && updates.fireDoorInfo && updates.fireDoorInfo[0]?.type !== '__NO_FIRE_DOORS__' && !parentJob.linkedFireDoorJobId) {
+            linkOps.push(createLinkedFireDoorJob(parentJob, updates.fireDoorInfo, doorCatId, null));
           }
           if (linkOps.length > 0) await Promise.allSettled(linkOps);
         }

@@ -2018,6 +2018,42 @@ export const syncLinkedFlooringJob = async (
   return { linkedFlooringJobId: data.id, created: true };
 };
 
+// Extract fire doors from job description (single-job AI scan, parallels other trade scanners)
+export const extractFireDoorsWithAI = async (
+  description: string,
+  workItems: WorkItem[]
+): Promise<{ hasFireDoors: boolean; fireDoors: FireDoorInfo[]; totalFireDoorCount: number } | null> => {
+  const hasDescription = description && description.trim().length > 0;
+  const hasWorkItems = workItems && workItems.length > 0;
+
+  if (!hasDescription && !hasWorkItems) {
+    return { hasFireDoors: false, fireDoors: [], totalFireDoorCount: 0 };
+  }
+
+  return withRetry(async () => {
+    const headers = await getAuthHeaders();
+    const { data, error } = await supabase.functions.invoke('extract-fire-doors', {
+      body: {
+        ...(hasDescription ? { description } : {}),
+        ...(hasWorkItems ? { workItems } : {}),
+      },
+      headers,
+    });
+
+    if (error) {
+      console.error('Error calling extract-fire-doors function:', error);
+      throw error;
+    }
+
+    if (!data?.success) {
+      throw new Error(data?.error || 'Failed to extract fire doors');
+    }
+
+    return data.data;
+  });
+};
+
+
 // Create a linked fire door job from an existing job
 export const createLinkedFireDoorJob = async (
   sourceJob: Job,
