@@ -275,6 +275,7 @@ export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount
                 <DropdownMenuItem onClick={handleBackfillScans} disabled={isBackfilling} className="flex items-center gap-2 cursor-pointer">
                   <Scan className="w-4 h-4" />
                   {isBackfilling ? 'Backfilling…' : 'Backfill Trade Scans'}
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setIsDark(prev => !prev)} className="flex items-center gap-2 cursor-pointer">
                   {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
                   {isDark ? 'Light Mode' : 'Dark Mode'}
