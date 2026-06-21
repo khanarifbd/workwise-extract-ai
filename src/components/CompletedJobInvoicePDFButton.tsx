@@ -101,13 +101,11 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
     };
   }, [filteredJobs, inRange]);
 
-  const handleGenerate = () => {
+  const handleGenerate = (targetWindow: Window | null) => {
     if (filteredJobs.length === 0) {
       alert('No invoice jobs found for the selected ' + mode);
       return;
     }
-
-    const targetWindow = preparePDFWindow();
 
     // Use the same range definition as the preview/accuracy report so every counted job is included.
     const strictJobs = filteredJobs.filter(inRange);
@@ -249,8 +247,13 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
 
     const stamp = format(new Date(), 'yyyyMMdd');
     const filename = `invoice-data_${mode}_${format(range.start, 'yyyyMMdd')}-${format(range.end, 'yyyyMMdd')}_${stamp}.pdf`;
-    downloadPDF(doc, filename, { targetWindow });
-    setIsOpen(false);
+    try {
+      downloadPDF(doc, filename, { targetWindow });
+      setIsOpen(false);
+    } catch (error) {
+      console.error('[invoice-pdf] generation/download failed', error);
+      alert('The invoice PDF could not be opened. Please allow pop-ups/downloads for this site and try again.');
+    }
   };
 
   return (
@@ -328,7 +331,14 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
           </div>
 
           <Button
-            onClick={handleGenerate}
+            onPointerDown={() => {
+              (window as Window & { __invoicePdfWindow?: Window | null }).__invoicePdfWindow = preparePDFWindow({ force: true });
+            }}
+            onClick={() => {
+              const invoiceWindow = (window as Window & { __invoicePdfWindow?: Window | null }).__invoicePdfWindow ?? preparePDFWindow({ force: true });
+              (window as Window & { __invoicePdfWindow?: Window | null }).__invoicePdfWindow = null;
+              handleGenerate(invoiceWindow);
+            }}
             className="w-full bg-blue-600 hover:bg-blue-700"
             disabled={filteredJobs.length === 0}
           >
