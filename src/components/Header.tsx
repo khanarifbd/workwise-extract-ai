@@ -56,6 +56,32 @@ export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount
   const [opsNotesCount, setOpsNotesCount] = useState(0);
   const [showSubcontractors, setShowSubcontractors] = useState(false);
   const { signOut, user } = useAdminAuth();
+  const { toast } = useToast();
+  const [isBackfilling, setIsBackfilling] = useState(false);
+
+  const handleBackfillScans = async () => {
+    if (isBackfilling) return;
+    if (!confirm('Backfill trade scans on all parent jobs missing scan markers? This may take several minutes and use AI credits.')) return;
+    setIsBackfilling(true);
+    const t = toast({ title: 'Backfill started', description: 'Scanning parent jobs…' });
+    try {
+      const result = await backfillTradeScans((p) => {
+        t.update({
+          id: t.id,
+          title: `Backfill ${p.processed}/${p.total}`,
+          description: `Found: ${p.found.fans} fans, ${p.found.roofing} roof, ${p.found.flooring} floor, ${p.found.insulation} insul, ${p.found.fireDoors} doors. Fails: ${p.failures}`,
+        });
+      });
+      toast({
+        title: 'Backfill complete',
+        description: `Scanned ${result.processed} parents. Found ${result.found.fans} fans, ${result.found.roofing} roof, ${result.found.flooring} floor, ${result.found.insulation} insul, ${result.found.fireDoors} doors. ${result.failures} failures.`,
+      });
+    } catch (e: any) {
+      toast({ title: 'Backfill failed', description: e?.message || 'Unknown error', variant: 'destructive' });
+    } finally {
+      setIsBackfilling(false);
+    }
+  };
 
   useEffect(() => {
     const fetchOpsNotesCount = async () => {
