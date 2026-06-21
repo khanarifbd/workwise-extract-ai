@@ -63,7 +63,7 @@ export async function backfillTradeScans(
   // Process serially in small batches to avoid rate limits
   for (const job of parents) {
     const desc: string = job.description || job.summary_of_works || "";
-    const works = Array.isArray(job.work_items) ? job.work_items : [];
+    const works = (Array.isArray(job.work_items) ? job.work_items : []) as any[];
     if (!desc.trim()) {
       progress.processed++;
       onProgress?.({ ...progress });
