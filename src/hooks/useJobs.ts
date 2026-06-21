@@ -252,11 +252,12 @@ export const useJobs = (categoryId?: string) => {
     if (!desc.trim()) return;
     const works = newJob.workItems || [];
     const updates: Partial<Job> = {};
-    const [fans, roof, floor, insul] = await Promise.allSettled([
+    const [fans, roof, floor, insul, doors] = await Promise.allSettled([
       newJob.fanInfo && newJob.fanInfo.length ? Promise.resolve(null) : extractFansWithAI(desc, works),
       newJob.roofingInfo && newJob.roofingInfo.length ? Promise.resolve(null) : extractRoofingWithAI(desc, works),
       newJob.flooringInfo && newJob.flooringInfo.length ? Promise.resolve(null) : extractFlooringWithAI(desc, works),
       newJob.insulationInfo && newJob.insulationInfo.length ? Promise.resolve(null) : extractInsulationWithAI(desc, works),
+      newJob.fireDoorInfo && newJob.fireDoorInfo.length ? Promise.resolve(null) : extractFireDoorsWithAI(desc, works),
     ]);
     if (fans.status === 'fulfilled' && fans.value) {
       const r = fans.value;
@@ -281,6 +282,12 @@ export const useJobs = (categoryId?: string) => {
       updates.insulationInfo = (r.hasInsulation && r.insulation.length > 0)
         ? r.insulation
         : [{ type: '__SCANNED_NO_INSULATION__', quantity: 0, location: '' } as InsulationInfo];
+    }
+    if (doors.status === 'fulfilled' && doors.value) {
+      const r = doors.value;
+      updates.fireDoorInfo = (r.hasFireDoors && r.fireDoors.length > 0)
+        ? r.fireDoors
+        : [{ type: '__NO_FIRE_DOORS__', quantity: 0, location: '' } as FireDoorInfo];
     }
     if (Object.keys(updates).length === 0) return;
     try {
