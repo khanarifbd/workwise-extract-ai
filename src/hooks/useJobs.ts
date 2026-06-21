@@ -245,50 +245,85 @@ export const useJobs = (categoryId?: string) => {
     }
   };
 
-  // Run all four trade scanners in parallel on a newly added job and persist
+  // Retry a rejected scan once after a short delay
+  const retryScan = async <T,>(fn: () => Promise<T>, delayMs = 2500): Promise<T> => {
+    await new Promise(r => setTimeout(r, delayMs));
+    return fn();
+  };
+
+  // Run all five trade scanners in parallel on a newly added job and persist
   // findings (or "scanned, none found" markers) to the *Info columns.
+  // Any rejected scan is retried once; if it still fails, a toast is shown.
   const runAutoTradeScans = async (newJob: Job) => {
     const desc = newJob.description || newJob.summaryOfWorks || '';
     if (!desc.trim()) return;
     const works = newJob.workItems || [];
     const updates: Partial<Job> = {};
-    const [fans, roof, floor, insul, doors] = await Promise.allSettled([
-      newJob.fanInfo && newJob.fanInfo.length ? Promise.resolve(null) : extractFansWithAI(desc, works),
-      newJob.roofingInfo && newJob.roofingInfo.length ? Promise.resolve(null) : extractRoofingWithAI(desc, works),
-      newJob.flooringInfo && newJob.flooringInfo.length ? Promise.resolve(null) : extractFlooringWithAI(desc, works),
-      newJob.insulationInfo && newJob.insulationInfo.length ? Promise.resolve(null) : extractInsulationWithAI(desc, works),
-      newJob.fireDoorInfo && newJob.fireDoorInfo.length ? Promise.resolve(null) : extractFireDoorsWithAI(desc, works),
+    const failures: string[] = [];
+
+    const runScan = async <T,>(label: string, hasExisting: boolean, fn: () => Promise<T>): Promise<T | null> => {
+      if (hasExisting) return null;
+      try {
+        return await fn();
+      } catch (e) {
+        console.warn(`[auto-scan] ${label} failed once, retrying...`, e);
+        try {
+          return await retryScan(fn);
+        } catch (e2) {
+          console.error(`[auto-scan] ${label} failed after retry`, e2);
+          failures.push(label);
+          return null;
+        }
+      }
+    };
+
+    const [fansVal, roofVal, floorVal, insulVal, doorsVal] = await Promise.all([
+      runScan('fans', !!(newJob.fanInfo && newJob.fanInfo.length), () => extractFansWithAI(desc, works)),
+      runScan('roofing', !!(newJob.roofingInfo && newJob.roofingInfo.length), () => extractRoofingWithAI(desc, works)),
+      runScan('flooring', !!(newJob.flooringInfo && newJob.flooringInfo.length), () => extractFlooringWithAI(desc, works)),
+      runScan('insulation', !!(newJob.insulationInfo && newJob.insulationInfo.length), () => extractInsulationWithAI(desc, works)),
+      runScan('fire doors', !!(newJob.fireDoorInfo && newJob.fireDoorInfo.length), () => extractFireDoorsWithAI(desc, works)),
     ]);
-    if (fans.status === 'fulfilled' && fans.value) {
-      const r = fans.value;
+
+    if (fansVal) {
+      const r: any = fansVal;
       updates.fanInfo = (r.hasFans && r.fans.length > 0)
         ? r.fans
         : [{ type: '__SCANNED_NO_FANS__', quantity: 0, location: '' } as FanInfo];
     }
-    if (roof.status === 'fulfilled' && roof.value) {
-      const r = roof.value;
+    if (roofVal) {
+      const r: any = roofVal;
       updates.roofingInfo = (r.hasRoofing && r.roofing.length > 0)
         ? r.roofing
         : [{ type: '__SCANNED_NO_ROOFING__', quantity: 0, location: '' } as RoofingInfo];
     }
-    if (floor.status === 'fulfilled' && floor.value) {
-      const r = floor.value;
+    if (floorVal) {
+      const r: any = floorVal;
       updates.flooringInfo = (r.hasFlooring && r.flooring.length > 0)
         ? r.flooring
         : [{ type: '__SCANNED_NO_FLOORING__', quantity: 0, location: '' } as FlooringInfo];
     }
-    if (insul.status === 'fulfilled' && insul.value) {
-      const r = insul.value;
+    if (insulVal) {
+      const r: any = insulVal;
       updates.insulationInfo = (r.hasInsulation && r.insulation.length > 0)
         ? r.insulation
         : [{ type: '__SCANNED_NO_INSULATION__', quantity: 0, location: '' } as InsulationInfo];
     }
-    if (doors.status === 'fulfilled' && doors.value) {
-      const r = doors.value;
+    if (doorsVal) {
+      const r: any = doorsVal;
       updates.fireDoorInfo = (r.hasFireDoors && r.fireDoors.length > 0)
         ? r.fireDoors
         : [{ type: '__NO_FIRE_DOORS__', quantity: 0, location: '' } as FireDoorInfo];
     }
+
+    if (failures.length > 0) {
+      toast({
+        title: `Auto-scan partially failed: ${newJob.jobNumber || 'job'}`,
+        description: `Could not scan: ${failures.join(', ')}. Use "Backfill Trade Scans" later to retry.`,
+        variant: 'destructive',
+      });
+    }
+
     if (Object.keys(updates).length === 0) return;
     try {
       const saved = await updateJob(newJob.id, updates);
