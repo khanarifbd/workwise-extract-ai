@@ -18,13 +18,13 @@ const isIOSLikeDevice = () => {
  * pass the returned window to downloadPDF via `targetWindow`.
  * Returns null when popup is blocked or running outside a browser.
  */
-export const preparePDFWindow = (): Window | null => {
+export const preparePDFWindow = (options?: { force?: boolean }): Window | null => {
   if (typeof window === 'undefined') return null;
   // Only pre-open a tab on iOS-like devices, where Safari requires the window
   // to be created synchronously inside the user gesture. On desktop and Android
   // pre-opening a tab is harmful: it produces a blank popup that hijacks the
   // download path and is silently blocked inside sandboxed iframes (Lovable preview).
-  if (!isIOSLikeDevice()) return null;
+  if (!options?.force && !isIOSLikeDevice()) return null;
   try {
     const w = window.open('', '_blank');
     if (w) {
@@ -69,11 +69,6 @@ export function downloadPDF(doc: jsPDF, filename: string, options?: { targetWind
     } catch (err) {
       console.warn('[downloadPDF] iOS data URL open failed, falling back to blob URL', err);
     }
-  } else if (preOpenedWindow && !preOpenedWindow.closed) {
-    // Non-iOS: a pre-opened blank tab would just hijack the download. Close it
-    // so the user doesn't see a stray empty tab, then fall through to the
-    // anchor-download path below.
-    try { preOpenedWindow.close(); } catch { /* ignore */ }
   }
 
   const url = URL.createObjectURL(blob);
@@ -91,6 +86,16 @@ export function downloadPDF(doc: jsPDF, filename: string, options?: { targetWind
     document.body.removeChild(link);
   } catch (err) {
     console.warn('[downloadPDF] anchor download failed', err);
+  }
+
+  if (preOpenedWindow && !preOpenedWindow.closed) {
+    try {
+      preOpenedWindow.location.replace(url);
+      setTimeout(() => URL.revokeObjectURL(url), 180000);
+      return;
+    } catch (err) {
+      console.warn('[downloadPDF] pre-opened PDF tab failed', err);
+    }
   }
 
   // Path B: open in new tab (visible fallback inside sandboxed iframes)
