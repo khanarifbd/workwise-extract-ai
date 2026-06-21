@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useRef, createElement } from 'react';
-import { Job, FanInfo, RoofingInfo, FlooringInfo, InsulationInfo } from '@/types/job';
+import { Job, FanInfo, RoofingInfo, FlooringInfo, InsulationInfo, FireDoorInfo } from '@/types/job';
 import {
   fetchJobs, createJob, updateJob, deleteJob, restoreJob,
-  extractFansWithAI, extractRoofingWithAI, extractFlooringWithAI, extractInsulationWithAI,
-  createLinkedFanJob, createLinkedRoofingJob, createLinkedFlooringJob, createLinkedInsulationJob,
+  extractFansWithAI, extractRoofingWithAI, extractFlooringWithAI, extractInsulationWithAI, extractFireDoorsWithAI,
+  createLinkedFanJob, createLinkedRoofingJob, createLinkedFlooringJob, createLinkedInsulationJob, createLinkedFireDoorJob,
   mapDatabaseJobToJob,
 } from '@/lib/api';
 import { supabase } from '@/integrations/supabase/client';
