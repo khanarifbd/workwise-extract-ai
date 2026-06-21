@@ -1,10 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { FileText, Calendar as CalendarIcon } from 'lucide-react';
-import { Job } from '@/types/job';
+import { Job, ScheduledTrade } from '@/types/job';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { downloadPDF } from '@/lib/pdfDownload';
+import { downloadPDF, preparePDFWindow } from '@/lib/pdfDownload';
 import {
   format,
   isWithinInterval,
@@ -33,6 +33,10 @@ const stripHtml = (s: string | null | undefined) =>
     .replace(/\s+/g, ' ')
     .trim();
 
+const isCompleteJob = (job: Job) => job.status === 'complete' || job.isCompleted;
+
+const isBookedJob = (job: Job) => Boolean(job.bookedDate);
+
 export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold' }: Props) => {
   const [isOpen, setIsOpen] = useState(false);
   const [mode, setMode] = useState<RangeMode>('month');
@@ -48,25 +52,25 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
     return { start: startOfMonth(anchorDate), end: endOfMonth(anchorDate) };
   }, [mode, anchorDate]);
 
-  const completedJobs = useMemo(
-    () => jobs.filter((j) => j.status === 'complete' || j.isCompleted),
+  const invoiceEligibleJobs = useMemo(
+    () => jobs.filter((j) => isCompleteJob(j) || isBookedJob(j) || j.isOngoing),
     [jobs],
   );
 
-  // Include a job if EITHER its bookedDate OR completionDate falls inside the range.
-  // Many jobs are booked in one month but admin marks them complete weeks later — both
-  // should count toward the booked month's invoice run.
-  const inRange = (job: Job) => {
+  // Include booked, completed, and ongoing jobs if their booked OR completion date
+  // falls inside the selected period. This keeps May booked jobs such as N2640150
+  // in the May invoice even when completion is recorded later.
+  const inRange = useCallback((job: Job) => {
     const b = job.bookedDate ? new Date(job.bookedDate) : null;
     const c = job.completionDate ? new Date(job.completionDate) : null;
     if (b && isWithinInterval(b, range)) return true;
     if (c && isWithinInterval(c, range)) return true;
     return false;
-  };
+  }, [range]);
 
   const filteredJobs = useMemo(
-    () => completedJobs.filter(inRange),
-    [completedJobs, range],
+    () => invoiceEligibleJobs.filter(inRange),
+    [invoiceEligibleJobs, inRange],
   );
 
   const rangeLabel = useMemo(() => {
@@ -95,13 +99,15 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
       clean: filteredJobs.length - issues.length,
       issues,
     };
-  }, [filteredJobs, range]);
+  }, [filteredJobs, inRange]);
 
   const handleGenerate = () => {
     if (filteredJobs.length === 0) {
-      alert('No completed jobs found for the selected ' + mode);
+      alert('No invoice jobs found for the selected ' + mode);
       return;
     }
+
+    const targetWindow = preparePDFWindow();
 
     // Use the same range definition as the preview/accuracy report so every counted job is included.
     const strictJobs = filteredJobs.filter(inRange);
@@ -110,7 +116,7 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
 
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
-    doc.text('COMPLETED JOBS - INVOICE DATA', 14, 16);
+    doc.text('INVOICE DATA - BOOKED & COMPLETED JOBS', 14, 16);
 
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
@@ -141,7 +147,7 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
       if (reason) ongoingInfo.push(reason);
       if (Array.isArray(job.scheduledTrades) && job.scheduledTrades.length > 0) {
         const trades = job.scheduledTrades
-          .map((t: any) => {
+          .map((t: ScheduledTrade & { tradeType?: string }) => {
             const parts = [t.tradeType || t.trade, t.tradesman, t.date]
               .filter(Boolean)
               .join(' • ');
@@ -155,13 +161,16 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
       const dateLine = [
         job.bookedDate ? `Booked: ${format(new Date(job.bookedDate), 'dd/MM/yyyy')}` : null,
         job.completionDate ? `Completed: ${format(new Date(job.completionDate), 'dd/MM/yyyy')}` : null,
+        job.isOngoing ? 'ONGOING' : null,
       ].filter(Boolean).join(' • ');
       if (dateLine) ongoingInfo.unshift(dateLine);
 
       const teams = [job.team, job.team2].filter(Boolean).join(' + ') || '-';
+      const statusLabel = isCompleteJob(job) ? 'Complete' : job.isOngoing ? 'Ongoing / Booked' : 'Booked';
 
       return [
         job.jobNumber || '-',
+        statusLabel,
         job.address || '-',
         job.name || '-',
         teams,
@@ -172,12 +181,12 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
     });
 
     autoTable(doc, {
-      head: [['Job Number', 'Address', 'Tenant Name', 'Assigned Teams', 'Description', 'Progress Description', 'Ongoing Information']],
+      head: [['Job Number', 'Status', 'Address', 'Tenant Name', 'Assigned Teams', 'Description', 'Progress Description', 'Ongoing Information']],
       body: tableData,
       startY: 46,
       styles: {
-        fontSize: 8,
-        cellPadding: 2.5,
+        fontSize: 7,
+        cellPadding: 2,
         overflow: 'linebreak',
         valign: 'top',
       },
@@ -189,12 +198,13 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
       },
       columnStyles: {
         0: { cellWidth: 22 },
-        1: { cellWidth: 50 },
-        2: { cellWidth: 30 },
-        3: { cellWidth: 28 },
-        4: { cellWidth: 60 },
-        5: { cellWidth: 48 },
-        6: { cellWidth: 40 },
+        1: { cellWidth: 22 },
+        2: { cellWidth: 43 },
+        3: { cellWidth: 27 },
+        4: { cellWidth: 25 },
+        5: { cellWidth: 52 },
+        6: { cellWidth: 41 },
+        7: { cellWidth: 35 },
       },
       alternateRowStyles: { fillColor: [245, 245, 245] },
       didDrawPage: (data) => {
@@ -238,8 +248,8 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
     }
 
     const stamp = format(new Date(), 'yyyyMMdd');
-    const filename = `completed-invoice-data_${mode}_${format(range.start, 'yyyyMMdd')}-${format(range.end, 'yyyyMMdd')}_${stamp}.pdf`;
-    downloadPDF(doc, filename);
+    const filename = `invoice-data_${mode}_${format(range.start, 'yyyyMMdd')}-${format(range.end, 'yyyyMMdd')}_${stamp}.pdf`;
+    downloadPDF(doc, filename, { targetWindow });
     setIsOpen(false);
   };
 
@@ -249,7 +259,7 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
         <Button
           variant="outline"
           className="bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 hover:text-blue-800"
-          disabled={completedJobs.length === 0}
+          disabled={invoiceEligibleJobs.length === 0}
         >
           <FileText className="w-4 h-4 mr-2" />
           Invoice Data PDF
@@ -307,11 +317,11 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
 
           <div className="text-xs space-y-1">
             <div className="text-muted-foreground">
-              {filteredJobs.length} completed job{filteredJobs.length === 1 ? '' : 's'} in this {mode}.
+              {filteredJobs.length} booked / completed job{filteredJobs.length === 1 ? '' : 's'} in this {mode}.
             </div>
             {filteredJobs.length > 0 && (
               <div className={accuracyReport.issues.length === 0 ? 'text-emerald-600 font-medium' : 'text-amber-600 font-medium'}>
-                Accuracy: {accuracyReport.clean}/{accuracyReport.total} complete
+                Accuracy: {accuracyReport.clean}/{accuracyReport.total} fully populated
                 {accuracyReport.issues.length > 0 && ` • ${accuracyReport.issues.length} need attention`}
               </div>
             )}
