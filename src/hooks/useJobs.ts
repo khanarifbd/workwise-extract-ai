@@ -348,6 +348,10 @@ export const useJobs = (categoryId?: string) => {
           if (insCatId && updates.insulationInfo && updates.insulationInfo[0]?.type !== '__SCANNED_NO_INSULATION__' && !parentJob.linkedInsulationJobId) {
             linkOps.push(createLinkedInsulationJob(parentJob, updates.insulationInfo, insCatId, null));
           }
+          const doorCatId = bySlug.get('firedoor');
+          if (doorCatId && updates.fireDoorInfo && updates.fireDoorInfo[0]?.type !== '__NO_FIRE_DOORS__' && !parentJob.linkedFireDoorJobId) {
+            linkOps.push(createLinkedFireDoorJob(parentJob, updates.fireDoorInfo, doorCatId, null));
+          }
           if (linkOps.length > 0) await Promise.allSettled(linkOps);
         }
       } catch (linkErr) {
