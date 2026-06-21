@@ -37,12 +37,6 @@ const isCompleteJob = (job: Job) => job.status === 'complete' || job.isCompleted
 
 const isBookedJob = (job: Job) => Boolean(job.bookedDate);
 
-const formatJobDate = (date: Date | string | null | undefined) => {
-  if (!date) return null;
-  const parsed = date instanceof Date ? date : new Date(date);
-  return Number.isNaN(parsed.getTime()) ? null : format(parsed, 'dd/MM/yyyy');
-};
-
 export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold' }: Props) => {
   const [isOpen, setIsOpen] = useState(false);
   const [mode, setMode] = useState<RangeMode>('month');
@@ -108,12 +102,12 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
   }, [filteredJobs, range]);
 
   const handleGenerate = () => {
-    const targetWindow = preparePDFWindow();
-
     if (filteredJobs.length === 0) {
       alert('No invoice jobs found for the selected ' + mode);
       return;
     }
+
+    const targetWindow = preparePDFWindow();
 
     // Use the same range definition as the preview/accuracy report so every counted job is included.
     const strictJobs = filteredJobs.filter(inRange);
@@ -208,8 +202,8 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
         2: { cellWidth: 43 },
         3: { cellWidth: 27 },
         4: { cellWidth: 25 },
-        5: { cellWidth: 54 },
-        6: { cellWidth: 43 },
+        5: { cellWidth: 52 },
+        6: { cellWidth: 41 },
         7: { cellWidth: 35 },
       },
       alternateRowStyles: { fillColor: [245, 245, 245] },
@@ -323,11 +317,11 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
 
           <div className="text-xs space-y-1">
             <div className="text-muted-foreground">
-              {filteredJobs.length} completed job{filteredJobs.length === 1 ? '' : 's'} in this {mode}.
+              {filteredJobs.length} booked / completed job{filteredJobs.length === 1 ? '' : 's'} in this {mode}.
             </div>
             {filteredJobs.length > 0 && (
               <div className={accuracyReport.issues.length === 0 ? 'text-emerald-600 font-medium' : 'text-amber-600 font-medium'}>
-                Accuracy: {accuracyReport.clean}/{accuracyReport.total} complete
+                Accuracy: {accuracyReport.clean}/{accuracyReport.total} fully populated
                 {accuracyReport.issues.length > 0 && ` • ${accuracyReport.issues.length} need attention`}
               </div>
             )}
