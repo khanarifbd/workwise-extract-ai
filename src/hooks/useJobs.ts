@@ -307,6 +307,10 @@ export const useJobs = (categoryId?: string) => {
       if (updates.insulationInfo && updates.insulationInfo[0]?.type !== '__SCANNED_NO_INSULATION__') {
         summary.push(`${updates.insulationInfo.length} loft/insulation`);
       }
+      if (updates.fireDoorInfo && updates.fireDoorInfo[0]?.type !== '__NO_FIRE_DOORS__') {
+        const total = updates.fireDoorInfo.reduce((s, f: any) => s + (f.quantity || 0), 0);
+        summary.push(`${total} fire door${total === 1 ? '' : 's'}`);
+      }
       if (summary.length > 0) {
         toast({
           title: `Auto-scan: ${newJob.jobNumber || 'job'}`,
