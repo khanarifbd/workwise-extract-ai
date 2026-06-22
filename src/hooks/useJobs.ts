@@ -464,7 +464,8 @@ export const useJobs = (categoryId?: string) => {
           }
           updates.completionDate = null;
           if (updates.progress === undefined || updates.progress === 100) {
-            updates.progress = hasBookingProgress(updates, currentJob) ? 50 : 0;
+            const hasBooking = updates.bookedDate !== undefined ? !!updates.bookedDate : !!currentJob.bookedDate;
+            updates.progress = hasBooking ? 50 : 0;
           }
         }
       }
