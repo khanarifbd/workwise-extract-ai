@@ -454,14 +454,17 @@ export const useJobs = (categoryId?: string) => {
           updates.status = 'complete';
           updates.progress = 100;
           if (!updates.completionDate) updates.completionDate = new Date();
-        } else if (currentJob.isCompleted) {
-          // Un-completing: reset status if it was 'complete'
+        } else if (currentJob.isCompleted || currentJob.status === 'complete') {
+          // Un-completing: revert to 'started' if booked, else 'pending'
           if (!newStatus && currentJob.status === 'complete') {
-            updates.status = 'pending';
+            const hasBooking = updates.bookedDate !== undefined
+              ? !!updates.bookedDate
+              : !!currentJob.bookedDate;
+            updates.status = hasBooking ? ('started' as any) : 'pending';
           }
           updates.completionDate = null;
           if (updates.progress === undefined || updates.progress === 100) {
-            updates.progress = 0;
+            updates.progress = hasBookingProgress(updates, currentJob) ? 50 : 0;
           }
         }
       }
