@@ -58,6 +58,11 @@ export const StatusProgressColumn = ({
   };
 
   if (isCompleted) {
+    const handleReopen = () => {
+      if (confirm('Reverse completion? This job will be moved back to Booked/Pending status.')) {
+        onUpdate({ isCompleted: false });
+      }
+    };
     return (
       <div className="flex flex-col items-start gap-1">
         <div className="flex items-center gap-2">
@@ -66,12 +71,21 @@ export const StatusProgressColumn = ({
           </span>
           <CheckCircle2 className="w-4 h-4 text-emerald-600" />
         </div>
-        <button
-          onClick={handleOpenEditor}
-          className="text-xs text-muted-foreground hover:text-foreground underline"
-        >
-          Edit Status
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleReopen}
+            className="text-xs font-medium text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/50 border border-amber-300 dark:border-amber-700 rounded px-2 py-0.5 transition-colors"
+            title="Reverse completion - move back to Booked"
+          >
+            ↩ Mark Incomplete
+          </button>
+          <button
+            onClick={handleOpenEditor}
+            className="text-xs text-muted-foreground hover:text-foreground underline"
+          >
+            Edit
+          </button>
+        </div>
         
         {isOpen && (
           <>
