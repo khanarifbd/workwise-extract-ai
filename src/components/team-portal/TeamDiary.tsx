@@ -38,16 +38,14 @@ export const TeamDiary: React.FC<TeamDiaryProps> = ({ teamId, teamName }) => {
 
   const loadUnavailableDays = async () => {
     try {
-      const { data, error } = await supabase
-        .from('team_availability')
-        .select('*')
-        .eq('team_id', teamId)
-        .order('unavailable_date');
+      const { data, error } = await supabase.functions.invoke('team-availability', {
+        body: { action: 'list', teamId },
+      });
 
       if (error) throw error;
 
       setUnavailableDays(
-        (data || []).map((row: any) => ({
+        ((data?.data) || []).map((row: any) => ({
           id: row.id,
           teamId: row.team_id,
           unavailableDate: row.unavailable_date,
@@ -64,27 +62,11 @@ export const TeamDiary: React.FC<TeamDiaryProps> = ({ teamId, teamName }) => {
 
   useEffect(() => {
     loadUnavailableDays();
-
-    // Real-time subscription
-    const channel = supabase
-      .channel(`team-availability-${teamId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'team_availability',
-          filter: `team_id=eq.${teamId}`,
-        },
-        () => {
-          loadUnavailableDays();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    // Poll every 30s instead of a direct PostgREST realtime subscription
+    // because reads now go through the team-availability edge function.
+    const intervalId = window.setInterval(loadUnavailableDays, 30000);
+    return () => window.clearInterval(intervalId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teamId]);
 
   const getUnavailableDay = (dateStr: string) => {
