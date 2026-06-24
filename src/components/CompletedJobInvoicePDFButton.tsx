@@ -101,158 +101,230 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
     };
   }, [filteredJobs, inRange]);
 
+  const formatGBP = (n: number) =>
+    `£${(Number.isFinite(n) ? n : 0).toFixed(2)}`;
+
   const handleGenerate = (targetWindow: Window | null) => {
-    if (filteredJobs.length === 0) {
-      alert('No invoice jobs found for the selected ' + mode);
-      return;
-    }
-
-    // Use the same range definition as the preview/accuracy report so every counted job is included.
-    const strictJobs = filteredJobs.filter(inRange);
-
-    const doc = new jsPDF('landscape', 'mm', 'a4');
-
-    doc.setFontSize(16);
-    doc.setFont('helvetica', 'bold');
-    doc.text('INVOICE DATA - BOOKED & COMPLETED JOBS', 14, 16);
-
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Category: ${categoryName}`, 14, 23);
-    doc.text(`Range (${mode}): ${rangeLabel}`, 14, 29);
-    doc.text(`Generated: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 14, 35);
-    doc.text(`Total Jobs: ${strictJobs.length}`, 14, 41);
-
-    // Accuracy summary line
-    const accColor: [number, number, number] =
-      accuracyReport.issues.length === 0 ? [16, 129, 81] : [185, 28, 28];
-    doc.setTextColor(...accColor);
-    doc.setFont('helvetica', 'bold');
-    doc.text(
-      `Accuracy: ${accuracyReport.clean}/${accuracyReport.total} complete${
-        accuracyReport.issues.length > 0 ? ` • ${accuracyReport.issues.length} with missing fields` : ' • all fields present'
-      }`,
-      80,
-      41,
-    );
-    doc.setTextColor(0, 0, 0);
-    doc.setFont('helvetica', 'normal');
-
-    const tableData = strictJobs.map((job) => {
-      const ongoingInfo: string[] = [];
-      if (job.isOngoing) ongoingInfo.push('ONGOING');
-      const reason = stripHtml(job.ongoingReason);
-      if (reason) ongoingInfo.push(reason);
-      if (Array.isArray(job.scheduledTrades) && job.scheduledTrades.length > 0) {
-        const trades = job.scheduledTrades
-          .map((t: ScheduledTrade & { tradeType?: string }) => {
-            const parts = [t.tradeType || t.trade, t.tradesman, t.date]
-              .filter(Boolean)
-              .join(' • ');
-            return parts;
-          })
-          .filter(Boolean)
-          .join('\n');
-        if (trades) ongoingInfo.push(trades);
-      }
-      // Booking + completion dates so invoicing sees both
-      const dateLine = [
-        job.bookedDate ? `Booked: ${format(new Date(job.bookedDate), 'dd/MM/yyyy')}` : null,
-        job.completionDate ? `Completed: ${format(new Date(job.completionDate), 'dd/MM/yyyy')}` : null,
-        job.isOngoing ? 'ONGOING' : null,
-      ].filter(Boolean).join(' • ');
-      if (dateLine) ongoingInfo.unshift(dateLine);
-
-      const teams = [job.team, job.team2].filter(Boolean).join(' + ') || '-';
-      const statusLabel = isCompleteJob(job) ? 'Complete' : job.isOngoing ? 'Ongoing / Booked' : 'Booked';
-
-      return [
-        job.jobNumber || '-',
-        statusLabel,
-        job.address || '-',
-        job.name || '-',
-        teams,
-        stripHtml(job.summaryOfWorks || job.description) || '-',
-        stripHtml(job.progressNotes) || '-',
-        ongoingInfo.join('\n') || '-',
-      ];
-    });
-
-    autoTable(doc, {
-      head: [['Job Number', 'Status', 'Address', 'Tenant Name', 'Assigned Teams', 'Description', 'Progress Description', 'Ongoing Information']],
-      body: tableData,
-      startY: 46,
-      styles: {
-        fontSize: 7,
-        cellPadding: 2,
-        overflow: 'linebreak',
-        valign: 'top',
-      },
-      headStyles: {
-        fillColor: [34, 139, 34],
-        textColor: [255, 255, 255],
-        fontStyle: 'bold',
-        halign: 'left',
-      },
-      columnStyles: {
-        0: { cellWidth: 22 },
-        1: { cellWidth: 22 },
-        2: { cellWidth: 43 },
-        3: { cellWidth: 27 },
-        4: { cellWidth: 25 },
-        5: { cellWidth: 52 },
-        6: { cellWidth: 41 },
-        7: { cellWidth: 35 },
-      },
-      alternateRowStyles: { fillColor: [245, 245, 245] },
-      didDrawPage: (data) => {
-        const pageCount = doc.getNumberOfPages();
-        doc.setFontSize(8);
-        doc.text(
-          `Page ${data.pageNumber} of ${pageCount}`,
-          doc.internal.pageSize.width / 2,
-          doc.internal.pageSize.height - 8,
-          { align: 'center' },
-        );
-      },
-    });
-
-    // Accuracy report appendix
-    doc.addPage('a4', 'landscape');
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'bold');
-    doc.text('ACCURACY REPORT', 14, 16);
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Range (${mode}): ${rangeLabel}`, 14, 23);
-    doc.text(`Jobs checked: ${accuracyReport.total}`, 14, 29);
-    doc.text(`Fully populated: ${accuracyReport.clean}`, 14, 35);
-    doc.text(`With missing fields: ${accuracyReport.issues.length}`, 14, 41);
-
-    if (accuracyReport.issues.length > 0) {
-      autoTable(doc, {
-        head: [['Job Number', 'Missing / Issue']],
-        body: accuracyReport.issues.map((i) => [i.jobNumber, i.missing.join(', ')]),
-        startY: 48,
-        styles: { fontSize: 9, cellPadding: 2.5 },
-        headStyles: { fillColor: [185, 28, 28], textColor: [255, 255, 255], fontStyle: 'bold' },
-        columnStyles: { 0: { cellWidth: 40 }, 1: { cellWidth: 220 } },
-      });
-    } else {
-      doc.setTextColor(16, 129, 81);
-      doc.setFont('helvetica', 'bold');
-      doc.text('✓ All jobs in this range have complete data.', 14, 52);
-      doc.setTextColor(0, 0, 0);
-    }
-
-    const stamp = format(new Date(), 'yyyyMMdd');
-    const filename = `invoice-data_${mode}_${format(range.start, 'yyyyMMdd')}-${format(range.end, 'yyyyMMdd')}_${stamp}.pdf`;
     try {
+      if (filteredJobs.length === 0) {
+        alert('No invoice jobs found for the selected ' + mode);
+        return;
+      }
+
+      const strictJobs = filteredJobs.filter(inRange);
+
+      const doc = new jsPDF('landscape', 'mm', 'a4');
+
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text('INVOICE DATA - BOOKED & COMPLETED JOBS', 14, 16);
+
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Category: ${categoryName}`, 14, 23);
+      doc.text(`Range (${mode}): ${rangeLabel}`, 14, 29);
+      doc.text(`Generated: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 14, 35);
+      doc.text(`Total Jobs: ${strictJobs.length}`, 14, 41);
+
+      const accColor: [number, number, number] =
+        accuracyReport.issues.length === 0 ? [16, 129, 81] : [185, 28, 28];
+      doc.setTextColor(...accColor);
+      doc.setFont('helvetica', 'bold');
+      doc.text(
+        `Accuracy: ${accuracyReport.clean}/${accuracyReport.total} complete${
+          accuracyReport.issues.length > 0 ? ` • ${accuracyReport.issues.length} with missing fields` : ' • all fields present'
+        }`,
+        80,
+        41,
+      );
+      doc.setTextColor(0, 0, 0);
+      doc.setFont('helvetica', 'normal');
+
+      const tableData = strictJobs.map((job) => {
+        const ongoingInfo: string[] = [];
+        const reason = stripHtml(job.ongoingReason);
+        if (job.isOngoing) ongoingInfo.push('ONGOING');
+        if (reason) ongoingInfo.push(reason);
+        if (Array.isArray(job.scheduledTrades) && job.scheduledTrades.length > 0) {
+          const trades = job.scheduledTrades
+            .map((t: ScheduledTrade & { tradeType?: string }) => {
+              return [t.tradeType || t.trade, t.tradesman, t.date].filter(Boolean).join(' • ');
+            })
+            .filter(Boolean)
+            .join('\n');
+          if (trades) ongoingInfo.push(trades);
+        }
+        const dateLine = [
+          job.bookedDate ? `Booked: ${format(new Date(job.bookedDate), 'dd/MM/yyyy')}` : null,
+          job.completionDate ? `Completed: ${format(new Date(job.completionDate), 'dd/MM/yyyy')}` : null,
+        ].filter(Boolean).join(' • ');
+        if (dateLine) ongoingInfo.unshift(dateLine);
+
+        const teams = [job.team, job.team2].filter(Boolean).join(' + ') || '-';
+        const statusLabel = isCompleteJob(job) ? 'Complete' : job.isOngoing ? 'Ongoing / Booked' : 'Booked';
+
+        const allSors = [...(job.workItems || []), ...(job.additionalWorks || [])]
+          .filter((w) => w && (w.isConfirmed !== false));
+        const sorTotal = allSors.reduce((s, w) => s + (Number(w.cost) || 0) * (Number(w.qty) || 1), 0);
+        const sorSummary = allSors.length > 0
+          ? `${allSors.length} SOR item${allSors.length === 1 ? '' : 's'} • ${formatGBP(sorTotal)}`
+          : 'No SOR items';
+
+        return [
+          job.jobNumber || '-',
+          statusLabel,
+          job.address || '-',
+          job.name || '-',
+          teams,
+          stripHtml(job.summaryOfWorks || job.description) || '-',
+          sorSummary,
+          ongoingInfo.join('\n') || '-',
+        ];
+      });
+
+      autoTable(doc, {
+        head: [['Job Number', 'Status', 'Address', 'Tenant', 'Teams', 'Description', 'SOR Summary', 'Notes']],
+        body: tableData,
+        startY: 46,
+        styles: { fontSize: 7, cellPadding: 2, overflow: 'linebreak', valign: 'top' },
+        headStyles: { fillColor: [34, 139, 34], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'left' },
+        columnStyles: {
+          0: { cellWidth: 22 }, 1: { cellWidth: 22 }, 2: { cellWidth: 43 },
+          3: { cellWidth: 27 }, 4: { cellWidth: 22 }, 5: { cellWidth: 55 },
+          6: { cellWidth: 32 }, 7: { cellWidth: 44 },
+        },
+        alternateRowStyles: { fillColor: [245, 245, 245] },
+        didDrawPage: (data) => {
+          const pageCount = doc.getNumberOfPages();
+          doc.setFontSize(8);
+          doc.text(
+            `Page ${data.pageNumber} of ${pageCount}`,
+            doc.internal.pageSize.width / 2,
+            doc.internal.pageSize.height - 8,
+            { align: 'center' },
+          );
+        },
+      });
+
+      // === SOR breakdown per job ===
+      doc.addPage('a4', 'landscape');
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('SOR BREAKDOWN BY JOB', 14, 16);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Range (${mode}): ${rangeLabel} • ${strictJobs.length} jobs`, 14, 22);
+
+      let cursorY = 28;
+      const pageHeight = doc.internal.pageSize.height;
+      const pageWidth = doc.internal.pageSize.width;
+      let grandTotal = 0;
+
+      strictJobs.forEach((job) => {
+        const items = [...(job.workItems || []), ...(job.additionalWorks || [])]
+          .filter((w) => w && (w.isConfirmed !== false));
+
+        if (cursorY > pageHeight - 40) {
+          doc.addPage('a4', 'landscape');
+          cursorY = 16;
+        }
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.setFillColor(230, 240, 255);
+        doc.rect(14, cursorY - 4, pageWidth - 28, 7, 'F');
+        const header = `${job.jobNumber || '-'} — ${job.address || '-'} — ${job.name || '-'}`;
+        doc.text(header.substring(0, 140), 16, cursorY + 1);
+        cursorY += 6;
+
+        if (items.length === 0) {
+          doc.setFont('helvetica', 'italic');
+          doc.setFontSize(8);
+          doc.setTextColor(120, 120, 120);
+          doc.text('No SOR items recorded for this job.', 16, cursorY + 4);
+          doc.setTextColor(0, 0, 0);
+          cursorY += 9;
+          return;
+        }
+
+        const jobSubtotal = items.reduce((s, w) => s + (Number(w.cost) || 0) * (Number(w.qty) || 1), 0);
+        grandTotal += jobSubtotal;
+
+        autoTable(doc, {
+          head: [['SOR Code', 'Description', 'Qty', 'Unit Cost', 'Line Total', 'Variation']],
+          body: items.map((w) => {
+            const qty = Number(w.qty) || 1;
+            const unit = Number(w.cost) || 0;
+            return [
+              w.sorCode || '-',
+              stripHtml(w.description) || '-',
+              String(qty),
+              formatGBP(unit),
+              formatGBP(unit * qty),
+              w.hasModification ? stripHtml(w.variation) || '-' : '-',
+            ];
+          }),
+          foot: [['', 'Subtotal', '', '', formatGBP(jobSubtotal), '']],
+          startY: cursorY,
+          margin: { left: 14, right: 14 },
+          styles: { fontSize: 7.5, cellPadding: 1.6, overflow: 'linebreak', valign: 'top' },
+          headStyles: { fillColor: [59, 130, 246], textColor: [255, 255, 255], fontStyle: 'bold' },
+          footStyles: { fillColor: [241, 245, 249], textColor: [15, 23, 42], fontStyle: 'bold' },
+          columnStyles: {
+            0: { cellWidth: 28 },
+            1: { cellWidth: 120 },
+            2: { cellWidth: 14, halign: 'right' },
+            3: { cellWidth: 24, halign: 'right' },
+            4: { cellWidth: 26, halign: 'right' },
+            5: { cellWidth: 56 },
+          },
+        });
+        const docAny = doc as unknown as { lastAutoTable?: { finalY: number } };
+        cursorY = (docAny.lastAutoTable?.finalY ?? cursorY) + 6;
+      });
+
+      if (cursorY > pageHeight - 20) {
+        doc.addPage('a4', 'landscape');
+        cursorY = 16;
+      }
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.text(`GRAND TOTAL (${strictJobs.length} jobs): ${formatGBP(grandTotal)}`, 14, cursorY + 4);
+
+      // === Accuracy appendix ===
+      doc.addPage('a4', 'landscape');
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('ACCURACY REPORT', 14, 16);
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Range (${mode}): ${rangeLabel}`, 14, 23);
+      doc.text(`Jobs checked: ${accuracyReport.total}`, 14, 29);
+      doc.text(`Fully populated: ${accuracyReport.clean}`, 14, 35);
+      doc.text(`With missing fields: ${accuracyReport.issues.length}`, 14, 41);
+
+      if (accuracyReport.issues.length > 0) {
+        autoTable(doc, {
+          head: [['Job Number', 'Missing / Issue']],
+          body: accuracyReport.issues.map((i) => [i.jobNumber, i.missing.join(', ')]),
+          startY: 48,
+          styles: { fontSize: 9, cellPadding: 2.5 },
+          headStyles: { fillColor: [185, 28, 28], textColor: [255, 255, 255], fontStyle: 'bold' },
+          columnStyles: { 0: { cellWidth: 40 }, 1: { cellWidth: 220 } },
+        });
+      } else {
+        doc.setTextColor(16, 129, 81);
+        doc.setFont('helvetica', 'bold');
+        doc.text('All jobs in this range have complete data.', 14, 52);
+        doc.setTextColor(0, 0, 0);
+      }
+
+      const stamp = format(new Date(), 'yyyyMMdd');
+      const filename = `invoice-data_${mode}_${format(range.start, 'yyyyMMdd')}-${format(range.end, 'yyyyMMdd')}_${stamp}.pdf`;
       downloadPDF(doc, filename, { targetWindow });
       setIsOpen(false);
     } catch (error) {
       console.error('[invoice-pdf] generation/download failed', error);
-      alert('The invoice PDF could not be opened. Please allow pop-ups/downloads for this site and try again.');
+      alert(`The invoice PDF could not be generated.\n\n${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
