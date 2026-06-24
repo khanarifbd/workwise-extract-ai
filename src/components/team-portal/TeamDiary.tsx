@@ -91,62 +91,45 @@ export const TeamDiary: React.FC<TeamDiaryProps> = ({ teamId, teamName }) => {
     if (!selectedDate) return;
 
     try {
-      // First check if already exists in database (fresh check)
-      const { data: existingData } = await supabase
-        .from('team_availability')
-        .select('id')
-        .eq('team_id', teamId)
-        .eq('unavailable_date', selectedDate)
-        .maybeSingle();
-
-      if (existingData) {
-        toast({
-          title: 'Day already marked unavailable',
-          variant: 'destructive',
-        });
-        // Refresh local state to sync with server
-        await loadUnavailableDays();
-        setSelectedDate(null);
-        setReason('');
-        return;
-      }
-
-      // Insert without select to avoid RLS issues on team portal (not authenticated as Supabase user)
-      const { error } = await supabase.from('team_availability').insert({
-        team_id: teamId,
-        unavailable_date: selectedDate,
-        reason: reason || null,
-        created_by: teamName,
+      const { data, error } = await supabase.functions.invoke('team-availability', {
+        body: {
+          action: 'add',
+          teamId,
+          unavailableDate: selectedDate,
+          reason: reason || null,
+          createdBy: teamName,
+        },
       });
 
-      if (error) {
-        if (error.code === '23505') {
+      const errCode = (data as { error?: string } | null)?.error;
+      if (error || errCode) {
+        if (errCode === 'duplicate') {
           toast({
             title: 'Day already marked unavailable',
             variant: 'destructive',
           });
-          // Refresh local state to sync with server
           await loadUnavailableDays();
-        } else {
-          console.error('Insert error:', error);
-          throw error;
+          setSelectedDate(null);
+          setReason('');
+          return;
         }
-      } else {
-        // Immediately update local state
-        const tempId = crypto.randomUUID();
-        setUnavailableDays(prev => [...prev, {
-          id: tempId,
-          teamId: teamId,
-          unavailableDate: selectedDate,
-          reason: reason || null,
-          createdAt: new Date().toISOString(),
-        }]);
-        
-        toast({
-          title: 'Day marked as unavailable',
-          description: `${format(new Date(selectedDate), 'dd MMM yyyy')} is now blocked`,
-        });
+        console.error('Insert error:', error || errCode);
+        throw error || new Error(errCode);
       }
+
+      const inserted = (data as { data?: any } | null)?.data;
+      setUnavailableDays(prev => [...prev, {
+        id: inserted?.id ?? crypto.randomUUID(),
+        teamId: teamId,
+        unavailableDate: selectedDate,
+        reason: reason || null,
+        createdAt: inserted?.created_at ?? new Date().toISOString(),
+      }]);
+
+      toast({
+        title: 'Day marked as unavailable',
+        description: `${format(new Date(selectedDate), 'dd MMM yyyy')} is now blocked`,
+      });
       setSelectedDate(null);
       setReason('');
     } catch (error) {
@@ -160,17 +143,15 @@ export const TeamDiary: React.FC<TeamDiaryProps> = ({ teamId, teamName }) => {
 
   const handleRemoveUnavailable = async (dateStr: string) => {
     try {
-      const { error } = await supabase
-        .from('team_availability')
-        .delete()
-        .eq('team_id', teamId)
-        .eq('unavailable_date', dateStr);
+      const { data, error } = await supabase.functions.invoke('team-availability', {
+        body: { action: 'remove', teamId, unavailableDate: dateStr },
+      });
 
-      if (error) throw error;
+      const errCode = (data as { error?: string } | null)?.error;
+      if (error || errCode) throw error || new Error(errCode);
 
-      // Immediately update local state to reflect the change
       setUnavailableDays(prev => prev.filter(day => day.unavailableDate !== dateStr));
-      
+
       toast({
         title: 'Day marked as available',
         description: `${format(new Date(dateStr), 'dd MMM yyyy')} is now available`,
