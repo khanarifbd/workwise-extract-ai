@@ -166,8 +166,16 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
         const allSors = [...(job.workItems || []), ...(job.additionalWorks || [])]
           .filter((w) => w && (w.isConfirmed !== false));
         const sorTotal = allSors.reduce((s, w) => s + (Number(w.cost) || 0) * (Number(w.qty) || 1), 0);
-        const sorSummary = allSors.length > 0
-          ? `${allSors.length} SOR item${allSors.length === 1 ? '' : 's'} • ${formatGBP(sorTotal)}`
+        const sorList = allSors.length > 0
+          ? allSors
+              .map((w) => {
+                const code = (w.sorCode || '').trim() || 'NO-CODE';
+                const desc = stripHtml(w.description) || '(no description)';
+                const qty = Number(w.qty) || 1;
+                const line = (Number(w.cost) || 0) * qty;
+                return `• ${code} — ${desc} (x${qty}, ${formatGBP(line)})`;
+              })
+              .join('\n') + `\n──────\nTotal: ${formatGBP(sorTotal)} (${allSors.length} item${allSors.length === 1 ? '' : 's'})`
           : 'No SOR items';
 
         return [
@@ -177,21 +185,21 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
           job.name || '-',
           teams,
           stripHtml(job.summaryOfWorks || job.description) || '-',
-          sorSummary,
+          sorList,
           ongoingInfo.join('\n') || '-',
         ];
       });
 
       autoTable(doc, {
-        head: [['Job Number', 'Status', 'Address', 'Tenant', 'Teams', 'Description', 'SOR Summary', 'Notes']],
+        head: [['Job Number', 'Status', 'Address', 'Tenant', 'Teams', 'Description', 'SOR Codes & Descriptions', 'Notes']],
         body: tableData,
         startY: 46,
         styles: { fontSize: 7, cellPadding: 2, overflow: 'linebreak', valign: 'top' },
         headStyles: { fillColor: [34, 139, 34], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'left' },
         columnStyles: {
-          0: { cellWidth: 22 }, 1: { cellWidth: 22 }, 2: { cellWidth: 43 },
-          3: { cellWidth: 27 }, 4: { cellWidth: 22 }, 5: { cellWidth: 55 },
-          6: { cellWidth: 32 }, 7: { cellWidth: 44 },
+          0: { cellWidth: 20 }, 1: { cellWidth: 20 }, 2: { cellWidth: 36 },
+          3: { cellWidth: 24 }, 4: { cellWidth: 20 }, 5: { cellWidth: 42 },
+          6: { cellWidth: 64 }, 7: { cellWidth: 41 },
         },
         alternateRowStyles: { fillColor: [245, 245, 245] },
         didDrawPage: (data) => {
