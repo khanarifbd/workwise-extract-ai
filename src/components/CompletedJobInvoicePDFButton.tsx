@@ -404,11 +404,13 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
 
           <Button
             onPointerDown={() => {
-              (window as Window & { __invoicePdfWindow?: Window | null }).__invoicePdfWindow = preparePDFWindow({ force: true });
+              // iOS-only pre-opened tab (preparePDFWindow returns null elsewhere).
+              (window as Window & { __invoicePdfWindow?: Window | null }).__invoicePdfWindow = preparePDFWindow();
             }}
             onClick={() => {
-              const invoiceWindow = (window as Window & { __invoicePdfWindow?: Window | null }).__invoicePdfWindow ?? preparePDFWindow({ force: true });
-              (window as Window & { __invoicePdfWindow?: Window | null }).__invoicePdfWindow = null;
+              const w = window as Window & { __invoicePdfWindow?: Window | null };
+              const invoiceWindow = w.__invoicePdfWindow ?? preparePDFWindow();
+              w.__invoicePdfWindow = null;
               handleGenerate(invoiceWindow);
             }}
             className="w-full bg-blue-600 hover:bg-blue-700"
