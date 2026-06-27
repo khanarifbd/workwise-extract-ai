@@ -74,6 +74,7 @@ export interface SectionDescriptor {
 
 const registry = new Map<string, SectionDescriptor>();
 const registryListeners = new Set<() => void>();
+let registrySnapshot: SectionDescriptor[] = [];
 
 function notifyRegistry() { registryListeners.forEach(l => l()); }
 
@@ -81,6 +82,7 @@ export function registerSection(desc: SectionDescriptor) {
   const existing = registry.get(desc.id);
   if (existing && existing.label === desc.label && existing.group === desc.group && existing.defaultPreset === desc.defaultPreset) return;
   registry.set(desc.id, desc);
+  registrySnapshot = Array.from(registry.values());
   notifyRegistry();
 }
 
@@ -90,7 +92,7 @@ export function subscribeRegistry(l: () => void) {
 }
 
 export function snapshotRegistry(): SectionDescriptor[] {
-  return Array.from(registry.values());
+  return registrySnapshot;
 }
 
 /* ───────── Selection store — persisted in localStorage ───────── */
