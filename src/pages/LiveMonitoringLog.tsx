@@ -78,6 +78,7 @@ const LiveMonitoringLog = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [visibleCount, setVisibleCount] = useState(10);
   const [toast, setToast] = useState<string | null>(null);
+  const [logModalOpen, setLogModalOpen] = useState(false);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const pullStartY = useRef<number | null>(null);
   const [pullOffset, setPullOffset] = useState(0);
