@@ -382,6 +382,13 @@ const NavCommandCenter = () => {
           </div>
         </footer>
       </div>
+
+      <TeamCallLogDialog
+        open={!!callTarget}
+        onOpenChange={(o) => !o && setCallTarget(null)}
+        team={callTarget?.team || ""}
+        phone={callTarget?.phone || ""}
+      />
     </div>
   );
 };
