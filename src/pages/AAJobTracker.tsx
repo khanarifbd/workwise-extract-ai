@@ -131,6 +131,7 @@ const AAJobTracker = () => {
         </div>
 
         {/* In progress */}
+        <div className={cn("rounded-3xl border-2 p-2 sm:p-3 shadow-md", aaInProgressTone)}>
         <section className="rounded-2xl border bg-card shadow-sm overflow-hidden">
           <SectionHeader title="In Progress" count={IN_PROGRESS.length} icon={Wrench} accent="bg-amber-500" />
 
@@ -196,8 +197,10 @@ const AAJobTracker = () => {
             ))}
           </ul>
         </section>
+        </div>
 
         {/* Completed today */}
+        <div className={cn("rounded-3xl border-2 p-2 sm:p-3 shadow-md", aaCompletedTone)}>
         <section className="rounded-2xl border bg-card shadow-sm overflow-hidden">
           <SectionHeader title="Completed Today" count={COMPLETED.length} icon={CheckCircle2} accent="bg-emerald-500" />
           <ul className="divide-y">
@@ -221,6 +224,7 @@ const AAJobTracker = () => {
             ))}
           </ul>
         </section>
+        </div>
 
         {log && (
           <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 rounded-full bg-foreground text-background text-xs font-medium px-4 py-2 shadow-lg">
