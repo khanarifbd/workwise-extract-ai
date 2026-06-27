@@ -391,41 +391,39 @@ const LiveMonitoringLog = () => {
               count={flags.length}
               accent="bg-red-500"
             />
-            {flags.length === 0 ? (
-              <EmptyHint label="No active flags." />
-            ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                {flags.slice(0, visibleCount).filter(f => !resolvedIds.has(f.id)).map((f) => (
-                  <article key={f.id} className="rounded-2xl border bg-card p-4 shadow-sm space-y-2">
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs tabular-nums text-muted-foreground">{f.time}</span>
-                        <span className="font-semibold tabular-nums">{f.jobNumber}</span>
-                        <Badge variant="outline">{f.category}</Badge>
-                        <span className={cn("inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded border", SEVERITY_STYLES[f.severity])}>
-                          {f.severity === "urgent" ? <AlertTriangle className="h-3 w-3" /> : <Flag className="h-3 w-3" />}
-                          {f.severity}
-                        </span>
-                      </div>
+            <CollapsibleDateGroups<FlagEntry>
+              items={flags.filter(f => !resolvedIds.has(f.id)) as DatedItem<FlagEntry>[]}
+              emptyLabel="No active flags."
+              render={(f) => (
+                <article key={f.id} className="rounded-2xl border bg-card p-4 shadow-sm space-y-2">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs tabular-nums text-muted-foreground">{f.time}</span>
+                      <span className="font-semibold tabular-nums">{f.jobNumber}</span>
+                      <Badge variant="outline">{f.category}</Badge>
+                      <span className={cn("inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded border", SEVERITY_STYLES[f.severity])}>
+                        {f.severity === "urgent" ? <AlertTriangle className="h-3 w-3" /> : <Flag className="h-3 w-3" />}
+                        {f.severity}
+                      </span>
                     </div>
-                    <p className="text-sm">{f.description}</p>
-                    <div className="text-xs text-muted-foreground"><b>Status:</b> {f.status} · <b>Action:</b> {f.actionTaken}</div>
-                    {flagNotes[f.id]?.length > 0 && (
-                      <ul className="text-xs space-y-0.5 pl-3 border-l-2 border-amber-500/40">
-                        {flagNotes[f.id].map((n, i) => (
-                          <li key={i} className="text-muted-foreground"><b className="text-foreground">Note:</b> {n}</li>
-                        ))}
-                      </ul>
-                    )}
-                    <div className="flex flex-wrap gap-1.5 pt-1">
-                      <Button size="sm" variant="outline" onClick={() => handleAddNote(f)}><StickyNote className="h-3.5 w-3.5 mr-1" />Add Note</Button>
-                      <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => handleMarkResolved(f)}><CheckCircle2 className="h-3.5 w-3.5 mr-1" />Mark Resolved</Button>
-                      <Button size="sm" variant="outline" onClick={() => handleCall(f)}><PhoneCall className="h-3.5 w-3.5 mr-1" />Call</Button>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
+                  </div>
+                  <p className="text-sm">{f.description}</p>
+                  <div className="text-xs text-muted-foreground"><b>Status:</b> {f.status} · <b>Action:</b> {f.actionTaken}</div>
+                  {flagNotes[f.id]?.length > 0 && (
+                    <ul className="text-xs space-y-0.5 pl-3 border-l-2 border-amber-500/40">
+                      {flagNotes[f.id].map((n, i) => (
+                        <li key={i} className="text-muted-foreground"><b className="text-foreground">Note:</b> {n}</li>
+                      ))}
+                    </ul>
+                  )}
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    <Button size="sm" variant="outline" onClick={() => handleAddNote(f)}><StickyNote className="h-3.5 w-3.5 mr-1" />Add Note</Button>
+                    <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => handleMarkResolved(f)}><CheckCircle2 className="h-3.5 w-3.5 mr-1" />Mark Resolved</Button>
+                    <Button size="sm" variant="outline" onClick={() => openCallForFlag(f)}><PhoneCall className="h-3.5 w-3.5 mr-1" />Call</Button>
+                  </div>
+                </article>
+              )}
+            />
           </section>
           </div>
         )}
@@ -440,24 +438,22 @@ const LiveMonitoringLog = () => {
               count={quality.length}
               accent="bg-amber-500"
             />
-            {quality.length === 0 ? (
-              <EmptyHint label="No quality notes." />
-            ) : (
-              <ul className="rounded-2xl border bg-card shadow-sm divide-y">
-                {quality.slice(0, visibleCount).map((n) => (
-                  <li key={n.id} className="p-4 flex flex-col sm:flex-row sm:items-center gap-2">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs tabular-nums text-muted-foreground">{n.time}</span>
-                      <span className="font-semibold tabular-nums">{n.jobNumber}</span>
-                    </div>
-                    <p className="text-sm flex-1">{n.issue}</p>
-                    <Badge className={n.resolved ? "bg-emerald-500 hover:bg-emerald-500" : "bg-amber-500 hover:bg-amber-500"}>
-                      {n.resolved ? "Resolved" : "Open"}
-                    </Badge>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <CollapsibleDateGroups<QualityNote>
+              items={quality as DatedItem<QualityNote>[]}
+              emptyLabel="No quality notes."
+              render={(n) => (
+                <div key={n.id} className="rounded-xl border bg-card p-3 flex flex-col sm:flex-row sm:items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs tabular-nums text-muted-foreground">{n.time}</span>
+                    <span className="font-semibold tabular-nums">{n.jobNumber}</span>
+                  </div>
+                  <p className="text-sm flex-1">{n.issue}</p>
+                  <Badge className={n.resolved ? "bg-emerald-500 hover:bg-emerald-500" : "bg-amber-500 hover:bg-amber-500"}>
+                    {n.resolved ? "Resolved" : "Open"}
+                  </Badge>
+                </div>
+              )}
+            />
           </section>
           </div>
         )}
@@ -472,36 +468,36 @@ const LiveMonitoringLog = () => {
               count={coaching.length}
               accent="bg-violet-500"
             />
-            {coaching.length === 0 ? (
-              <EmptyHint label="No coaching items." />
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {coaching.slice(0, visibleCount).filter(c => !dismissedCoaching.has(c.id)).map((c) => (
-                  <article key={c.id} className="rounded-2xl border bg-card p-4 shadow-sm space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <div className="font-semibold">{c.team}</div>
-                      <Badge variant="outline">Pattern</Badge>
+            <CollapsibleDateGroups<CoachingItem>
+              items={coaching.filter(c => !dismissedCoaching.has(c.id)) as DatedItem<CoachingItem>[]}
+              emptyLabel="No coaching items."
+              render={(c) => (
+                <article key={c.id} className="rounded-2xl border bg-card p-4 shadow-sm space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <div className="font-semibold">{c.team}</div>
+                    <Badge variant="outline">Pattern</Badge>
+                  </div>
+                  <p className="text-sm"><span className="text-muted-foreground">Pattern:</span> {c.pattern}</p>
+                  <p className="text-sm"><span className="text-muted-foreground">Recommendation:</span> {c.recommendation}</p>
+                  {(assignments[c.id] || schedules[c.id]) && (
+                    <div className="text-xs text-muted-foreground space-x-2">
+                      {assignments[c.id] && <span><b className="text-foreground">Assigned:</b> {assignments[c.id]}</span>}
+                      {schedules[c.id] && <span><b className="text-foreground">Scheduled:</b> {schedules[c.id]}</span>}
                     </div>
-                    <p className="text-sm"><span className="text-muted-foreground">Pattern:</span> {c.pattern}</p>
-                    <p className="text-sm"><span className="text-muted-foreground">Recommendation:</span> {c.recommendation}</p>
-                    {(assignments[c.id] || schedules[c.id]) && (
-                      <div className="text-xs text-muted-foreground space-x-2">
-                        {assignments[c.id] && <span><b className="text-foreground">Assigned:</b> {assignments[c.id]}</span>}
-                        {schedules[c.id] && <span><b className="text-foreground">Scheduled:</b> {schedules[c.id]}</span>}
-                      </div>
-                    )}
-                    <div className="flex flex-wrap gap-1.5 pt-1">
-                      <Button size="sm" variant="outline" onClick={() => handleSchedule(c)}><CalendarClock className="h-3.5 w-3.5 mr-1" />Schedule</Button>
-                      <Button size="sm" variant="outline" onClick={() => handleAssign(c)}><UserPlus className="h-3.5 w-3.5 mr-1" />Assign</Button>
-                      <Button size="sm" variant="ghost" onClick={() => handleDismissCoaching(c)}><X className="h-3.5 w-3.5 mr-1" />Dismiss</Button>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
+                  )}
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    <Button size="sm" variant="outline" onClick={() => setScheduleTarget(c)}><CalendarClock className="h-3.5 w-3.5 mr-1" />Schedule</Button>
+                    <Button size="sm" variant="outline" onClick={() => handleAssign(c)}><UserPlus className="h-3.5 w-3.5 mr-1" />Assign</Button>
+                    <Button size="sm" variant="outline" onClick={() => openCallForCoaching(c)}><PhoneCall className="h-3.5 w-3.5 mr-1" />Call</Button>
+                    <Button size="sm" variant="ghost" onClick={() => handleDismissCoaching(c)}><X className="h-3.5 w-3.5 mr-1" />Dismiss</Button>
+                  </div>
+                </article>
+              )}
+            />
           </section>
           </div>
         )}
+
 
         {/* RESOLVED */}
         {(filter === "all" || filter === "resolved") && (
