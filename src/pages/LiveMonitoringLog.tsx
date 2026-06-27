@@ -448,7 +448,7 @@ const LiveMonitoringLog = () => {
               <EmptyHint label="No coaching items." />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {coaching.slice(0, visibleCount).map((c) => (
+                {coaching.slice(0, visibleCount).filter(c => !dismissedCoaching.has(c.id)).map((c) => (
                   <article key={c.id} className="rounded-2xl border bg-card p-4 shadow-sm space-y-1.5">
                     <div className="flex items-center justify-between">
                       <div className="font-semibold">{c.team}</div>
@@ -456,10 +456,16 @@ const LiveMonitoringLog = () => {
                     </div>
                     <p className="text-sm"><span className="text-muted-foreground">Pattern:</span> {c.pattern}</p>
                     <p className="text-sm"><span className="text-muted-foreground">Recommendation:</span> {c.recommendation}</p>
+                    {(assignments[c.id] || schedules[c.id]) && (
+                      <div className="text-xs text-muted-foreground space-x-2">
+                        {assignments[c.id] && <span><b className="text-foreground">Assigned:</b> {assignments[c.id]}</span>}
+                        {schedules[c.id] && <span><b className="text-foreground">Scheduled:</b> {schedules[c.id]}</span>}
+                      </div>
+                    )}
                     <div className="flex flex-wrap gap-1.5 pt-1">
-                      <Button size="sm" variant="outline" onClick={() => fire(`Schedule ${c.team}`)}><CalendarClock className="h-3.5 w-3.5 mr-1" />Schedule</Button>
-                      <Button size="sm" variant="outline" onClick={() => fire(`Assign ${c.team}`)}><UserPlus className="h-3.5 w-3.5 mr-1" />Assign</Button>
-                      <Button size="sm" variant="ghost" onClick={() => fire(`Dismiss ${c.team}`)}><X className="h-3.5 w-3.5 mr-1" />Dismiss</Button>
+                      <Button size="sm" variant="outline" onClick={() => handleSchedule(c)}><CalendarClock className="h-3.5 w-3.5 mr-1" />Schedule</Button>
+                      <Button size="sm" variant="outline" onClick={() => handleAssign(c)}><UserPlus className="h-3.5 w-3.5 mr-1" />Assign</Button>
+                      <Button size="sm" variant="ghost" onClick={() => handleDismissCoaching(c)}><X className="h-3.5 w-3.5 mr-1" />Dismiss</Button>
                     </div>
                   </article>
                 ))}
