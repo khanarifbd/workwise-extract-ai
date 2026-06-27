@@ -61,14 +61,14 @@ const Band = ({
   tone, className, children,
 }: { tone: "sky" | "emerald" | "violet" | "amber" | "slate"; className?: string; children: React.ReactNode }) => {
   const tones: Record<string, string> = {
-    sky:     "bg-sky-50 dark:bg-sky-950/30 border-sky-200/70 dark:border-sky-900/50",
-    emerald: "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200/70 dark:border-emerald-900/50",
-    violet:  "bg-violet-50 dark:bg-violet-950/30 border-violet-200/70 dark:border-violet-900/50",
-    amber:   "bg-amber-50 dark:bg-amber-950/30 border-amber-200/70 dark:border-amber-900/50",
-    slate:   "bg-slate-100 dark:bg-slate-900/40 border-slate-200/70 dark:border-slate-800",
+    sky:     "bg-sky-50 dark:bg-sky-950/30 border-sky-400 dark:border-sky-700 ring-1 ring-sky-200/60 dark:ring-sky-900/40",
+    emerald: "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-400 dark:border-emerald-700 ring-1 ring-emerald-200/60 dark:ring-emerald-900/40",
+    violet:  "bg-violet-50 dark:bg-violet-950/30 border-violet-400 dark:border-violet-700 ring-1 ring-violet-200/60 dark:ring-violet-900/40",
+    amber:   "bg-amber-50 dark:bg-amber-950/30 border-amber-400 dark:border-amber-700 ring-1 ring-amber-200/60 dark:ring-amber-900/40",
+    slate:   "bg-slate-100 dark:bg-slate-900/40 border-slate-400 dark:border-slate-700 ring-1 ring-slate-200/60 dark:ring-slate-800",
   };
   return (
-    <section className={cn("rounded-3xl border p-5 sm:p-6 lg:p-8 shadow-sm", tones[tone], className)}>
+    <section className={cn("rounded-3xl border-2 p-5 sm:p-6 lg:p-8 shadow-md", tones[tone], className)}>
       {children}
     </section>
   );
