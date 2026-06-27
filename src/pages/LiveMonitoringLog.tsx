@@ -231,6 +231,7 @@ const LiveMonitoringLog = () => {
       .map(e => ({
         id: e.id,
         time: hhmm(e.createdAt),
+        dateISO: e.createdAt,
         jobNumber: e.jobReference || (e.team || e.teamOther || "—"),
         category: e.category || "General",
         severity: sevMap(e.severity),
