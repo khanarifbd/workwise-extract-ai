@@ -135,6 +135,11 @@ const App = () => (
                   <PageErrorBoundary><Suspense fallback={<PageLoader />}><NavCommandCenter /></Suspense></PageErrorBoundary>
                 </AdminRoute>
               } />
+              <Route path="/command/dm" element={
+                <AdminRoute>
+                  <PageErrorBoundary><Suspense fallback={<PageLoader />}><DMJobTracker /></Suspense></PageErrorBoundary>
+                </AdminRoute>
+              } />
               <Route path="/roadmaps" element={
                 <AdminRoute>
                   <PageErrorBoundary><Suspense fallback={<PageLoader />}><Roadmaps /></Suspense></PageErrorBoundary>
