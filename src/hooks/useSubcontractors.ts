@@ -63,7 +63,7 @@ export const useSubcontractors = (opts?: { activeOnly?: boolean }) => {
       if (typeof v === 'string') clean[k] = v.trim() || null;
       else clean[k] = v;
     }
-    const { error } = await supabase.from('subcontractors').update(clean).eq('id', id);
+    const { error } = await supabase.from('subcontractors').update(clean as any).eq('id', id);
     if (error) {
       toast.error(`Failed to update: ${error.message}`);
       return false;
