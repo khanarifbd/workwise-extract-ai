@@ -99,7 +99,7 @@ export default function OwnersDashboard() {
       head: [["Job", "Team", "Issue", "Severity"]],
       body: flags.open.map((f) => [f.jobNumber, f.team, f.issue, f.severity]),
     });
-    downloadPdf(doc, `Owners-Weekly-${todayKey}.pdf`);
+    downloadPDF(doc, `Owners-Weekly-${todayKey}.pdf`);
   };
 
   const trend = metrics.overallPct - 100;
