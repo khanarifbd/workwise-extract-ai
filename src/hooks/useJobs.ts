@@ -38,6 +38,7 @@ export const useJobs = (categoryId?: string) => {
   // Refs to prevent race conditions
   const loadingRef = useRef(false);
   const jobsLengthRef = useRef(0);
+  const realtimeInstanceRef = useRef(Math.random().toString(36).slice(2));
   const pendingUpdatesRef = useRef<Set<string>>(new Set());
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastFetchRef = useRef<number>(0);
@@ -130,7 +131,7 @@ export const useJobs = (categoryId?: string) => {
 
     // Set up realtime subscription with debounced reload
     const channel = supabase
-      .channel(`jobs-changes-${categoryId || 'all'}`)
+      .channel(`jobs-changes-${categoryId || 'all'}-${realtimeInstanceRef.current}`)
       .on(
         'postgres_changes',
         {
