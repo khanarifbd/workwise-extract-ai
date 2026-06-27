@@ -144,18 +144,17 @@ export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount
           </div>
 
           {/* ─── Command Center launcher (opens as its own app) ─── */}
-          <button
-            onClick={() => {
-              const url = `${window.location.origin}/#/command`;
-              window.open(url, 'genie-command-center', 'noopener,noreferrer');
-            }}
-            title="Open Command Center in its own window"
+          <a
+            href="#/command"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Open Command Center in a new tab"
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all bg-gradient-to-r from-orange-500 to-amber-500 text-white hover:from-orange-600 hover:to-amber-600 shadow-sm"
           >
             <CommandIcon className="w-3.5 h-3.5" />
             <span className="hidden md:inline">Command Center</span>
             <ExternalLink className="w-3 h-3 opacity-80" />
-          </button>
+          </a>
 
           {/* ─── Right: Compact action row ─── */}
           <div className="flex items-center gap-1">
