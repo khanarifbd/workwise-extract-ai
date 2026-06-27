@@ -3,7 +3,14 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
+import { HashRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { CommandQuickActionBar } from "./components/CommandQuickActionBar";
+
+function CommandBarMount() {
+  const { pathname } = useLocation();
+  if (!pathname.startsWith("/command")) return null;
+  return <CommandQuickActionBar />;
+}
 import { Capacitor } from "@capacitor/core";
 import { Loader2 } from "lucide-react";
 import TeamPortal from "./pages/TeamPortal";
@@ -99,6 +106,7 @@ const App = () => (
       <Sonner />
       <HashRouter>
         <LastRouteRestorer />
+        <CommandBarMount />
         <Routes>
           {isNativeApp ? (
             <>
