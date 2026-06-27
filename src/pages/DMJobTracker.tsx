@@ -241,6 +241,7 @@ const DMJobTracker = () => {
         </div>
 
         {/* Urgent flags */}
+        <div className={cn("rounded-3xl border-2 p-2 sm:p-3 shadow-md", dmUrgentTone)}>
         <section className="rounded-2xl border bg-card shadow-sm overflow-hidden">
           <SectionHeader title="Urgent Flags" count={URGENT.length} icon={AlertTriangle} accent="bg-red-500" />
           {URGENT.length === 0 ? (
@@ -269,8 +270,10 @@ const DMJobTracker = () => {
             </ul>
           )}
         </section>
+        </div>
 
         {/* In progress */}
+        <div className={cn("rounded-3xl border-2 p-2 sm:p-3 shadow-md", dmInProgressTone)}>
         <section className="rounded-2xl border bg-card shadow-sm overflow-hidden">
           <SectionHeader title="In Progress" count={IN_PROGRESS.length} icon={Clock} accent="bg-amber-500" />
 
@@ -343,8 +346,10 @@ const DMJobTracker = () => {
             ))}
           </ul>
         </section>
+        </div>
 
         {/* Completed today */}
+        <div className={cn("rounded-3xl border-2 p-2 sm:p-3 shadow-md", dmCompletedTone)}>
         <section className="rounded-2xl border bg-card shadow-sm overflow-hidden">
           <SectionHeader title="Completed Today" count={COMPLETED.length} icon={CheckCircle2} accent="bg-emerald-500" />
           <ul className="divide-y">
@@ -368,8 +373,10 @@ const DMJobTracker = () => {
             ))}
           </ul>
         </section>
+        </div>
 
         {/* Tomorrow's pipeline */}
+        <div className={cn("rounded-3xl border-2 p-2 sm:p-3 shadow-md", dmPipelineTone)}>
         <section className="rounded-2xl border bg-card shadow-sm overflow-hidden">
           <SectionHeader title="Tomorrow's Pipeline" count={PIPELINE.length} icon={CalendarClock} accent="bg-blue-500" />
           <ul className="divide-y">
@@ -406,6 +413,7 @@ const DMJobTracker = () => {
             ))}
           </ul>
         </section>
+        </div>
 
         {log && (
           <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 rounded-full bg-foreground text-background text-xs font-medium px-4 py-2 shadow-lg">
