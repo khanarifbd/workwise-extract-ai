@@ -280,7 +280,7 @@ const LiveMonitoringLog = () => {
 
   return (
     <div
-      className="min-h-screen bg-gradient-to-br from-slate-200 via-slate-300 to-slate-200 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950"
+      className="min-h-screen bg-gradient-to-br from-sky-100 via-sky-200 to-sky-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950"
       style={{ paddingTop: pullOffset }}
     >
       {pullOffset > 0 && (

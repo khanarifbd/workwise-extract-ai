@@ -162,7 +162,7 @@ const NavCommandCenter = () => {
   const onCall = (t: TeamRow) => setCallTarget(t);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-200 via-slate-300 to-slate-200 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+    <div className="min-h-screen bg-gradient-to-b from-sky-100 via-sky-200 to-sky-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
       <div className="mx-auto max-w-[1400px] p-4 sm:p-6 lg:p-8 space-y-6">
 
         {/* ───── HEADER ───── */}
