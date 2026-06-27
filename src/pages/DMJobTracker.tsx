@@ -381,6 +381,13 @@ const DMJobTracker = () => {
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">{p.address}</p>
+                  {(schedules[p.jobNumber] || assignments[p.jobNumber] || materials[p.jobNumber]) && (
+                    <div className="mt-1.5 flex flex-wrap gap-1.5 text-[11px]">
+                      {schedules[p.jobNumber] && <Badge variant="outline" className="border-blue-500/40 text-blue-700 dark:text-blue-300">Pre-visit: {schedules[p.jobNumber]}</Badge>}
+                      {assignments[p.jobNumber] && <Badge variant="outline" className="border-violet-500/40 text-violet-700 dark:text-violet-300">Trades: {assignments[p.jobNumber]}</Badge>}
+                      {materials[p.jobNumber] && <Badge variant="outline" className="border-emerald-500/40 text-emerald-700 dark:text-emerald-300">Materials ✓ {materials[p.jobNumber]}</Badge>}
+                    </div>
+                  )}
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   <Button size="sm" variant="outline" onClick={() => handleSchedulePreVisit(p.jobNumber)}><CalendarClock className="h-3.5 w-3.5 mr-1" />Schedule Pre-visit</Button>
