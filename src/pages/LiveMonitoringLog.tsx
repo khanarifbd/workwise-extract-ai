@@ -552,6 +552,21 @@ const LiveMonitoringLog = () => {
         onOpenChange={setLogModalOpen}
         onSave={handleSaveEntry}
       />
+      {callTarget && (
+        <TeamCallLogDialog
+          open={!!callTarget}
+          onOpenChange={(v) => !v && setCallTarget(null)}
+          team={callTarget.team}
+          phone={callTarget.phone}
+        />
+      )}
+      <ScheduleDialog
+        open={!!scheduleTarget}
+        onOpenChange={(v) => !v && setScheduleTarget(null)}
+        title={scheduleTarget ? `Schedule coaching — ${scheduleTarget.team}` : "Schedule"}
+        subtitle={scheduleTarget?.recommendation}
+        onSchedule={handleScheduleConfirm}
+      />
     </div>
   );
 };
