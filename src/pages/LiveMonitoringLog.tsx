@@ -280,6 +280,12 @@ const LiveMonitoringLog = () => {
   const urgentCount = SEED_FLAGS.filter(f => f.severity === "urgent").length;
   const today = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
+  const logFlagsTone    = useSectionTone("log.flags",    "Flags",           "Live Log", "azure");
+  const logQualityTone  = useSectionTone("log.quality",  "Quality Notes",   "Live Log", "powder");
+  const logCoachingTone = useSectionTone("log.coaching", "Coaching",        "Live Log", "mist");
+  const logResolvedTone = useSectionTone("log.resolved", "Resolved Today",  "Live Log", "glacial");
+
+
   return (
     <div
       className="min-h-screen bg-gradient-to-br from-sky-100 via-sky-200 to-sky-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950"
