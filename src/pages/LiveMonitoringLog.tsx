@@ -449,7 +449,7 @@ const LiveMonitoringLog = () => {
       <AddLogEntryModal
         open={logModalOpen}
         onOpenChange={setLogModalOpen}
-        onSave={(e) => fire(`Logged ${e.category} (${e.severity})`)}
+        onSave={handleSaveEntry}
       />
     </div>
   );
