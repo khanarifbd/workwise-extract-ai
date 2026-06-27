@@ -267,7 +267,7 @@ export default function AddLogEntryModal({
                         >
                           <div className="font-semibold text-sm">{j.jobNumber}</div>
                           <div className="text-xs text-muted-foreground truncate">
-                            {j.address} {j.tenantName ? `• ${j.tenantName}` : ""}
+                            {j.address}
                           </div>
                         </button>
                       ))}
