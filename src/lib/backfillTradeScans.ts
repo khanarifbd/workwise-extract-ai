@@ -110,7 +110,7 @@ export async function backfillTradeScans(
     }
 
     if (Object.keys(updates).length > 0) {
-      const { error: upErr } = await supabase.from("jobs").update(updates).eq("id", job.id);
+      const { error: upErr } = await supabase.from("jobs").update(updates as any).eq("id", job.id);
       if (upErr) {
         console.error("[backfill] DB update failed", job.id, upErr);
         hadFailure = true;
