@@ -10,6 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { TeamCallLogDialog } from "@/components/command/TeamCallLogDialog";
 
 type Status = "done" | "in_progress" | "flagged" | "urgent";
 
