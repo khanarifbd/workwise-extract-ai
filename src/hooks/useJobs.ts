@@ -651,7 +651,7 @@ export const useJobs = (categoryId?: string) => {
         for (const field of linkFields) {
           try {
             unlinkUpdates[field] = null;
-            await (supabase.from('jobs').update(unlinkUpdates) as any).eq(field, id);
+            await (supabase.from('jobs').update(unlinkUpdates as any) as any).eq(field, id);
           } catch { /* silent */ }
         }
       }
