@@ -42,7 +42,7 @@ export const useCategories = () => {
     loadCategories();
 
     const channel = supabase
-      .channel('categories-changes')
+      .channel(`categories-changes-${Math.random().toString(36).slice(2)}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'categories' },
