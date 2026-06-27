@@ -93,12 +93,73 @@ const LiveMonitoringLog = () => {
   const [toast, setToast] = useState<string | null>(null);
   const [logModalOpen, setLogModalOpen] = useState(false);
   const [entries, setEntries] = useState<StoredEntry[]>(() => loadStored());
+  const [flagNotes, setFlagNotes] = useState<Record<string, string[]>>(() => {
+    try { return JSON.parse(localStorage.getItem("command.flagNotes.v1") || "{}"); } catch { return {}; }
+  });
+  const [resolvedIds, setResolvedIds] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem("command.resolvedFlags.v1") || "[]")); } catch { return new Set(); }
+  });
+  const [dismissedCoaching, setDismissedCoaching] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem("command.dismissedCoaching.v1") || "[]")); } catch { return new Set(); }
+  });
+  const [assignments, setAssignments] = useState<Record<string, string>>(() => {
+    try { return JSON.parse(localStorage.getItem("command.assignments.v1") || "{}"); } catch { return {}; }
+  });
+  const [schedules, setSchedules] = useState<Record<string, string>>(() => {
+    try { return JSON.parse(localStorage.getItem("command.schedules.v1") || "{}"); } catch { return {}; }
+  });
   useEffect(() => { saveStored(entries); }, [entries]);
+  useEffect(() => { localStorage.setItem("command.flagNotes.v1", JSON.stringify(flagNotes)); }, [flagNotes]);
+  useEffect(() => { localStorage.setItem("command.resolvedFlags.v1", JSON.stringify([...resolvedIds])); }, [resolvedIds]);
+  useEffect(() => { localStorage.setItem("command.dismissedCoaching.v1", JSON.stringify([...dismissedCoaching])); }, [dismissedCoaching]);
+  useEffect(() => { localStorage.setItem("command.assignments.v1", JSON.stringify(assignments)); }, [assignments]);
+  useEffect(() => { localStorage.setItem("command.schedules.v1", JSON.stringify(schedules)); }, [schedules]);
 
   const handleSaveEntry = (e: LogEntryDraft) => {
     const id = `e_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
     setEntries((prev) => [{ ...e, id }, ...prev]);
     fire(`Entry added → ${e.severity || "Note"}`);
+  };
+
+  const handleAddNote = (flag: FlagEntry) => {
+    const note = window.prompt(`Add note for ${flag.jobNumber}:`, "");
+    if (!note || !note.trim()) return;
+    setFlagNotes(prev => ({ ...prev, [flag.id]: [...(prev[flag.id] || []), note.trim()] }));
+    fire(`Note added → ${flag.jobNumber}`);
+  };
+
+  const handleMarkResolved = (flag: FlagEntry) => {
+    if (resolvedIds.has(flag.id)) return;
+    setResolvedIds(prev => { const n = new Set(prev); n.add(flag.id); return n; });
+    fire(`Resolved → ${flag.jobNumber}`);
+  };
+
+  const handleCall = (flag: FlagEntry) => {
+    const phones: Record<string, string> = {
+      Shakthi: "+447000000001", Indika: "+447000000002", Pradeep: "+447000000003", Suresh: "+447000000004",
+    };
+    const phone = phones[flag.jobNumber] || "+447000000099";
+    window.location.href = `tel:${phone}`;
+    fire(`Calling ${flag.jobNumber}…`);
+  };
+
+  const handleAssign = (c: CoachingItem) => {
+    const who = window.prompt(`Assign coaching for ${c.team} to:`, assignments[c.id] || "Nav");
+    if (!who || !who.trim()) return;
+    setAssignments(prev => ({ ...prev, [c.id]: who.trim() }));
+    fire(`Assigned to ${who.trim()}`);
+  };
+
+  const handleSchedule = (c: CoachingItem) => {
+    const when = window.prompt(`Schedule coaching for ${c.team} (e.g. Mon 10:00):`, schedules[c.id] || "");
+    if (!when || !when.trim()) return;
+    setSchedules(prev => ({ ...prev, [c.id]: when.trim() }));
+    fire(`Scheduled ${c.team} → ${when.trim()}`);
+  };
+
+  const handleDismissCoaching = (c: CoachingItem) => {
+    setDismissedCoaching(prev => { const n = new Set(prev); n.add(c.id); return n; });
+    fire(`Dismissed ${c.team}`);
   };
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
@@ -310,7 +371,7 @@ const LiveMonitoringLog = () => {
               <EmptyHint label="No active flags." />
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                {flags.slice(0, visibleCount).map((f) => (
+                {flags.slice(0, visibleCount).filter(f => !resolvedIds.has(f.id)).map((f) => (
                   <article key={f.id} className="rounded-2xl border bg-card p-4 shadow-sm space-y-2">
                     <div className="flex items-center justify-between gap-2 flex-wrap">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -325,10 +386,17 @@ const LiveMonitoringLog = () => {
                     </div>
                     <p className="text-sm">{f.description}</p>
                     <div className="text-xs text-muted-foreground"><b>Status:</b> {f.status} · <b>Action:</b> {f.actionTaken}</div>
+                    {flagNotes[f.id]?.length > 0 && (
+                      <ul className="text-xs space-y-0.5 pl-3 border-l-2 border-amber-500/40">
+                        {flagNotes[f.id].map((n, i) => (
+                          <li key={i} className="text-muted-foreground"><b className="text-foreground">Note:</b> {n}</li>
+                        ))}
+                      </ul>
+                    )}
                     <div className="flex flex-wrap gap-1.5 pt-1">
-                      <Button size="sm" variant="outline" onClick={() => fire(`Note ${f.jobNumber}`)}><StickyNote className="h-3.5 w-3.5 mr-1" />Add Note</Button>
-                      <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => fire(`Resolved ${f.jobNumber}`)}><CheckCircle2 className="h-3.5 w-3.5 mr-1" />Mark Resolved</Button>
-                      <Button size="sm" variant="outline" onClick={() => fire(`Call ${f.jobNumber}`)}><PhoneCall className="h-3.5 w-3.5 mr-1" />Call</Button>
+                      <Button size="sm" variant="outline" onClick={() => handleAddNote(f)}><StickyNote className="h-3.5 w-3.5 mr-1" />Add Note</Button>
+                      <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => handleMarkResolved(f)}><CheckCircle2 className="h-3.5 w-3.5 mr-1" />Mark Resolved</Button>
+                      <Button size="sm" variant="outline" onClick={() => handleCall(f)}><PhoneCall className="h-3.5 w-3.5 mr-1" />Call</Button>
                     </div>
                   </article>
                 ))}
@@ -380,7 +448,7 @@ const LiveMonitoringLog = () => {
               <EmptyHint label="No coaching items." />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {coaching.slice(0, visibleCount).map((c) => (
+                {coaching.slice(0, visibleCount).filter(c => !dismissedCoaching.has(c.id)).map((c) => (
                   <article key={c.id} className="rounded-2xl border bg-card p-4 shadow-sm space-y-1.5">
                     <div className="flex items-center justify-between">
                       <div className="font-semibold">{c.team}</div>
@@ -388,10 +456,16 @@ const LiveMonitoringLog = () => {
                     </div>
                     <p className="text-sm"><span className="text-muted-foreground">Pattern:</span> {c.pattern}</p>
                     <p className="text-sm"><span className="text-muted-foreground">Recommendation:</span> {c.recommendation}</p>
+                    {(assignments[c.id] || schedules[c.id]) && (
+                      <div className="text-xs text-muted-foreground space-x-2">
+                        {assignments[c.id] && <span><b className="text-foreground">Assigned:</b> {assignments[c.id]}</span>}
+                        {schedules[c.id] && <span><b className="text-foreground">Scheduled:</b> {schedules[c.id]}</span>}
+                      </div>
+                    )}
                     <div className="flex flex-wrap gap-1.5 pt-1">
-                      <Button size="sm" variant="outline" onClick={() => fire(`Schedule ${c.team}`)}><CalendarClock className="h-3.5 w-3.5 mr-1" />Schedule</Button>
-                      <Button size="sm" variant="outline" onClick={() => fire(`Assign ${c.team}`)}><UserPlus className="h-3.5 w-3.5 mr-1" />Assign</Button>
-                      <Button size="sm" variant="ghost" onClick={() => fire(`Dismiss ${c.team}`)}><X className="h-3.5 w-3.5 mr-1" />Dismiss</Button>
+                      <Button size="sm" variant="outline" onClick={() => handleSchedule(c)}><CalendarClock className="h-3.5 w-3.5 mr-1" />Schedule</Button>
+                      <Button size="sm" variant="outline" onClick={() => handleAssign(c)}><UserPlus className="h-3.5 w-3.5 mr-1" />Assign</Button>
+                      <Button size="sm" variant="ghost" onClick={() => handleDismissCoaching(c)}><X className="h-3.5 w-3.5 mr-1" />Dismiss</Button>
                     </div>
                   </article>
                 ))}
