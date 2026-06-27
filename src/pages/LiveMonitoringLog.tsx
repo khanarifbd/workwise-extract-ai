@@ -257,6 +257,7 @@ const LiveMonitoringLog = () => {
       .filter(e => e.severity === "Resolved")
       .map(e => ({
         id: e.id,
+        dateISO: e.createdAt,
         jobNumber: e.jobReference || (e.team || e.teamOther || "—"),
         issue: e.issueDescription || "(no description)",
         resolution: e.actionTaken || "Resolved",
