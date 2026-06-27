@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import {
   TrendingUp, TrendingDown, AlertTriangle, CheckCircle2, Clock,
   Flag, PhoneCall, Eye, RefreshCw, FileBarChart, Settings,
-  PlusCircle, StickyNote, Activity,
+  PlusCircle, StickyNote, Activity, ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -37,17 +37,33 @@ const STATUS_META: Record<Status, { label: string; icon: typeof CheckCircle2; cl
   urgent:      { label: "Urgent",      icon: AlertTriangle,cls: "bg-red-500/10 text-red-700 dark:text-red-300 border-red-500/30",                 dot: "bg-red-500" },
 };
 
+/* ───────── Building blocks ───────── */
+
+const SectionHeader = ({
+  eyebrow, title, hint, action,
+}: { eyebrow: string; title: string; hint?: string; action?: React.ReactNode }) => (
+  <div className="flex items-end justify-between gap-3 mb-4">
+    <div>
+      <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground font-semibold">{eyebrow}</p>
+      <h2 className="text-xl font-semibold tracking-tight mt-1">{title}</h2>
+      {hint && <p className="text-xs text-muted-foreground mt-0.5">{hint}</p>}
+    </div>
+    {action}
+  </div>
+);
+
 interface MetricCardProps {
   title: string;
   value: string;
   sub: string;
   trend: "up" | "down" | "flat";
   trendText: string;
-  accent: string;
+  accent: string;          // text-* color
+  ringAccent: string;      // bg-* color for icon chip
   icon: typeof Activity;
 }
 
-const MetricCard = ({ title, value, sub, trend, trendText, accent, icon: Icon }: MetricCardProps) => {
+const MetricCard = ({ title, value, sub, trend, trendText, accent, ringAccent, icon: Icon }: MetricCardProps) => {
   const TrendIcon = trend === "up" ? TrendingUp : trend === "down" ? TrendingDown : Activity;
   const trendCls =
     trend === "up" ? "text-emerald-600 dark:text-emerald-400"
@@ -55,44 +71,46 @@ const MetricCard = ({ title, value, sub, trend, trendText, accent, icon: Icon }:
     : "text-muted-foreground";
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border bg-card p-5 sm:p-6 shadow-sm">
-      <div className={cn("absolute inset-x-0 top-0 h-1", accent)} />
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs sm:text-sm font-medium uppercase tracking-wide text-muted-foreground">{title}</p>
-          <p className="mt-2 text-3xl sm:text-4xl font-bold tabular-nums">{value}</p>
-          <p className="mt-1 text-sm text-muted-foreground">{sub}</p>
-        </div>
-        <div className={cn("rounded-xl p-2.5", accent, "bg-opacity-20")}>
-          <Icon className="h-6 w-6 text-white" />
+    <div className="rounded-2xl border bg-card p-5 shadow-sm hover:shadow-md transition-shadow">
+      <div className="flex items-center justify-between">
+        <p className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground">{title}</p>
+        <div className={cn("h-9 w-9 rounded-xl grid place-items-center", ringAccent)}>
+          <Icon className="h-4.5 w-4.5 text-white" />
         </div>
       </div>
-      <div className={cn("mt-4 inline-flex items-center gap-1.5 text-xs font-medium", trendCls)}>
-        <TrendIcon className="h-3.5 w-3.5" />
-        {trendText}
+      <div className="mt-4 flex items-baseline gap-2">
+        <p className={cn("text-4xl font-bold tabular-nums leading-none", accent)}>{value}</p>
+      </div>
+      <p className="mt-1.5 text-xs text-muted-foreground">{sub}</p>
+      <div className="mt-4 pt-3 border-t flex items-center justify-between">
+        <span className={cn("inline-flex items-center gap-1 text-xs font-medium", trendCls)}>
+          <TrendIcon className="h-3.5 w-3.5" />
+          {trendText}
+        </span>
       </div>
     </div>
   );
 };
 
-interface QuickActionProps {
-  label: string;
-  icon: typeof PlusCircle;
-  onClick: () => void;
-  accent: string;
-}
+const QuickAction = ({
+  label, icon: Icon, onClick, accent, to,
+}: { label: string; icon: typeof PlusCircle; onClick?: () => void; accent: string; to?: string }) => {
+  const inner = (
+    <>
+      <div className={cn("rounded-lg p-2.5", accent)}>
+        <Icon className="h-5 w-5 text-white" />
+      </div>
+      <span className="text-sm font-medium">{label}</span>
+      <ArrowRight className="h-4 w-4 ml-auto text-muted-foreground" />
+    </>
+  );
+  const cls = "group flex items-center gap-3 rounded-xl border bg-card p-3 shadow-sm hover:shadow-md hover:border-foreground/20 transition-all";
+  return to
+    ? <Link to={to} className={cls}>{inner}</Link>
+    : <button onClick={onClick} className={cn(cls, "w-full text-left")}>{inner}</button>;
+};
 
-const QuickAction = ({ label, icon: Icon, onClick, accent }: QuickActionProps) => (
-  <button
-    onClick={onClick}
-    className="group flex flex-col items-center justify-center gap-2 rounded-2xl border bg-card p-5 sm:p-6 min-h-[110px] sm:min-h-[130px] shadow-sm transition-all hover:shadow-md active:scale-[0.98]"
-  >
-    <div className={cn("rounded-xl p-3 transition-transform group-hover:scale-110", accent)}>
-      <Icon className="h-6 w-6 sm:h-7 sm:w-7 text-white" />
-    </div>
-    <span className="text-sm sm:text-base font-semibold text-center leading-tight">{label}</span>
-  </button>
-);
+/* ───────── Page ───────── */
 
 const NavCommandCenter = () => {
   const [lastUpdated, setLastUpdated] = useState(new Date());
@@ -115,218 +133,233 @@ const NavCommandCenter = () => {
   const onTrack = overallPct >= 65;
 
   const teams = useMemo(() => SAMPLE_TEAMS, []);
-
-  const handleAction = (label: string) => {
-    // eslint-disable-next-line no-console
-    console.log(`[NavCC] ${label}`);
-  };
-
   const refresh = () => setLastUpdated(new Date());
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-background to-slate-100 dark:from-slate-950 dark:via-background dark:to-slate-900">
-      <div className="mx-auto max-w-[1400px] p-4 sm:p-6 lg:p-8 space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+    <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950/40">
+      <div className="mx-auto max-w-[1400px] p-4 sm:p-6 lg:p-8 space-y-10">
+
+        {/* ───── HEADER ───── */}
+        <header className="rounded-2xl border bg-card shadow-sm p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Genie</p>
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight">Nav's Command Center</h1>
+            <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground font-semibold">Genie</p>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mt-0.5">Nav's Command Center</h1>
             <p className="text-sm text-muted-foreground mt-1">
               {new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Badge variant={onTrack ? "default" : "destructive"} className="text-xs">
-              <span className={cn("mr-1.5 inline-block h-2 w-2 rounded-full", onTrack ? "bg-emerald-400" : "bg-red-400")} />
+            <Badge
+              variant="outline"
+              className={cn("text-xs px-2.5 py-1 border-2",
+                onTrack ? "border-emerald-500/40 text-emerald-700 dark:text-emerald-300 bg-emerald-500/5"
+                        : "border-red-500/40 text-red-700 dark:text-red-300 bg-red-500/5")}
+            >
+              <span className={cn("mr-1.5 inline-block h-2 w-2 rounded-full",
+                onTrack ? "bg-emerald-500 animate-pulse" : "bg-red-500 animate-pulse")} />
               {onTrack ? "On Track" : "Behind Target"}
             </Badge>
             <Button variant="outline" size="sm" onClick={refresh}>
               <RefreshCw className="h-4 w-4 mr-1.5" /> Refresh
             </Button>
           </div>
-        </div>
+        </header>
 
-        {/* Metric Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <MetricCard
-            title="DM Jobs"
-            value={`${dmDoneToday}/${dmTargetToday}`}
-            sub="Today's target"
-            trend="up"
-            trendText="+2 vs yesterday"
-            accent="bg-blue-500"
-            icon={Activity}
+        {/* ───── TODAY'S PULSE ───── */}
+        <section>
+          <SectionHeader
+            eyebrow="01 — Pulse"
+            title="Today at a glance"
+            hint="Live snapshot of completions and active alerts"
           />
-          <MetricCard
-            title="A & A Jobs"
-            value={`${aaDoneToday}/${aaTargetToday}`}
-            sub="Today's target"
-            trend="flat"
-            trendText="On pace"
-            accent="bg-emerald-500"
-            icon={Activity}
-          />
-          <MetricCard
-            title="Alerts"
-            value={`${urgentFlags + warningFlags}`}
-            sub={`${urgentFlags} urgent · ${warningFlags} warning`}
-            trend="down"
-            trendText="-1 since this morning"
-            accent="bg-red-500"
-            icon={AlertTriangle}
-          />
-        </div>
-
-        {/* Today's Schedule */}
-        <section className="rounded-2xl border bg-card shadow-sm overflow-hidden">
-          <header className="flex items-center justify-between px-5 py-4 border-b">
-            <div>
-              <h2 className="text-lg font-semibold">Today's Schedule</h2>
-              <p className="text-xs text-muted-foreground">All teams · AM/PM allocations · * = A&A team</p>
-            </div>
-            <Badge variant="outline">{teams.length} teams</Badge>
-          </header>
-
-          {/* Desktop / tablet landscape table */}
-          <div className="hidden md:block overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  <th className="text-left px-5 py-3 font-medium">Team</th>
-                  <th className="text-left px-5 py-3 font-medium">AM Job</th>
-                  <th className="text-left px-5 py-3 font-medium">PM Job</th>
-                  <th className="text-left px-5 py-3 font-medium">Status</th>
-                  <th className="text-right px-5 py-3 font-medium">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {teams.map((t) => {
-                  const meta = STATUS_META[t.status];
-                  const StatusIcon = meta.icon;
-                  return (
-                    <tr key={t.team} className="border-t hover:bg-muted/30 transition-colors">
-                      <td className="px-5 py-3 font-medium">
-                        <div className="flex items-center gap-2">
-                          <span className={cn("h-2 w-2 rounded-full", meta.dot)} />
-                          {t.team}{t.aa && <span className="text-emerald-600 font-bold">*</span>}
-                        </div>
-                      </td>
-                      <td className="px-5 py-3 text-muted-foreground">{t.am}</td>
-                      <td className="px-5 py-3 text-muted-foreground">{t.pm}</td>
-                      <td className="px-5 py-3">
-                        <span className={cn("inline-flex items-center gap-1 px-2 py-1 rounded-md border text-xs font-medium", meta.cls)}>
-                          <StatusIcon className="h-3 w-3" /> {meta.label}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <Button size="sm" variant="outline" className="h-8" onClick={() => handleAction(`view-${t.team}`)}>
-                            <Eye className="h-3.5 w-3.5 mr-1" /> View
-                          </Button>
-                          <Button size="sm" variant="outline" className="h-8" onClick={() => handleAction(`flag-${t.team}`)}>
-                            <Flag className="h-3.5 w-3.5 mr-1" /> Flag
-                          </Button>
-                          <Button size="sm" variant="outline" className="h-8" onClick={() => handleAction(`call-${t.team}`)}>
-                            <PhoneCall className="h-3.5 w-3.5 mr-1" /> Call
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <MetricCard
+              title="DM Jobs"
+              value={`${dmDoneToday}/${dmTargetToday}`}
+              sub="Today's target"
+              trend="up"
+              trendText="+2 vs yesterday"
+              accent="text-blue-600 dark:text-blue-400"
+              ringAccent="bg-blue-500"
+              icon={Activity}
+            />
+            <MetricCard
+              title="A & A Jobs"
+              value={`${aaDoneToday}/${aaTargetToday}`}
+              sub="Today's target"
+              trend="flat"
+              trendText="On pace"
+              accent="text-emerald-600 dark:text-emerald-400"
+              ringAccent="bg-emerald-500"
+              icon={Activity}
+            />
+            <MetricCard
+              title="Active Alerts"
+              value={`${urgentFlags + warningFlags}`}
+              sub={`${urgentFlags} urgent · ${warningFlags} warning`}
+              trend="down"
+              trendText="-1 since morning"
+              accent="text-red-600 dark:text-red-400"
+              ringAccent="bg-red-500"
+              icon={AlertTriangle}
+            />
           </div>
+        </section>
 
-          {/* Mobile / portrait cards */}
-          <div className="md:hidden divide-y">
-            {teams.map((t) => {
-              const meta = STATUS_META[t.status];
-              const StatusIcon = meta.icon;
-              return (
-                <div key={t.team} className="p-4 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="font-semibold flex items-center gap-1.5">
-                      <span className={cn("h-2 w-2 rounded-full", meta.dot)} />
-                      {t.team}{t.aa && <span className="text-emerald-600 font-bold">*</span>}
+        {/* ───── FIELD OPERATIONS ───── */}
+        <section>
+          <SectionHeader
+            eyebrow="02 — Field"
+            title="Today's Schedule"
+            hint="All teams · AM/PM allocations · * = A&A team"
+            action={<Badge variant="outline" className="px-2.5 py-1">{teams.length} teams</Badge>}
+          />
+
+          <div className="rounded-2xl border bg-card shadow-sm overflow-hidden">
+            {/* Desktop table */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/40 text-[11px] uppercase tracking-wider text-muted-foreground">
+                  <tr>
+                    <th className="text-left px-5 py-3 font-semibold">Team</th>
+                    <th className="text-left px-5 py-3 font-semibold">AM Job</th>
+                    <th className="text-left px-5 py-3 font-semibold">PM Job</th>
+                    <th className="text-left px-5 py-3 font-semibold">Status</th>
+                    <th className="text-right px-5 py-3 font-semibold">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {teams.map((t) => {
+                    const meta = STATUS_META[t.status];
+                    const StatusIcon = meta.icon;
+                    return (
+                      <tr key={t.team} className="border-t hover:bg-muted/30 transition-colors">
+                        <td className="px-5 py-3.5 font-medium">
+                          <div className="flex items-center gap-2">
+                            <span className={cn("h-2 w-2 rounded-full", meta.dot)} />
+                            {t.team}{t.aa && <span className="text-emerald-600 font-bold ml-0.5">*</span>}
+                          </div>
+                        </td>
+                        <td className="px-5 py-3.5 text-muted-foreground">{t.am}</td>
+                        <td className="px-5 py-3.5 text-muted-foreground">{t.pm}</td>
+                        <td className="px-5 py-3.5">
+                          <span className={cn("inline-flex items-center gap-1 px-2 py-1 rounded-md border text-xs font-medium", meta.cls)}>
+                            <StatusIcon className="h-3 w-3" /> {meta.label}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <Button size="sm" variant="outline" className="h-8"><Eye className="h-3.5 w-3.5 mr-1" />View</Button>
+                            <Button size="sm" variant="outline" className="h-8"><Flag className="h-3.5 w-3.5 mr-1" />Flag</Button>
+                            <Button size="sm" variant="outline" className="h-8"><PhoneCall className="h-3.5 w-3.5 mr-1" />Call</Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile cards */}
+            <div className="md:hidden divide-y">
+              {teams.map((t) => {
+                const meta = STATUS_META[t.status];
+                const StatusIcon = meta.icon;
+                return (
+                  <div key={t.team} className="p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="font-semibold flex items-center gap-1.5">
+                        <span className={cn("h-2 w-2 rounded-full", meta.dot)} />
+                        {t.team}{t.aa && <span className="text-emerald-600 font-bold">*</span>}
+                      </div>
+                      <span className={cn("inline-flex items-center gap-1 px-2 py-1 rounded-md border text-xs font-medium", meta.cls)}>
+                        <StatusIcon className="h-3 w-3" /> {meta.label}
+                      </span>
                     </div>
-                    <span className={cn("inline-flex items-center gap-1 px-2 py-1 rounded-md border text-xs font-medium", meta.cls)}>
-                      <StatusIcon className="h-3 w-3" /> {meta.label}
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div><span className="text-muted-foreground">AM:</span> {t.am}</div>
+                      <div><span className="text-muted-foreground">PM:</span> {t.pm}</div>
+                    </div>
+                    <div className="flex gap-1.5 pt-1">
+                      <Button size="sm" variant="outline" className="flex-1 h-9"><Eye className="h-3.5 w-3.5 mr-1" />View</Button>
+                      <Button size="sm" variant="outline" className="flex-1 h-9"><Flag className="h-3.5 w-3.5 mr-1" />Flag</Button>
+                      <Button size="sm" variant="outline" className="flex-1 h-9"><PhoneCall className="h-3.5 w-3.5 mr-1" />Call</Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+
+        {/* ───── PERFORMANCE + ACTIONS (2-col) ───── */}
+        <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Week to Date — 2/3 */}
+          <div className="lg:col-span-2">
+            <SectionHeader
+              eyebrow="03 — Performance"
+              title="Week to Date"
+              hint="Progress vs weekly targets"
+              action={
+                <Badge
+                  variant="outline"
+                  className={cn("px-2.5 py-1 border-2",
+                    onTrack ? "border-emerald-500/40 text-emerald-700 dark:text-emerald-300 bg-emerald-500/5"
+                            : "border-red-500/40 text-red-700 dark:text-red-300 bg-red-500/5")}
+                >
+                  {onTrack ? "On Track" : "Behind Target"}
+                </Badge>
+              }
+            />
+            <div className="rounded-2xl border bg-card shadow-sm p-5 sm:p-6 space-y-5">
+              {[
+                { label: "DM",      done: dmWeek, target: dmWeekTarget, pct: dmWeekPct, color: "bg-blue-500" },
+                { label: "A&A",     done: aaWeek, target: aaWeekTarget, pct: aaWeekPct, color: "bg-emerald-500" },
+                { label: "Overall", done: dmWeek + aaWeek, target: dmWeekTarget + aaWeekTarget, pct: overallPct, color: "bg-violet-500" },
+              ].map(row => (
+                <div key={row.label}>
+                  <div className="flex items-baseline justify-between mb-2">
+                    <span className="text-sm font-semibold">{row.label}</span>
+                    <span className="text-xs text-muted-foreground tabular-nums">
+                      {row.done}/{row.target} · <span className="font-semibold text-foreground">{row.pct}%</span>
                     </span>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div><span className="text-muted-foreground">AM:</span> {t.am}</div>
-                    <div><span className="text-muted-foreground">PM:</span> {t.pm}</div>
-                  </div>
-                  <div className="flex gap-1.5 pt-1">
-                    <Button size="sm" variant="outline" className="flex-1 h-9" onClick={() => handleAction(`view-${t.team}`)}><Eye className="h-3.5 w-3.5 mr-1" />View</Button>
-                    <Button size="sm" variant="outline" className="flex-1 h-9" onClick={() => handleAction(`flag-${t.team}`)}><Flag className="h-3.5 w-3.5 mr-1" />Flag</Button>
-                    <Button size="sm" variant="outline" className="flex-1 h-9" onClick={() => handleAction(`call-${t.team}`)}><PhoneCall className="h-3.5 w-3.5 mr-1" />Call</Button>
-                  </div>
+                  <Progress value={row.pct} className="h-2.5" />
                 </div>
-              );
-            })}
-          </div>
-        </section>
-
-        {/* Quick Actions */}
-        <section className="space-y-3">
-          <h2 className="text-lg font-semibold px-1">Quick Actions</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
-            <QuickAction label="Log Completion" icon={CheckCircle2} accent="bg-emerald-500" onClick={() => handleAction("log-completion")} />
-            <QuickAction label="Flag Issue"     icon={Flag}          accent="bg-red-500"     onClick={() => handleAction("flag-issue")} />
-            <QuickAction label="Add Note"       icon={StickyNote}    accent="bg-amber-500"   onClick={() => handleAction("add-note")} />
-            <QuickAction label="Run Report"     icon={FileBarChart}  accent="bg-blue-500"    onClick={() => handleAction("run-report")} />
-            <QuickAction label="Call Team"      icon={PhoneCall}     accent="bg-violet-500"  onClick={() => handleAction("call-team")} />
-          </div>
-        </section>
-
-        {/* Week to Date */}
-        <section className="rounded-2xl border bg-card p-5 sm:p-6 shadow-sm space-y-4">
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <h2 className="text-lg font-semibold">Week to Date</h2>
-            <Badge className={onTrack ? "bg-emerald-500 hover:bg-emerald-500" : "bg-red-500 hover:bg-red-500"}>
-              {onTrack ? "On Track" : "Behind Target"}
-            </Badge>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            <div>
-              <div className="flex items-baseline justify-between mb-1.5">
-                <span className="text-sm font-medium">DM</span>
-                <span className="text-xs text-muted-foreground tabular-nums">{dmWeek}/{dmWeekTarget} ({dmWeekPct}%)</span>
-              </div>
-              <Progress value={dmWeekPct} className="h-2.5" />
+              ))}
             </div>
-            <div>
-              <div className="flex items-baseline justify-between mb-1.5">
-                <span className="text-sm font-medium">A&A</span>
-                <span className="text-xs text-muted-foreground tabular-nums">{aaWeek}/{aaWeekTarget} ({aaWeekPct}%)</span>
-              </div>
-              <Progress value={aaWeekPct} className="h-2.5" />
-            </div>
-            <div>
-              <div className="flex items-baseline justify-between mb-1.5">
-                <span className="text-sm font-medium">Overall</span>
-                <span className="text-xs text-muted-foreground tabular-nums">{overallPct}%</span>
-              </div>
-              <Progress value={overallPct} className="h-2.5" />
+          </div>
+
+          {/* Quick Actions — 1/3 */}
+          <div>
+            <SectionHeader
+              eyebrow="04 — Actions"
+              title="Quick Actions"
+              hint="One tap to log or alert"
+            />
+            <div className="space-y-2.5">
+              <QuickAction to="/command/log" label="Open Live Log"  icon={Activity}     accent="bg-blue-500" />
+              <QuickAction to="/command/log" label="Flag Issue"     icon={Flag}         accent="bg-red-500" />
+              <QuickAction to="/command/log" label="Log Completion" icon={CheckCircle2} accent="bg-emerald-500" />
+              <QuickAction to="/command/log" label="Add Note"       icon={StickyNote}   accent="bg-amber-500" />
+              <QuickAction to="/command/reports" label="Run Report" icon={FileBarChart} accent="bg-violet-500" />
             </div>
           </div>
         </section>
 
-        {/* Footer */}
-        <footer className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-2 pb-6 text-sm text-muted-foreground">
+        {/* ───── FOOTER ───── */}
+        <footer className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-4 pb-2 border-t text-sm text-muted-foreground">
           <div className="flex items-center gap-2">
             <Clock className="h-4 w-4" />
             Last updated: {lastUpdated.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             <button onClick={refresh} className="inline-flex items-center gap-1.5 hover:text-foreground transition-colors">
               <RefreshCw className="h-4 w-4" /> Refresh
             </button>
-            <Link to="/" className="inline-flex items-center gap-1.5 hover:text-foreground transition-colors">
-              <FileBarChart className="h-4 w-4" /> View Reports
+            <Link to="/command/reports" className="inline-flex items-center gap-1.5 hover:text-foreground transition-colors">
+              <FileBarChart className="h-4 w-4" /> Reports
             </Link>
             <Link to="/" className="inline-flex items-center gap-1.5 hover:text-foreground transition-colors">
               <Settings className="h-4 w-4" /> Settings
