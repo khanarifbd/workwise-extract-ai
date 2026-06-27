@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { usePasswordBreachCheck } from '@/hooks/usePasswordBreachCheck';
 import { PasswordStrengthMeter } from '@/components/PasswordStrengthMeter';
@@ -23,6 +23,7 @@ const passwordSchema = z.string()
 
 export default function AdminAuth() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { isAuthenticated, isAdmin, isViewer, hasAccess, isLoading, isCheckingRoles, error, signIn, signUp, clearError } = useAdminAuth();
   const { checkPassword, isChecking: isCheckingBreach } = usePasswordBreachCheck();
   const passwordInputRef = useRef<HTMLInputElement>(null);
@@ -38,12 +39,19 @@ export default function AdminAuth() {
   const [resetEmailSent, setResetEmailSent] = useState(false);
   const [failedSignInCount, setFailedSignInCount] = useState(0);
 
+  const getRedirectRoute = () => {
+    const redirect = new URLSearchParams(location.search).get('redirect');
+    if (!redirect || !redirect.startsWith('/') || redirect.startsWith('//')) return '/';
+    if (redirect.startsWith('/admin') || redirect.startsWith('/welcome')) return '/';
+    return redirect;
+  };
+
   // Redirect if already authenticated with access
   useEffect(() => {
     if (!isLoading && isAuthenticated && hasAccess) {
-      navigate('/', { replace: true });
+      navigate(getRedirectRoute(), { replace: true });
     }
-  }, [isAuthenticated, hasAccess, isLoading, navigate]);
+  }, [isAuthenticated, hasAccess, isLoading, navigate, location.search]);
 
   const validateForm = (isSignUp: boolean): boolean => {
     setValidationError(null);
