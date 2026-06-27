@@ -368,6 +368,7 @@ const LiveMonitoringLog = () => {
 
         {/* FLAGS */}
         {(filter === "all" || filter === "urgent" || filter === "warning") && (
+          <div className={cn("rounded-3xl border-2 p-3 sm:p-4 shadow-md", logFlagsTone)}>
           <section className="space-y-3">
             <SectionHeader
               icon={<Flag className="h-4 w-4 text-white" />}
@@ -411,10 +412,12 @@ const LiveMonitoringLog = () => {
               </div>
             )}
           </section>
+          </div>
         )}
 
         {/* QUALITY NOTES */}
         {(filter === "all" || filter === "note") && (
+          <div className={cn("rounded-3xl border-2 p-3 sm:p-4 shadow-md", logQualityTone)}>
           <section className="space-y-3">
             <SectionHeader
               icon={<StickyNote className="h-4 w-4 text-white" />}
@@ -441,10 +444,12 @@ const LiveMonitoringLog = () => {
               </ul>
             )}
           </section>
+          </div>
         )}
 
         {/* COACHING */}
         {(filter === "all" || filter === "note") && (
+          <div className={cn("rounded-3xl border-2 p-3 sm:p-4 shadow-md", logCoachingTone)}>
           <section className="space-y-3">
             <SectionHeader
               icon={<Lightbulb className="h-4 w-4 text-white" />}
@@ -480,10 +485,12 @@ const LiveMonitoringLog = () => {
               </div>
             )}
           </section>
+          </div>
         )}
 
         {/* RESOLVED */}
         {(filter === "all" || filter === "resolved") && (
+          <div className={cn("rounded-3xl border-2 p-3 sm:p-4 shadow-md", logResolvedTone)}>
           <section className="space-y-3">
             <SectionHeader
               icon={<CheckCircle2 className="h-4 w-4 text-white" />}
@@ -514,6 +521,7 @@ const LiveMonitoringLog = () => {
               </ul>
             )}
           </section>
+          </div>
         )}
 
         {/* Infinite scroll sentinel */}
