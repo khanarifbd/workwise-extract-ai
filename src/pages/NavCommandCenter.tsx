@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   TrendingUp, TrendingDown, AlertTriangle, CheckCircle2, Clock,
   Flag, PhoneCall, Eye, RefreshCw, FileBarChart, Settings,
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 type Status = "done" | "in_progress" | "flagged" | "urgent";
 
@@ -18,16 +19,18 @@ interface TeamRow {
   am: string;
   pm: string;
   status: Status;
+  phone: string;
+  trackerPath: string;
 }
 
 const SAMPLE_TEAMS: TeamRow[] = [
-  { team: "Shakthi", am: "N2640150 – 12 High St", pm: "N2640201 – 8 Park Ave", status: "in_progress" },
-  { team: "Indika", am: "N2640177 – 44 King Rd", pm: "N2640188 – 21 Oak Cl", status: "done" },
-  { team: "Pradeep", am: "N2640199 – 5 Elm Way", pm: "—", status: "urgent" },
-  { team: "Suresh", am: "N2640210 – 17 Beech Dr", pm: "N2640218 – 9 Mill Ln", status: "flagged" },
-  { team: "Carpenter Crew", aa: true, am: "N2640155 – 12 High St (Fire Door)", pm: "N2640190 – 33 Vale", status: "in_progress" },
-  { team: "Roofing Pro", aa: true, am: "N2640161 – 7 Hill Rd", pm: "—", status: "done" },
-  { team: "Flooring Co", aa: true, am: "—", pm: "N2640205 – 14 Lime Ave", status: "in_progress" },
+  { team: "Shakthi",        am: "N2640150 – 12 High St",            pm: "N2640201 – 8 Park Ave",  status: "in_progress", phone: "+447000000002", trackerPath: "/command/dm" },
+  { team: "Indika",         am: "N2640177 – 44 King Rd",            pm: "N2640188 – 21 Oak Cl",   status: "done",        phone: "+447000000003", trackerPath: "/command/dm" },
+  { team: "Pradeep",        am: "N2640199 – 5 Elm Way",             pm: "—",                      status: "urgent",      phone: "+447000000010", trackerPath: "/command/dm" },
+  { team: "Suresh",         am: "N2640210 – 17 Beech Dr",           pm: "N2640218 – 9 Mill Ln",   status: "flagged",     phone: "+447000000011", trackerPath: "/command/dm" },
+  { team: "Carpenter Crew", aa: true, am: "N2640155 – 12 High St (Fire Door)", pm: "N2640190 – 33 Vale", status: "in_progress", phone: "+447000000012", trackerPath: "/command/aa" },
+  { team: "Roofing Pro",    aa: true, am: "N2640161 – 7 Hill Rd",   pm: "—",                      status: "done",        phone: "+447000000013", trackerPath: "/command/aa" },
+  { team: "Flooring Co",    aa: true, am: "—",                      pm: "N2640205 – 14 Lime Ave", status: "in_progress", phone: "+447000000009", trackerPath: "/command/aa" },
 ];
 
 const STATUS_META: Record<Status, { label: string; icon: typeof CheckCircle2; cls: string; dot: string }> = {
@@ -42,7 +45,7 @@ const STATUS_META: Record<Status, { label: string; icon: typeof CheckCircle2; cl
 const SectionHeader = ({
   eyebrow, title, hint, action,
 }: { eyebrow: string; title: string; hint?: string; action?: React.ReactNode }) => (
-  <div className="flex items-end justify-between gap-3 mb-4">
+  <div className="flex items-end justify-between gap-3 mb-5">
     <div>
       <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground font-semibold">{eyebrow}</p>
       <h2 className="text-xl font-semibold tracking-tight mt-1">{title}</h2>
@@ -52,15 +55,28 @@ const SectionHeader = ({
   </div>
 );
 
+/** Distinct tinted band wrapping each section so they don't bleed together. */
+const Band = ({
+  tone, className, children,
+}: { tone: "sky" | "emerald" | "violet" | "amber" | "slate"; className?: string; children: React.ReactNode }) => {
+  const tones: Record<string, string> = {
+    sky:     "bg-sky-50 dark:bg-sky-950/30 border-sky-200/70 dark:border-sky-900/50",
+    emerald: "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200/70 dark:border-emerald-900/50",
+    violet:  "bg-violet-50 dark:bg-violet-950/30 border-violet-200/70 dark:border-violet-900/50",
+    amber:   "bg-amber-50 dark:bg-amber-950/30 border-amber-200/70 dark:border-amber-900/50",
+    slate:   "bg-slate-100 dark:bg-slate-900/40 border-slate-200/70 dark:border-slate-800",
+  };
+  return (
+    <section className={cn("rounded-3xl border p-5 sm:p-6 lg:p-8 shadow-sm", tones[tone], className)}>
+      {children}
+    </section>
+  );
+};
+
 interface MetricCardProps {
-  title: string;
-  value: string;
-  sub: string;
-  trend: "up" | "down" | "flat";
-  trendText: string;
-  accent: string;          // text-* color
-  ringAccent: string;      // bg-* color for icon chip
-  icon: typeof Activity;
+  title: string; value: string; sub: string;
+  trend: "up" | "down" | "flat"; trendText: string;
+  accent: string; ringAccent: string; icon: typeof Activity;
 }
 
 const MetricCard = ({ title, value, sub, trend, trendText, accent, ringAccent, icon: Icon }: MetricCardProps) => {
@@ -75,7 +91,7 @@ const MetricCard = ({ title, value, sub, trend, trendText, accent, ringAccent, i
       <div className="flex items-center justify-between">
         <p className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground">{title}</p>
         <div className={cn("h-9 w-9 rounded-xl grid place-items-center", ringAccent)}>
-          <Icon className="h-4.5 w-4.5 text-white" />
+          <Icon className="h-4 w-4 text-white" />
         </div>
       </div>
       <div className="mt-4 flex items-baseline gap-2">
@@ -113,6 +129,7 @@ const QuickAction = ({
 /* ───────── Page ───────── */
 
 const NavCommandCenter = () => {
+  const navigate = useNavigate();
   const [lastUpdated, setLastUpdated] = useState(new Date());
 
   const dmDoneToday = 5;
@@ -133,86 +150,75 @@ const NavCommandCenter = () => {
   const onTrack = overallPct >= 65;
 
   const teams = useMemo(() => SAMPLE_TEAMS, []);
-  const refresh = () => setLastUpdated(new Date());
+  const refresh = () => {
+    setLastUpdated(new Date());
+    toast.success("Refreshed");
+  };
+
+  const onView = (t: TeamRow) => navigate(t.trackerPath);
+  const onFlag = (t: TeamRow) => navigate(`/command/log?flag=${encodeURIComponent(t.team)}`);
+  const onCall = (t: TeamRow) => {
+    window.location.href = `tel:${t.phone}`;
+    toast.success(`Calling ${t.team}…`);
+  };
 
   return (
-    <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950/40">
-      <div className="mx-auto max-w-[1400px] p-4 sm:p-6 lg:p-8 space-y-10">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-950 dark:to-slate-950">
+      <div className="mx-auto max-w-[1400px] p-4 sm:p-6 lg:p-8 space-y-6">
 
         {/* ───── HEADER ───── */}
-        <header className="rounded-2xl border bg-card shadow-sm p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <header className="rounded-3xl border bg-gradient-to-r from-slate-900 to-slate-800 text-slate-50 shadow-md p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground font-semibold">Genie</p>
+            <p className="text-[10px] uppercase tracking-[0.22em] text-slate-400 font-semibold">Genie</p>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mt-0.5">Nav's Command Center</h1>
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="text-sm text-slate-300 mt-1">
               {new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
             </p>
           </div>
           <div className="flex items-center gap-2">
             <Badge
               variant="outline"
-              className={cn("text-xs px-2.5 py-1 border-2",
-                onTrack ? "border-emerald-500/40 text-emerald-700 dark:text-emerald-300 bg-emerald-500/5"
-                        : "border-red-500/40 text-red-700 dark:text-red-300 bg-red-500/5")}
+              className={cn("text-xs px-2.5 py-1 border-2 bg-transparent",
+                onTrack ? "border-emerald-400/60 text-emerald-300"
+                        : "border-red-400/60 text-red-300")}
             >
               <span className={cn("mr-1.5 inline-block h-2 w-2 rounded-full",
-                onTrack ? "bg-emerald-500 animate-pulse" : "bg-red-500 animate-pulse")} />
+                onTrack ? "bg-emerald-400 animate-pulse" : "bg-red-400 animate-pulse")} />
               {onTrack ? "On Track" : "Behind Target"}
             </Badge>
-            <Button variant="outline" size="sm" onClick={refresh}>
+            <Button variant="secondary" size="sm" onClick={refresh}>
               <RefreshCw className="h-4 w-4 mr-1.5" /> Refresh
             </Button>
           </div>
         </header>
 
-        {/* ───── TODAY'S PULSE ───── */}
-        <section>
+        {/* ───── 01 · PULSE (sky) ───── */}
+        <Band tone="sky">
           <SectionHeader
             eyebrow="01 — Pulse"
             title="Today at a glance"
             hint="Live snapshot of completions and active alerts"
           />
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <MetricCard
-              title="DM Jobs"
-              value={`${dmDoneToday}/${dmTargetToday}`}
-              sub="Today's target"
-              trend="up"
-              trendText="+2 vs yesterday"
-              accent="text-blue-600 dark:text-blue-400"
-              ringAccent="bg-blue-500"
-              icon={Activity}
-            />
-            <MetricCard
-              title="A & A Jobs"
-              value={`${aaDoneToday}/${aaTargetToday}`}
-              sub="Today's target"
-              trend="flat"
-              trendText="On pace"
-              accent="text-emerald-600 dark:text-emerald-400"
-              ringAccent="bg-emerald-500"
-              icon={Activity}
-            />
-            <MetricCard
-              title="Active Alerts"
-              value={`${urgentFlags + warningFlags}`}
-              sub={`${urgentFlags} urgent · ${warningFlags} warning`}
-              trend="down"
-              trendText="-1 since morning"
-              accent="text-red-600 dark:text-red-400"
-              ringAccent="bg-red-500"
-              icon={AlertTriangle}
-            />
+            <MetricCard title="DM Jobs" value={`${dmDoneToday}/${dmTargetToday}`} sub="Today's target"
+              trend="up" trendText="+2 vs yesterday"
+              accent="text-blue-600 dark:text-blue-400" ringAccent="bg-blue-500" icon={Activity} />
+            <MetricCard title="A & A Jobs" value={`${aaDoneToday}/${aaTargetToday}`} sub="Today's target"
+              trend="flat" trendText="On pace"
+              accent="text-emerald-600 dark:text-emerald-400" ringAccent="bg-emerald-500" icon={Activity} />
+            <MetricCard title="Active Alerts" value={`${urgentFlags + warningFlags}`} sub={`${urgentFlags} urgent · ${warningFlags} warning`}
+              trend="down" trendText="-1 since morning"
+              accent="text-red-600 dark:text-red-400" ringAccent="bg-red-500" icon={AlertTriangle} />
           </div>
-        </section>
+        </Band>
 
-        {/* ───── FIELD OPERATIONS ───── */}
-        <section>
+        {/* ───── 02 · FIELD (amber) ───── */}
+        <Band tone="amber">
           <SectionHeader
             eyebrow="02 — Field"
             title="Today's Schedule"
             hint="All teams · AM/PM allocations · * = A&A team"
-            action={<Badge variant="outline" className="px-2.5 py-1">{teams.length} teams</Badge>}
+            action={<Badge variant="outline" className="px-2.5 py-1 bg-card">{teams.length} teams</Badge>}
           />
 
           <div className="rounded-2xl border bg-card shadow-sm overflow-hidden">
@@ -249,9 +255,15 @@ const NavCommandCenter = () => {
                         </td>
                         <td className="px-5 py-3.5">
                           <div className="flex items-center justify-end gap-1.5">
-                            <Button size="sm" variant="outline" className="h-8"><Eye className="h-3.5 w-3.5 mr-1" />View</Button>
-                            <Button size="sm" variant="outline" className="h-8"><Flag className="h-3.5 w-3.5 mr-1" />Flag</Button>
-                            <Button size="sm" variant="outline" className="h-8"><PhoneCall className="h-3.5 w-3.5 mr-1" />Call</Button>
+                            <Button size="sm" variant="outline" className="h-8" onClick={() => onView(t)}>
+                              <Eye className="h-3.5 w-3.5 mr-1" />View
+                            </Button>
+                            <Button size="sm" variant="outline" className="h-8" onClick={() => onFlag(t)}>
+                              <Flag className="h-3.5 w-3.5 mr-1" />Flag
+                            </Button>
+                            <Button size="sm" variant="outline" className="h-8" onClick={() => onCall(t)}>
+                              <PhoneCall className="h-3.5 w-3.5 mr-1" />Call
+                            </Button>
                           </div>
                         </td>
                       </tr>
@@ -282,71 +294,75 @@ const NavCommandCenter = () => {
                       <div><span className="text-muted-foreground">PM:</span> {t.pm}</div>
                     </div>
                     <div className="flex gap-1.5 pt-1">
-                      <Button size="sm" variant="outline" className="flex-1 h-9"><Eye className="h-3.5 w-3.5 mr-1" />View</Button>
-                      <Button size="sm" variant="outline" className="flex-1 h-9"><Flag className="h-3.5 w-3.5 mr-1" />Flag</Button>
-                      <Button size="sm" variant="outline" className="flex-1 h-9"><PhoneCall className="h-3.5 w-3.5 mr-1" />Call</Button>
+                      <Button size="sm" variant="outline" className="flex-1 h-9" onClick={() => onView(t)}>
+                        <Eye className="h-3.5 w-3.5 mr-1" />View
+                      </Button>
+                      <Button size="sm" variant="outline" className="flex-1 h-9" onClick={() => onFlag(t)}>
+                        <Flag className="h-3.5 w-3.5 mr-1" />Flag
+                      </Button>
+                      <Button size="sm" variant="outline" className="flex-1 h-9" onClick={() => onCall(t)}>
+                        <PhoneCall className="h-3.5 w-3.5 mr-1" />Call
+                      </Button>
                     </div>
                   </div>
                 );
               })}
             </div>
           </div>
-        </section>
+        </Band>
 
-        {/* ───── PERFORMANCE + ACTIONS (2-col) ───── */}
-        <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Week to Date — 2/3 */}
-          <div className="lg:col-span-2">
-            <SectionHeader
-              eyebrow="03 — Performance"
-              title="Week to Date"
-              hint="Progress vs weekly targets"
-              action={
-                <Badge
-                  variant="outline"
-                  className={cn("px-2.5 py-1 border-2",
-                    onTrack ? "border-emerald-500/40 text-emerald-700 dark:text-emerald-300 bg-emerald-500/5"
-                            : "border-red-500/40 text-red-700 dark:text-red-300 bg-red-500/5")}
-                >
-                  {onTrack ? "On Track" : "Behind Target"}
-                </Badge>
-              }
-            />
-            <div className="rounded-2xl border bg-card shadow-sm p-5 sm:p-6 space-y-5">
-              {[
-                { label: "DM",      done: dmWeek, target: dmWeekTarget, pct: dmWeekPct, color: "bg-blue-500" },
-                { label: "A&A",     done: aaWeek, target: aaWeekTarget, pct: aaWeekPct, color: "bg-emerald-500" },
-                { label: "Overall", done: dmWeek + aaWeek, target: dmWeekTarget + aaWeekTarget, pct: overallPct, color: "bg-violet-500" },
-              ].map(row => (
-                <div key={row.label}>
-                  <div className="flex items-baseline justify-between mb-2">
-                    <span className="text-sm font-semibold">{row.label}</span>
-                    <span className="text-xs text-muted-foreground tabular-nums">
-                      {row.done}/{row.target} · <span className="font-semibold text-foreground">{row.pct}%</span>
-                    </span>
-                  </div>
-                  <Progress value={row.pct} className="h-2.5" />
+        {/* ───── 03 · PERFORMANCE (emerald) ───── */}
+        <Band tone="emerald">
+          <SectionHeader
+            eyebrow="03 — Performance"
+            title="Week to Date"
+            hint="Progress vs weekly targets"
+            action={
+              <Badge
+                variant="outline"
+                className={cn("px-2.5 py-1 border-2 bg-card",
+                  onTrack ? "border-emerald-500/40 text-emerald-700 dark:text-emerald-300"
+                          : "border-red-500/40 text-red-700 dark:text-red-300")}
+              >
+                {onTrack ? "On Track" : "Behind Target"}
+              </Badge>
+            }
+          />
+          <div className="rounded-2xl border bg-card shadow-sm p-5 sm:p-6 space-y-5">
+            {[
+              { label: "DM",      done: dmWeek, target: dmWeekTarget, pct: dmWeekPct, color: "bg-blue-500" },
+              { label: "A&A",     done: aaWeek, target: aaWeekTarget, pct: aaWeekPct, color: "bg-emerald-500" },
+              { label: "Overall", done: dmWeek + aaWeek, target: dmWeekTarget + aaWeekTarget, pct: overallPct, color: "bg-violet-500" },
+            ].map(row => (
+              <div key={row.label}>
+                <div className="flex items-baseline justify-between mb-2">
+                  <span className="text-sm font-semibold">{row.label}</span>
+                  <span className="text-xs text-muted-foreground tabular-nums">
+                    {row.done}/{row.target} · <span className="font-semibold text-foreground">{row.pct}%</span>
+                  </span>
                 </div>
-              ))}
-            </div>
+                <Progress value={row.pct} className="h-2.5" />
+              </div>
+            ))}
           </div>
+        </Band>
 
-          {/* Quick Actions — 1/3 */}
-          <div>
-            <SectionHeader
-              eyebrow="04 — Actions"
-              title="Quick Actions"
-              hint="One tap to log or alert"
-            />
-            <div className="space-y-2.5">
-              <QuickAction to="/command/log" label="Open Live Log"  icon={Activity}     accent="bg-blue-500" />
-              <QuickAction to="/command/log" label="Flag Issue"     icon={Flag}         accent="bg-red-500" />
-              <QuickAction to="/command/log" label="Log Completion" icon={CheckCircle2} accent="bg-emerald-500" />
-              <QuickAction to="/command/log" label="Add Note"       icon={StickyNote}   accent="bg-amber-500" />
-              <QuickAction to="/command/reports" label="Run Report" icon={FileBarChart} accent="bg-violet-500" />
-            </div>
+        {/* ───── 04 · ACTIONS (violet) ───── */}
+        <Band tone="violet">
+          <SectionHeader
+            eyebrow="04 — Actions"
+            title="Quick Actions"
+            hint="One tap to log, flag, or jump to a tracker"
+          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+            <QuickAction to="/command/log"     label="Open Live Log"   icon={Activity}     accent="bg-blue-500" />
+            <QuickAction to="/command/log"     label="Flag Issue"      icon={Flag}         accent="bg-red-500" />
+            <QuickAction to="/command/log"     label="Log Completion"  icon={CheckCircle2} accent="bg-emerald-500" />
+            <QuickAction to="/command/log"     label="Add Note"        icon={StickyNote}   accent="bg-amber-500" />
+            <QuickAction to="/command/reports" label="Run Report"      icon={FileBarChart} accent="bg-violet-500" />
+            <QuickAction to="/command/owners"  label="Owner's View"    icon={Eye}          accent="bg-slate-700" />
           </div>
-        </section>
+        </Band>
 
         {/* ───── FOOTER ───── */}
         <footer className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-4 pb-2 border-t text-sm text-muted-foreground">
