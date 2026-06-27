@@ -153,6 +153,11 @@ const App = () => (
                   <PageErrorBoundary><Suspense fallback={<PageLoader />}><LiveMonitoringLog /></Suspense></PageErrorBoundary>
                 </AdminRoute>
               } />
+              <Route path="/command/reports" element={
+                <AdminRoute>
+                  <PageErrorBoundary><Suspense fallback={<PageLoader />}><ReportsAnalytics /></Suspense></PageErrorBoundary>
+                </AdminRoute>
+              } />
               <Route path="/roadmaps" element={
                 <AdminRoute>
                   <PageErrorBoundary><Suspense fallback={<PageLoader />}><Roadmaps /></Suspense></PageErrorBoundary>
