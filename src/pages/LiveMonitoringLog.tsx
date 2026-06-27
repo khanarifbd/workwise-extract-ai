@@ -11,6 +11,8 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { useSectionTone } from "@/lib/sectionTheme";
+
 import AddLogEntryModal, { type LogEntryDraft } from "@/components/AddLogEntryModal";
 
 const STORAGE_KEY = "command.logEntries.v1";
@@ -278,6 +280,12 @@ const LiveMonitoringLog = () => {
   const urgentCount = SEED_FLAGS.filter(f => f.severity === "urgent").length;
   const today = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
+  const logFlagsTone    = useSectionTone("log.flags",    "Flags",           "Live Log", "azure");
+  const logQualityTone  = useSectionTone("log.quality",  "Quality Notes",   "Live Log", "powder");
+  const logCoachingTone = useSectionTone("log.coaching", "Coaching",        "Live Log", "mist");
+  const logResolvedTone = useSectionTone("log.resolved", "Resolved Today",  "Live Log", "glacial");
+
+
   return (
     <div
       className="min-h-screen bg-gradient-to-br from-sky-100 via-sky-200 to-sky-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950"
@@ -360,6 +368,7 @@ const LiveMonitoringLog = () => {
 
         {/* FLAGS */}
         {(filter === "all" || filter === "urgent" || filter === "warning") && (
+          <div className={cn("rounded-3xl border-2 p-3 sm:p-4 shadow-md", logFlagsTone)}>
           <section className="space-y-3">
             <SectionHeader
               icon={<Flag className="h-4 w-4 text-white" />}
@@ -403,10 +412,12 @@ const LiveMonitoringLog = () => {
               </div>
             )}
           </section>
+          </div>
         )}
 
         {/* QUALITY NOTES */}
         {(filter === "all" || filter === "note") && (
+          <div className={cn("rounded-3xl border-2 p-3 sm:p-4 shadow-md", logQualityTone)}>
           <section className="space-y-3">
             <SectionHeader
               icon={<StickyNote className="h-4 w-4 text-white" />}
@@ -433,10 +444,12 @@ const LiveMonitoringLog = () => {
               </ul>
             )}
           </section>
+          </div>
         )}
 
         {/* COACHING */}
         {(filter === "all" || filter === "note") && (
+          <div className={cn("rounded-3xl border-2 p-3 sm:p-4 shadow-md", logCoachingTone)}>
           <section className="space-y-3">
             <SectionHeader
               icon={<Lightbulb className="h-4 w-4 text-white" />}
@@ -472,10 +485,12 @@ const LiveMonitoringLog = () => {
               </div>
             )}
           </section>
+          </div>
         )}
 
         {/* RESOLVED */}
         {(filter === "all" || filter === "resolved") && (
+          <div className={cn("rounded-3xl border-2 p-3 sm:p-4 shadow-md", logResolvedTone)}>
           <section className="space-y-3">
             <SectionHeader
               icon={<CheckCircle2 className="h-4 w-4 text-white" />}
@@ -506,6 +521,7 @@ const LiveMonitoringLog = () => {
               </ul>
             )}
           </section>
+          </div>
         )}
 
         {/* Infinite scroll sentinel */}

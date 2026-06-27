@@ -8,6 +8,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useSectionTone } from "@/lib/sectionTheme";
+
 
 interface InProgressJob {
   id: string;
@@ -98,6 +100,10 @@ const AAJobTracker = () => {
 
   const today = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
+  const aaInProgressTone = useSectionTone("aa.in_progress", "In Progress",     "A&A Tracker", "powder");
+  const aaCompletedTone  = useSectionTone("aa.completed",   "Completed Today", "A&A Tracker", "glacial");
+
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-sky-100 via-sky-200 to-sky-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 pb-24">
       <div className="mx-auto max-w-[1400px] p-4 sm:p-6 lg:p-8 space-y-5">
@@ -125,6 +131,7 @@ const AAJobTracker = () => {
         </div>
 
         {/* In progress */}
+        <div className={cn("rounded-3xl border-2 p-2 sm:p-3 shadow-md", aaInProgressTone)}>
         <section className="rounded-2xl border bg-card shadow-sm overflow-hidden">
           <SectionHeader title="In Progress" count={IN_PROGRESS.length} icon={Wrench} accent="bg-amber-500" />
 
@@ -190,8 +197,10 @@ const AAJobTracker = () => {
             ))}
           </ul>
         </section>
+        </div>
 
         {/* Completed today */}
+        <div className={cn("rounded-3xl border-2 p-2 sm:p-3 shadow-md", aaCompletedTone)}>
         <section className="rounded-2xl border bg-card shadow-sm overflow-hidden">
           <SectionHeader title="Completed Today" count={COMPLETED.length} icon={CheckCircle2} accent="bg-emerald-500" />
           <ul className="divide-y">
@@ -215,6 +224,7 @@ const AAJobTracker = () => {
             ))}
           </ul>
         </section>
+        </div>
 
         {log && (
           <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 rounded-full bg-foreground text-background text-xs font-medium px-4 py-2 shadow-lg">

@@ -9,6 +9,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useSectionTone } from "@/lib/sectionTheme";
+
 
 // ---------- Types ----------
 interface UrgentFlag {
@@ -206,6 +208,12 @@ const DMJobTracker = () => {
 
   const today = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
+  const dmUrgentTone     = useSectionTone("dm.urgent",      "Urgent Flags",      "DM Tracker", "azure");
+  const dmInProgressTone = useSectionTone("dm.in_progress", "In Progress",       "DM Tracker", "powder");
+  const dmCompletedTone  = useSectionTone("dm.completed",   "Completed Today",   "DM Tracker", "glacial");
+  const dmPipelineTone   = useSectionTone("dm.pipeline",    "Tomorrow Pipeline", "DM Tracker", "arctic");
+
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-sky-100 via-sky-200 to-sky-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 pb-24">
       <div className="mx-auto max-w-[1400px] p-4 sm:p-6 lg:p-8 space-y-5">
@@ -233,6 +241,7 @@ const DMJobTracker = () => {
         </div>
 
         {/* Urgent flags */}
+        <div className={cn("rounded-3xl border-2 p-2 sm:p-3 shadow-md", dmUrgentTone)}>
         <section className="rounded-2xl border bg-card shadow-sm overflow-hidden">
           <SectionHeader title="Urgent Flags" count={URGENT.length} icon={AlertTriangle} accent="bg-red-500" />
           {URGENT.length === 0 ? (
@@ -261,8 +270,10 @@ const DMJobTracker = () => {
             </ul>
           )}
         </section>
+        </div>
 
         {/* In progress */}
+        <div className={cn("rounded-3xl border-2 p-2 sm:p-3 shadow-md", dmInProgressTone)}>
         <section className="rounded-2xl border bg-card shadow-sm overflow-hidden">
           <SectionHeader title="In Progress" count={IN_PROGRESS.length} icon={Clock} accent="bg-amber-500" />
 
@@ -335,8 +346,10 @@ const DMJobTracker = () => {
             ))}
           </ul>
         </section>
+        </div>
 
         {/* Completed today */}
+        <div className={cn("rounded-3xl border-2 p-2 sm:p-3 shadow-md", dmCompletedTone)}>
         <section className="rounded-2xl border bg-card shadow-sm overflow-hidden">
           <SectionHeader title="Completed Today" count={COMPLETED.length} icon={CheckCircle2} accent="bg-emerald-500" />
           <ul className="divide-y">
@@ -360,8 +373,10 @@ const DMJobTracker = () => {
             ))}
           </ul>
         </section>
+        </div>
 
         {/* Tomorrow's pipeline */}
+        <div className={cn("rounded-3xl border-2 p-2 sm:p-3 shadow-md", dmPipelineTone)}>
         <section className="rounded-2xl border bg-card shadow-sm overflow-hidden">
           <SectionHeader title="Tomorrow's Pipeline" count={PIPELINE.length} icon={CalendarClock} accent="bg-blue-500" />
           <ul className="divide-y">
@@ -398,6 +413,7 @@ const DMJobTracker = () => {
             ))}
           </ul>
         </section>
+        </div>
 
         {log && (
           <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 rounded-full bg-foreground text-background text-xs font-medium px-4 py-2 shadow-lg">

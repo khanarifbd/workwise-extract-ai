@@ -6,6 +6,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HashRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { CommandQuickActionBar } from "./components/CommandQuickActionBar";
 import { CommandNotificationCenter } from "./components/CommandNotificationCenter";
+import { SectionThemePicker } from "./components/command/SectionThemePicker";
+
 
 const normalizeHashRoute = () => {
   if (typeof window === "undefined") return;
@@ -40,9 +42,11 @@ function CommandBarMount() {
     <>
       <CommandNotificationCenter />
       <CommandQuickActionBar />
+      <SectionThemePicker />
     </>
   );
 }
+
 import { Capacitor } from "@capacitor/core";
 import { Loader2 } from "lucide-react";
 import TeamPortal from "./pages/TeamPortal";
