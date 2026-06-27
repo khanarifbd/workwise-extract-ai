@@ -132,6 +132,7 @@ const QuickAction = ({
 const NavCommandCenter = () => {
   const navigate = useNavigate();
   const [lastUpdated, setLastUpdated] = useState(new Date());
+  const [callTarget, setCallTarget] = useState<TeamRow | null>(null);
 
   const dmDoneToday = 5;
   const dmTargetToday = 8;
