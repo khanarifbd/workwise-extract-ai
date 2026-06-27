@@ -371,7 +371,7 @@ const LiveMonitoringLog = () => {
               <EmptyHint label="No active flags." />
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                {flags.slice(0, visibleCount).map((f) => (
+                {flags.slice(0, visibleCount).filter(f => !resolvedIds.has(f.id)).map((f) => (
                   <article key={f.id} className="rounded-2xl border bg-card p-4 shadow-sm space-y-2">
                     <div className="flex items-center justify-between gap-2 flex-wrap">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -386,10 +386,17 @@ const LiveMonitoringLog = () => {
                     </div>
                     <p className="text-sm">{f.description}</p>
                     <div className="text-xs text-muted-foreground"><b>Status:</b> {f.status} · <b>Action:</b> {f.actionTaken}</div>
+                    {flagNotes[f.id]?.length > 0 && (
+                      <ul className="text-xs space-y-0.5 pl-3 border-l-2 border-amber-500/40">
+                        {flagNotes[f.id].map((n, i) => (
+                          <li key={i} className="text-muted-foreground"><b className="text-foreground">Note:</b> {n}</li>
+                        ))}
+                      </ul>
+                    )}
                     <div className="flex flex-wrap gap-1.5 pt-1">
-                      <Button size="sm" variant="outline" onClick={() => fire(`Note ${f.jobNumber}`)}><StickyNote className="h-3.5 w-3.5 mr-1" />Add Note</Button>
-                      <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => fire(`Resolved ${f.jobNumber}`)}><CheckCircle2 className="h-3.5 w-3.5 mr-1" />Mark Resolved</Button>
-                      <Button size="sm" variant="outline" onClick={() => fire(`Call ${f.jobNumber}`)}><PhoneCall className="h-3.5 w-3.5 mr-1" />Call</Button>
+                      <Button size="sm" variant="outline" onClick={() => handleAddNote(f)}><StickyNote className="h-3.5 w-3.5 mr-1" />Add Note</Button>
+                      <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => handleMarkResolved(f)}><CheckCircle2 className="h-3.5 w-3.5 mr-1" />Mark Resolved</Button>
+                      <Button size="sm" variant="outline" onClick={() => handleCall(f)}><PhoneCall className="h-3.5 w-3.5 mr-1" />Call</Button>
                     </div>
                   </article>
                 ))}
