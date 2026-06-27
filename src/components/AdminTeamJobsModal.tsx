@@ -86,7 +86,7 @@ export const AdminTeamJobsModal = ({
 
       const { error } = await supabase
         .from('jobs')
-        .update(updateData)
+        .update(updateData as any)
         .eq('id', jobToRemove.job.id);
 
       if (error) throw error;

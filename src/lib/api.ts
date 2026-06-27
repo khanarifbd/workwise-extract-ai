@@ -709,7 +709,7 @@ const syncLinkedChildJobs = async (parentDbJob: any) => {
   for (const childId of linkedIds) {
     const { error } = await supabase
       .from('jobs')
-      .update(syncFields)
+      .update(syncFields as any)
       .eq('id', childId)
       .is('deleted_at', null);
 
