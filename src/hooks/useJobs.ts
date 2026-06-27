@@ -130,7 +130,7 @@ export const useJobs = (categoryId?: string) => {
 
     // Set up realtime subscription with debounced reload
     const channel = supabase
-      .channel(`jobs-changes-${categoryId || 'all'}-${Math.random().toString(36).slice(2)}`)
+      .channel(`jobs-changes-${categoryId || 'all'}`)
       .on(
         'postgres_changes',
         {
