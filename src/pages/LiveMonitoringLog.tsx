@@ -93,12 +93,73 @@ const LiveMonitoringLog = () => {
   const [toast, setToast] = useState<string | null>(null);
   const [logModalOpen, setLogModalOpen] = useState(false);
   const [entries, setEntries] = useState<StoredEntry[]>(() => loadStored());
+  const [flagNotes, setFlagNotes] = useState<Record<string, string[]>>(() => {
+    try { return JSON.parse(localStorage.getItem("command.flagNotes.v1") || "{}"); } catch { return {}; }
+  });
+  const [resolvedIds, setResolvedIds] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem("command.resolvedFlags.v1") || "[]")); } catch { return new Set(); }
+  });
+  const [dismissedCoaching, setDismissedCoaching] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem("command.dismissedCoaching.v1") || "[]")); } catch { return new Set(); }
+  });
+  const [assignments, setAssignments] = useState<Record<string, string>>(() => {
+    try { return JSON.parse(localStorage.getItem("command.assignments.v1") || "{}"); } catch { return {}; }
+  });
+  const [schedules, setSchedules] = useState<Record<string, string>>(() => {
+    try { return JSON.parse(localStorage.getItem("command.schedules.v1") || "{}"); } catch { return {}; }
+  });
   useEffect(() => { saveStored(entries); }, [entries]);
+  useEffect(() => { localStorage.setItem("command.flagNotes.v1", JSON.stringify(flagNotes)); }, [flagNotes]);
+  useEffect(() => { localStorage.setItem("command.resolvedFlags.v1", JSON.stringify([...resolvedIds])); }, [resolvedIds]);
+  useEffect(() => { localStorage.setItem("command.dismissedCoaching.v1", JSON.stringify([...dismissedCoaching])); }, [dismissedCoaching]);
+  useEffect(() => { localStorage.setItem("command.assignments.v1", JSON.stringify(assignments)); }, [assignments]);
+  useEffect(() => { localStorage.setItem("command.schedules.v1", JSON.stringify(schedules)); }, [schedules]);
 
   const handleSaveEntry = (e: LogEntryDraft) => {
     const id = `e_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
     setEntries((prev) => [{ ...e, id }, ...prev]);
     fire(`Entry added → ${e.severity || "Note"}`);
+  };
+
+  const handleAddNote = (flag: FlagEntry) => {
+    const note = window.prompt(`Add note for ${flag.jobNumber}:`, "");
+    if (!note || !note.trim()) return;
+    setFlagNotes(prev => ({ ...prev, [flag.id]: [...(prev[flag.id] || []), note.trim()] }));
+    fire(`Note added → ${flag.jobNumber}`);
+  };
+
+  const handleMarkResolved = (flag: FlagEntry) => {
+    if (resolvedIds.has(flag.id)) return;
+    setResolvedIds(prev => { const n = new Set(prev); n.add(flag.id); return n; });
+    fire(`Resolved → ${flag.jobNumber}`);
+  };
+
+  const handleCall = (flag: FlagEntry) => {
+    const phones: Record<string, string> = {
+      Shakthi: "+447000000001", Indika: "+447000000002", Pradeep: "+447000000003", Suresh: "+447000000004",
+    };
+    const phone = phones[flag.jobNumber] || "+447000000099";
+    window.location.href = `tel:${phone}`;
+    fire(`Calling ${flag.jobNumber}…`);
+  };
+
+  const handleAssign = (c: CoachingItem) => {
+    const who = window.prompt(`Assign coaching for ${c.team} to:`, assignments[c.id] || "Nav");
+    if (!who || !who.trim()) return;
+    setAssignments(prev => ({ ...prev, [c.id]: who.trim() }));
+    fire(`Assigned to ${who.trim()}`);
+  };
+
+  const handleSchedule = (c: CoachingItem) => {
+    const when = window.prompt(`Schedule coaching for ${c.team} (e.g. Mon 10:00):`, schedules[c.id] || "");
+    if (!when || !when.trim()) return;
+    setSchedules(prev => ({ ...prev, [c.id]: when.trim() }));
+    fire(`Scheduled ${c.team} → ${when.trim()}`);
+  };
+
+  const handleDismissCoaching = (c: CoachingItem) => {
+    setDismissedCoaching(prev => { const n = new Set(prev); n.add(c.id); return n; });
+    fire(`Dismissed ${c.team}`);
   };
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
