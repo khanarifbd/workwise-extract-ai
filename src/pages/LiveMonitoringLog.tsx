@@ -11,7 +11,20 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import AddLogEntryModal from "@/components/AddLogEntryModal";
+import AddLogEntryModal, { type LogEntryDraft } from "@/components/AddLogEntryModal";
+
+const STORAGE_KEY = "command.logEntries.v1";
+type StoredEntry = LogEntryDraft & { id: string };
+const loadStored = (): StoredEntry[] => {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); } catch { return []; }
+};
+const saveStored = (list: StoredEntry[]) => {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); } catch {}
+};
+const sevMap = (s: string): Severity =>
+  s === "Urgent" ? "urgent" : s === "Warning" ? "warning" : "info";
+const hhmm = (iso: string) =>
+  new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 
 // ---- Types ----
 type Severity = "urgent" | "warning" | "info";
