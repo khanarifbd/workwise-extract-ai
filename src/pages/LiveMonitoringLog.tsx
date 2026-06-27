@@ -141,13 +141,17 @@ const LiveMonitoringLog = () => {
     fire(`Resolved → ${flag.jobNumber}`);
   };
 
-  const handleCall = (flag: FlagEntry) => {
-    const phones: Record<string, string> = {
-      Shakthi: "+447000000001", Indika: "+447000000002", Pradeep: "+447000000003", Suresh: "+447000000004",
-    };
-    const phone = phones[flag.jobNumber] || "+447000000099";
-    window.location.href = `tel:${phone}`;
-    fire(`Calling ${flag.jobNumber}…`);
+  // Call dialog (flags + coaching)
+  const [callTarget, setCallTarget] = useState<{ team: string; phone: string } | null>(null);
+  const TEAM_PHONES: Record<string, string> = {
+    Shakthi: "+447000000001", Indika: "+447000000002", Pradeep: "+447000000003", Suresh: "+447000000004", Abraham: "+447000000005",
+  };
+  const openCallForFlag = (flag: FlagEntry) => {
+    const team = flag.jobNumber;
+    setCallTarget({ team, phone: TEAM_PHONES[team] || "+447000000099" });
+  };
+  const openCallForCoaching = (c: CoachingItem) => {
+    setCallTarget({ team: c.team, phone: TEAM_PHONES[c.team] || "+447000000099" });
   };
 
   const handleAssign = (c: CoachingItem) => {
@@ -157,11 +161,14 @@ const LiveMonitoringLog = () => {
     fire(`Assigned to ${who.trim()}`);
   };
 
-  const handleSchedule = (c: CoachingItem) => {
-    const when = window.prompt(`Schedule coaching for ${c.team} (e.g. Mon 10:00):`, schedules[c.id] || "");
-    if (!when || !when.trim()) return;
-    setSchedules(prev => ({ ...prev, [c.id]: when.trim() }));
-    fire(`Scheduled ${c.team} → ${when.trim()}`);
+  // Schedule dialog
+  const [scheduleTarget, setScheduleTarget] = useState<CoachingItem | null>(null);
+  const handleScheduleConfirm = (payload: { date: string; time: string; notes?: string }) => {
+    if (!scheduleTarget) return;
+    const label = `${payload.date} · ${payload.time}${payload.notes ? ` — ${payload.notes}` : ""}`;
+    setSchedules(prev => ({ ...prev, [scheduleTarget.id]: label }));
+    fire(`Scheduled ${scheduleTarget.team} → ${payload.date} ${payload.time}`);
+    setScheduleTarget(null);
   };
 
   const handleDismissCoaching = (c: CoachingItem) => {
