@@ -28,6 +28,7 @@ const lazyRetry = (importFn: () => Promise<{ default: ComponentType }>) => {
 };
 
 const Index = lazy(() => lazyRetry(() => import("./pages/Index")));
+const NavCommandCenter = lazy(() => lazyRetry(() => import("./pages/NavCommandCenter")));
 const ProgressorWorkspace = lazy(() => lazyRetry(() => import("./pages/ProgressorWorkspace")));
 const AutoAssignPanel = lazy(() => lazyRetry(() => import("./pages/AutoAssignPanel")));
 
@@ -126,6 +127,11 @@ const App = () => (
               <Route path="/auto-assign" element={
                 <AdminRoute>
                   <PageErrorBoundary><Suspense fallback={<PageLoader />}><AutoAssignPanel /></Suspense></PageErrorBoundary>
+                </AdminRoute>
+              } />
+              <Route path="/command" element={
+                <AdminRoute>
+                  <PageErrorBoundary><Suspense fallback={<PageLoader />}><NavCommandCenter /></Suspense></PageErrorBoundary>
                 </AdminRoute>
               } />
               <Route path="/roadmaps" element={
