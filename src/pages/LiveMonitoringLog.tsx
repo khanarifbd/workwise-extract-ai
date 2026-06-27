@@ -11,6 +11,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import AddLogEntryModal from "@/components/AddLogEntryModal";
 
 // ---- Types ----
 type Severity = "urgent" | "warning" | "info";
