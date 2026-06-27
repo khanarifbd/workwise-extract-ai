@@ -5,11 +5,17 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HashRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { CommandQuickActionBar } from "./components/CommandQuickActionBar";
+import { CommandNotificationCenter } from "./components/CommandNotificationCenter";
 
 function CommandBarMount() {
   const { pathname } = useLocation();
   if (!pathname.startsWith("/command")) return null;
-  return <CommandQuickActionBar />;
+  return (
+    <>
+      <CommandNotificationCenter />
+      <CommandQuickActionBar />
+    </>
+  );
 }
 import { Capacitor } from "@capacitor/core";
 import { Loader2 } from "lucide-react";
