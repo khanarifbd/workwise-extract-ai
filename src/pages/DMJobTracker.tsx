@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import {
   ArrowLeft, AlertTriangle, Clock, CheckCircle2, Flag, PhoneCall,
   StickyNote, Eye, ShieldCheck, Wrench, Package, Camera, FileText,
@@ -104,7 +105,97 @@ const SectionHeader = ({
 const DMJobTracker = () => {
   const navigate = useNavigate();
   const [log, setLog] = useState<string | null>(null);
-  const fire = (msg: string) => { setLog(msg); console.log(`[DM-Tracker] ${msg}`); setTimeout(() => setLog(null), 1500); };
+  const fire = (msg: string) => { setLog(msg); setTimeout(() => setLog(null), 1500); };
+
+  // Persisted state for action results
+  const LS = {
+    notes: "dm-tracker.notes",
+    flags: "dm-tracker.flags",
+    resolved: "dm-tracker.resolved",
+    schedules: "dm-tracker.schedules",
+    assignments: "dm-tracker.assignments",
+    materials: "dm-tracker.materials",
+    signOffs: "dm-tracker.signoffs",
+  };
+  const readLS = <T,>(k: string, fallback: T): T => {
+    try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : fallback; } catch { return fallback; }
+  };
+  const [notes, setNotes] = useState<Record<string, string[]>>(() => readLS(LS.notes, {}));
+  const [flagged, setFlagged] = useState<Record<string, string>>(() => readLS(LS.flags, {}));
+  const [resolved, setResolved] = useState<string[]>(() => readLS(LS.resolved, []));
+  const [schedules, setSchedules] = useState<Record<string, string>>(() => readLS(LS.schedules, {}));
+  const [assignments, setAssignments] = useState<Record<string, string>>(() => readLS(LS.assignments, {}));
+  const [materials, setMaterials] = useState<Record<string, string>>(() => readLS(LS.materials, {}));
+  const [signOffs, setSignOffs] = useState<string[]>(() => readLS(LS.signOffs, []));
+
+  useEffect(() => { localStorage.setItem(LS.notes, JSON.stringify(notes)); }, [notes]);
+  useEffect(() => { localStorage.setItem(LS.flags, JSON.stringify(flagged)); }, [flagged]);
+  useEffect(() => { localStorage.setItem(LS.resolved, JSON.stringify(resolved)); }, [resolved]);
+  useEffect(() => { localStorage.setItem(LS.schedules, JSON.stringify(schedules)); }, [schedules]);
+  useEffect(() => { localStorage.setItem(LS.assignments, JSON.stringify(assignments)); }, [assignments]);
+  useEffect(() => { localStorage.setItem(LS.materials, JSON.stringify(materials)); }, [materials]);
+  useEffect(() => { localStorage.setItem(LS.signOffs, JSON.stringify(signOffs)); }, [signOffs]);
+
+  const TEAM_PHONES: Record<string, string> = {
+    Shakthi: "+447000000001", Suresh: "+447000000002", Indika: "+447000000003",
+    Pradeep: "+447000000004", Gupi: "+447000000005",
+  };
+
+  const handleCall = (team: string) => {
+    const phone = TEAM_PHONES[team];
+    if (!phone) { toast.error(`No number stored for ${team}`); return; }
+    window.location.href = `tel:${phone}`;
+    toast.success(`Calling ${team}…`);
+  };
+
+  const handleAddNote = (jobNumber: string) => {
+    const note = window.prompt(`Add a note for ${jobNumber}:`);
+    if (!note?.trim()) return;
+    setNotes((prev) => ({ ...prev, [jobNumber]: [...(prev[jobNumber] ?? []), note.trim()] }));
+    toast.success(`Note added to ${jobNumber}`);
+  };
+
+  const handleResolve = (jobNumber: string) => {
+    setResolved((prev) => prev.includes(jobNumber) ? prev : [...prev, jobNumber]);
+    toast.success(`${jobNumber} marked resolved`);
+  };
+
+  const handleFlag = (jobNumber: string, team: string) => {
+    const reason = window.prompt(`Reason to flag ${jobNumber} (${team}):`);
+    if (!reason?.trim()) return;
+    setFlagged((prev) => ({ ...prev, [jobNumber]: reason.trim() }));
+    navigate(`/command/log?team=${encodeURIComponent(team)}&job=${encodeURIComponent(jobNumber)}`);
+  };
+
+  const handleDetails = (jobNumber: string) => {
+    navigate(`/command/log?job=${encodeURIComponent(jobNumber)}`);
+  };
+
+  const handleViewSignOff = (jobNumber: string) => {
+    setSignOffs((prev) => prev.includes(jobNumber) ? prev : [...prev, jobNumber]);
+    toast.success(`Opening sign-off for ${jobNumber}`);
+    navigate(`/command/log?job=${encodeURIComponent(jobNumber)}&view=signoff`);
+  };
+
+  const handleSchedulePreVisit = (jobNumber: string) => {
+    const when = window.prompt(`Schedule pre-visit for ${jobNumber} (e.g. Tomorrow 09:00):`);
+    if (!when?.trim()) return;
+    setSchedules((prev) => ({ ...prev, [jobNumber]: when.trim() }));
+    toast.success(`Pre-visit scheduled: ${when.trim()}`);
+  };
+
+  const handleAssignTrades = (jobNumber: string) => {
+    const trades = window.prompt(`Assign trades for ${jobNumber} (comma separated):`);
+    if (!trades?.trim()) return;
+    setAssignments((prev) => ({ ...prev, [jobNumber]: trades.trim() }));
+    toast.success(`Trades assigned to ${jobNumber}`);
+  };
+
+  const handleConfirmMaterials = (jobNumber: string) => {
+    const stamp = new Date().toLocaleString("en-GB");
+    setMaterials((prev) => ({ ...prev, [jobNumber]: stamp }));
+    toast.success(`Materials confirmed for ${jobNumber}`);
+  };
 
   const stats = useMemo(() => ({
     target: 8,
@@ -161,9 +252,9 @@ const DMJobTracker = () => {
                     <p className="text-sm text-muted-foreground mt-1">{u.description}</p>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
-                    <Button size="sm" variant="outline" onClick={() => fire(`Call ${u.team}`)}><PhoneCall className="h-3.5 w-3.5 mr-1" />Call Team</Button>
-                    <Button size="sm" variant="outline" onClick={() => fire(`Note ${u.jobNumber}`)}><StickyNote className="h-3.5 w-3.5 mr-1" />Add Note</Button>
-                    <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => fire(`Resolve ${u.jobNumber}`)}><CheckCircle2 className="h-3.5 w-3.5 mr-1" />Resolve</Button>
+                    <Button size="sm" variant="outline" onClick={() => handleCall(u.team)}><PhoneCall className="h-3.5 w-3.5 mr-1" />Call Team</Button>
+                    <Button size="sm" variant="outline" onClick={() => handleAddNote(u.jobNumber)}><StickyNote className="h-3.5 w-3.5 mr-1" />Add Note</Button>
+                    <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => handleResolve(u.jobNumber)}><CheckCircle2 className="h-3.5 w-3.5 mr-1" />Resolve</Button>
                   </div>
                 </li>
               ))}
@@ -207,9 +298,9 @@ const DMJobTracker = () => {
                     <td className="px-5 py-3 text-center"><Tick ok={j.tradesOK} /></td>
                     <td className="px-5 py-3">
                       <div className="flex justify-end gap-1.5">
-                        <Button size="sm" variant="outline" onClick={() => fire(`View ${j.jobNumber}`)}><Eye className="h-3.5 w-3.5 mr-1" />Details</Button>
-                        <Button size="sm" variant="outline" onClick={() => fire(`Note ${j.jobNumber}`)}><StickyNote className="h-3.5 w-3.5 mr-1" />Note</Button>
-                        <Button size="sm" variant="outline" onClick={() => fire(`Flag ${j.jobNumber}`)}><Flag className="h-3.5 w-3.5 mr-1" />Flag</Button>
+                        <Button size="sm" variant="outline" onClick={() => handleDetails(j.jobNumber)}><Eye className="h-3.5 w-3.5 mr-1" />Details</Button>
+                        <Button size="sm" variant="outline" onClick={() => handleAddNote(j.jobNumber)}><StickyNote className="h-3.5 w-3.5 mr-1" />Note</Button>
+                        <Button size="sm" variant="outline" onClick={() => handleFlag(j.jobNumber, j.team)}><Flag className="h-3.5 w-3.5 mr-1" />Flag</Button>
                       </div>
                     </td>
                   </tr>
@@ -236,9 +327,9 @@ const DMJobTracker = () => {
                   <Stat label="Trades" value={<Tick ok={j.tradesOK} />} />
                 </div>
                 <div className="flex gap-1.5">
-                  <Button size="sm" variant="outline" className="flex-1" onClick={() => fire(`View ${j.jobNumber}`)}><Eye className="h-3.5 w-3.5 mr-1" />Details</Button>
-                  <Button size="sm" variant="outline" className="flex-1" onClick={() => fire(`Note ${j.jobNumber}`)}><StickyNote className="h-3.5 w-3.5 mr-1" />Note</Button>
-                  <Button size="sm" variant="outline" className="flex-1" onClick={() => fire(`Flag ${j.jobNumber}`)}><Flag className="h-3.5 w-3.5 mr-1" />Flag</Button>
+                  <Button size="sm" variant="outline" className="flex-1" onClick={() => handleDetails(j.jobNumber)}><Eye className="h-3.5 w-3.5 mr-1" />Details</Button>
+                  <Button size="sm" variant="outline" className="flex-1" onClick={() => handleAddNote(j.jobNumber)}><StickyNote className="h-3.5 w-3.5 mr-1" />Note</Button>
+                  <Button size="sm" variant="outline" className="flex-1" onClick={() => handleFlag(j.jobNumber, j.team)}><Flag className="h-3.5 w-3.5 mr-1" />Flag</Button>
                 </div>
               </li>
             ))}
@@ -262,7 +353,7 @@ const DMJobTracker = () => {
                   <span className="inline-flex items-center gap-1"><FileText className="h-3.5 w-3.5 text-muted-foreground" /><Tick ok={c.descriptionOK} /> Desc</span>
                   <span className="inline-flex items-center gap-1"><PenSquare className="h-3.5 w-3.5 text-muted-foreground" /><Tick ok={c.signed} /> Signed</span>
                 </div>
-                <Button size="sm" variant="outline" onClick={() => fire(`Sign-off ${c.jobNumber}`)}>
+                <Button size="sm" variant="outline" onClick={() => handleViewSignOff(c.jobNumber)}>
                   <ShieldCheck className="h-3.5 w-3.5 mr-1" />View Sign-off
                 </Button>
               </li>
@@ -290,11 +381,18 @@ const DMJobTracker = () => {
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">{p.address}</p>
+                  {(schedules[p.jobNumber] || assignments[p.jobNumber] || materials[p.jobNumber]) && (
+                    <div className="mt-1.5 flex flex-wrap gap-1.5 text-[11px]">
+                      {schedules[p.jobNumber] && <Badge variant="outline" className="border-blue-500/40 text-blue-700 dark:text-blue-300">Pre-visit: {schedules[p.jobNumber]}</Badge>}
+                      {assignments[p.jobNumber] && <Badge variant="outline" className="border-violet-500/40 text-violet-700 dark:text-violet-300">Trades: {assignments[p.jobNumber]}</Badge>}
+                      {materials[p.jobNumber] && <Badge variant="outline" className="border-emerald-500/40 text-emerald-700 dark:text-emerald-300">Materials ✓ {materials[p.jobNumber]}</Badge>}
+                    </div>
+                  )}
                 </div>
                 <div className="flex flex-wrap gap-1.5">
-                  <Button size="sm" variant="outline" onClick={() => fire(`Pre-visit ${p.jobNumber}`)}><CalendarClock className="h-3.5 w-3.5 mr-1" />Schedule Pre-visit</Button>
-                  <Button size="sm" variant="outline" onClick={() => fire(`Assign ${p.jobNumber}`)}><UserPlus className="h-3.5 w-3.5 mr-1" />Assign Trades</Button>
-                  <Button size="sm" variant="outline" onClick={() => fire(`Materials ${p.jobNumber}`)}><Package className="h-3.5 w-3.5 mr-1" />Confirm Materials</Button>
+                  <Button size="sm" variant="outline" onClick={() => handleSchedulePreVisit(p.jobNumber)}><CalendarClock className="h-3.5 w-3.5 mr-1" />Schedule Pre-visit</Button>
+                  <Button size="sm" variant="outline" onClick={() => handleAssignTrades(p.jobNumber)}><UserPlus className="h-3.5 w-3.5 mr-1" />Assign Trades</Button>
+                  <Button size="sm" variant="outline" onClick={() => handleConfirmMaterials(p.jobNumber)}><Package className="h-3.5 w-3.5 mr-1" />Confirm Materials</Button>
                 </div>
               </li>
             ))}
