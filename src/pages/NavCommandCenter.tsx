@@ -195,7 +195,7 @@ const NavCommandCenter = () => {
         </header>
 
         {/* ───── 01 · PULSE (sky) ───── */}
-        <Band tone="sky">
+        <Band id="command.pulse" label="01 · Pulse" defaultPreset="sky">
           <SectionHeader
             eyebrow="01 — Pulse"
             title="Today at a glance"
@@ -215,7 +215,7 @@ const NavCommandCenter = () => {
         </Band>
 
         {/* ───── 02 · FIELD (amber) ───── */}
-        <Band tone="amber">
+        <Band id="command.field" label="02 · Field" defaultPreset="powder">
           <SectionHeader
             eyebrow="02 — Field"
             title="Today's Schedule"
@@ -314,7 +314,7 @@ const NavCommandCenter = () => {
         </Band>
 
         {/* ───── 03 · PERFORMANCE (emerald) ───── */}
-        <Band tone="emerald">
+        <Band id="command.performance" label="03 · Performance" defaultPreset="ice">
           <SectionHeader
             eyebrow="03 — Performance"
             title="Week to Date"
@@ -350,7 +350,7 @@ const NavCommandCenter = () => {
         </Band>
 
         {/* ───── 04 · ACTIONS (violet) ───── */}
-        <Band tone="violet">
+        <Band id="command.actions" label="04 · Actions" defaultPreset="mist">
           <SectionHeader
             eyebrow="04 — Actions"
             title="Quick Actions"
