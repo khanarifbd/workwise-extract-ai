@@ -386,6 +386,11 @@ const LiveMonitoringLog = () => {
           {toast}
         </div>
       )}
+      <AddLogEntryModal
+        open={logModalOpen}
+        onOpenChange={setLogModalOpen}
+        onSave={(e) => fire(`Logged ${e.category} (${e.severity})`)}
+      />
     </div>
   );
 };
