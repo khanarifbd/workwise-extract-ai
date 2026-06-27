@@ -36,36 +36,38 @@ type Severity = "urgent" | "warning" | "info";
 type FilterKind = "all" | "urgent" | "warning" | "note" | "resolved";
 
 interface FlagEntry {
-  id: string; time: string; jobNumber: string; category: string;
+  id: string; time: string; dateISO: string; jobNumber: string; category: string;
   severity: Severity; description: string; status: string; actionTaken: string;
 }
 interface QualityNote {
-  id: string; time: string; jobNumber: string; issue: string; resolved: boolean;
+  id: string; time: string; dateISO: string; jobNumber: string; issue: string; resolved: boolean;
 }
 interface CoachingItem {
-  id: string; team: string; pattern: string; recommendation: string;
+  id: string; dateISO: string; team: string; pattern: string; recommendation: string;
 }
 interface ResolvedItem {
-  id: string; jobNumber: string; issue: string; resolution: string; confirmed: boolean;
+  id: string; dateISO: string; jobNumber: string; issue: string; resolution: string; confirmed: boolean;
 }
+
+const TODAY_ISO = new Date().toISOString();
 
 // ---- Sample seed ----
 const SEED_FLAGS: FlagEntry[] = [
-  { id: "f1", time: "09:14", jobNumber: "N2640150", category: "Access", severity: "urgent", description: "Tenant locked out — keys not on site.", status: "Open", actionTaken: "Locksmith dispatched." },
-  { id: "f2", time: "10:42", jobNumber: "N2640199", category: "H&S",    severity: "urgent", description: "Asbestos suspected in kitchen ceiling.", status: "Paused", actionTaken: "Awaiting survey." },
-  { id: "f3", time: "11:05", jobNumber: "N2640210", category: "Materials", severity: "warning", description: "Plasterboard short by 4 sheets.", status: "Open", actionTaken: "Driver re-routing." },
+  { id: "f1", time: "09:14", dateISO: TODAY_ISO, jobNumber: "N2640150", category: "Access", severity: "urgent", description: "Tenant locked out — keys not on site.", status: "Open", actionTaken: "Locksmith dispatched." },
+  { id: "f2", time: "10:42", dateISO: TODAY_ISO, jobNumber: "N2640199", category: "H&S",    severity: "urgent", description: "Asbestos suspected in kitchen ceiling.", status: "Paused", actionTaken: "Awaiting survey." },
+  { id: "f3", time: "11:05", dateISO: TODAY_ISO, jobNumber: "N2640210", category: "Materials", severity: "warning", description: "Plasterboard short by 4 sheets.", status: "Open", actionTaken: "Driver re-routing." },
 ];
 const SEED_QUALITY: QualityNote[] = [
-  { id: "q1", time: "08:55", jobNumber: "N2640188", issue: "Sign-off photos blurry — re-uploaded.", resolved: true },
-  { id: "q2", time: "10:20", jobNumber: "N2640218", issue: "Description missing post-work readings.", resolved: false },
+  { id: "q1", time: "08:55", dateISO: TODAY_ISO, jobNumber: "N2640188", issue: "Sign-off photos blurry — re-uploaded.", resolved: true },
+  { id: "q2", time: "10:20", dateISO: TODAY_ISO, jobNumber: "N2640218", issue: "Description missing post-work readings.", resolved: false },
 ];
 const SEED_COACHING: CoachingItem[] = [
-  { id: "c1", team: "Pradeep", pattern: "3rd late start this week", recommendation: "1-to-1 timekeeping coaching." },
-  { id: "c2", team: "Suresh",  pattern: "Repeat description quality flags", recommendation: "Refresher on sign-off SOP." },
+  { id: "c1", dateISO: TODAY_ISO, team: "Pradeep", pattern: "3rd late start this week", recommendation: "1-to-1 timekeeping coaching." },
+  { id: "c2", dateISO: TODAY_ISO, team: "Suresh",  pattern: "Repeat description quality flags", recommendation: "Refresher on sign-off SOP." },
 ];
 const SEED_RESOLVED: ResolvedItem[] = [
-  { id: "r1", jobNumber: "N2640142", issue: "Wrong skirting profile",  resolution: "Correct profile delivered & fitted.", confirmed: true },
-  { id: "r2", jobNumber: "N2640177", issue: "Tenant unreachable AM",   resolution: "Visit re-booked PM, tenant confirmed.", confirmed: true },
+  { id: "r1", dateISO: TODAY_ISO, jobNumber: "N2640142", issue: "Wrong skirting profile",  resolution: "Correct profile delivered & fitted.", confirmed: true },
+  { id: "r2", dateISO: TODAY_ISO, jobNumber: "N2640177", issue: "Tenant unreachable AM",   resolution: "Visit re-booked PM, tenant confirmed.", confirmed: true },
 ];
 
 const SEVERITY_STYLES: Record<Severity, string> = {
