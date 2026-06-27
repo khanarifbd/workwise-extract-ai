@@ -11,6 +11,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import AddLogEntryModal from "@/components/AddLogEntryModal";
 
 // ---- Types ----
 type Severity = "urgent" | "warning" | "info";
@@ -77,6 +78,7 @@ const LiveMonitoringLog = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [visibleCount, setVisibleCount] = useState(10);
   const [toast, setToast] = useState<string | null>(null);
+  const [logModalOpen, setLogModalOpen] = useState(false);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const pullStartY = useRef<number | null>(null);
   const [pullOffset, setPullOffset] = useState(0);
@@ -191,7 +193,7 @@ const LiveMonitoringLog = () => {
 
         {/* Top bar */}
         <div className="rounded-2xl border bg-card p-3 shadow-sm flex flex-wrap items-center gap-2">
-          <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={() => fire("New entry")}>
+          <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={() => setLogModalOpen(true)}>
             <Plus className="h-4 w-4 mr-1.5" /> Add Entry
           </Button>
 
@@ -384,6 +386,11 @@ const LiveMonitoringLog = () => {
           {toast}
         </div>
       )}
+      <AddLogEntryModal
+        open={logModalOpen}
+        onOpenChange={setLogModalOpen}
+        onSave={(e) => fire(`Logged ${e.category} (${e.severity})`)}
+      />
     </div>
   );
 };
