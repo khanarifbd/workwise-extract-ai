@@ -29,6 +29,7 @@ const lazyRetry = (importFn: () => Promise<{ default: ComponentType }>) => {
 
 const Index = lazy(() => lazyRetry(() => import("./pages/Index")));
 const NavCommandCenter = lazy(() => lazyRetry(() => import("./pages/NavCommandCenter")));
+const DMJobTracker = lazy(() => lazyRetry(() => import("./pages/DMJobTracker")));
 const ProgressorWorkspace = lazy(() => lazyRetry(() => import("./pages/ProgressorWorkspace")));
 const AutoAssignPanel = lazy(() => lazyRetry(() => import("./pages/AutoAssignPanel")));
 
