@@ -100,6 +100,7 @@ const LiveMonitoringLog = () => {
     setEntries((prev) => [{ ...e, id }, ...prev]);
     fire(`Entry added → ${e.severity || "Note"}`);
   };
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   const pullStartY = useRef<number | null>(null);
   const [pullOffset, setPullOffset] = useState(0);
