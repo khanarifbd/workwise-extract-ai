@@ -116,10 +116,9 @@ export default function AddLogEntryModal({
     if (!q || q.length < 2) return [];
     return jobs
       .filter(
-        (j) =>
+        (j: any) =>
           j.jobNumber?.toLowerCase().includes(q) ||
-          j.address?.toLowerCase().includes(q) ||
-          j.tenantName?.toLowerCase().includes(q)
+          j.address?.toLowerCase().includes(q)
       )
       .slice(0, 6);
   }, [jobs, jobReference]);
