@@ -30,6 +30,7 @@ const lazyRetry = (importFn: () => Promise<{ default: ComponentType }>) => {
 const Index = lazy(() => lazyRetry(() => import("./pages/Index")));
 const NavCommandCenter = lazy(() => lazyRetry(() => import("./pages/NavCommandCenter")));
 const DMJobTracker = lazy(() => lazyRetry(() => import("./pages/DMJobTracker")));
+const AAJobTracker = lazy(() => lazyRetry(() => import("./pages/AAJobTracker")));
 const ProgressorWorkspace = lazy(() => lazyRetry(() => import("./pages/ProgressorWorkspace")));
 const AutoAssignPanel = lazy(() => lazyRetry(() => import("./pages/AutoAssignPanel")));
 
@@ -138,6 +139,11 @@ const App = () => (
               <Route path="/command/dm" element={
                 <AdminRoute>
                   <PageErrorBoundary><Suspense fallback={<PageLoader />}><DMJobTracker /></Suspense></PageErrorBoundary>
+                </AdminRoute>
+              } />
+              <Route path="/command/aa" element={
+                <AdminRoute>
+                  <PageErrorBoundary><Suspense fallback={<PageLoader />}><AAJobTracker /></Suspense></PageErrorBoundary>
                 </AdminRoute>
               } />
               <Route path="/roadmaps" element={
