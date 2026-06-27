@@ -105,7 +105,97 @@ const SectionHeader = ({
 const DMJobTracker = () => {
   const navigate = useNavigate();
   const [log, setLog] = useState<string | null>(null);
-  const fire = (msg: string) => { setLog(msg); console.log(`[DM-Tracker] ${msg}`); setTimeout(() => setLog(null), 1500); };
+  const fire = (msg: string) => { setLog(msg); setTimeout(() => setLog(null), 1500); };
+
+  // Persisted state for action results
+  const LS = {
+    notes: "dm-tracker.notes",
+    flags: "dm-tracker.flags",
+    resolved: "dm-tracker.resolved",
+    schedules: "dm-tracker.schedules",
+    assignments: "dm-tracker.assignments",
+    materials: "dm-tracker.materials",
+    signOffs: "dm-tracker.signoffs",
+  };
+  const readLS = <T,>(k: string, fallback: T): T => {
+    try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : fallback; } catch { return fallback; }
+  };
+  const [notes, setNotes] = useState<Record<string, string[]>>(() => readLS(LS.notes, {}));
+  const [flagged, setFlagged] = useState<Record<string, string>>(() => readLS(LS.flags, {}));
+  const [resolved, setResolved] = useState<string[]>(() => readLS(LS.resolved, []));
+  const [schedules, setSchedules] = useState<Record<string, string>>(() => readLS(LS.schedules, {}));
+  const [assignments, setAssignments] = useState<Record<string, string>>(() => readLS(LS.assignments, {}));
+  const [materials, setMaterials] = useState<Record<string, string>>(() => readLS(LS.materials, {}));
+  const [signOffs, setSignOffs] = useState<string[]>(() => readLS(LS.signOffs, []));
+
+  useEffect(() => { localStorage.setItem(LS.notes, JSON.stringify(notes)); }, [notes]);
+  useEffect(() => { localStorage.setItem(LS.flags, JSON.stringify(flagged)); }, [flagged]);
+  useEffect(() => { localStorage.setItem(LS.resolved, JSON.stringify(resolved)); }, [resolved]);
+  useEffect(() => { localStorage.setItem(LS.schedules, JSON.stringify(schedules)); }, [schedules]);
+  useEffect(() => { localStorage.setItem(LS.assignments, JSON.stringify(assignments)); }, [assignments]);
+  useEffect(() => { localStorage.setItem(LS.materials, JSON.stringify(materials)); }, [materials]);
+  useEffect(() => { localStorage.setItem(LS.signOffs, JSON.stringify(signOffs)); }, [signOffs]);
+
+  const TEAM_PHONES: Record<string, string> = {
+    Shakthi: "+447000000001", Suresh: "+447000000002", Indika: "+447000000003",
+    Pradeep: "+447000000004", Gupi: "+447000000005",
+  };
+
+  const handleCall = (team: string) => {
+    const phone = TEAM_PHONES[team];
+    if (!phone) { toast.error(`No number stored for ${team}`); return; }
+    window.location.href = `tel:${phone}`;
+    toast.success(`Calling ${team}…`);
+  };
+
+  const handleAddNote = (jobNumber: string) => {
+    const note = window.prompt(`Add a note for ${jobNumber}:`);
+    if (!note?.trim()) return;
+    setNotes((prev) => ({ ...prev, [jobNumber]: [...(prev[jobNumber] ?? []), note.trim()] }));
+    toast.success(`Note added to ${jobNumber}`);
+  };
+
+  const handleResolve = (jobNumber: string) => {
+    setResolved((prev) => prev.includes(jobNumber) ? prev : [...prev, jobNumber]);
+    toast.success(`${jobNumber} marked resolved`);
+  };
+
+  const handleFlag = (jobNumber: string, team: string) => {
+    const reason = window.prompt(`Reason to flag ${jobNumber} (${team}):`);
+    if (!reason?.trim()) return;
+    setFlagged((prev) => ({ ...prev, [jobNumber]: reason.trim() }));
+    navigate(`/command/log?team=${encodeURIComponent(team)}&job=${encodeURIComponent(jobNumber)}`);
+  };
+
+  const handleDetails = (jobNumber: string) => {
+    navigate(`/command/log?job=${encodeURIComponent(jobNumber)}`);
+  };
+
+  const handleViewSignOff = (jobNumber: string) => {
+    setSignOffs((prev) => prev.includes(jobNumber) ? prev : [...prev, jobNumber]);
+    toast.success(`Opening sign-off for ${jobNumber}`);
+    navigate(`/command/log?job=${encodeURIComponent(jobNumber)}&view=signoff`);
+  };
+
+  const handleSchedulePreVisit = (jobNumber: string) => {
+    const when = window.prompt(`Schedule pre-visit for ${jobNumber} (e.g. Tomorrow 09:00):`);
+    if (!when?.trim()) return;
+    setSchedules((prev) => ({ ...prev, [jobNumber]: when.trim() }));
+    toast.success(`Pre-visit scheduled: ${when.trim()}`);
+  };
+
+  const handleAssignTrades = (jobNumber: string) => {
+    const trades = window.prompt(`Assign trades for ${jobNumber} (comma separated):`);
+    if (!trades?.trim()) return;
+    setAssignments((prev) => ({ ...prev, [jobNumber]: trades.trim() }));
+    toast.success(`Trades assigned to ${jobNumber}`);
+  };
+
+  const handleConfirmMaterials = (jobNumber: string) => {
+    const stamp = new Date().toLocaleString("en-GB");
+    setMaterials((prev) => ({ ...prev, [jobNumber]: stamp }));
+    toast.success(`Materials confirmed for ${jobNumber}`);
+  };
 
   const stats = useMemo(() => ({
     target: 8,
