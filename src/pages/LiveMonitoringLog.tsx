@@ -156,25 +156,55 @@ const LiveMonitoringLog = () => {
   const q = search.trim().toLowerCase();
   const match = (s: string) => !q || s.toLowerCase().includes(q);
 
-  const flags = useMemo(() => SEED_FLAGS.filter(f =>
-    (filter === "all" || filter === "urgent" && f.severity === "urgent" || filter === "warning" && f.severity === "warning") &&
-    (match(f.jobNumber) || match(f.description) || match(f.category))
-  ), [filter, q]);
+  // Map user entries into the section shapes
+  const entryFlags: FlagEntry[] = useMemo(() =>
+    entries
+      .filter(e => e.severity === "Urgent" || e.severity === "Warning")
+      .map(e => ({
+        id: e.id,
+        time: hhmm(e.createdAt),
+        jobNumber: e.jobReference || (e.team || e.teamOther || "—"),
+        category: e.category || "General",
+        severity: sevMap(e.severity),
+        description: e.issueDescription || "(no description)",
+        status: "Open",
+        actionTaken: e.actionTaken || "—",
+      })), [entries]);
 
-  const quality = useMemo(() => SEED_QUALITY.filter(n =>
+  const entryNotes: QualityNote[] = useMemo(() =>
+    entries
+      .filter(e => e.severity === "Note")
+      .map(e => ({
+        id: e.id,
+        time: hhmm(e.createdAt),
+        jobNumber: e.jobReference || (e.team || e.teamOther || "—"),
+        issue: e.issueDescription || "(no description)",
+        resolved: false,
+      })), [entries]);
+
+  const entryResolved: ResolvedItem[] = useMemo(() =>
+    entries
+      .filter(e => e.severity === "Resolved")
+      .map(e => ({
+        id: e.id,
+        jobNumber: e.jobReference || (e.team || e.teamOther || "—"),
+        issue: e.issueDescription || "(no description)",
+        resolution: e.actionTaken || "Resolved",
+        confirmed: true,
+      })), [entries]);
+
+  const flags = useMemo(() => [...entryFlags, ...SEED_FLAGS].filter(f =>
+    (filter === "all" || (filter === "urgent" && f.severity === "urgent") || (filter === "warning" && f.severity === "warning")) &&
+    (match(f.jobNumber) || match(f.description) || match(f.category))
+  ), [filter, q, entryFlags]);
+
+  const quality = useMemo(() => [...entryNotes, ...SEED_QUALITY].filter(n =>
     (filter === "all" || filter === "note") &&
     (match(n.jobNumber) || match(n.issue))
-  ), [filter, q]);
+  ), [filter, q, entryNotes]);
 
   const coaching = useMemo(() => SEED_COACHING.filter(c =>
     (filter === "all" || filter === "note") &&
-    (match(c.team) || match(c.pattern) || match(c.recommendation))
-  ), [filter, q]);
-
-  const resolved = useMemo(() => SEED_RESOLVED.filter(r =>
-    (filter === "all" || filter === "resolved") &&
-    (match(r.jobNumber) || match(r.issue) || match(r.resolution))
-  ), [filter, q]);
 
   const urgentCount = SEED_FLAGS.filter(f => f.severity === "urgent").length;
   const today = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
