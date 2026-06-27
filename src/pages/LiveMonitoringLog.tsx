@@ -14,6 +14,9 @@ import { cn } from "@/lib/utils";
 import { useSectionTone } from "@/lib/sectionTheme";
 
 import AddLogEntryModal, { type LogEntryDraft } from "@/components/AddLogEntryModal";
+import { TeamCallLogDialog } from "@/components/command/TeamCallLogDialog";
+import { ScheduleDialog } from "@/components/command/ScheduleDialog";
+import { CollapsibleDateGroups, type DatedItem } from "@/components/command/CollapsibleDateGroups";
 
 const STORAGE_KEY = "command.logEntries.v1";
 type StoredEntry = LogEntryDraft & { id: string };
