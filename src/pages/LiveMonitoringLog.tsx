@@ -14,6 +14,9 @@ import { cn } from "@/lib/utils";
 import { useSectionTone } from "@/lib/sectionTheme";
 
 import AddLogEntryModal, { type LogEntryDraft } from "@/components/AddLogEntryModal";
+import { TeamCallLogDialog } from "@/components/command/TeamCallLogDialog";
+import { ScheduleDialog } from "@/components/command/ScheduleDialog";
+import { CollapsibleDateGroups, type DatedItem } from "@/components/command/CollapsibleDateGroups";
 
 const STORAGE_KEY = "command.logEntries.v1";
 type StoredEntry = LogEntryDraft & { id: string };
@@ -33,36 +36,38 @@ type Severity = "urgent" | "warning" | "info";
 type FilterKind = "all" | "urgent" | "warning" | "note" | "resolved";
 
 interface FlagEntry {
-  id: string; time: string; jobNumber: string; category: string;
+  id: string; time: string; dateISO: string; jobNumber: string; category: string;
   severity: Severity; description: string; status: string; actionTaken: string;
 }
 interface QualityNote {
-  id: string; time: string; jobNumber: string; issue: string; resolved: boolean;
+  id: string; time: string; dateISO: string; jobNumber: string; issue: string; resolved: boolean;
 }
 interface CoachingItem {
-  id: string; team: string; pattern: string; recommendation: string;
+  id: string; dateISO: string; team: string; pattern: string; recommendation: string;
 }
 interface ResolvedItem {
-  id: string; jobNumber: string; issue: string; resolution: string; confirmed: boolean;
+  id: string; dateISO: string; jobNumber: string; issue: string; resolution: string; confirmed: boolean;
 }
+
+const TODAY_ISO = new Date().toISOString();
 
 // ---- Sample seed ----
 const SEED_FLAGS: FlagEntry[] = [
-  { id: "f1", time: "09:14", jobNumber: "N2640150", category: "Access", severity: "urgent", description: "Tenant locked out — keys not on site.", status: "Open", actionTaken: "Locksmith dispatched." },
-  { id: "f2", time: "10:42", jobNumber: "N2640199", category: "H&S",    severity: "urgent", description: "Asbestos suspected in kitchen ceiling.", status: "Paused", actionTaken: "Awaiting survey." },
-  { id: "f3", time: "11:05", jobNumber: "N2640210", category: "Materials", severity: "warning", description: "Plasterboard short by 4 sheets.", status: "Open", actionTaken: "Driver re-routing." },
+  { id: "f1", time: "09:14", dateISO: TODAY_ISO, jobNumber: "N2640150", category: "Access", severity: "urgent", description: "Tenant locked out — keys not on site.", status: "Open", actionTaken: "Locksmith dispatched." },
+  { id: "f2", time: "10:42", dateISO: TODAY_ISO, jobNumber: "N2640199", category: "H&S",    severity: "urgent", description: "Asbestos suspected in kitchen ceiling.", status: "Paused", actionTaken: "Awaiting survey." },
+  { id: "f3", time: "11:05", dateISO: TODAY_ISO, jobNumber: "N2640210", category: "Materials", severity: "warning", description: "Plasterboard short by 4 sheets.", status: "Open", actionTaken: "Driver re-routing." },
 ];
 const SEED_QUALITY: QualityNote[] = [
-  { id: "q1", time: "08:55", jobNumber: "N2640188", issue: "Sign-off photos blurry — re-uploaded.", resolved: true },
-  { id: "q2", time: "10:20", jobNumber: "N2640218", issue: "Description missing post-work readings.", resolved: false },
+  { id: "q1", time: "08:55", dateISO: TODAY_ISO, jobNumber: "N2640188", issue: "Sign-off photos blurry — re-uploaded.", resolved: true },
+  { id: "q2", time: "10:20", dateISO: TODAY_ISO, jobNumber: "N2640218", issue: "Description missing post-work readings.", resolved: false },
 ];
 const SEED_COACHING: CoachingItem[] = [
-  { id: "c1", team: "Pradeep", pattern: "3rd late start this week", recommendation: "1-to-1 timekeeping coaching." },
-  { id: "c2", team: "Suresh",  pattern: "Repeat description quality flags", recommendation: "Refresher on sign-off SOP." },
+  { id: "c1", dateISO: TODAY_ISO, team: "Pradeep", pattern: "3rd late start this week", recommendation: "1-to-1 timekeeping coaching." },
+  { id: "c2", dateISO: TODAY_ISO, team: "Suresh",  pattern: "Repeat description quality flags", recommendation: "Refresher on sign-off SOP." },
 ];
 const SEED_RESOLVED: ResolvedItem[] = [
-  { id: "r1", jobNumber: "N2640142", issue: "Wrong skirting profile",  resolution: "Correct profile delivered & fitted.", confirmed: true },
-  { id: "r2", jobNumber: "N2640177", issue: "Tenant unreachable AM",   resolution: "Visit re-booked PM, tenant confirmed.", confirmed: true },
+  { id: "r1", dateISO: TODAY_ISO, jobNumber: "N2640142", issue: "Wrong skirting profile",  resolution: "Correct profile delivered & fitted.", confirmed: true },
+  { id: "r2", dateISO: TODAY_ISO, jobNumber: "N2640177", issue: "Tenant unreachable AM",   resolution: "Visit re-booked PM, tenant confirmed.", confirmed: true },
 ];
 
 const SEVERITY_STYLES: Record<Severity, string> = {
@@ -136,13 +141,17 @@ const LiveMonitoringLog = () => {
     fire(`Resolved → ${flag.jobNumber}`);
   };
 
-  const handleCall = (flag: FlagEntry) => {
-    const phones: Record<string, string> = {
-      Shakthi: "+447000000001", Indika: "+447000000002", Pradeep: "+447000000003", Suresh: "+447000000004",
-    };
-    const phone = phones[flag.jobNumber] || "+447000000099";
-    window.location.href = `tel:${phone}`;
-    fire(`Calling ${flag.jobNumber}…`);
+  // Call dialog (flags + coaching)
+  const [callTarget, setCallTarget] = useState<{ team: string; phone: string } | null>(null);
+  const TEAM_PHONES: Record<string, string> = {
+    Shakthi: "+447000000001", Indika: "+447000000002", Pradeep: "+447000000003", Suresh: "+447000000004", Abraham: "+447000000005",
+  };
+  const openCallForFlag = (flag: FlagEntry) => {
+    const team = flag.jobNumber;
+    setCallTarget({ team, phone: TEAM_PHONES[team] || "+447000000099" });
+  };
+  const openCallForCoaching = (c: CoachingItem) => {
+    setCallTarget({ team: c.team, phone: TEAM_PHONES[c.team] || "+447000000099" });
   };
 
   const handleAssign = (c: CoachingItem) => {
@@ -152,11 +161,14 @@ const LiveMonitoringLog = () => {
     fire(`Assigned to ${who.trim()}`);
   };
 
-  const handleSchedule = (c: CoachingItem) => {
-    const when = window.prompt(`Schedule coaching for ${c.team} (e.g. Mon 10:00):`, schedules[c.id] || "");
-    if (!when || !when.trim()) return;
-    setSchedules(prev => ({ ...prev, [c.id]: when.trim() }));
-    fire(`Scheduled ${c.team} → ${when.trim()}`);
+  // Schedule dialog
+  const [scheduleTarget, setScheduleTarget] = useState<CoachingItem | null>(null);
+  const handleScheduleConfirm = (payload: { date: string; time: string; notes?: string }) => {
+    if (!scheduleTarget) return;
+    const label = `${payload.date} · ${payload.time}${payload.notes ? ` — ${payload.notes}` : ""}`;
+    setSchedules(prev => ({ ...prev, [scheduleTarget.id]: label }));
+    fire(`Scheduled ${scheduleTarget.team} → ${payload.date} ${payload.time}`);
+    setScheduleTarget(null);
   };
 
   const handleDismissCoaching = (c: CoachingItem) => {
@@ -226,6 +238,7 @@ const LiveMonitoringLog = () => {
       .map(e => ({
         id: e.id,
         time: hhmm(e.createdAt),
+        dateISO: e.createdAt,
         jobNumber: e.jobReference || (e.team || e.teamOther || "—"),
         category: e.category || "General",
         severity: sevMap(e.severity),
@@ -240,6 +253,7 @@ const LiveMonitoringLog = () => {
       .map(e => ({
         id: e.id,
         time: hhmm(e.createdAt),
+        dateISO: e.createdAt,
         jobNumber: e.jobReference || (e.team || e.teamOther || "—"),
         issue: e.issueDescription || "(no description)",
         resolved: false,
@@ -250,6 +264,7 @@ const LiveMonitoringLog = () => {
       .filter(e => e.severity === "Resolved")
       .map(e => ({
         id: e.id,
+        dateISO: e.createdAt,
         jobNumber: e.jobReference || (e.team || e.teamOther || "—"),
         issue: e.issueDescription || "(no description)",
         resolution: e.actionTaken || "Resolved",
@@ -376,41 +391,39 @@ const LiveMonitoringLog = () => {
               count={flags.length}
               accent="bg-red-500"
             />
-            {flags.length === 0 ? (
-              <EmptyHint label="No active flags." />
-            ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                {flags.slice(0, visibleCount).filter(f => !resolvedIds.has(f.id)).map((f) => (
-                  <article key={f.id} className="rounded-2xl border bg-card p-4 shadow-sm space-y-2">
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs tabular-nums text-muted-foreground">{f.time}</span>
-                        <span className="font-semibold tabular-nums">{f.jobNumber}</span>
-                        <Badge variant="outline">{f.category}</Badge>
-                        <span className={cn("inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded border", SEVERITY_STYLES[f.severity])}>
-                          {f.severity === "urgent" ? <AlertTriangle className="h-3 w-3" /> : <Flag className="h-3 w-3" />}
-                          {f.severity}
-                        </span>
-                      </div>
+            <CollapsibleDateGroups<FlagEntry>
+              items={flags.filter(f => !resolvedIds.has(f.id)) as DatedItem<FlagEntry>[]}
+              emptyLabel="No active flags."
+              render={(f) => (
+                <article key={f.id} className="rounded-2xl border bg-card p-4 shadow-sm space-y-2">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs tabular-nums text-muted-foreground">{f.time}</span>
+                      <span className="font-semibold tabular-nums">{f.jobNumber}</span>
+                      <Badge variant="outline">{f.category}</Badge>
+                      <span className={cn("inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded border", SEVERITY_STYLES[f.severity])}>
+                        {f.severity === "urgent" ? <AlertTriangle className="h-3 w-3" /> : <Flag className="h-3 w-3" />}
+                        {f.severity}
+                      </span>
                     </div>
-                    <p className="text-sm">{f.description}</p>
-                    <div className="text-xs text-muted-foreground"><b>Status:</b> {f.status} · <b>Action:</b> {f.actionTaken}</div>
-                    {flagNotes[f.id]?.length > 0 && (
-                      <ul className="text-xs space-y-0.5 pl-3 border-l-2 border-amber-500/40">
-                        {flagNotes[f.id].map((n, i) => (
-                          <li key={i} className="text-muted-foreground"><b className="text-foreground">Note:</b> {n}</li>
-                        ))}
-                      </ul>
-                    )}
-                    <div className="flex flex-wrap gap-1.5 pt-1">
-                      <Button size="sm" variant="outline" onClick={() => handleAddNote(f)}><StickyNote className="h-3.5 w-3.5 mr-1" />Add Note</Button>
-                      <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => handleMarkResolved(f)}><CheckCircle2 className="h-3.5 w-3.5 mr-1" />Mark Resolved</Button>
-                      <Button size="sm" variant="outline" onClick={() => handleCall(f)}><PhoneCall className="h-3.5 w-3.5 mr-1" />Call</Button>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
+                  </div>
+                  <p className="text-sm">{f.description}</p>
+                  <div className="text-xs text-muted-foreground"><b>Status:</b> {f.status} · <b>Action:</b> {f.actionTaken}</div>
+                  {flagNotes[f.id]?.length > 0 && (
+                    <ul className="text-xs space-y-0.5 pl-3 border-l-2 border-amber-500/40">
+                      {flagNotes[f.id].map((n, i) => (
+                        <li key={i} className="text-muted-foreground"><b className="text-foreground">Note:</b> {n}</li>
+                      ))}
+                    </ul>
+                  )}
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    <Button size="sm" variant="outline" onClick={() => handleAddNote(f)}><StickyNote className="h-3.5 w-3.5 mr-1" />Add Note</Button>
+                    <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => handleMarkResolved(f)}><CheckCircle2 className="h-3.5 w-3.5 mr-1" />Mark Resolved</Button>
+                    <Button size="sm" variant="outline" onClick={() => openCallForFlag(f)}><PhoneCall className="h-3.5 w-3.5 mr-1" />Call</Button>
+                  </div>
+                </article>
+              )}
+            />
           </section>
           </div>
         )}
@@ -425,24 +438,22 @@ const LiveMonitoringLog = () => {
               count={quality.length}
               accent="bg-amber-500"
             />
-            {quality.length === 0 ? (
-              <EmptyHint label="No quality notes." />
-            ) : (
-              <ul className="rounded-2xl border bg-card shadow-sm divide-y">
-                {quality.slice(0, visibleCount).map((n) => (
-                  <li key={n.id} className="p-4 flex flex-col sm:flex-row sm:items-center gap-2">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs tabular-nums text-muted-foreground">{n.time}</span>
-                      <span className="font-semibold tabular-nums">{n.jobNumber}</span>
-                    </div>
-                    <p className="text-sm flex-1">{n.issue}</p>
-                    <Badge className={n.resolved ? "bg-emerald-500 hover:bg-emerald-500" : "bg-amber-500 hover:bg-amber-500"}>
-                      {n.resolved ? "Resolved" : "Open"}
-                    </Badge>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <CollapsibleDateGroups<QualityNote>
+              items={quality as DatedItem<QualityNote>[]}
+              emptyLabel="No quality notes."
+              render={(n) => (
+                <div key={n.id} className="rounded-xl border bg-card p-3 flex flex-col sm:flex-row sm:items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs tabular-nums text-muted-foreground">{n.time}</span>
+                    <span className="font-semibold tabular-nums">{n.jobNumber}</span>
+                  </div>
+                  <p className="text-sm flex-1">{n.issue}</p>
+                  <Badge className={n.resolved ? "bg-emerald-500 hover:bg-emerald-500" : "bg-amber-500 hover:bg-amber-500"}>
+                    {n.resolved ? "Resolved" : "Open"}
+                  </Badge>
+                </div>
+              )}
+            />
           </section>
           </div>
         )}
@@ -457,36 +468,36 @@ const LiveMonitoringLog = () => {
               count={coaching.length}
               accent="bg-violet-500"
             />
-            {coaching.length === 0 ? (
-              <EmptyHint label="No coaching items." />
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {coaching.slice(0, visibleCount).filter(c => !dismissedCoaching.has(c.id)).map((c) => (
-                  <article key={c.id} className="rounded-2xl border bg-card p-4 shadow-sm space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <div className="font-semibold">{c.team}</div>
-                      <Badge variant="outline">Pattern</Badge>
+            <CollapsibleDateGroups<CoachingItem>
+              items={coaching.filter(c => !dismissedCoaching.has(c.id)) as DatedItem<CoachingItem>[]}
+              emptyLabel="No coaching items."
+              render={(c) => (
+                <article key={c.id} className="rounded-2xl border bg-card p-4 shadow-sm space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <div className="font-semibold">{c.team}</div>
+                    <Badge variant="outline">Pattern</Badge>
+                  </div>
+                  <p className="text-sm"><span className="text-muted-foreground">Pattern:</span> {c.pattern}</p>
+                  <p className="text-sm"><span className="text-muted-foreground">Recommendation:</span> {c.recommendation}</p>
+                  {(assignments[c.id] || schedules[c.id]) && (
+                    <div className="text-xs text-muted-foreground space-x-2">
+                      {assignments[c.id] && <span><b className="text-foreground">Assigned:</b> {assignments[c.id]}</span>}
+                      {schedules[c.id] && <span><b className="text-foreground">Scheduled:</b> {schedules[c.id]}</span>}
                     </div>
-                    <p className="text-sm"><span className="text-muted-foreground">Pattern:</span> {c.pattern}</p>
-                    <p className="text-sm"><span className="text-muted-foreground">Recommendation:</span> {c.recommendation}</p>
-                    {(assignments[c.id] || schedules[c.id]) && (
-                      <div className="text-xs text-muted-foreground space-x-2">
-                        {assignments[c.id] && <span><b className="text-foreground">Assigned:</b> {assignments[c.id]}</span>}
-                        {schedules[c.id] && <span><b className="text-foreground">Scheduled:</b> {schedules[c.id]}</span>}
-                      </div>
-                    )}
-                    <div className="flex flex-wrap gap-1.5 pt-1">
-                      <Button size="sm" variant="outline" onClick={() => handleSchedule(c)}><CalendarClock className="h-3.5 w-3.5 mr-1" />Schedule</Button>
-                      <Button size="sm" variant="outline" onClick={() => handleAssign(c)}><UserPlus className="h-3.5 w-3.5 mr-1" />Assign</Button>
-                      <Button size="sm" variant="ghost" onClick={() => handleDismissCoaching(c)}><X className="h-3.5 w-3.5 mr-1" />Dismiss</Button>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
+                  )}
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    <Button size="sm" variant="outline" onClick={() => setScheduleTarget(c)}><CalendarClock className="h-3.5 w-3.5 mr-1" />Schedule</Button>
+                    <Button size="sm" variant="outline" onClick={() => handleAssign(c)}><UserPlus className="h-3.5 w-3.5 mr-1" />Assign</Button>
+                    <Button size="sm" variant="outline" onClick={() => openCallForCoaching(c)}><PhoneCall className="h-3.5 w-3.5 mr-1" />Call</Button>
+                    <Button size="sm" variant="ghost" onClick={() => handleDismissCoaching(c)}><X className="h-3.5 w-3.5 mr-1" />Dismiss</Button>
+                  </div>
+                </article>
+              )}
+            />
           </section>
           </div>
         )}
+
 
         {/* RESOLVED */}
         {(filter === "all" || filter === "resolved") && (
@@ -540,6 +551,21 @@ const LiveMonitoringLog = () => {
         open={logModalOpen}
         onOpenChange={setLogModalOpen}
         onSave={handleSaveEntry}
+      />
+      {callTarget && (
+        <TeamCallLogDialog
+          open={!!callTarget}
+          onOpenChange={(v) => !v && setCallTarget(null)}
+          team={callTarget.team}
+          phone={callTarget.phone}
+        />
+      )}
+      <ScheduleDialog
+        open={!!scheduleTarget}
+        onOpenChange={(v) => !v && setScheduleTarget(null)}
+        title={scheduleTarget ? `Schedule coaching — ${scheduleTarget.team}` : "Schedule"}
+        subtitle={scheduleTarget?.recommendation}
+        onSchedule={handleScheduleConfirm}
       />
     </div>
   );
