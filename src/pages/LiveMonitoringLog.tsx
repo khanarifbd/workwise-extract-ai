@@ -246,6 +246,7 @@ const LiveMonitoringLog = () => {
       .map(e => ({
         id: e.id,
         time: hhmm(e.createdAt),
+        dateISO: e.createdAt,
         jobNumber: e.jobReference || (e.team || e.teamOther || "—"),
         issue: e.issueDescription || "(no description)",
         resolved: false,
