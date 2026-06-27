@@ -205,6 +205,14 @@ const LiveMonitoringLog = () => {
 
   const coaching = useMemo(() => SEED_COACHING.filter(c =>
     (filter === "all" || filter === "note") &&
+    (match(c.team) || match(c.pattern) || match(c.recommendation))
+  ), [filter, q]);
+
+  const resolved = useMemo(() => [...entryResolved, ...SEED_RESOLVED].filter(r =>
+    (filter === "all" || filter === "resolved") &&
+    (match(r.jobNumber) || match(r.issue) || match(r.resolution))
+  ), [filter, q, entryResolved]);
+
 
   const urgentCount = SEED_FLAGS.filter(f => f.severity === "urgent").length;
   const today = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
