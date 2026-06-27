@@ -1,9 +1,12 @@
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Shield, HardHat, ArrowRight } from 'lucide-react';
 import allsaintsLogo from '@/assets/allsaints-logo.png';
 
 export default function PortalSelect() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const redirect = new URLSearchParams(location.search).get('redirect');
+  const genieRoute = redirect ? `/admin?redirect=${encodeURIComponent(redirect)}` : '/admin';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[hsl(220,25%,8%)] via-[hsl(220,25%,12%)] to-[hsl(220,25%,16%)] flex flex-col items-center justify-center px-5 py-10">
@@ -23,7 +26,7 @@ export default function PortalSelect() {
           {/* Genie / Admin */}
           <button
             type="button"
-            onClick={() => navigate('/admin')}
+            onClick={() => navigate(genieRoute)}
             className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm p-6 text-left transition-all hover:bg-white/10 hover:border-white/20 hover:-translate-y-0.5"
           >
             <div className="flex items-center justify-between mb-4">

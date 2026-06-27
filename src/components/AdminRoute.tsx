@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { Loader2 } from 'lucide-react';
 
@@ -9,6 +9,9 @@ interface AdminRouteProps {
 
 export const AdminRoute = ({ children }: AdminRouteProps) => {
   const { isAuthenticated, hasAccess, isLoading, isCheckingRoles } = useAdminAuth();
+  const location = useLocation();
+  const requestedRoute = `${location.pathname}${location.search}${location.hash}`;
+  const redirectParam = encodeURIComponent(requestedRoute);
 
   if (isLoading || isCheckingRoles) {
     return (
@@ -19,11 +22,11 @@ export const AdminRoute = ({ children }: AdminRouteProps) => {
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/welcome" replace />;
+    return <Navigate to={`/welcome?redirect=${redirectParam}`} replace />;
   }
 
   if (!hasAccess) {
-    return <Navigate to="/welcome" replace />;
+    return <Navigate to={`/admin?redirect=${redirectParam}`} replace />;
   }
 
   return <>{children}</>;

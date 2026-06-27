@@ -7,6 +7,32 @@ import { HashRouter, Routes, Route, Navigate, useLocation } from "react-router-d
 import { CommandQuickActionBar } from "./components/CommandQuickActionBar";
 import { CommandNotificationCenter } from "./components/CommandNotificationCenter";
 
+const normalizeHashRoute = () => {
+  if (typeof window === "undefined") return;
+
+  const { pathname, search, origin } = window.location;
+  const appPathPrefixes = [
+    "/command",
+    "/admin",
+    "/welcome",
+    "/team",
+    "/archive",
+    "/progressor",
+    "/progressor-login",
+    "/auto-assign",
+    "/roadmaps",
+    "/reset-password",
+  ];
+
+  if (pathname === "/" || !appPathPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))) {
+    return;
+  }
+
+  window.history.replaceState(null, "", `${origin}/#${pathname}${search}`);
+};
+
+normalizeHashRoute();
+
 function CommandBarMount() {
   const { pathname } = useLocation();
   if (!pathname.startsWith("/command")) return null;
