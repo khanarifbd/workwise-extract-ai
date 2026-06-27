@@ -8,6 +8,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useSectionTone } from "@/lib/sectionTheme";
+
 
 interface InProgressJob {
   id: string;

@@ -11,6 +11,8 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { useSectionTone } from "@/lib/sectionTheme";
+
 import AddLogEntryModal, { type LogEntryDraft } from "@/components/AddLogEntryModal";
 
 const STORAGE_KEY = "command.logEntries.v1";
