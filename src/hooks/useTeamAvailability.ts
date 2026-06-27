@@ -75,7 +75,7 @@ export const useTeamAvailability = () => {
 
     // Subscribe to realtime changes
     const channel = supabase
-      .channel('team-availability-changes')
+      .channel(`team-availability-changes-${Math.random().toString(36).slice(2)}`)
       .on(
         'postgres_changes',
         {
