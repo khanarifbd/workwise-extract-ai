@@ -33,6 +33,7 @@ const DMJobTracker = lazy(() => lazyRetry(() => import("./pages/DMJobTracker")))
 const AAJobTracker = lazy(() => lazyRetry(() => import("./pages/AAJobTracker")));
 const LiveMonitoringLog = lazy(() => lazyRetry(() => import("./pages/LiveMonitoringLog")));
 const ReportsAnalytics = lazy(() => lazyRetry(() => import("./pages/ReportsAnalytics")));
+const OwnersDashboard = lazy(() => lazyRetry(() => import("./pages/OwnersDashboard")));
 const ProgressorWorkspace = lazy(() => lazyRetry(() => import("./pages/ProgressorWorkspace")));
 const AutoAssignPanel = lazy(() => lazyRetry(() => import("./pages/AutoAssignPanel")));
 
@@ -156,6 +157,11 @@ const App = () => (
               <Route path="/command/reports" element={
                 <AdminRoute>
                   <PageErrorBoundary><Suspense fallback={<PageLoader />}><ReportsAnalytics /></Suspense></PageErrorBoundary>
+                </AdminRoute>
+              } />
+              <Route path="/command/owners" element={
+                <AdminRoute>
+                  <PageErrorBoundary><Suspense fallback={<PageLoader />}><OwnersDashboard /></Suspense></PageErrorBoundary>
                 </AdminRoute>
               } />
               <Route path="/roadmaps" element={
