@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { useJobs } from "@/hooks/useJobs";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { downloadPdf } from "@/lib/pdfDownload";
+import { downloadPDF } from "@/lib/pdfDownload";
 
 const DM_DAILY = 8;
 const DM_WEEKLY = 32;
