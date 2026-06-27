@@ -11,7 +11,20 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import AddLogEntryModal from "@/components/AddLogEntryModal";
+import AddLogEntryModal, { type LogEntryDraft } from "@/components/AddLogEntryModal";
+
+const STORAGE_KEY = "command.logEntries.v1";
+type StoredEntry = LogEntryDraft & { id: string };
+const loadStored = (): StoredEntry[] => {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); } catch { return []; }
+};
+const saveStored = (list: StoredEntry[]) => {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); } catch {}
+};
+const sevMap = (s: string): Severity =>
+  s === "Urgent" ? "urgent" : s === "Warning" ? "warning" : "info";
+const hhmm = (iso: string) =>
+  new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 
 // ---- Types ----
 type Severity = "urgent" | "warning" | "info";
@@ -79,7 +92,16 @@ const LiveMonitoringLog = () => {
   const [visibleCount, setVisibleCount] = useState(10);
   const [toast, setToast] = useState<string | null>(null);
   const [logModalOpen, setLogModalOpen] = useState(false);
+  const [entries, setEntries] = useState<StoredEntry[]>(() => loadStored());
+  useEffect(() => { saveStored(entries); }, [entries]);
+
+  const handleSaveEntry = (e: LogEntryDraft) => {
+    const id = `e_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    setEntries((prev) => [{ ...e, id }, ...prev]);
+    fire(`Entry added → ${e.severity || "Note"}`);
+  };
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+
   const pullStartY = useRef<number | null>(null);
   const [pullOffset, setPullOffset] = useState(0);
 
@@ -134,25 +156,63 @@ const LiveMonitoringLog = () => {
   const q = search.trim().toLowerCase();
   const match = (s: string) => !q || s.toLowerCase().includes(q);
 
-  const flags = useMemo(() => SEED_FLAGS.filter(f =>
-    (filter === "all" || filter === "urgent" && f.severity === "urgent" || filter === "warning" && f.severity === "warning") &&
-    (match(f.jobNumber) || match(f.description) || match(f.category))
-  ), [filter, q]);
+  // Map user entries into the section shapes
+  const entryFlags: FlagEntry[] = useMemo(() =>
+    entries
+      .filter(e => e.severity === "Urgent" || e.severity === "Warning")
+      .map(e => ({
+        id: e.id,
+        time: hhmm(e.createdAt),
+        jobNumber: e.jobReference || (e.team || e.teamOther || "—"),
+        category: e.category || "General",
+        severity: sevMap(e.severity),
+        description: e.issueDescription || "(no description)",
+        status: "Open",
+        actionTaken: e.actionTaken || "—",
+      })), [entries]);
 
-  const quality = useMemo(() => SEED_QUALITY.filter(n =>
+  const entryNotes: QualityNote[] = useMemo(() =>
+    entries
+      .filter(e => e.severity === "Note")
+      .map(e => ({
+        id: e.id,
+        time: hhmm(e.createdAt),
+        jobNumber: e.jobReference || (e.team || e.teamOther || "—"),
+        issue: e.issueDescription || "(no description)",
+        resolved: false,
+      })), [entries]);
+
+  const entryResolved: ResolvedItem[] = useMemo(() =>
+    entries
+      .filter(e => e.severity === "Resolved")
+      .map(e => ({
+        id: e.id,
+        jobNumber: e.jobReference || (e.team || e.teamOther || "—"),
+        issue: e.issueDescription || "(no description)",
+        resolution: e.actionTaken || "Resolved",
+        confirmed: true,
+      })), [entries]);
+
+  const flags = useMemo(() => [...entryFlags, ...SEED_FLAGS].filter(f =>
+    (filter === "all" || (filter === "urgent" && f.severity === "urgent") || (filter === "warning" && f.severity === "warning")) &&
+    (match(f.jobNumber) || match(f.description) || match(f.category))
+  ), [filter, q, entryFlags]);
+
+  const quality = useMemo(() => [...entryNotes, ...SEED_QUALITY].filter(n =>
     (filter === "all" || filter === "note") &&
     (match(n.jobNumber) || match(n.issue))
-  ), [filter, q]);
+  ), [filter, q, entryNotes]);
 
   const coaching = useMemo(() => SEED_COACHING.filter(c =>
     (filter === "all" || filter === "note") &&
     (match(c.team) || match(c.pattern) || match(c.recommendation))
   ), [filter, q]);
 
-  const resolved = useMemo(() => SEED_RESOLVED.filter(r =>
+  const resolved = useMemo(() => [...entryResolved, ...SEED_RESOLVED].filter(r =>
     (filter === "all" || filter === "resolved") &&
     (match(r.jobNumber) || match(r.issue) || match(r.resolution))
-  ), [filter, q]);
+  ), [filter, q, entryResolved]);
+
 
   const urgentCount = SEED_FLAGS.filter(f => f.severity === "urgent").length;
   const today = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
@@ -389,7 +449,7 @@ const LiveMonitoringLog = () => {
       <AddLogEntryModal
         open={logModalOpen}
         onOpenChange={setLogModalOpen}
-        onSave={(e) => fire(`Logged ${e.category} (${e.severity})`)}
+        onSave={handleSaveEntry}
       />
     </div>
   );
