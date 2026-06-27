@@ -32,6 +32,7 @@ const NavCommandCenter = lazy(() => lazyRetry(() => import("./pages/NavCommandCe
 const DMJobTracker = lazy(() => lazyRetry(() => import("./pages/DMJobTracker")));
 const AAJobTracker = lazy(() => lazyRetry(() => import("./pages/AAJobTracker")));
 const LiveMonitoringLog = lazy(() => lazyRetry(() => import("./pages/LiveMonitoringLog")));
+const ReportsAnalytics = lazy(() => lazyRetry(() => import("./pages/ReportsAnalytics")));
 const ProgressorWorkspace = lazy(() => lazyRetry(() => import("./pages/ProgressorWorkspace")));
 const AutoAssignPanel = lazy(() => lazyRetry(() => import("./pages/AutoAssignPanel")));
 
