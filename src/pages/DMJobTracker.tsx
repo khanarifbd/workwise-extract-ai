@@ -252,9 +252,9 @@ const DMJobTracker = () => {
                     <p className="text-sm text-muted-foreground mt-1">{u.description}</p>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
-                    <Button size="sm" variant="outline" onClick={() => fire(`Call ${u.team}`)}><PhoneCall className="h-3.5 w-3.5 mr-1" />Call Team</Button>
-                    <Button size="sm" variant="outline" onClick={() => fire(`Note ${u.jobNumber}`)}><StickyNote className="h-3.5 w-3.5 mr-1" />Add Note</Button>
-                    <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => fire(`Resolve ${u.jobNumber}`)}><CheckCircle2 className="h-3.5 w-3.5 mr-1" />Resolve</Button>
+                    <Button size="sm" variant="outline" onClick={() => handleCall(u.team)}><PhoneCall className="h-3.5 w-3.5 mr-1" />Call Team</Button>
+                    <Button size="sm" variant="outline" onClick={() => handleAddNote(u.jobNumber)}><StickyNote className="h-3.5 w-3.5 mr-1" />Add Note</Button>
+                    <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => handleResolve(u.jobNumber)}><CheckCircle2 className="h-3.5 w-3.5 mr-1" />Resolve</Button>
                   </div>
                 </li>
               ))}
@@ -298,9 +298,9 @@ const DMJobTracker = () => {
                     <td className="px-5 py-3 text-center"><Tick ok={j.tradesOK} /></td>
                     <td className="px-5 py-3">
                       <div className="flex justify-end gap-1.5">
-                        <Button size="sm" variant="outline" onClick={() => fire(`View ${j.jobNumber}`)}><Eye className="h-3.5 w-3.5 mr-1" />Details</Button>
-                        <Button size="sm" variant="outline" onClick={() => fire(`Note ${j.jobNumber}`)}><StickyNote className="h-3.5 w-3.5 mr-1" />Note</Button>
-                        <Button size="sm" variant="outline" onClick={() => fire(`Flag ${j.jobNumber}`)}><Flag className="h-3.5 w-3.5 mr-1" />Flag</Button>
+                        <Button size="sm" variant="outline" onClick={() => handleDetails(j.jobNumber)}><Eye className="h-3.5 w-3.5 mr-1" />Details</Button>
+                        <Button size="sm" variant="outline" onClick={() => handleAddNote(j.jobNumber)}><StickyNote className="h-3.5 w-3.5 mr-1" />Note</Button>
+                        <Button size="sm" variant="outline" onClick={() => handleFlag(j.jobNumber, j.team)}><Flag className="h-3.5 w-3.5 mr-1" />Flag</Button>
                       </div>
                     </td>
                   </tr>
@@ -327,9 +327,9 @@ const DMJobTracker = () => {
                   <Stat label="Trades" value={<Tick ok={j.tradesOK} />} />
                 </div>
                 <div className="flex gap-1.5">
-                  <Button size="sm" variant="outline" className="flex-1" onClick={() => fire(`View ${j.jobNumber}`)}><Eye className="h-3.5 w-3.5 mr-1" />Details</Button>
-                  <Button size="sm" variant="outline" className="flex-1" onClick={() => fire(`Note ${j.jobNumber}`)}><StickyNote className="h-3.5 w-3.5 mr-1" />Note</Button>
-                  <Button size="sm" variant="outline" className="flex-1" onClick={() => fire(`Flag ${j.jobNumber}`)}><Flag className="h-3.5 w-3.5 mr-1" />Flag</Button>
+                  <Button size="sm" variant="outline" className="flex-1" onClick={() => handleDetails(j.jobNumber)}><Eye className="h-3.5 w-3.5 mr-1" />Details</Button>
+                  <Button size="sm" variant="outline" className="flex-1" onClick={() => handleAddNote(j.jobNumber)}><StickyNote className="h-3.5 w-3.5 mr-1" />Note</Button>
+                  <Button size="sm" variant="outline" className="flex-1" onClick={() => handleFlag(j.jobNumber, j.team)}><Flag className="h-3.5 w-3.5 mr-1" />Flag</Button>
                 </div>
               </li>
             ))}
@@ -353,7 +353,7 @@ const DMJobTracker = () => {
                   <span className="inline-flex items-center gap-1"><FileText className="h-3.5 w-3.5 text-muted-foreground" /><Tick ok={c.descriptionOK} /> Desc</span>
                   <span className="inline-flex items-center gap-1"><PenSquare className="h-3.5 w-3.5 text-muted-foreground" /><Tick ok={c.signed} /> Signed</span>
                 </div>
-                <Button size="sm" variant="outline" onClick={() => fire(`Sign-off ${c.jobNumber}`)}>
+                <Button size="sm" variant="outline" onClick={() => handleViewSignOff(c.jobNumber)}>
                   <ShieldCheck className="h-3.5 w-3.5 mr-1" />View Sign-off
                 </Button>
               </li>
@@ -383,9 +383,9 @@ const DMJobTracker = () => {
                   <p className="text-xs text-muted-foreground mt-0.5">{p.address}</p>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
-                  <Button size="sm" variant="outline" onClick={() => fire(`Pre-visit ${p.jobNumber}`)}><CalendarClock className="h-3.5 w-3.5 mr-1" />Schedule Pre-visit</Button>
-                  <Button size="sm" variant="outline" onClick={() => fire(`Assign ${p.jobNumber}`)}><UserPlus className="h-3.5 w-3.5 mr-1" />Assign Trades</Button>
-                  <Button size="sm" variant="outline" onClick={() => fire(`Materials ${p.jobNumber}`)}><Package className="h-3.5 w-3.5 mr-1" />Confirm Materials</Button>
+                  <Button size="sm" variant="outline" onClick={() => handleSchedulePreVisit(p.jobNumber)}><CalendarClock className="h-3.5 w-3.5 mr-1" />Schedule Pre-visit</Button>
+                  <Button size="sm" variant="outline" onClick={() => handleAssignTrades(p.jobNumber)}><UserPlus className="h-3.5 w-3.5 mr-1" />Assign Trades</Button>
+                  <Button size="sm" variant="outline" onClick={() => handleConfirmMaterials(p.jobNumber)}><Package className="h-3.5 w-3.5 mr-1" />Confirm Materials</Button>
                 </div>
               </li>
             ))}
