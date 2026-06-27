@@ -92,7 +92,15 @@ const LiveMonitoringLog = () => {
   const [visibleCount, setVisibleCount] = useState(10);
   const [toast, setToast] = useState<string | null>(null);
   const [logModalOpen, setLogModalOpen] = useState(false);
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const [entries, setEntries] = useState<StoredEntry[]>(() => loadStored());
+  useEffect(() => { saveStored(entries); }, [entries]);
+
+  const handleSaveEntry = (e: LogEntryDraft) => {
+    const id = `e_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    setEntries((prev) => [{ ...e, id }, ...prev]);
+    fire(`Entry added → ${e.severity || "Note"}`);
+  };
+
   const pullStartY = useRef<number | null>(null);
   const [pullOffset, setPullOffset] = useState(0);
 
