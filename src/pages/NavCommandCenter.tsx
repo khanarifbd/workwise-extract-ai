@@ -414,6 +414,13 @@ const NavCommandCenter = () => {
           </div>
         </Band>
 
+        {/* ───── 05 · DIAGNOSTICS ───── */}
+        <div id="metrics-diagnostics">
+          <MetricsIntegrityPanel />
+        </div>
+
+
+
         {/* ───── FOOTER ───── */}
         <footer className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-4 pb-2 border-t text-sm text-muted-foreground">
           <div className="flex items-center gap-2">
