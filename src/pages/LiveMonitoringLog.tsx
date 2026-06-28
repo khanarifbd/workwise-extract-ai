@@ -353,8 +353,18 @@ const LiveMonitoringLog = () => {
                         <CheckCircle2 className="h-3.5 w-3.5 mr-1" />Mark Resolved
                       </Button>
                       {f.team && (
-                        <Button size="sm" variant="outline" onClick={() => setCallTarget({ team: f.team!, phone: "" })}>
-                          <PhoneCall className="h-3.5 w-3.5 mr-1" />Call
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setNotebookTarget({
+                            team: f.team!,
+                            jobNumber: f.job_number ?? undefined,
+                            flagTitle: f.title ?? undefined,
+                            severity: f.severity,
+                          })}
+                          title="Open Nav ↔ team conversation notebook"
+                        >
+                          <StickyNote className="h-3.5 w-3.5 mr-1" />Notebook
                         </Button>
                       )}
                     </div>
@@ -499,6 +509,18 @@ const LiveMonitoringLog = () => {
         subtitle={scheduleTarget?.body ?? undefined}
         onSchedule={handleScheduleConfirm}
       />
+      {notebookTarget && (
+        <TeamConversationNotebook
+          open={!!notebookTarget}
+          onOpenChange={(v) => !v && setNotebookTarget(null)}
+          team={notebookTarget.team}
+          context={{
+            jobNumber: notebookTarget.jobNumber,
+            flagTitle: notebookTarget.flagTitle,
+            severity: notebookTarget.severity,
+          }}
+        />
+      )}
     </div>
   );
 };
