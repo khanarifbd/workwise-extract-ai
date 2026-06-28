@@ -25,40 +25,7 @@ import {
 } from '@/lib/genieMetrics';
 import type { Job } from '@/types/job';
 
-const COMMAND_JOB_SELECT = `
-  id,
-  job_number,
-  name,
-  address,
-  phone_number,
-  summary_of_works,
-  description,
-  team,
-  team2,
-  progress,
-  progress_notes,
-  is_completed,
-  is_ongoing,
-  ongoing_reason,
-  scheduled_trades,
-  created_at,
-  date_issued,
-  booked_date,
-  is_flexible_booking,
-  booking_notes,
-  completion_date,
-  status,
-  private_notes,
-  refer_back,
-  refer_back_reason,
-  refer_back_date,
-  expected_completion_date,
-  blocker_type,
-  blocker_notes,
-  blocker_set_at,
-  blocker_chase_date,
-  category_id
-`;
+const COMMAND_JOB_SELECT = 'id,job_number,name,address,phone_number,summary_of_works,description,team,team2,progress,progress_notes,is_completed,is_ongoing,ongoing_reason,scheduled_trades,created_at,date_issued,booked_date,is_flexible_booking,booking_notes,completion_date,status,private_notes,refer_back,refer_back_reason,refer_back_date,expected_completion_date,blocker_type,blocker_notes,blocker_set_at,blocker_chase_date,category_id';
 
 let commandJobsCache: { at: number; jobs: Job[] } | null = null;
 let commandJobsInflight: Promise<Job[]> | null = null;
@@ -125,7 +92,7 @@ function useCommandJobSnapshot() {
   }, []);
 
   useEffect(() => {
-    load(true);
+    load(false);
     const channel = supabase
       .channel(`command-metrics-jobs-${Math.random().toString(36).slice(2)}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'jobs' }, () => {
