@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Phone, History, Plus, Check } from "lucide-react";
+import { Phone, History, Plus, Check, User, MapPin, Calendar, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -32,7 +32,7 @@ export interface TeamCallEntry {
   id: string;
   team: string;
   phone: string;
-  contactDate: string; // ISO
+  contactDate: string;
   outcome: TeamCallOutcome;
   notes?: string;
 }
@@ -57,12 +57,115 @@ interface Props {
   description?: string;
 }
 
-export function TeamCallLogDialog({ open, onOpenChange, team, phone, jobNumber, address, bookedDate, description }: Props) {
-  const hasContext = !!(jobNumber || address || bookedDate || description);
+export function TeamCallLogDialog({
+  open, onOpenChange, team, phone, jobNumber, address, bookedDate, description,
+}: Props) {
+  const [all, setAll] = useState<TeamCallEntry[]>([]);
+  const [outcome, setOutcome] = useState<TeamCallOutcome | null>(null);
+  const [notes, setNotes] = useState("");
+
+  useEffect(() => {
+    if (open) {
+      setAll(readAll());
+      setOutcome(null);
+      setNotes("");
+    }
+  }, [open]);
+
+  const history = useMemo(
+    () => all
+      .filter(e => e.team === team)
+      .sort((a, b) => new Date(b.contactDate).getTime() - new Date(a.contactDate).getTime()),
+    [all, team]
+  );
+
   const bookedLabel = bookedDate
     ? new Date(bookedDate).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "2-digit" })
     : null;
 
+  const save = () => {
+    if (!outcome) {
+      toast.error("Select a call outcome first");
+      return;
+    }
+    const entry: TeamCallEntry = {
+      id: crypto.randomUUID(),
+      team,
+      phone,
+      contactDate: new Date().toISOString(),
+      outcome,
+      notes: notes.trim() || undefined,
+    };
+    const next = [entry, ...all];
+    writeAll(next);
+    setAll(next);
+    setOutcome(null);
+    setNotes("");
+    toast.success(`Logged: ${TEAM_CALL_OUTCOMES.find(o => o.value === entry.outcome)?.label}`);
+  };
+
+  const dial = () => {
+    if (phone) window.location.href = `tel:${phone}`;
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Phone className="h-5 w-5 text-blue-600" />
+            Call Log — {team}
+          </DialogTitle>
+          <DialogDescription>
+            Log the outcome of your call attempt. Tap the number to dial.
+          </DialogDescription>
+        </DialogHeader>
+
+        {/* Tenant / job context card */}
+        <div className="rounded-xl border bg-muted/30 p-4 space-y-3">
+          {jobNumber && (
+            <Badge variant="outline" className="font-mono text-xs">{jobNumber}</Badge>
+          )}
+          <div className="flex items-center gap-2">
+            <User className="h-4 w-4 text-muted-foreground" />
+            <span className="text-lg font-semibold">{team || "Tenant"}</span>
+          </div>
+          {address && (
+            <div className="flex items-start gap-2 text-sm text-muted-foreground">
+              <MapPin className="h-4 w-4 mt-0.5 shrink-0" />
+              <span>{address}</span>
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={dial}
+              className="rounded-lg border border-orange-500/40 bg-orange-500/10 hover:bg-orange-500/20 px-3 py-2 text-left transition"
+            >
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Phone Number</div>
+              <div className="font-mono text-lg font-bold text-orange-500 tabular-nums truncate">
+                {phone || "—"}
+              </div>
+            </button>
+            <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2">
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                <Calendar className="h-3 w-3" /> Booked Date
+              </div>
+              <div className="font-mono text-lg font-bold text-amber-500 tabular-nums">
+                {bookedLabel || "—"}
+              </div>
+            </div>
+          </div>
+          {description && (
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1 mb-1">
+                <FileText className="h-3 w-3" /> Job Description
+              </div>
+              <div className="rounded-lg border border-orange-500/40 bg-background/40 px-3 py-2 text-sm whitespace-pre-wrap max-h-32 overflow-y-auto">
+                {description}
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Outcome selector */}
         <div>
