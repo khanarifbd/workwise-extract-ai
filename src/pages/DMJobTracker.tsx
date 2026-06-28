@@ -375,7 +375,7 @@ const DMJobTracker = () => {
                   <span className="inline-flex items-center gap-1"><FileText className="h-3.5 w-3.5 text-muted-foreground" /><Tick ok={c.descriptionOK} /> Desc</span>
                   <span className="inline-flex items-center gap-1"><PenSquare className="h-3.5 w-3.5 text-muted-foreground" /><Tick ok={c.signed} /> Signed</span>
                 </div>
-                <Button size="sm" variant="outline" onClick={() => handleViewSignOff(c.jobNumber)}>
+                <Button size="sm" variant="outline" onClick={() => handleViewSignOff(c)}>
                   <ShieldCheck className="h-3.5 w-3.5 mr-1" />View Sign-off
                 </Button>
               </li>
