@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { useJobs } from "@/hooks/useJobs";
+import { useCommandMetrics } from "@/hooks/useCommandMetrics";
 
 type SheetKey = "flag" | "complete" | "voice" | "call" | "qr" | null;
 
@@ -39,7 +39,7 @@ const TEAMS = [
 export function CommandQuickActionBar() {
   const navigate = useNavigate();
   const { jobId } = useParams();
-  const { jobs } = useJobs() as any;
+  const { jobs } = useCommandMetrics();
   const [open, setOpen] = useState<SheetKey>(null);
   const [collapsed, setCollapsed] = useState(false);
 
@@ -155,9 +155,9 @@ function FlagSheet({ open, onClose, currentJob }: { open: boolean; onClose: () =
 
 // ---------- Complete Sheet ----------
 function CompleteSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { jobs } = useJobs() as any;
+  const { jobs } = useCommandMetrics();
   const list = (Array.isArray(jobs) ? jobs : []).filter(
-    (j: any) => j.status !== "complete" && !j.is_completed
+    (j: any) => j.status !== "complete" && !j.isCompleted
   ).slice(0, 20);
   const [selected, setSelected] = useState<string | null>(null);
 

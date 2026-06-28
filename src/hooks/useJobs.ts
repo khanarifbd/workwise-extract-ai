@@ -132,7 +132,10 @@ export const useJobs = (categoryId?: string) => {
   }, [loadJobs]);
 
   useEffect(() => {
-    loadJobs(true); // Force initial load
+    // Do not force-clear the warm session/in-memory cache on mount. Forcing a
+    // full jobs reload immediately after sign-in was causing avoidable timeout
+    // toasts when the Command app opened alongside the main Genie data layer.
+    loadJobs(false);
 
     // Set up realtime subscription with debounced reload
     const channel = supabase

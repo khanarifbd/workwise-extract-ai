@@ -525,7 +525,10 @@ const jobsCacheKey = (categoryId?: string) => categoryId || '__all__';
 const JOBS_DEDUPE_TTL = 15_000;
 
 const _runFetchJobs = async (categoryId?: string): Promise<Job[]> => {
-  const batchSize = 1000;
+  // Keep batches deliberately small. The jobs table contains several large
+  // jsonb fields (attachments/work_items/costs); fetching 1000 rows at once can
+  // hit Postgres statement_timeout and surface as "Failed to load jobs".
+  const batchSize = 250;
   const allData: any[] = [];
   let offset = 0;
   let hasMore = true;

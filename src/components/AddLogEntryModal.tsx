@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import {
   X, Save, QrCode, Camera, Mic, MapPin, Square, Search, Check,
 } from "lucide-react";
-import { useJobs } from "@/hooks/useJobs";
+import { useCommandMetrics } from "@/hooks/useCommandMetrics";
 
 export type LogEntryDraft = {
   jobReference?: string;
@@ -71,7 +71,7 @@ const FOLLOWUPS = ["Today", "Tomorrow", "This Week", "Next Week", "None"];
 export default function AddLogEntryModal({
   open, onOpenChange, onSave, defaultJobReference,
 }: AddLogEntryModalProps) {
-  const { jobs } = useJobs();
+  const { jobs } = useCommandMetrics();
   const [jobReference, setJobReference] = useState(defaultJobReference ?? "");
   const [jobId, setJobId] = useState<string | undefined>();
   const [showJobSuggestions, setShowJobSuggestions] = useState(false);
