@@ -5,7 +5,6 @@
  */
 import { useEffect, useMemo, useRef } from 'react';
 import { useCommandMetrics } from '@/hooks/useCommandMetrics';
-import { useJobs } from '@/hooks/useJobs';
 import { useCategories } from '@/hooks/useCategories';
 import {
   summaryCounts,
@@ -32,11 +31,10 @@ export interface MetricsReconciliation {
 
 export function useMetricsReconciliation(): MetricsReconciliation {
   const cm = useCommandMetrics();
-  const { jobs, refreshJobs } = useJobs() as any;
   const { categories } = useCategories();
 
   const result = useMemo(() => {
-    const list = Array.isArray(jobs) ? jobs : [];
+    const list = Array.isArray(cm.jobs) ? cm.jobs : [];
     const nameById: Record<string, string> = {};
     for (const c of categories || []) nameById[c.id] = c.name;
 
@@ -73,7 +71,7 @@ export function useMetricsReconciliation(): MetricsReconciliation {
       errors: cm.integrity.errors,
       summary: canonical,
     };
-  }, [cm, jobs, categories]);
+  }, [cm, categories]);
 
   const lastAutoRealignAt = useRef(0);
   useEffect(() => {
@@ -85,9 +83,8 @@ export function useMetricsReconciliation(): MetricsReconciliation {
     // Safe auto-realignment: when Command and canonical figures diverge,
     // force both job readers to bypass local/session caches and rehydrate
     // from the backend. Data correctness itself is protected by the DB trigger.
-    refreshJobs?.();
     cm.refreshJobs?.();
-  }, [result.ok, refreshJobs, cm.refreshJobs]);
+  }, [result.ok, cm.refreshJobs]);
 
   return result;
 }
