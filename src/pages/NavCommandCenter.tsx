@@ -169,6 +169,8 @@ const NavCommandCenter = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-sky-100 via-sky-200 to-sky-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
       <div className="mx-auto max-w-[1400px] p-4 sm:p-6 lg:p-8 space-y-6">
+        <CommandTabs />
+
 
         {/* ───── HEADER ───── */}
         <header className="rounded-3xl border bg-gradient-to-r from-slate-900 to-slate-800 text-slate-50 shadow-md p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

@@ -314,6 +314,8 @@ const LiveMonitoringLog = () => {
       )}
 
       <div className="mx-auto max-w-[1400px] p-4 sm:p-6 lg:p-8 space-y-5">
+        <CommandTabs />
+
 
         {/* Header */}
         <div className="rounded-2xl border bg-card p-4 sm:p-5 shadow-sm">
