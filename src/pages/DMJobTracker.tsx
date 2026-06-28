@@ -175,10 +175,17 @@ const DMJobTracker = () => {
     navigate(`/command/log?job=${encodeURIComponent(jobNumber)}`);
   };
 
-  const handleViewSignOff = (jobNumber: string) => {
-    setSignOffs((prev) => prev.includes(jobNumber) ? prev : [...prev, jobNumber]);
-    toast.success(`Opening sign-off for ${jobNumber}`);
-    navigate(`/command/log?job=${encodeURIComponent(jobNumber)}&view=signoff`);
+  const handleViewSignOff = (job: CompletedJob) => {
+    setSignOffs((prev) => prev.includes(job.jobNumber) ? prev : [...prev, job.jobNumber]);
+    setSignOffJob({
+      jobNumber: job.jobNumber,
+      team: job.team,
+      duration: job.duration,
+      signOffTime: job.signOffTime,
+      photosOK: job.photosOK,
+      descriptionOK: job.descriptionOK,
+      signed: job.signed,
+    });
   };
 
   const handleSchedulePreVisit = (jobNumber: string) => {
