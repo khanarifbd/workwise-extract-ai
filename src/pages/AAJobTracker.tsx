@@ -11,40 +11,11 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useSectionTone } from "@/lib/sectionTheme";
 import { useCommandMetrics } from "@/hooks/useCommandMetrics";
+import { useTrackerJobs } from "@/hooks/useTrackerJobs";
+import { MetricsDriftBanner } from "@/components/command/MetricsIntegrityPanel";
 
+// Rows are derived from canonical job data via `useTrackerJobs('aa')`.
 
-interface InProgressJob {
-  id: string;
-  jobNumber: string;
-  team: string;
-  address: string;
-  elapsed: string;
-  jobType: string;
-  materialsOK: boolean;
-}
-
-interface CompletedJob {
-  id: string;
-  jobNumber: string;
-  team: string;
-  duration: string;
-  signOffTime: string;
-  photosOK: boolean;
-  descriptionOK: boolean;
-  signed: boolean;
-}
-
-const IN_PROGRESS: InProgressJob[] = [
-  { id: "p1", jobNumber: "N2640155", team: "Carpenter Crew", address: "12 High St, SE5",   elapsed: "1h 50m", jobType: "Fire door install (3 doors) + closer adjustments",   materialsOK: true  },
-  { id: "p2", jobNumber: "N2640190", team: "Carpenter Crew", address: "33 Vale Rd, SE22",  elapsed: "0h 35m", jobType: "Grab rails to bathroom & WC, lever taps",            materialsOK: false },
-  { id: "p3", jobNumber: "N2640205", team: "Flooring Co",    address: "14 Lime Ave, SE15", elapsed: "2h 20m", jobType: "Non-slip vinyl to kitchen & hallway",                 materialsOK: true  },
-];
-
-const COMPLETED: CompletedJob[] = [
-  { id: "c1", jobNumber: "N2640161", team: "Roofing Pro",     duration: "2h 40m", signOffTime: "10:55", photosOK: true,  descriptionOK: true,  signed: true  },
-  { id: "c2", jobNumber: "N2640173", team: "Carpenter Crew",  duration: "1h 30m", signOffTime: "11:20", photosOK: true,  descriptionOK: false, signed: true  },
-  { id: "c3", jobNumber: "N2640181", team: "Flooring Co",     duration: "3h 05m", signOffTime: "12:48", photosOK: true,  descriptionOK: true,  signed: true  },
-];
 
 const Tick = ({ ok }: { ok: boolean }) => ok ? (
   <CheckCircle2 className="h-4 w-4 text-emerald-500" />
