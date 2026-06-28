@@ -446,6 +446,12 @@ const DMJobTracker = () => {
           </div>
         </div>
       </div>
+
+      <SignOffDialog
+        open={!!signOffJob}
+        onOpenChange={(o) => !o && setSignOffJob(null)}
+        job={signOffJob}
+      />
     </div>
   );
 };
