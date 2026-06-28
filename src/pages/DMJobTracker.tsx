@@ -153,12 +153,18 @@ const DMJobTracker = () => {
   };
 
   const cm = useCommandMetrics();
+  const tracker = useTrackerJobs('dm');
+  const URGENT = tracker.urgent;
+  const IN_PROGRESS = tracker.inProgress;
+  const COMPLETED = tracker.completed;
+  const PIPELINE = tracker.pipeline;
+
   const stats = useMemo(() => ({
     target: 8,
     completed: cm.dm.completedToday,
     inProgress: cm.dm.active,
-    flagged: cm.openFlags.filter((j: any) => (j.categoryName || '').match(/DM/i) || (j as any).categoryId === cm.dm.categoryId).length,
-  }), [cm.dm, cm.openFlags]);
+    flagged: URGENT.length,
+  }), [cm.dm, URGENT.length]);
 
   const today = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
