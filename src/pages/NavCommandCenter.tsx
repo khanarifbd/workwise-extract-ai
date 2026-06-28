@@ -137,6 +137,7 @@ const NavCommandCenter = () => {
   const navigate = useNavigate();
   const [lastUpdated, setLastUpdated] = useState(new Date());
   const [callTarget, setCallTarget] = useState<TeamRow | null>(null);
+  const [flagTarget, setFlagTarget] = useState<TeamRow | null>(null);
 
   const dmDoneToday = 5;
   const dmTargetToday = 8;
@@ -162,7 +163,7 @@ const NavCommandCenter = () => {
   };
 
   const onView = (t: TeamRow) => navigate(t.trackerPath);
-  const onFlag = (t: TeamRow) => navigate(`/command/log?flag=${encodeURIComponent(t.team)}`);
+  const onFlag = (t: TeamRow) => setFlagTarget(t);
   const onCall = (t: TeamRow) => setCallTarget(t);
 
   return (
