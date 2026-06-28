@@ -16,6 +16,7 @@ import { useCommandMetrics } from "@/hooks/useCommandMetrics";
 import { useTrackerJobs, type TrackerRow } from "@/hooks/useTrackerJobs";
 import { MetricsDriftBanner } from "@/components/command/MetricsIntegrityPanel";
 import { PipelineActions } from "@/components/command/PipelineActions";
+import { UrgentFlagActions } from "@/components/command/UrgentFlagActions";
 
 
 
@@ -230,11 +231,7 @@ const DMJobTracker = () => {
                     </div>
                     <p className="text-sm text-muted-foreground mt-1">{u.description}</p>
                   </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    <Button size="sm" variant="outline" onClick={() => handleCall(u.team)}><PhoneCall className="h-3.5 w-3.5 mr-1" />Call Team</Button>
-                    <Button size="sm" variant="outline" onClick={() => handleAddNote(u.jobNumber)}><StickyNote className="h-3.5 w-3.5 mr-1" />Add Note</Button>
-                    <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => handleResolve(u.jobNumber)}><CheckCircle2 className="h-3.5 w-3.5 mr-1" />Resolve</Button>
-                  </div>
+                  <UrgentFlagActions row={u} onAddNote={handleAddNote} onResolve={handleResolve} />
                 </li>
               ))}
             </ul>
