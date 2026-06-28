@@ -37,6 +37,11 @@ export function useMetricsReconciliation(): MetricsReconciliation {
     const list = Array.isArray(cm.jobs) ? cm.jobs : [];
     const nameById: Record<string, string> = {};
     for (const c of categories || []) nameById[c.id] = c.name;
+    for (const j of list as Array<{ categoryId?: string | null; categoryName?: string }>) {
+      if (j.categoryId && j.categoryName && !nameById[j.categoryId]) {
+        nameById[j.categoryId] = j.categoryName;
+      }
+    }
 
     const today = new Date();
     const todayKey = format(today, 'yyyy-MM-dd');
