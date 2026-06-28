@@ -130,6 +130,7 @@ const DMJobTracker = () => {
   const [assignments, setAssignments] = useState<Record<string, string>>(() => readLS(LS.assignments, {}));
   const [materials, setMaterials] = useState<Record<string, string>>(() => readLS(LS.materials, {}));
   const [signOffs, setSignOffs] = useState<string[]>(() => readLS(LS.signOffs, []));
+  const [signOffJob, setSignOffJob] = useState<SignOffJob | null>(null);
 
   useEffect(() => { localStorage.setItem(LS.notes, JSON.stringify(notes)); }, [notes]);
   useEffect(() => { localStorage.setItem(LS.flags, JSON.stringify(flagged)); }, [flagged]);
