@@ -136,7 +136,7 @@ const AAJobTracker = () => {
                       <div className="text-xs text-muted-foreground">{j.address}</div>
                     </td>
                     <td className="px-5 py-3 tabular-nums">{j.elapsed}</td>
-                    <td className="px-5 py-3 text-muted-foreground max-w-[280px]">{j.jobType}</td>
+                    <td className="px-5 py-3 text-muted-foreground max-w-[280px]">{(j.job as any).description ?? "—"}</td>
                     <td className="px-5 py-3 text-center"><Tick ok={j.materialsOK} /></td>
                     <td className="px-5 py-3">
                       <div className="flex justify-end gap-1.5">
@@ -162,7 +162,7 @@ const AAJobTracker = () => {
                   </div>
                   <Badge variant="outline" className="bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300">A&amp;A</Badge>
                 </div>
-                <p className="text-xs text-muted-foreground">{j.jobType}</p>
+                <p className="text-xs text-muted-foreground">{(j.job as any).description ?? "—"}</p>
                 <div className="grid grid-cols-2 gap-1 text-xs">
                   <Stat label="Elapsed" value={j.elapsed} />
                   <Stat label="Materials" value={<Tick ok={j.materialsOK} />} />
