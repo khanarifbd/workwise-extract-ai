@@ -65,10 +65,10 @@ let commandJobsInflight: Promise<Job[]> | null = null;
 const COMMAND_JOBS_TTL = 15_000;
 
 async function fetchCommandJobs(force = false): Promise<Job[]> {
+  if (commandJobsInflight) return commandJobsInflight;
   if (!force && commandJobsCache && Date.now() - commandJobsCache.at < COMMAND_JOBS_TTL) {
     return commandJobsCache.jobs;
   }
-  if (!force && commandJobsInflight) return commandJobsInflight;
 
   commandJobsInflight = (async () => {
     const batchSize = 1000;
