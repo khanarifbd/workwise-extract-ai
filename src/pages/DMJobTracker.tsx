@@ -13,6 +13,9 @@ import { cn } from "@/lib/utils";
 import { useSectionTone } from "@/lib/sectionTheme";
 import { SignOffDialog, type SignOffJob } from "@/components/command/SignOffDialog";
 import { useCommandMetrics } from "@/hooks/useCommandMetrics";
+import { useTrackerJobs, type TrackerRow } from "@/hooks/useTrackerJobs";
+import { MetricsDriftBanner } from "@/components/command/MetricsIntegrityPanel";
+
 
 
 // ---------- Types ----------
