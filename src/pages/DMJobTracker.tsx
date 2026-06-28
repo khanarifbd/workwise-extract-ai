@@ -15,6 +15,7 @@ import { SignOffDialog, type SignOffJob } from "@/components/command/SignOffDial
 import { useCommandMetrics } from "@/hooks/useCommandMetrics";
 import { useTrackerJobs, type TrackerRow } from "@/hooks/useTrackerJobs";
 import { MetricsDriftBanner } from "@/components/command/MetricsIntegrityPanel";
+import { PipelineActions } from "@/components/command/PipelineActions";
 
 
 
