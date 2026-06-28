@@ -6,12 +6,12 @@
  * anything itself — every figure here is a direct call into genieMetrics
  * so the two apps can never drift.
  */
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { format, startOfWeek, endOfWeek } from 'date-fns';
-import { useJobs } from '@/hooks/useJobs';
 import { useCategories } from '@/hooks/useCategories';
+import { supabase } from '@/integrations/supabase/client';
+import { mapDatabaseJobToJob } from '@/lib/api';
 import {
-  summaryCounts,
   categoryBreakdown,
   pickSiloBreakdowns,
   validateMetrics,
@@ -24,6 +24,129 @@ import {
   type MetricsCheck,
 } from '@/lib/genieMetrics';
 import type { Job } from '@/types/job';
+
+const COMMAND_JOB_SELECT = `
+  id,
+  job_number,
+  name,
+  address,
+  phone_number,
+  summary_of_works,
+  description,
+  team,
+  team2,
+  progress,
+  progress_notes,
+  is_completed,
+  is_ongoing,
+  ongoing_reason,
+  scheduled_trades,
+  created_at,
+  date_issued,
+  booked_date,
+  is_flexible_booking,
+  booking_notes,
+  completion_date,
+  status,
+  private_notes,
+  refer_back,
+  refer_back_reason,
+  refer_back_date,
+  expected_completion_date,
+  blocker_type,
+  blocker_notes,
+  blocker_set_at,
+  blocker_chase_date,
+  category_id
+`;
+
+let commandJobsCache: { at: number; jobs: Job[] } | null = null;
+let commandJobsInflight: Promise<Job[]> | null = null;
+const COMMAND_JOBS_TTL = 15_000;
+
+async function fetchCommandJobs(force = false): Promise<Job[]> {
+  if (!force && commandJobsCache && Date.now() - commandJobsCache.at < COMMAND_JOBS_TTL) {
+    return commandJobsCache.jobs;
+  }
+  if (!force && commandJobsInflight) return commandJobsInflight;
+
+  commandJobsInflight = (async () => {
+    const batchSize = 1000;
+    const rows: any[] = [];
+    for (let offset = 0; ; offset += batchSize) {
+      const { data, error } = await supabase
+        .from('jobs')
+        .select(COMMAND_JOB_SELECT)
+        .is('deleted_at', null)
+        .order('date_issued', { ascending: false })
+        .range(offset, offset + batchSize - 1);
+
+      if (error) throw error;
+      const batch = data ?? [];
+      rows.push(...batch);
+      if (batch.length < batchSize) break;
+    }
+    const jobs = rows.map(mapDatabaseJobToJob);
+    commandJobsCache = { at: Date.now(), jobs };
+    return jobs;
+  })();
+
+  try {
+    return await commandJobsInflight;
+  } catch (error) {
+    if (commandJobsCache) return commandJobsCache.jobs;
+    throw error;
+  } finally {
+    commandJobsInflight = null;
+  }
+}
+
+function useCommandJobSnapshot() {
+  const [jobs, setJobs] = useState<Job[]>(() => commandJobsCache?.jobs ?? []);
+  const [isLoading, setIsLoading] = useState(() => !commandJobsCache);
+  const [lastUpdated, setLastUpdated] = useState(() => commandJobsCache ? new Date(commandJobsCache.at) : new Date());
+  const loadingRef = useRef(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const load = useCallback(async (force = false, background = false) => {
+    if (loadingRef.current && !force) return;
+    loadingRef.current = true;
+    if (!background) setIsLoading(true);
+    try {
+      const next = await fetchCommandJobs(force);
+      setJobs(next);
+      setLastUpdated(new Date());
+    } catch (error) {
+      console.error('[CommandMetrics] failed to load command job snapshot:', error);
+    } finally {
+      loadingRef.current = false;
+      if (!background) setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load(true);
+    const channel = supabase
+      .channel(`command-metrics-jobs-${Math.random().toString(36).slice(2)}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'jobs' }, () => {
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => load(true, true), 800);
+      })
+      .subscribe();
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      supabase.removeChannel(channel);
+    };
+  }, [load]);
+
+  const refreshJobs = useCallback(() => {
+    commandJobsCache = null;
+    void load(true);
+  }, [load]);
+
+  return { jobs, isLoading, lastUpdated, refreshJobs };
+}
 
 export type { CategoryBreakdown };
 
@@ -55,7 +178,7 @@ export interface CommandMetrics {
 }
 
 export const useCommandMetrics = (): CommandMetrics => {
-  const { jobs, isLoading, refreshJobs } = useJobs() as any;
+  const { jobs, isLoading, lastUpdated, refreshJobs } = useCommandJobSnapshot();
   const { categories } = useCategories();
 
   const today = new Date();
@@ -114,9 +237,9 @@ export const useCommandMetrics = (): CommandMetrics => {
       todaysSchedule,
       jobs: list,
       isLoading: !!isLoading,
-      lastUpdated: new Date(),
+      lastUpdated,
       integrity,
       refreshJobs,
     };
-  }, [jobs, categories, isLoading, refreshJobs, todayKey, weekStart.getTime(), weekEnd.getTime()]);
+  }, [jobs, categories, isLoading, lastUpdated, refreshJobs, todayKey, weekStart.getTime(), weekEnd.getTime()]);
 };
