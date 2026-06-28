@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { TeamCallLogDialog } from "@/components/command/TeamCallLogDialog";
 import { FlagJobDialog } from "@/components/command/FlagJobDialog";
 import { useSectionTone, type SectionPresetId } from "@/lib/sectionTheme";
+import { useCommandMetrics } from "@/hooks/useCommandMetrics";
 
 
 type Status = "done" | "in_progress" | "flagged" | "urgent";
