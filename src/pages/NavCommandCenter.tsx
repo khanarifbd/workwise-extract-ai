@@ -148,6 +148,8 @@ const NavCommandCenter = () => {
   const aaDoneToday = metrics.aa.completedToday;
   const dmWeek = metrics.dm.completedThisWeek;
   const aaWeek = metrics.aa.completedThisWeek;
+  const dmTodayGap = dmDoneToday - dmTargetToday;
+  const aaTodayGap = aaDoneToday - aaTargetToday;
 
   const urgentFlags = metrics.openFlags.filter(
     (j) => (j as any).isUrgent || j.status === 'no_show',
@@ -155,9 +157,12 @@ const NavCommandCenter = () => {
   const warningFlags = Math.max(0, metrics.openFlags.length - urgentFlags);
   const activeAlerts = metrics.openFlags.length;
 
-  const dmWeekPct = Math.round((dmWeek / dmWeekTarget) * 100) || 0;
-  const aaWeekPct = Math.round((aaWeek / aaWeekTarget) * 100) || 0;
-  const overallPct = Math.round(((dmWeek + aaWeek) / (dmWeekTarget + aaWeekTarget)) * 100) || 0;
+  const dmWeekPctRaw = Math.round((dmWeek / dmWeekTarget) * 100) || 0;
+  const aaWeekPctRaw = Math.round((aaWeek / aaWeekTarget) * 100) || 0;
+  const overallPctRaw = Math.round(((dmWeek + aaWeek) / (dmWeekTarget + aaWeekTarget)) * 100) || 0;
+  const dmWeekPct = Math.min(100, dmWeekPctRaw);
+  const aaWeekPct = Math.min(100, aaWeekPctRaw);
+  const overallPct = Math.min(100, overallPctRaw);
   const onTrack = overallPct >= 65;
 
   // Real schedule, derived from jobs booked for today — replaces SAMPLE_TEAMS.
@@ -198,6 +203,7 @@ const NavCommandCenter = () => {
 
 
   const refresh = () => {
+    metrics.refreshJobs();
     setLastUpdated(new Date());
     toast.success("Refreshed");
   };
@@ -250,14 +256,14 @@ const NavCommandCenter = () => {
             hint="Live snapshot of completions and active alerts"
           />
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <MetricCard title="DM Jobs" value={`${dmDoneToday}/${dmTargetToday}`} sub="Today's target"
-              trend="up" trendText="+2 vs yesterday"
+            <MetricCard title="DM Jobs" value={`${dmDoneToday}`} sub={`Completed today · target ${dmTargetToday}`}
+              trend={dmTodayGap >= 0 ? "up" : "down"} trendText={dmTodayGap >= 0 ? `+${dmTodayGap} above target` : `${Math.abs(dmTodayGap)} to target`}
               accent="text-blue-600 dark:text-blue-400" ringAccent="bg-blue-500" icon={Activity} />
-            <MetricCard title="A & A Jobs" value={`${aaDoneToday}/${aaTargetToday}`} sub="Today's target"
-              trend="flat" trendText="On pace"
+            <MetricCard title="A & A Jobs" value={`${aaDoneToday}`} sub={`Completed today · target ${aaTargetToday}`}
+              trend={aaTodayGap >= 0 ? "up" : aaDoneToday > 0 ? "flat" : "down"} trendText={aaTodayGap >= 0 ? `+${aaTodayGap} above target` : `${Math.abs(aaTodayGap)} to target`}
               accent="text-emerald-600 dark:text-emerald-400" ringAccent="bg-emerald-500" icon={Activity} />
             <MetricCard title="Active Alerts" value={`${urgentFlags + warningFlags}`} sub={`${urgentFlags} urgent · ${warningFlags} warning`}
-              trend="down" trendText="-1 since morning"
+              trend={activeAlerts === 0 ? "flat" : "down"} trendText={activeAlerts === 0 ? "Clear" : "Live flags"}
               accent="text-red-600 dark:text-red-400" ringAccent="bg-red-500" icon={AlertTriangle} />
           </div>
         </Band>
@@ -380,15 +386,15 @@ const NavCommandCenter = () => {
           />
           <div className="rounded-2xl border bg-card shadow-sm p-5 sm:p-6 space-y-5">
             {[
-              { label: "DM",      done: dmWeek, target: dmWeekTarget, pct: dmWeekPct, color: "bg-blue-500" },
-              { label: "A&A",     done: aaWeek, target: aaWeekTarget, pct: aaWeekPct, color: "bg-emerald-500" },
-              { label: "Overall", done: dmWeek + aaWeek, target: dmWeekTarget + aaWeekTarget, pct: overallPct, color: "bg-violet-500" },
+              { label: "DM",      done: dmWeek, target: dmWeekTarget, pct: dmWeekPct, rawPct: dmWeekPctRaw, color: "bg-blue-500" },
+              { label: "A&A",     done: aaWeek, target: aaWeekTarget, pct: aaWeekPct, rawPct: aaWeekPctRaw, color: "bg-emerald-500" },
+              { label: "Overall", done: dmWeek + aaWeek, target: dmWeekTarget + aaWeekTarget, pct: overallPct, rawPct: overallPctRaw, color: "bg-violet-500" },
             ].map(row => (
               <div key={row.label}>
                 <div className="flex items-baseline justify-between mb-2">
                   <span className="text-sm font-semibold">{row.label}</span>
                   <span className="text-xs text-muted-foreground tabular-nums">
-                    {row.done}/{row.target} · <span className="font-semibold text-foreground">{row.pct}%</span>
+                    {row.done}/{row.target} · <span className="font-semibold text-foreground">{row.rawPct}%</span>
                   </span>
                 </div>
                 <Progress value={row.pct} className="h-2.5" />

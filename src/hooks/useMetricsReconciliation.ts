@@ -3,7 +3,7 @@
  * against its canonical figure from `genieMetrics`. Surfaces drift so the
  * Diagnostics panel + drift banner can flag it instantly.
  */
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useCommandMetrics } from '@/hooks/useCommandMetrics';
 import { useJobs } from '@/hooks/useJobs';
 import { useCategories } from '@/hooks/useCategories';
@@ -32,10 +32,10 @@ export interface MetricsReconciliation {
 
 export function useMetricsReconciliation(): MetricsReconciliation {
   const cm = useCommandMetrics();
-  const { jobs } = useJobs() as any;
+  const { jobs, refreshJobs } = useJobs() as any;
   const { categories } = useCategories();
 
-  return useMemo(() => {
+  const result = useMemo(() => {
     const list = Array.isArray(jobs) ? jobs : [];
     const nameById: Record<string, string> = {};
     for (const c of categories || []) nameById[c.id] = c.name;
@@ -74,4 +74,20 @@ export function useMetricsReconciliation(): MetricsReconciliation {
       summary: canonical,
     };
   }, [cm, jobs, categories]);
+
+  const lastAutoRealignAt = useRef(0);
+  useEffect(() => {
+    if (result.ok) return;
+    const now = Date.now();
+    if (now - lastAutoRealignAt.current < 30_000) return;
+    lastAutoRealignAt.current = now;
+
+    // Safe auto-realignment: when Command and canonical figures diverge,
+    // force both job readers to bypass local/session caches and rehydrate
+    // from the backend. Data correctness itself is protected by the DB trigger.
+    refreshJobs?.();
+    cm.refreshJobs?.();
+  }, [result.ok, refreshJobs, cm.refreshJobs]);
+
+  return result;
 }

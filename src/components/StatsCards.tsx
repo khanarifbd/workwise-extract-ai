@@ -24,7 +24,7 @@ import {
   BarChart3
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { getGMTNow, getHoursDifferenceGMT } from '@/lib/dateUtils';
+import { isActive, isComplete, isOverdue, summaryCounts } from '@/lib/genieMetrics';
 import {
   Tooltip,
   TooltipContent,
@@ -54,20 +54,12 @@ function isUrgent(description: string | undefined | null): boolean {
   return lower.includes('urgent') || lower.includes('asap') || lower.includes('immediate');
 }
 
-function isCompleted(j: Job): boolean {
-  return j.status === 'complete' || j.isCompleted;
-}
-
 export const StatsCards = forwardRef<HTMLDivElement, StatsCardsProps>(({ jobs, allJobs, tradeBookings }, ref) => {
   const [detailsOpen, setDetailsOpen] = useState(false);
 
   const counts = useMemo(() => {
-    // Recompute "now" fresh on every jobs change so overdue stays accurate
-    // through long sessions (avoids mount-time freeze drift).
-    const now = getGMTNow();
-    const nowMs = now.getTime();
-
-    const total = jobs.length;
+    const canonical = summaryCounts(jobs);
+    const total = canonical.total;
     let complete = 0;
     let assigned = 0;
     let overdue = 0;
@@ -90,8 +82,9 @@ export const StatsCards = forwardRef<HTMLDivElement, StatsCardsProps>(({ jobs, a
 
     // Single pass over jobs for all incomplete-job counters.
     for (const j of jobs) {
-      progressSum += j.progress || 0;
-      if (isCompleted(j)) { complete++; continue; }
+      progressSum += isComplete(j) ? 100 : (j.progress || 0);
+      if (isComplete(j)) { complete++; continue; }
+      if (!isActive(j)) continue;
 
       // Incomplete only from here
       if (j.team != null && j.team !== '') assigned++;
@@ -99,13 +92,9 @@ export const StatsCards = forwardRef<HTMLDivElement, StatsCardsProps>(({ jobs, a
       if (isUrgent(j.description)) urgent++;
       if (j.isOngoing) ongoing++;
 
-      if (j.bookedDate) {
-        const bd = j.bookedDate instanceof Date ? j.bookedDate : new Date(j.bookedDate);
-        const bdMs = bd.getTime();
-        if (!isNaN(bdMs) && bdMs < nowMs && getHoursDifferenceGMT(now, bd) > 24) {
-          overdue++;
-        }
-      } else {
+      if (isOverdue(j)) overdue++;
+
+      if (!j.bookedDate) {
         totalUnbooked++;
         if (j.status === 'no_answer') noAnswer++;
         else if (j.status === 'voice_message') voiceMessage++;
@@ -131,16 +120,11 @@ export const StatsCards = forwardRef<HTMLDivElement, StatsCardsProps>(({ jobs, a
       }
     }
 
-    const active = total - complete;
+    const active = canonical.active;
 
-    // Booked uses a separate source (allJobs) so keep its own pass.
+    // Booked uses the same canonical active/booked rules as Command.
     const sourceJobs = allJobs || jobs;
-    let booked = 0;
-    for (const j of sourceJobs) {
-      if (isCompleted(j)) continue;
-      if (j.referBack) continue;
-      if (j.bookedDate || (tradeBookings && tradeBookings.has(j.id))) booked++;
-    }
+    const booked = summaryCounts(sourceJobs).booked;
 
     const activeStatusSum =
       activeByStatus.pending + activeByStatus.started + activeByStatus.noAnswer +

@@ -51,10 +51,11 @@ export interface CommandMetrics {
   isLoading: boolean;
   lastUpdated: Date;
   integrity: MetricsCheck;
+  refreshJobs: () => void;
 }
 
 export const useCommandMetrics = (): CommandMetrics => {
-  const { jobs, isLoading } = useJobs() as any;
+  const { jobs, isLoading, refreshJobs } = useJobs() as any;
   const { categories } = useCategories();
 
   const today = new Date();
@@ -115,6 +116,7 @@ export const useCommandMetrics = (): CommandMetrics => {
       isLoading: !!isLoading,
       lastUpdated: new Date(),
       integrity,
+      refreshJobs,
     };
-  }, [jobs, categories, isLoading, todayKey, weekStart.getTime(), weekEnd.getTime()]);
+  }, [jobs, categories, isLoading, refreshJobs, todayKey, weekStart.getTime(), weekEnd.getTime()]);
 };

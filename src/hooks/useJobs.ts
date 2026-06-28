@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef, createElement } from 'react';
 import { Job, FanInfo, RoofingInfo, FlooringInfo, InsulationInfo, FireDoorInfo } from '@/types/job';
 import {
-  fetchJobs, createJob, updateJob, deleteJob, restoreJob,
+  fetchJobs, createJob, updateJob, deleteJob, restoreJob, invalidateJobsCache,
   extractFansWithAI, extractRoofingWithAI, extractFlooringWithAI, extractInsulationWithAI, extractFireDoorsWithAI,
   createLinkedFanJob, createLinkedRoofingJob, createLinkedFlooringJob, createLinkedInsulationJob, createLinkedFireDoorJob,
   mapDatabaseJobToJob,
@@ -67,7 +67,12 @@ export const useJobs = (categoryId?: string) => {
       if (!background) setIsLoading(true);
       lastFetchRef.current = Date.now();
       
-      const data = await fetchJobs(categoryId);
+      if (force) {
+        invalidateJobsCache(categoryId);
+        try { sessionStorage.removeItem(cacheKey); } catch {}
+      }
+
+      const data = await fetchJobs(categoryId, { force });
       
       // Only update state if no pending optimistic updates
       // This prevents overwriting optimistic updates with stale server data
@@ -696,6 +701,8 @@ export const useJobs = (categoryId?: string) => {
     });
   };
 
+  const refreshJobs = useCallback(() => loadJobs(true, false), [loadJobs]);
+
   return {
     jobs,
     isLoading,
@@ -703,6 +710,6 @@ export const useJobs = (categoryId?: string) => {
     editJob,
     removeJob,
     toggleComplete,
-    refreshJobs: () => loadJobs(true, false) // Force refresh
+    refreshJobs,
   };
 };
