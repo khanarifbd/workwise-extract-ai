@@ -68,12 +68,15 @@ const AAJobTracker = () => {
   const IN_PROGRESS = tracker.inProgress;
   const COMPLETED = tracker.completed;
 
+  // Pills mirror the on-screen section lists 1:1 so Command always matches
+  // what Nav can see (and the canonical Genie figures for the same scope).
   const stats = useMemo(() => ({
     target: 6,
-    completed: cm.aa.completedToday,
-    inProgress: cm.aa.active,
-    flagged: tracker.urgent.length,
-  }), [cm.aa, tracker.urgent.length]);
+    completed: COMPLETED.length,        // = completed today (canonical)
+    inProgress: IN_PROGRESS.length,     // = active & booked today
+    flagged: tracker.urgent.length,     // = open flags
+    activeTotal: cm.aa.active,          // canonical A&A active backlog
+  }), [COMPLETED.length, IN_PROGRESS.length, tracker.urgent.length, cm.aa.active]);
 
   const today = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
