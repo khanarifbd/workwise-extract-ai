@@ -19,6 +19,7 @@ import { MetricsDriftBanner } from "@/components/command/MetricsIntegrityPanel";
 
 import AddLogEntryModal, { type LogEntryDraft } from "@/components/AddLogEntryModal";
 import { TeamCallLogDialog } from "@/components/command/TeamCallLogDialog";
+import { TeamConversationNotebook } from "@/components/command/TeamConversationNotebook";
 import { ScheduleDialog } from "@/components/command/ScheduleDialog";
 import { CollapsibleDateGroups, type DatedItem } from "@/components/command/CollapsibleDateGroups";
 
@@ -99,6 +100,7 @@ const LiveMonitoringLog = () => {
 
   // Call dialog
   const [callTarget, setCallTarget] = useState<{ team: string; phone: string } | null>(null);
+  const [notebookTarget, setNotebookTarget] = useState<{ team: string; jobNumber?: string; flagTitle?: string; severity?: string } | null>(null);
 
   // Schedule dialog (for coaching items — kept as a UI affordance; persisted in command_events)
   const [scheduleTarget, setScheduleTarget] = useState<CommandEvent | null>(null);
