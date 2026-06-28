@@ -435,8 +435,18 @@ const LiveMonitoringLog = () => {
                     <div className="flex flex-wrap gap-1.5 pt-1">
                       <Button size="sm" variant="outline" onClick={() => setScheduleTarget(c)}><CalendarClock className="h-3.5 w-3.5 mr-1" />Schedule</Button>
                       {c.team && (
-                        <Button size="sm" variant="outline" onClick={() => setCallTarget({ team: c.team!, phone: "" })}>
-                          <PhoneCall className="h-3.5 w-3.5 mr-1" />Call
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setNotebookTarget({
+                            team: c.team!,
+                            jobNumber: c.job_number ?? undefined,
+                            flagTitle: c.title ?? undefined,
+                            severity: c.severity,
+                          })}
+                          title="Open Nav ↔ team conversation notebook"
+                        >
+                          <StickyNote className="h-3.5 w-3.5 mr-1" />Notebook
                         </Button>
                       )}
                       <Button size="sm" variant="ghost" onClick={() => handleMarkResolved(c.id)}><X className="h-3.5 w-3.5 mr-1" />Dismiss</Button>
