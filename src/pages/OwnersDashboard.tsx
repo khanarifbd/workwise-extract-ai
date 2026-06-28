@@ -1,11 +1,11 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { format, startOfWeek, endOfWeek, isWithinInterval, parseISO } from "date-fns";
+import { format } from "date-fns";
 import { Eye, AlertTriangle, TrendingDown, TrendingUp, FileDown, ArrowRight, GraduationCap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useJobs } from "@/hooks/useJobs";
+import { useCommandMetrics } from "@/hooks/useCommandMetrics";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { downloadPDF } from "@/lib/pdfDownload";
@@ -15,61 +15,42 @@ const DM_WEEKLY = 32;
 const AA_DAILY = 6;
 const AA_WEEKLY = 18;
 
-const isDM = (j: any) => /DM/i.test(j?.category || j?.type || j?.jobType || "");
-const isAA = (j: any) => /A&A|AA/i.test(j?.category || j?.type || j?.jobType || "");
-const isComplete = (j: any) => j?.status === "complete" || j?.is_completed === true;
-
-const safeDate = (v: any): Date | null => {
-  if (!v) return null;
-  try { const d = typeof v === "string" ? parseISO(v) : new Date(v); return isNaN(+d) ? null : d; } catch { return null; }
-};
-
 export default function OwnersDashboard() {
   const navigate = useNavigate();
-  const { jobs } = useJobs() as any;
+  const cm = useCommandMetrics();
 
   const today = new Date();
   const todayKey = format(today, "yyyy-MM-dd");
-  const weekStart = startOfWeek(today, { weekStartsOn: 1 });
-  const weekEnd = endOfWeek(today, { weekStartsOn: 1 });
 
   const metrics = useMemo(() => {
-    const list: any[] = Array.isArray(jobs) ? jobs : [];
-    const completedToday = (j: any) => {
-      if (!isComplete(j)) return false;
-      const d = safeDate(j.completionDate || j.completion_date || j.updatedAt);
-      return d ? format(d, "yyyy-MM-dd") === todayKey : false;
-    };
-    const completedThisWeek = (j: any) => {
-      if (!isComplete(j)) return false;
-      const d = safeDate(j.completionDate || j.completion_date || j.updatedAt);
-      return d ? isWithinInterval(d, { start: weekStart, end: weekEnd }) : false;
-    };
-    const dmToday = list.filter((j) => isDM(j) && completedToday(j)).length;
-    const dmWeek = list.filter((j) => isDM(j) && completedThisWeek(j)).length;
-    const aaToday = list.filter((j) => isAA(j) && completedToday(j)).length;
-    const aaWeek = list.filter((j) => isAA(j) && completedThisWeek(j)).length;
-    const dmPct = Math.round((dmWeek / DM_WEEKLY) * 100);
-    const aaPct = Math.round((aaWeek / AA_WEEKLY) * 100);
-    const overallPct = Math.round(((dmWeek + aaWeek) / (DM_WEEKLY + AA_WEEKLY)) * 100);
+    const dmToday = cm.dm.completedToday;
+    const dmWeek = cm.dm.completedThisWeek;
+    const aaToday = cm.aa.completedToday;
+    const aaWeek = cm.aa.completedThisWeek;
+    const dmPct = Math.round((dmWeek / DM_WEEKLY) * 100) || 0;
+    const aaPct = Math.round((aaWeek / AA_WEEKLY) * 100) || 0;
+    const overallPct = Math.round(((dmWeek + aaWeek) / (DM_WEEKLY + AA_WEEKLY)) * 100) || 0;
     return { dmToday, dmWeek, aaToday, aaWeek, dmPct, aaPct, overallPct };
-  }, [jobs, todayKey, weekStart, weekEnd]);
+  }, [cm.dm, cm.aa]);
 
   const flags = useMemo(() => {
-    const list: any[] = Array.isArray(jobs) ? jobs : [];
-    const open = list
-      .filter((j) => !isComplete(j) && (j.flagged || j.isUrgent || j.priority === "urgent" || j.status === "referBack"))
-      .slice(0, 12)
-      .map((j) => ({
-        id: j.id,
-        jobNumber: j.jobNumber || j.job_number || "—",
-        team: j.team || j.assignedTeam || "Unassigned",
-        issue: j.flagReason || j.notes || j.description?.slice(0, 80) || "Flagged for review",
-        severity: j.priority === "urgent" || j.isUrgent ? "Urgent" : "Warning",
-      }));
-    const closed = list.filter((j) => isComplete(j) && (j.flagged || j.priority === "urgent")).length;
+    const open = cm.openFlags.slice(0, 12).map((j: any) => ({
+      id: j.id,
+      jobNumber: j.jobNumber || "—",
+      team: j.team || j.team2 || "Unassigned",
+      issue:
+        j.referBackReason ||
+        j.blockerNotes ||
+        j.progressNotes ||
+        (j.description || "").slice(0, 80) ||
+        "Flagged for review",
+      severity:
+        j.isUrgent || j.status === "no_show" || j.referBack ? "Urgent" : "Warning",
+    }));
+    const closed = cm.totals.complete; // proxy: total completions logged
     return { open, closedCount: closed };
-  }, [jobs]);
+  }, [cm.openFlags, cm.totals.complete]);
+
 
   const training = [
     { team: "Indika", issue: "Sign-off photo quality", date: "Mon" },
