@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Plus, Filter, Search, Download, RefreshCw, Flag, AlertTriangle,
-  StickyNote, Lightbulb, CheckCircle2, PhoneCall, CalendarClock, UserPlus, X, Loader2, ChevronDown,
+  StickyNote, Lightbulb, CheckCircle2, PhoneCall, CalendarClock, UserPlus, X, Loader2, ChevronDown, Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,8 +58,14 @@ const LiveMonitoringLog = () => {
   const [logModalOpen, setLogModalOpen] = useState(false);
 
   const cm = useCommandMetrics();
-  const { events, add, resolve, refresh: refreshEvents } =
+  const { events, add, resolve, remove, refresh: refreshEvents } =
     useCommandEvents({ includeResolved: true });
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Delete this flag permanently? This cannot be undone.")) return;
+    try { await remove(id); fire("Deleted"); }
+    catch (err: any) { fire(err?.message ?? "Failed to delete"); }
+  };
 
   const fire = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 1500); };
 
@@ -481,6 +487,16 @@ const LiveMonitoringLog = () => {
                       {r.title && <div><span className="text-muted-foreground">Category:</span> {r.title}</div>}
                       {r.body && <div><span className="text-muted-foreground">Notes:</span> {r.body}</div>}
                     </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleDelete(r.id)}
+                      className="text-red-600 hover:text-red-700 hover:bg-red-500/10"
+                      aria-label="Delete flag"
+                      title="Delete flag permanently"
+                    >
+                      <Trash2 className="h-3.5 w-3.5 mr-1" />Delete
+                    </Button>
                   </div>
                 )}
               />
