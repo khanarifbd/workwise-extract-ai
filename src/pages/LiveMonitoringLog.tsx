@@ -332,9 +332,23 @@ const LiveMonitoringLog = () => {
                 <p className="text-sm text-muted-foreground">{today}</p>
               </div>
             </div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span className={cn("h-2 w-2 rounded-full", isRefreshing ? "bg-amber-500 animate-pulse" : "bg-emerald-500")} />
-              Live · updated {lastRefresh}
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <Badge variant="outline" className="bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/30">
+                DM today {cm.dm.completedToday}/8
+              </Badge>
+              <Badge variant="outline" className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30">
+                A&amp;A today {cm.aa.completedToday}/6
+              </Badge>
+              <Badge variant="outline" className="bg-red-500/10 text-red-700 dark:text-red-300 border-red-500/30">
+                {cm.openFlags.length} open flags
+              </Badge>
+              <Badge variant="outline" className="bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30">
+                {cm.overdueJobs.length} overdue
+              </Badge>
+              <span className="text-muted-foreground inline-flex items-center gap-1.5 ml-1">
+                <span className={cn("h-2 w-2 rounded-full", isRefreshing ? "bg-amber-500 animate-pulse" : "bg-emerald-500")} />
+                Live · updated {lastRefresh}
+              </span>
             </div>
           </div>
         </div>
