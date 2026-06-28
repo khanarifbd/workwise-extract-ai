@@ -156,16 +156,53 @@ const NavCommandCenter = () => {
   const aaWeek = metrics.aa.completedThisWeek;
 
   const urgentFlags = metrics.openFlags.filter(
-    (j) => (j as any).isUrgent || j.status === 'no_show' || (metrics.dm && j.referBack),
+    (j) => (j as any).isUrgent || j.status === 'no_show',
   ).length;
   const warningFlags = Math.max(0, metrics.openFlags.length - urgentFlags);
+  const activeAlerts = metrics.openFlags.length;
 
   const dmWeekPct = Math.round((dmWeek / dmWeekTarget) * 100) || 0;
   const aaWeekPct = Math.round((aaWeek / aaWeekTarget) * 100) || 0;
   const overallPct = Math.round(((dmWeek + aaWeek) / (dmWeekTarget + aaWeekTarget)) * 100) || 0;
   const onTrack = overallPct >= 65;
 
-  const teams = useMemo(() => SAMPLE_TEAMS, []);
+  // Real schedule, derived from jobs booked for today — replaces SAMPLE_TEAMS.
+  const teams = useMemo<TeamRow[]>(() => {
+    // Group by team — combine all of a team's jobs today; first becomes AM, second PM.
+    const byTeam = new Map<string, typeof metrics.todaysSchedule>();
+    for (const row of metrics.todaysSchedule) {
+      const list = byTeam.get(row.team) || [];
+      list.push(row);
+      byTeam.set(row.team, list);
+    }
+    const rows: TeamRow[] = [];
+    for (const [team, list] of byTeam) {
+      const sorted = [...list].sort(
+        (a, b) => a.bookedDate.getTime() - b.bookedDate.getTime(),
+      );
+      const am = sorted[0];
+      const pm = sorted[1];
+      const isAA = sorted.some((r) => r.isAA);
+      // worst status wins
+      const priority = { urgent: 4, flagged: 3, in_progress: 2, done: 1 } as const;
+      const status = sorted.reduce<Status>(
+        (acc, r) => (priority[r.status] > priority[acc] ? r.status : acc),
+        'in_progress',
+      );
+      rows.push({
+        team,
+        aa: isAA,
+        am: am ? `${am.jobNumber}${am.address ? ` – ${am.address}` : ''}` : '—',
+        pm: pm ? `${pm.jobNumber}${pm.address ? ` – ${pm.address}` : ''}` : '—',
+        status,
+        phone: '',
+        trackerPath: isAA ? '/command/aa' : '/command/dm',
+      });
+    }
+    return rows.sort((a, b) => a.team.localeCompare(b.team));
+  }, [metrics.todaysSchedule]);
+
+
   const refresh = () => {
     setLastUpdated(new Date());
     toast.success("Refreshed");
