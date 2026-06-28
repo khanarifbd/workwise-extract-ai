@@ -159,12 +159,15 @@ const DMJobTracker = () => {
   const COMPLETED = tracker.completed;
   const PIPELINE = tracker.pipeline;
 
+  // Pills mirror the on-screen section lists 1:1 so Command always matches
+  // what Nav can see (and what the canonical Genie shows for the same scope).
   const stats = useMemo(() => ({
     target: 8,
-    completed: cm.dm.completedToday,
-    inProgress: cm.dm.active,
-    flagged: URGENT.length,
-  }), [cm.dm, URGENT.length]);
+    completed: COMPLETED.length,      // = completed today (canonical)
+    inProgress: IN_PROGRESS.length,   // = active & booked today
+    flagged: URGENT.length,           // = open flags
+    activeTotal: cm.dm.active,        // canonical DM active backlog
+  }), [COMPLETED.length, IN_PROGRESS.length, URGENT.length, cm.dm.active]);
 
   const today = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
