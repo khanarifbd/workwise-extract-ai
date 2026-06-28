@@ -107,7 +107,7 @@ export function useTrackerJobs(silo: 'dm' | 'aa') {
     const todayKey = format(today, 'yyyy-MM-dd');
     const tomorrowKey = format(addDays(today, 1), 'yyyy-MM-dd');
     const inSilo = (j: Job) => {
-      const cat = j.categoryId ? nameById[j.categoryId] : undefined;
+      const cat = (j as Job & { categoryName?: string }).categoryName || (j.categoryId ? nameById[j.categoryId] : undefined);
       return silo === 'dm' ? belongsToDM(cat) : belongsToAA(cat);
     };
 

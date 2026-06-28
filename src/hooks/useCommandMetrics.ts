@@ -25,7 +25,7 @@ import {
 } from '@/lib/genieMetrics';
 import type { Job } from '@/types/job';
 
-const COMMAND_JOB_SELECT = 'id,job_number,name,address,phone_number,summary_of_works,description,team,team2,progress,progress_notes,is_completed,is_ongoing,ongoing_reason,scheduled_trades,created_at,date_issued,booked_date,is_flexible_booking,booking_notes,completion_date,status,private_notes,refer_back,refer_back_reason,refer_back_date,expected_completion_date,blocker_type,blocker_notes,blocker_set_at,blocker_chase_date,category_id';
+const COMMAND_JOB_SELECT = 'id,job_number,name,address,phone_number,summary_of_works,description,team,team2,progress,progress_notes,is_completed,is_ongoing,ongoing_reason,scheduled_trades,created_at,date_issued,booked_date,is_flexible_booking,booking_notes,completion_date,status,private_notes,refer_back,refer_back_reason,refer_back_date,expected_completion_date,blocker_type,blocker_notes,blocker_set_at,blocker_chase_date,category_id,categories(name)';
 
 let commandJobsCache: { at: number; jobs: Job[] } | null = null;
 let commandJobsInflight: Promise<Job[]> | null = null;
@@ -53,7 +53,11 @@ async function fetchCommandJobs(force = false): Promise<Job[]> {
       rows.push(...batch);
       if (batch.length < batchSize) break;
     }
-    const jobs = rows.map(mapDatabaseJobToJob);
+    const jobs = rows.map((row) => {
+      const job = mapDatabaseJobToJob(row) as Job & { categoryName?: string };
+      job.categoryName = row?.categories?.name || undefined;
+      return job;
+    });
     commandJobsCache = { at: Date.now(), jobs };
     return jobs;
   })();
@@ -157,6 +161,11 @@ export const useCommandMetrics = (): CommandMetrics => {
     const list: Job[] = Array.isArray(jobs) ? jobs : [];
     const nameById: Record<string, string> = {};
     for (const c of categories || []) nameById[c.id] = c.name;
+    for (const j of list as Array<Job & { categoryName?: string }>) {
+      if (j.categoryId && j.categoryName && !nameById[j.categoryId]) {
+        nameById[j.categoryId] = j.categoryName;
+      }
+    }
 
     const byCategory = categoryBreakdown(list, nameById, todayKey, weekStart, weekEnd);
     const { dm, aa } = pickSiloBreakdowns(byCategory);
