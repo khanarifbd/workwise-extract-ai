@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useSectionTone } from "@/lib/sectionTheme";
 import { SignOffDialog, type SignOffJob } from "@/components/command/SignOffDialog";
+import { useCommandMetrics } from "@/hooks/useCommandMetrics";
 
 
 // ---------- Types ----------
