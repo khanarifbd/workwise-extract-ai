@@ -45,14 +45,17 @@ const adapt = (j: Job): TrackerRow => ({
 
 export function useTrackerJobs(silo: 'dm' | 'aa') {
   const cm = useCommandMetrics();
+  const { categories } = useCategories();
   return useMemo(() => {
+    const nameById: Record<string, string> = {};
+    for (const c of categories || []) nameById[c.id] = c.name;
+
     const today = new Date();
     const todayKey = format(today, 'yyyy-MM-dd');
     const tomorrowKey = format(addDays(today, 1), 'yyyy-MM-dd');
     const inSilo = (j: Job) => {
-      const cat = (j as any).categoryName as string | undefined;
-      if (silo === 'dm') return belongsToDM(cat);
-      return belongsToAA(cat);
+      const cat = j.categoryId ? nameById[j.categoryId] : undefined;
+      return silo === 'dm' ? belongsToDM(cat) : belongsToAA(cat);
     };
 
     const list = (cm.jobs as Job[]).filter(inSilo);
@@ -65,5 +68,5 @@ export function useTrackerJobs(silo: 'dm' | 'aa') {
       pipeline:   list.filter(j => isActive(j) && bookedOnDay(j, tomorrowKey)).map(adapt),
       all: list.map(adapt),
     };
-  }, [cm, silo]);
+  }, [cm, categories, silo]);
 }
