@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Plus, Filter, Search, Download, RefreshCw, Flag, AlertTriangle,
-  StickyNote, Lightbulb, CheckCircle2, PhoneCall, CalendarClock, UserPlus, X, Loader2, ChevronDown,
+  StickyNote, Lightbulb, CheckCircle2, PhoneCall, CalendarClock, UserPlus, X, Loader2, ChevronDown, Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
