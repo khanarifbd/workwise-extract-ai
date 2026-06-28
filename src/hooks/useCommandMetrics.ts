@@ -167,16 +167,43 @@ export const useCommandMetrics = (): CommandMetrics => {
     const dm = findBy((n) => /^DM\b|DM Jobs/i.test(n));
     const aa = findBy((n) => /A\s*&\s*A/i.test(n));
 
+    // Explicit flags only. Overdue is tracked separately so the Pulse "Active
+    // Alerts" card doesn't blow up to hundreds because of unbooked backlog.
     const openFlags = list.filter(
       (j) =>
         isActive(j) &&
         (j.referBack ||
           (j as any).flagged ||
           (j as any).isUrgent ||
-          j.status === 'no_show' ||
-          j.status === 'pause' ||
-          isOverdue(j)),
+          j.status === 'no_show'),
     );
+    const overdueJobs = list.filter(isOverdue);
+
+    // Today's real schedule, grouped by team (one row per team, AM/PM merged
+    // in the consumer if it needs to).
+    const todaysSchedule: ScheduleRow[] = list
+      .filter((j) => isActive(j) && bookedOn(j, todayKey))
+      .map((j) => {
+        const teamName = (j.team || j.team2 || 'Unassigned') as string;
+        const catName = (j.categoryId && nameById[j.categoryId]) || '';
+        const isAA = /A\s*&\s*A/i.test(catName);
+        let status: ScheduleRow['status'] = 'in_progress';
+        if ((j as any).isUrgent || j.status === 'no_show') status = 'urgent';
+        else if (j.referBack || (j as any).flagged) status = 'flagged';
+        else if (j.status === 'started') status = 'in_progress';
+        return {
+          id: j.id,
+          team: teamName,
+          jobNumber: j.jobNumber || '—',
+          address: j.address || '',
+          bookedDate: new Date(j.bookedDate!),
+          isAA,
+          status,
+          categoryName: catName,
+          job: j,
+        };
+      })
+      .sort((a, b) => a.team.localeCompare(b.team));
 
     const integrity = validateMetrics(list);
     if (!integrity.ok && typeof window !== 'undefined') {
@@ -190,6 +217,8 @@ export const useCommandMetrics = (): CommandMetrics => {
       dm,
       aa,
       openFlags,
+      overdueJobs,
+      todaysSchedule,
       jobs: list,
       isLoading: !!isLoading,
       lastUpdated: new Date(),
