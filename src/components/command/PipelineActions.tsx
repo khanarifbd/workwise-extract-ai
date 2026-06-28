@@ -144,7 +144,12 @@ export function PipelineActions({ row }: Props) {
         onOpenChange={setCallOpen}
         team={tenantName}
         phone={tenantPhone}
+        jobNumber={row.jobNumber}
+        address={row.address}
+        bookedDate={row.bookedDate}
+        description={(row.job as any).description || (row.job as any).summaryOfWorks || row.description}
       />
+
       <FlagJobDialog
         open={flagOpen}
         onOpenChange={setFlagOpen}
