@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useSectionTone } from "@/lib/sectionTheme";
+import { SignOffDialog, type SignOffJob } from "@/components/command/SignOffDialog";
 
 
 // ---------- Types ----------
@@ -129,6 +130,7 @@ const DMJobTracker = () => {
   const [assignments, setAssignments] = useState<Record<string, string>>(() => readLS(LS.assignments, {}));
   const [materials, setMaterials] = useState<Record<string, string>>(() => readLS(LS.materials, {}));
   const [signOffs, setSignOffs] = useState<string[]>(() => readLS(LS.signOffs, []));
+  const [signOffJob, setSignOffJob] = useState<SignOffJob | null>(null);
 
   useEffect(() => { localStorage.setItem(LS.notes, JSON.stringify(notes)); }, [notes]);
   useEffect(() => { localStorage.setItem(LS.flags, JSON.stringify(flagged)); }, [flagged]);
@@ -173,10 +175,17 @@ const DMJobTracker = () => {
     navigate(`/command/log?job=${encodeURIComponent(jobNumber)}`);
   };
 
-  const handleViewSignOff = (jobNumber: string) => {
-    setSignOffs((prev) => prev.includes(jobNumber) ? prev : [...prev, jobNumber]);
-    toast.success(`Opening sign-off for ${jobNumber}`);
-    navigate(`/command/log?job=${encodeURIComponent(jobNumber)}&view=signoff`);
+  const handleViewSignOff = (job: CompletedJob) => {
+    setSignOffs((prev) => prev.includes(job.jobNumber) ? prev : [...prev, job.jobNumber]);
+    setSignOffJob({
+      jobNumber: job.jobNumber,
+      team: job.team,
+      duration: job.duration,
+      signOffTime: job.signOffTime,
+      photosOK: job.photosOK,
+      descriptionOK: job.descriptionOK,
+      signed: job.signed,
+    });
   };
 
   const handleSchedulePreVisit = (jobNumber: string) => {
@@ -366,7 +375,7 @@ const DMJobTracker = () => {
                   <span className="inline-flex items-center gap-1"><FileText className="h-3.5 w-3.5 text-muted-foreground" /><Tick ok={c.descriptionOK} /> Desc</span>
                   <span className="inline-flex items-center gap-1"><PenSquare className="h-3.5 w-3.5 text-muted-foreground" /><Tick ok={c.signed} /> Signed</span>
                 </div>
-                <Button size="sm" variant="outline" onClick={() => handleViewSignOff(c.jobNumber)}>
+                <Button size="sm" variant="outline" onClick={() => handleViewSignOff(c)}>
                   <ShieldCheck className="h-3.5 w-3.5 mr-1" />View Sign-off
                 </Button>
               </li>
@@ -437,6 +446,12 @@ const DMJobTracker = () => {
           </div>
         </div>
       </div>
+
+      <SignOffDialog
+        open={!!signOffJob}
+        onOpenChange={(o) => !o && setSignOffJob(null)}
+        job={signOffJob}
+      />
     </div>
   );
 };

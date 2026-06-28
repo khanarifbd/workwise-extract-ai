@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { TeamCallLogDialog } from "@/components/command/TeamCallLogDialog";
+import { FlagJobDialog } from "@/components/command/FlagJobDialog";
 import { useSectionTone, type SectionPresetId } from "@/lib/sectionTheme";
 
 
@@ -136,6 +137,7 @@ const NavCommandCenter = () => {
   const navigate = useNavigate();
   const [lastUpdated, setLastUpdated] = useState(new Date());
   const [callTarget, setCallTarget] = useState<TeamRow | null>(null);
+  const [flagTarget, setFlagTarget] = useState<TeamRow | null>(null);
 
   const dmDoneToday = 5;
   const dmTargetToday = 8;
@@ -161,7 +163,7 @@ const NavCommandCenter = () => {
   };
 
   const onView = (t: TeamRow) => navigate(t.trackerPath);
-  const onFlag = (t: TeamRow) => navigate(`/command/log?flag=${encodeURIComponent(t.team)}`);
+  const onFlag = (t: TeamRow) => setFlagTarget(t);
   const onCall = (t: TeamRow) => setCallTarget(t);
 
   return (
@@ -392,6 +394,20 @@ const NavCommandCenter = () => {
         team={callTarget?.team || ""}
         phone={callTarget?.phone || ""}
       />
+
+      <FlagJobDialog
+        open={!!flagTarget}
+        onOpenChange={(o) => !o && setFlagTarget(null)}
+        team={flagTarget?.team || ""}
+        jobNumber={
+          flagTarget
+            ? (flagTarget.am.split(" – ")[0] !== "—"
+                ? flagTarget.am.split(" – ")[0]
+                : flagTarget.pm.split(" – ")[0])
+            : undefined
+        }
+      />
+
     </div>
   );
 };
