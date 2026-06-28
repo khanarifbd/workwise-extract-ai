@@ -294,6 +294,7 @@ const LiveMonitoringLog = () => {
   ), [filter, q, entryResolved]);
 
 
+  const cm = useCommandMetrics();
   const urgentCount = SEED_FLAGS.filter(f => f.severity === "urgent").length;
   const today = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
