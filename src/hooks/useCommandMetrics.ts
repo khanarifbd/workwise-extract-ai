@@ -165,9 +165,9 @@ export const useCommandMetrics = (): CommandMetrics => {
       aa,
       openFlags,
       jobs: list,
-      isLoading: !!loading,
+      isLoading: !!isLoading,
       lastUpdated: new Date(),
       integrity,
     };
-  }, [jobs, categories, loading, todayKey, weekStart.getTime(), weekEnd.getTime()]);
+  }, [jobs, categories, isLoading, todayKey, weekStart.getTime(), weekEnd.getTime()]);
 };
