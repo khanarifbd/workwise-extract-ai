@@ -4,7 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, AlertTriangle, Clock, CheckCircle2, Flag,
   StickyNote, Eye, ShieldCheck, Package, Camera, FileText,
-  PenSquare, Plus, Filter, Download, Wrench,
+  PenSquare, Plus, Filter, Download, Wrench, CalendarClock, UserPlus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -67,6 +67,7 @@ const AAJobTracker = () => {
   const tracker = useTrackerJobs('aa');
   const IN_PROGRESS = tracker.inProgress;
   const COMPLETED = tracker.completed;
+  const PIPELINE = tracker.pipeline;
 
   // Pills mirror the on-screen section lists 1:1 so Command always matches
   // what Nav can see (and the canonical Genie figures for the same scope).
@@ -82,6 +83,7 @@ const AAJobTracker = () => {
 
   const aaInProgressTone = useSectionTone("aa.in_progress", "In Progress",     "A&A Tracker", "powder");
   const aaCompletedTone  = useSectionTone("aa.completed",   "Completed Today", "A&A Tracker", "glacial");
+  const aaPipelineTone   = useSectionTone("aa.pipeline",    "Tomorrow Pipeline", "A&A Tracker", "arctic");
 
 
   return (
@@ -207,6 +209,45 @@ const AAJobTracker = () => {
               </li>
             ))}
           </ul>
+        </section>
+        </div>
+
+        {/* Tomorrow's pipeline */}
+        <div className={cn("rounded-3xl border-2 p-2 sm:p-3 shadow-md", aaPipelineTone)}>
+        <section className="rounded-2xl border bg-card shadow-sm overflow-hidden">
+          <SectionHeader title="Tomorrow's Pipeline" count={PIPELINE.length} icon={CalendarClock} accent="bg-blue-500" />
+          {PIPELINE.length === 0 ? (
+            <p className="px-5 py-6 text-sm text-muted-foreground">No A&amp;A jobs booked for tomorrow.</p>
+          ) : (
+            <ul className="divide-y">
+              {PIPELINE.map((p) => (
+                <li key={p.id} className="px-5 py-3 flex flex-col lg:flex-row lg:items-center gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold tabular-nums">{p.jobNumber}</span>
+                      <Badge variant="outline">{p.team}</Badge>
+                      <Badge variant="outline" className="bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300">A&amp;A</Badge>
+                      {p.preVisitNeeded && (
+                        <Badge className="bg-amber-500 hover:bg-amber-500 text-white">Pre-visit needed</Badge>
+                      )}
+                      {p.risk && (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-red-600 dark:text-red-400">
+                          <AlertTriangle className="h-3 w-3" /> {p.risk}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">{p.address}</p>
+                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{(p.job as any).description ?? p.description}</p>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    <Button size="sm" variant="outline" onClick={() => fire(`Schedule ${p.jobNumber}`)}><CalendarClock className="h-3.5 w-3.5 mr-1" />Schedule</Button>
+                    <Button size="sm" variant="outline" onClick={() => fire(`Assign ${p.jobNumber}`)}><UserPlus className="h-3.5 w-3.5 mr-1" />Assign</Button>
+                    <Button size="sm" variant="outline" onClick={() => fire(`Materials ${p.jobNumber}`)}><Package className="h-3.5 w-3.5 mr-1" />Materials</Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
         </div>
 
