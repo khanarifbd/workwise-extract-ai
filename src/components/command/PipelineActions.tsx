@@ -61,13 +61,14 @@ export function PipelineActions({ row }: Props) {
 
   const tenantName = useMemo(() => {
     const j: any = row.job;
-    return j.tenantName || j.tenant || `Tenant @ ${row.jobNumber}`;
+    return j.name || j.tenantName || j.tenant || `Tenant @ ${row.jobNumber}`;
   }, [row]);
 
   const tenantPhone = useMemo(() => {
     const j: any = row.job;
-    return j.tenantPhone || j.phone || j.contactNumber || "";
+    return j.phoneNumber || j.tenantPhone || j.phone || j.contactNumber || "";
   }, [row]);
+
 
   const saveVisit = () => {
     setPreVisit({ done: draftDone, notes: draftNotes.trim(), at: new Date().toISOString() });
@@ -143,7 +144,12 @@ export function PipelineActions({ row }: Props) {
         onOpenChange={setCallOpen}
         team={tenantName}
         phone={tenantPhone}
+        jobNumber={row.jobNumber}
+        address={row.address}
+        bookedDate={row.bookedDate}
+        description={(row.job as any).description || (row.job as any).summaryOfWorks || row.description}
       />
+
       <FlagJobDialog
         open={flagOpen}
         onOpenChange={setFlagOpen}
