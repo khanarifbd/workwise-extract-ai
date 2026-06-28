@@ -160,6 +160,57 @@ export type Database = {
         }
         Relationships: []
       }
+      command_events: {
+        Row: {
+          body: string | null
+          category: string
+          created_at: string
+          created_by: string | null
+          id: string
+          job_id: string | null
+          job_number: string | null
+          kind: string
+          metadata: Json
+          resolved_at: string | null
+          severity: string
+          team: string | null
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          body?: string | null
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          job_id?: string | null
+          job_number?: string | null
+          kind: string
+          metadata?: Json
+          resolved_at?: string | null
+          severity?: string
+          team?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          body?: string | null
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          job_id?: string | null
+          job_number?: string | null
+          kind?: string
+          metadata?: Json
+          resolved_at?: string | null
+          severity?: string
+          team?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       contact_history: {
         Row: {
           contact_date: string

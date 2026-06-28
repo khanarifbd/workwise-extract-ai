@@ -1,79 +1,101 @@
-# Plan
+## Goal
+Make Command Center and main Genie share one authoritative metrics module, surface drift via a debug panel, and remove all mock/seed rows from the three Command pages so every figure is derived from real job data + the `command_events` table.
 
-Two independent workstreams. I'll do (1) first because it affects every login, then (2) in dependency order per trade.
+## 1. Canonical Genie Metrics module
 
----
+Create `src/lib/genieMetrics.ts` — the **only** place job/flag counting rules live. It re-exports / supersedes today's `metricsIntegrity.ts` helpers and adds the rules currently scattered across `Index.tsx`, `StatsCards.tsx`, and `useCommandMetrics.ts`:
 
-## 1. Faster login + first-paint on The Genie
+- `isComplete`, `isReferBack`, `isActive`, `isOverdue`, `isOpenFlag`
+- `belongsToDM(job, categoryName)`, `belongsToAA(job, categoryName)` (A&A includes Roofing / Flooring / Fire Door / Carpentry trades)
+- `completedOnDay`, `completedInRange`, `bookedOnDay`
+- `categoryBreakdown(jobs, categories)` returning the per-silo CategoryBreakdown
+- `summaryCounts(jobs)` returning the canonical Total / Complete / Active / Booked / Overdue figures that `StatsCards.tsx` should now consume
+- `validateMetrics(jobs)` checksum (extended with `is_completed ↔ status` consistency check)
 
-**Goal:** From entering credentials → seeing a populated job table, cut wall-clock time. Most of the perceived slowness on first load comes from data fetching, not auth.
+`metricsIntegrity.ts` becomes a thin re-export from `genieMetrics.ts` so existing imports keep working.
 
-### Investigation steps
-- Measure: open Network panel via Playwright after auth, list all `/rest/v1/jobs*` and `functions/v1/*` calls firing on Index mount, with their durations and payload sizes.
-- Check `src/hooks/useJobs.ts` for: page size, whether it pulls all 815 jobs in one shot, whether `select('*')` pulls heavy columns (descriptions, work_items, fire_door_info, fan_info, etc.), and whether realtime subscribes before the initial fetch resolves.
-- Check `src/pages/Index.tsx` (1,955 lines) for serial `useEffect` waterfalls and any blocking modals/spinners.
-- Check `useAdminAuth.ts` for redundant `getUser()` round-trips (prior turns already added retry logic — verify it's not over-eager).
+`useCommandMetrics.ts` is rewritten to be a pure wrapper around `genieMetrics.ts` — no recomputation inline.
 
-### Likely fixes (apply only the ones evidence supports)
-- Add a Postgres index on `jobs.date_issued` and `jobs.booked_date` if `slow_queries` shows seq-scans.
-- Trim the initial `select` to columns the table actually renders; lazy-load `work_items`, `fire_door_info`, `fan_info`, `insulation_info`, `roofing_info`, `flooring_info`, `ongoing_notes` only when a row is expanded.
-- Move the current-month folder fetch to the top, defer prior months until the user clicks them (project memory says only current month is visible by default — confirm this is actually deferred).
-- Replace any `await`-chain on mount with parallel `Promise.all`.
-- React Query: ensure `staleTime` is non-zero so a quick re-login uses cache.
-- Skeleton in place of a full-screen spinner so the shell renders immediately.
+`StatsCards.tsx` and any Genie callers that still recompute counts switch to `summaryCounts()` so the active/complete logic matches Command's.
 
-**Out of scope:** changing auth providers, adding pagination UI, redesigning Index.
+## 2. Backend `command_events` table
 
----
+Replace localStorage-only flags/notes/calls with a real table:
 
-## 2. End-to-end verify + fix five identification features
+```text
+command_events
+├── id (uuid)
+├── job_id (uuid, nullable — for free-text log lines)
+├── job_number (text)
+├── team (text)
+├── kind (text)  -- 'flag' | 'note' | 'call' | 'training' | 'pattern' | 'signoff' | 'schedule'
+├── severity (text)  -- 'urgent' | 'warning' | 'note'
+├── category (text)  -- 'dm' | 'aa' | 'other'
+├── title (text)
+├── body (text)
+├── metadata (jsonb)
+├── resolved_at (timestamptz)
+├── created_by (uuid)
+├── created_at / updated_at
+```
 
-Each trade has **two independent capabilities**:
-  - **(a) Scan & present** — AI reads description/work items, returns findings, surfaces in the editor.
-  - **(b) Create linked folder/job** — user clicks "Create linked …", a suffix-named sub-job is created and bidirectionally linked.
+Admin-only RLS (read/write for admins, full access for service_role). Realtime enabled.
 
-### Per-trade checks
+New hook `useCommandEvents(filter)` does live fetch + realtime subscription and exposes `add`, `resolve`, etc.
 
-| Trade        | Edge fn (scan)         | Linked-job API                  | Notes |
-|--------------|------------------------|---------------------------------|-------|
-| Fan          | `extract-fans`         | `createLinkedFanJob` (suffix `-FAN`)    | Has scan fn ✔ |
-| Roofing      | `extract-roofing`      | `createLinkedRoofingJob` (`-ROOF`)      | Has scan fn ✔ |
-| Flooring     | `extract-flooring`     | `createLinkedFlooringJob` (`-FLOOR`)    | Has scan fn ✔ |
-| Insulation   | `extract-insulation`   | linked via existing logic               | Has scan fn ✔ |
-| Fire Door    | **no `extract-*` fn**  | `createLinkedFireDoorJob` (`-DOOR`)     | **Fire door has no AI scan function — needs verification whether scan is client-side keyword detection (project memory mentions carpenter-specific green-theme) or actually missing** |
+## 3. Remove seed data
 
-### Test protocol (per trade)
-1. Open a real job in the editor.
-2. Click "Scan" / equivalent → confirm findings JSON returned, no 401/403/429/402.
-3. Confirm findings render in the editor (qty, type, location).
-4. Click "Create linked …" → confirm:
-   - Sub-job row created with correct suffix in job_number.
-   - `linked_*_job_id` written on parent.
-   - Parent's `date_issued` syncs to child (per memory).
-5. Edit parent's `booked_date` → confirm child syncs (per `sync_job_booked_date_from_subtasks` trigger / linked-job sync rule).
-6. Delete the test linked job.
+`src/pages/DMJobTracker.tsx`, `src/pages/AAJobTracker.tsx`, `src/pages/LiveMonitoringLog.tsx`:
 
-I'll drive 1-6 via Playwright against the running preview, capturing screenshots and the network/console at each step.
+- Delete the `URGENT`, `IN_PROGRESS`, `COMPLETED`, `PIPELINE`, `SEED_FLAGS`, `SEED_QUALITY`, etc. constants.
+- Source rows from `useCommandMetrics()` (jobs) + `useCommandEvents()`:
+  - **Urgent Flags** = `command_events` where `kind='flag'` and `severity='urgent'` and not resolved (filtered by DM/AA silo).
+  - **In Progress** = jobs where `belongsToDM/AA(j)` && `isActive(j)` && `status==='started'` (or has booked_date == today).
+  - **Completed Today** = jobs where `belongsToDM/AA(j)` && `completedOnDay(j, today)`.
+  - **Tomorrow Pipeline** = jobs booked tomorrow within the silo.
+  - **Live Log entries** = full `command_events` stream.
+- Remove `localStorage` persistence for notes/flags/etc; the dialogs `FlagJobDialog`, `LiveMonitoringLog` "Add entry" now write to `command_events`.
+- Keep the existing dialogs (SignOff, Schedule, Call Log, Flag) — only swap their persistence layer.
 
-### Fix policy
-- If a scan fn returns auth error: align with the working pattern in `extract-fans` (admin check + zod validation already in place — those look correct).
-- If Fire Door has no AI scan: confirm with you whether you want me to **add an `extract-fire-doors` edge function** mirroring `extract-fans`, or whether the existing keyword detection is intentional.
-- If linked-job creation fails: inspect `createLinked*Job` in `src/lib/api.ts` (lines 2021-2140 for fire door) for the same pattern, fix divergence.
+## 4. Metrics integrity debug panel
 
----
+New component `src/components/command/MetricsIntegrityPanel.tsx`:
 
-## Open question before I start
+- Always visible on the Command Center (collapsible card at the bottom, "Diagnostics").
+- Calls `genieMetrics.validateMetrics(jobs)` and also reconciles each Command figure against its canonical equivalent using `assertCount`:
+  - `Command.dm.completedToday` ↔ `genieMetrics.categoryBreakdown(...).dm.completedToday`
+  - `Command.aa.completedToday` ↔ canonical equivalent
+  - `Command.openFlags.length` ↔ canonical
+  - `Command.overdueJobs.length` ↔ canonical
+  - `StatsCards(active|complete|total)` ↔ `summaryCounts()`
+- Renders a row per check: ✓ green when aligned, ✗ red with "shown vs canonical" when not.
+- Shows a top-of-page **drift banner** (`Alert variant="destructive"`) when any check fails, with a "Show details" toggle that opens the panel.
+- Lists the checksum errors from `validateMetrics`.
 
-**Fire Door identification:** there's no `extract-fire-doors` edge function. Do you want me to:
-  - **A.** Add one (AI scan mirroring fans/roofing/flooring), or
-  - **B.** Leave scanning as-is (client-side keyword detection) and only fix linked-job creation?
+A `useMetricsReconciliation()` hook returns `{ ok, checks, errors }` and is consumed by the panel plus the banner.
 
-If you don't answer, I'll assume **A** (add the missing function) since you said "fully test … the identification feature is working" for all five.
+## 5. Files touched
 
----
+```text
+src/lib/genieMetrics.ts                                (new)
+src/lib/metricsIntegrity.ts                            (re-export shim)
+src/hooks/useCommandMetrics.ts                         (rewrite as wrapper)
+src/hooks/useCommandEvents.ts                          (new)
+src/hooks/useMetricsReconciliation.ts                  (new)
+src/components/command/MetricsIntegrityPanel.tsx      (new)
+src/components/StatsCards.tsx                          (use summaryCounts)
+src/pages/NavCommandCenter.tsx                         (mount panel + banner)
+src/pages/DMJobTracker.tsx                             (remove seeds, live data)
+src/pages/AAJobTracker.tsx                             (remove seeds, live data)
+src/pages/LiveMonitoringLog.tsx                        (remove seeds, use events)
+supabase migration                                     (command_events table)
+```
 
-## Order of work
-1. Perf investigation + targeted fixes (workstream 1).
-2. Run the per-trade Playwright protocol against the live preview.
-3. Fix any failures surfaced in step 2, including the Fire Door gap per your choice above.
-4. Re-run the protocol; report results with screenshots.
+## 6. Out of scope (will not change)
+
+- Existing Genie behaviour and visual design of the trackers / Command Center.
+- Auth, routing, theme picker.
+- Job data shape — no schema changes to `jobs`.
+
+## Confirmation needed
+The Live Log and tracker rows will be **empty** for any team until someone files real flags / notes (or until live jobs exist matching the criteria). The historical mock entries (Shakthi N2640150 etc.) are removed permanently. OK to proceed?

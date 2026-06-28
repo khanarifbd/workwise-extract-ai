@@ -13,72 +13,14 @@ import { cn } from "@/lib/utils";
 import { useSectionTone } from "@/lib/sectionTheme";
 import { SignOffDialog, type SignOffJob } from "@/components/command/SignOffDialog";
 import { useCommandMetrics } from "@/hooks/useCommandMetrics";
+import { useTrackerJobs, type TrackerRow } from "@/hooks/useTrackerJobs";
+import { MetricsDriftBanner } from "@/components/command/MetricsIntegrityPanel";
 
 
-// ---------- Types ----------
-interface UrgentFlag {
-  id: string;
-  jobNumber: string;
-  team: string;
-  overrun: string;
-  description: string;
-}
 
-interface InProgressJob {
-  id: string;
-  jobNumber: string;
-  team: string;
-  address: string;
-  elapsed: string;
-  tenantOK: boolean;
-  tier: 1 | 2 | 3;
-  materialsOK: boolean;
-  tradesOK: boolean;
-}
+// All tracker rows are now derived from canonical job data via
+// `useTrackerJobs('dm')`. No hard-coded seed arrays.
 
-interface CompletedJob {
-  id: string;
-  jobNumber: string;
-  team: string;
-  duration: string;
-  signOffTime: string;
-  photosOK: boolean;
-  descriptionOK: boolean;
-  signed: boolean;
-}
-
-interface PipelineJob {
-  id: string;
-  jobNumber: string;
-  address: string;
-  team: string;
-  risk?: string;
-  preVisitNeeded: boolean;
-}
-
-// ---------- Sample data ----------
-const URGENT: UrgentFlag[] = [
-  { id: "u1", jobNumber: "N2640150", team: "Shakthi", overrun: "+2h 15m overrun", description: "Tenant locked out — keys not on site." },
-  { id: "u2", jobNumber: "N2640199", team: "Pradeep", overrun: "+3h 40m overrun", description: "Asbestos suspected in kitchen ceiling — work paused." },
-];
-
-const IN_PROGRESS: InProgressJob[] = [
-  { id: "p1", jobNumber: "N2640201", team: "Shakthi", address: "8 Park Ave, SE5", elapsed: "1h 20m",  tenantOK: true,  tier: 2, materialsOK: true,  tradesOK: false },
-  { id: "p2", jobNumber: "N2640210", team: "Suresh",  address: "17 Beech Dr, SE15", elapsed: "2h 05m", tenantOK: false, tier: 3, materialsOK: true,  tradesOK: true  },
-  { id: "p3", jobNumber: "N2640177", team: "Indika",  address: "44 King Rd, SE22", elapsed: "0h 45m", tenantOK: true,  tier: 1, materialsOK: false, tradesOK: true  },
-];
-
-const COMPLETED: CompletedJob[] = [
-  { id: "c1", jobNumber: "N2640188", team: "Indika",  duration: "3h 10m", signOffTime: "10:42", photosOK: true,  descriptionOK: true,  signed: true  },
-  { id: "c2", jobNumber: "N2640218", team: "Suresh",  duration: "2h 25m", signOffTime: "11:55", photosOK: true,  descriptionOK: false, signed: true  },
-  { id: "c3", jobNumber: "N2640142", team: "Shakthi", duration: "4h 05m", signOffTime: "12:08", photosOK: true,  descriptionOK: true,  signed: true  },
-];
-
-const PIPELINE: PipelineJob[] = [
-  { id: "t1", jobNumber: "N2640230", address: "5 Lavender Hill, SW11", team: "Shakthi", risk: "No tenant confirmation",          preVisitNeeded: true  },
-  { id: "t2", jobNumber: "N2640231", address: "22 Brook Cl, SE6",     team: "Indika",  preVisitNeeded: false },
-  { id: "t3", jobNumber: "N2640232", address: "9 Elm Rd, SE13",       team: "Pradeep", risk: "Materials not yet ordered",        preVisitNeeded: false },
-];
 
 // ---------- Helpers ----------
 const Tick = ({ ok }: { ok: boolean }) => ok ? (
@@ -177,16 +119,16 @@ const DMJobTracker = () => {
     navigate(`/command/log?job=${encodeURIComponent(jobNumber)}`);
   };
 
-  const handleViewSignOff = (job: CompletedJob) => {
-    setSignOffs((prev) => prev.includes(job.jobNumber) ? prev : [...prev, job.jobNumber]);
+  const handleViewSignOff = (row: TrackerRow) => {
+    setSignOffs((prev) => prev.includes(row.jobNumber) ? prev : [...prev, row.jobNumber]);
     setSignOffJob({
-      jobNumber: job.jobNumber,
-      team: job.team,
-      duration: job.duration,
-      signOffTime: job.signOffTime,
-      photosOK: job.photosOK,
-      descriptionOK: job.descriptionOK,
-      signed: job.signed,
+      jobNumber: row.jobNumber,
+      team: row.team,
+      duration: "—",
+      signOffTime: row.completionDate ? row.completionDate.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "—",
+      photosOK: true,
+      descriptionOK: true,
+      signed: true,
     });
   };
 
@@ -211,12 +153,18 @@ const DMJobTracker = () => {
   };
 
   const cm = useCommandMetrics();
+  const tracker = useTrackerJobs('dm');
+  const URGENT = tracker.urgent;
+  const IN_PROGRESS = tracker.inProgress;
+  const COMPLETED = tracker.completed;
+  const PIPELINE = tracker.pipeline;
+
   const stats = useMemo(() => ({
     target: 8,
     completed: cm.dm.completedToday,
     inProgress: cm.dm.active,
-    flagged: cm.openFlags.filter((j: any) => (j.categoryName || '').match(/DM/i) || (j as any).categoryId === cm.dm.categoryId).length,
-  }), [cm.dm, cm.openFlags]);
+    flagged: URGENT.length,
+  }), [cm.dm, URGENT.length]);
 
   const today = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
@@ -230,6 +178,9 @@ const DMJobTracker = () => {
     <div className="min-h-screen bg-gradient-to-br from-sky-100 via-sky-200 to-sky-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 pb-24">
       <div className="mx-auto max-w-[1400px] p-4 sm:p-6 lg:p-8 space-y-5">
         <CommandTabs />
+        <MetricsDriftBanner />
+
+
 
 
         {/* Header */}

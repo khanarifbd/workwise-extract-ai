@@ -15,6 +15,7 @@ import { TeamCallLogDialog } from "@/components/command/TeamCallLogDialog";
 import { FlagJobDialog } from "@/components/command/FlagJobDialog";
 import { useSectionTone, type SectionPresetId } from "@/lib/sectionTheme";
 import { useCommandMetrics } from "@/hooks/useCommandMetrics";
+import { MetricsIntegrityPanel, MetricsDriftBanner } from "@/components/command/MetricsIntegrityPanel";
 
 
 type Status = "done" | "in_progress" | "flagged" | "urgent";
@@ -29,15 +30,8 @@ interface TeamRow {
   trackerPath: string;
 }
 
-const SAMPLE_TEAMS: TeamRow[] = [
-  { team: "Shakthi",        am: "N2640150 – 12 High St",            pm: "N2640201 – 8 Park Ave",  status: "in_progress", phone: "+447000000002", trackerPath: "/command/dm" },
-  { team: "Indika",         am: "N2640177 – 44 King Rd",            pm: "N2640188 – 21 Oak Cl",   status: "done",        phone: "+447000000003", trackerPath: "/command/dm" },
-  { team: "Pradeep",        am: "N2640199 – 5 Elm Way",             pm: "—",                      status: "urgent",      phone: "+447000000010", trackerPath: "/command/dm" },
-  { team: "Suresh",         am: "N2640210 – 17 Beech Dr",           pm: "N2640218 – 9 Mill Ln",   status: "flagged",     phone: "+447000000011", trackerPath: "/command/dm" },
-  { team: "Carpenter Crew", aa: true, am: "N2640155 – 12 High St (Fire Door)", pm: "N2640190 – 33 Vale", status: "in_progress", phone: "+447000000012", trackerPath: "/command/aa" },
-  { team: "Roofing Pro",    aa: true, am: "N2640161 – 7 Hill Rd",   pm: "—",                      status: "done",        phone: "+447000000013", trackerPath: "/command/aa" },
-  { team: "Flooring Co",    aa: true, am: "—",                      pm: "N2640205 – 14 Lime Ave", status: "in_progress", phone: "+447000000009", trackerPath: "/command/aa" },
-];
+// Today's schedule rows are derived live from `useCommandMetrics().todaysSchedule`
+// — no hard-coded teams. See `teams` memo below.
 
 const STATUS_META: Record<Status, { label: string; icon: typeof CheckCircle2; cls: string; dot: string }> = {
   done:        { label: "Done",        icon: CheckCircle2, cls: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30", dot: "bg-emerald-500" },
@@ -216,6 +210,10 @@ const NavCommandCenter = () => {
     <div className="min-h-screen bg-gradient-to-b from-sky-100 via-sky-200 to-sky-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
       <div className="mx-auto max-w-[1400px] p-4 sm:p-6 lg:p-8 space-y-6">
         <CommandTabs />
+
+        <MetricsDriftBanner onShowDetails={() => {
+          document.getElementById("metrics-diagnostics")?.scrollIntoView({ behavior: "smooth" });
+        }} />
 
 
         {/* ───── HEADER ───── */}
@@ -415,6 +413,13 @@ const NavCommandCenter = () => {
             <QuickAction to="/command/owners"  label="Owner's View"    icon={Eye}          accent="bg-slate-700" />
           </div>
         </Band>
+
+        {/* ───── 05 · DIAGNOSTICS ───── */}
+        <div id="metrics-diagnostics">
+          <MetricsIntegrityPanel />
+        </div>
+
+
 
         {/* ───── FOOTER ───── */}
         <footer className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-4 pb-2 border-t text-sm text-muted-foreground">

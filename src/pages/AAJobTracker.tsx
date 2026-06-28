@@ -11,40 +11,11 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useSectionTone } from "@/lib/sectionTheme";
 import { useCommandMetrics } from "@/hooks/useCommandMetrics";
+import { useTrackerJobs } from "@/hooks/useTrackerJobs";
+import { MetricsDriftBanner } from "@/components/command/MetricsIntegrityPanel";
 
+// Rows are derived from canonical job data via `useTrackerJobs('aa')`.
 
-interface InProgressJob {
-  id: string;
-  jobNumber: string;
-  team: string;
-  address: string;
-  elapsed: string;
-  jobType: string;
-  materialsOK: boolean;
-}
-
-interface CompletedJob {
-  id: string;
-  jobNumber: string;
-  team: string;
-  duration: string;
-  signOffTime: string;
-  photosOK: boolean;
-  descriptionOK: boolean;
-  signed: boolean;
-}
-
-const IN_PROGRESS: InProgressJob[] = [
-  { id: "p1", jobNumber: "N2640155", team: "Carpenter Crew", address: "12 High St, SE5",   elapsed: "1h 50m", jobType: "Fire door install (3 doors) + closer adjustments",   materialsOK: true  },
-  { id: "p2", jobNumber: "N2640190", team: "Carpenter Crew", address: "33 Vale Rd, SE22",  elapsed: "0h 35m", jobType: "Grab rails to bathroom & WC, lever taps",            materialsOK: false },
-  { id: "p3", jobNumber: "N2640205", team: "Flooring Co",    address: "14 Lime Ave, SE15", elapsed: "2h 20m", jobType: "Non-slip vinyl to kitchen & hallway",                 materialsOK: true  },
-];
-
-const COMPLETED: CompletedJob[] = [
-  { id: "c1", jobNumber: "N2640161", team: "Roofing Pro",     duration: "2h 40m", signOffTime: "10:55", photosOK: true,  descriptionOK: true,  signed: true  },
-  { id: "c2", jobNumber: "N2640173", team: "Carpenter Crew",  duration: "1h 30m", signOffTime: "11:20", photosOK: true,  descriptionOK: false, signed: true  },
-  { id: "c3", jobNumber: "N2640181", team: "Flooring Co",     duration: "3h 05m", signOffTime: "12:48", photosOK: true,  descriptionOK: true,  signed: true  },
-];
 
 const Tick = ({ ok }: { ok: boolean }) => ok ? (
   <CheckCircle2 className="h-4 w-4 text-emerald-500" />
@@ -93,12 +64,16 @@ const AAJobTracker = () => {
   const fire = (msg: string) => { setLog(msg); console.log(`[AA-Tracker] ${msg}`); setTimeout(() => setLog(null), 1500); };
 
   const cm = useCommandMetrics();
+  const tracker = useTrackerJobs('aa');
+  const IN_PROGRESS = tracker.inProgress;
+  const COMPLETED = tracker.completed;
+
   const stats = useMemo(() => ({
     target: 6,
     completed: cm.aa.completedToday,
     inProgress: cm.aa.active,
-    flagged: cm.openFlags.filter((j: any) => j.categoryId === cm.aa.categoryId).length,
-  }), [cm.aa, cm.openFlags]);
+    flagged: tracker.urgent.length,
+  }), [cm.aa, tracker.urgent.length]);
 
   const today = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
@@ -110,6 +85,7 @@ const AAJobTracker = () => {
     <div className="min-h-screen bg-gradient-to-br from-sky-100 via-sky-200 to-sky-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 pb-24">
       <div className="mx-auto max-w-[1400px] p-4 sm:p-6 lg:p-8 space-y-5">
         <CommandTabs />
+        <MetricsDriftBanner />
 
 
         {/* Header */}
@@ -161,7 +137,7 @@ const AAJobTracker = () => {
                       <div className="text-xs text-muted-foreground">{j.address}</div>
                     </td>
                     <td className="px-5 py-3 tabular-nums">{j.elapsed}</td>
-                    <td className="px-5 py-3 text-muted-foreground max-w-[280px]">{j.jobType}</td>
+                    <td className="px-5 py-3 text-muted-foreground max-w-[280px]">{(j.job as any).description ?? "—"}</td>
                     <td className="px-5 py-3 text-center"><Tick ok={j.materialsOK} /></td>
                     <td className="px-5 py-3">
                       <div className="flex justify-end gap-1.5">
@@ -187,7 +163,7 @@ const AAJobTracker = () => {
                   </div>
                   <Badge variant="outline" className="bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300">A&amp;A</Badge>
                 </div>
-                <p className="text-xs text-muted-foreground">{j.jobType}</p>
+                <p className="text-xs text-muted-foreground">{(j.job as any).description ?? "—"}</p>
                 <div className="grid grid-cols-2 gap-1 text-xs">
                   <Stat label="Elapsed" value={j.elapsed} />
                   <Stat label="Materials" value={<Tick ok={j.materialsOK} />} />

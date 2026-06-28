@@ -1,0 +1,77 @@
+/**
+ * useMetricsReconciliation — compares every Command-Center derived count
+ * against its canonical figure from `genieMetrics`. Surfaces drift so the
+ * Diagnostics panel + drift banner can flag it instantly.
+ */
+import { useMemo } from 'react';
+import { useCommandMetrics } from '@/hooks/useCommandMetrics';
+import { useJobs } from '@/hooks/useJobs';
+import { useCategories } from '@/hooks/useCategories';
+import {
+  summaryCounts,
+  categoryBreakdown,
+  pickSiloBreakdowns,
+  isOpenFlag,
+  isOverdue,
+} from '@/lib/genieMetrics';
+import { format, startOfWeek, endOfWeek } from 'date-fns';
+
+export interface ReconciliationCheck {
+  label: string;
+  shown: number;
+  canonical: number;
+  ok: boolean;
+}
+
+export interface MetricsReconciliation {
+  ok: boolean;
+  checks: ReconciliationCheck[];
+  errors: string[];
+  summary: ReturnType<typeof summaryCounts>;
+}
+
+export function useMetricsReconciliation(): MetricsReconciliation {
+  const cm = useCommandMetrics();
+  const { jobs } = useJobs() as any;
+  const { categories } = useCategories();
+
+  return useMemo(() => {
+    const list = Array.isArray(jobs) ? jobs : [];
+    const nameById: Record<string, string> = {};
+    for (const c of categories || []) nameById[c.id] = c.name;
+
+    const today = new Date();
+    const todayKey = format(today, 'yyyy-MM-dd');
+    const weekStart = startOfWeek(today, { weekStartsOn: 1 });
+    const weekEnd = endOfWeek(today, { weekStartsOn: 1 });
+
+    const canonical = summaryCounts(list);
+    const canonByCat = categoryBreakdown(list, nameById, todayKey, weekStart, weekEnd);
+    const { dm: canonDm, aa: canonAa } = pickSiloBreakdowns(canonByCat);
+
+    const canonicalOpenFlags = list.filter(isOpenFlag).length;
+    const canonicalOverdue = list.filter(isOverdue).length;
+
+    const checks: ReconciliationCheck[] = [
+      { label: 'Total jobs',         shown: cm.totals.total,        canonical: canonical.total },
+      { label: 'Complete',           shown: cm.totals.complete,     canonical: canonical.complete },
+      { label: 'Active',             shown: cm.totals.active,       canonical: canonical.active },
+      { label: 'Booked',             shown: cm.totals.booked,       canonical: canonical.booked },
+      { label: 'Overdue',            shown: cm.overdueJobs.length,  canonical: canonicalOverdue },
+      { label: 'Open Flags',         shown: cm.openFlags.length,    canonical: canonicalOpenFlags },
+      { label: 'DM · Completed today',  shown: cm.dm.completedToday, canonical: canonDm.completedToday },
+      { label: 'DM · Active',           shown: cm.dm.active,         canonical: canonDm.active },
+      { label: 'DM · Total',            shown: cm.dm.total,          canonical: canonDm.total },
+      { label: 'A&A · Completed today', shown: cm.aa.completedToday, canonical: canonAa.completedToday },
+      { label: 'A&A · Active',          shown: cm.aa.active,         canonical: canonAa.active },
+      { label: 'A&A · Total',           shown: cm.aa.total,          canonical: canonAa.total },
+    ].map((c) => ({ ...c, ok: c.shown === c.canonical }));
+
+    return {
+      ok: checks.every((c) => c.ok) && cm.integrity.ok,
+      checks,
+      errors: cm.integrity.errors,
+      summary: canonical,
+    };
+  }, [cm, jobs, categories]);
+}
