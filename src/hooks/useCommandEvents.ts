@@ -70,7 +70,7 @@ export function useCommandEvents(filter: Filter = {}) {
 
   useEffect(() => {
     const channel = supabase
-      .channel('command_events_changes')
+      .channel(`command_events_changes_${Math.random().toString(36).slice(2)}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'command_events' },
