@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useSectionTone } from "@/lib/sectionTheme";
+import { useCommandMetrics } from "@/hooks/useCommandMetrics";
 
 import AddLogEntryModal, { type LogEntryDraft } from "@/components/AddLogEntryModal";
 import { TeamCallLogDialog } from "@/components/command/TeamCallLogDialog";
