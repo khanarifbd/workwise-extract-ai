@@ -119,16 +119,16 @@ const DMJobTracker = () => {
     navigate(`/command/log?job=${encodeURIComponent(jobNumber)}`);
   };
 
-  const handleViewSignOff = (job: CompletedJob) => {
-    setSignOffs((prev) => prev.includes(job.jobNumber) ? prev : [...prev, job.jobNumber]);
+  const handleViewSignOff = (row: TrackerRow) => {
+    setSignOffs((prev) => prev.includes(row.jobNumber) ? prev : [...prev, row.jobNumber]);
     setSignOffJob({
-      jobNumber: job.jobNumber,
-      team: job.team,
-      duration: job.duration,
-      signOffTime: job.signOffTime,
-      photosOK: job.photosOK,
-      descriptionOK: job.descriptionOK,
-      signed: job.signed,
+      jobNumber: row.jobNumber,
+      team: row.team,
+      duration: "—",
+      signOffTime: row.completionDate ? row.completionDate.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "—",
+      photosOK: true,
+      descriptionOK: true,
+      signed: true,
     });
   };
 
