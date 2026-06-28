@@ -42,6 +42,7 @@ export function FlagJobDialog({ open, onOpenChange, team, jobNumber }: Props) {
   const [category, setCategory] = useState<string>("Quality");
   const [job, setJob] = useState(jobNumber || "");
   const [description, setDescription] = useState("");
+  const { add } = useCommandEvents({ kinds: ["flag"] });
 
   useEffect(() => {
     if (open) {
@@ -52,28 +53,29 @@ export function FlagJobDialog({ open, onOpenChange, team, jobNumber }: Props) {
     }
   }, [open, jobNumber]);
 
-  const save = () => {
+  const save = async () => {
     if (!description.trim()) {
       toast.error("Add a short description of the issue");
       return;
     }
-    const entry = {
-      id: crypto.randomUUID(),
-      team,
-      jobNumber: job.trim() || "—",
-      severity,
-      category,
-      description: description.trim(),
-      timestamp: new Date().toISOString(),
-    };
     try {
-      const arr = JSON.parse(localStorage.getItem(LOG_STORE) || "[]");
-      arr.unshift(entry);
-      localStorage.setItem(LOG_STORE, JSON.stringify(arr));
-    } catch {}
-    toast.success(`${severity} flag raised for ${team}`);
-    onOpenChange(false);
+      await add({
+        kind: "flag",
+        severity: severity === "Urgent" ? "urgent" : severity === "Warning" ? "warning" : "note",
+        category: "other",
+        team,
+        job_number: job.trim() || null,
+        title: category,
+        body: description.trim(),
+        metadata: { rawSeverity: severity, rawCategory: category },
+      });
+      toast.success(`${severity} flag raised for ${team}`);
+      onOpenChange(false);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Failed to raise flag");
+    }
   };
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
