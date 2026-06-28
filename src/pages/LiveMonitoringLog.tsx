@@ -65,8 +65,10 @@ const LiveMonitoringLog = () => {
   const handleSaveEntry = async (e: LogEntryDraft) => {
     const sev = e.severity === "Urgent" ? "urgent"
       : e.severity === "Warning" ? "warning" : "note";
-    const kind = e.severity === "Resolved" ? "note" :
-      (e.severity === "Note" ? "note" : "flag");
+    const kind = e.severity === "Resolved" ? "note"
+      : e.severity === "Urgent" || e.severity === "Warning" || e.actionTaken === "Warning" || e.actionTaken === "Escalated" ? "flag"
+      : e.category === "Training" || e.actionTaken === "Training" ? "training"
+      : "note";
     try {
       await add({
         kind: kind as any,
@@ -338,6 +340,12 @@ const LiveMonitoringLog = () => {
                     </div>
                     <p className="text-sm">{f.body || "(no description)"}</p>
                     {f.team && <div className="text-xs text-muted-foreground"><b>Team:</b> {f.team}</div>}
+                    {(f.metadata?.actionTaken || f.metadata?.followUp) && (
+                      <div className="flex flex-wrap gap-1.5 text-xs">
+                        {f.metadata?.actionTaken && <Badge variant="outline">Action: {f.metadata.actionTaken}</Badge>}
+                        {f.metadata?.followUp && <Badge variant="outline">Follow-up: {f.metadata.followUp}</Badge>}
+                      </div>
+                    )}
                     <div className="flex flex-wrap gap-1.5 pt-1">
                       <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => handleMarkResolved(f.id)}>
                         <CheckCircle2 className="h-3.5 w-3.5 mr-1" />Mark Resolved
@@ -375,6 +383,8 @@ const LiveMonitoringLog = () => {
                       <span className="font-semibold tabular-nums">{n.job_number || n.team || "—"}</span>
                     </div>
                     <p className="text-sm flex-1">{n.body || n.title || "(no description)"}</p>
+                    {n.metadata?.actionTaken && <Badge variant="outline">Action: {n.metadata.actionTaken}</Badge>}
+                    {n.metadata?.followUp && <Badge variant="outline">Follow-up: {n.metadata.followUp}</Badge>}
                     <Badge className="bg-amber-500 hover:bg-amber-500">Open</Badge>
                   </div>
                 )}
@@ -404,6 +414,12 @@ const LiveMonitoringLog = () => {
                     </div>
                     {c.title && <p className="text-sm"><span className="text-muted-foreground">Pattern:</span> {c.title}</p>}
                     {c.body && <p className="text-sm"><span className="text-muted-foreground">Notes:</span> {c.body}</p>}
+                    {(c.metadata?.actionTaken || c.metadata?.followUp) && (
+                      <div className="flex flex-wrap gap-1.5 text-xs">
+                        {c.metadata?.actionTaken && <Badge variant="outline">Action: {c.metadata.actionTaken}</Badge>}
+                        {c.metadata?.followUp && <Badge variant="outline">Follow-up: {c.metadata.followUp}</Badge>}
+                      </div>
+                    )}
                     <div className="flex flex-wrap gap-1.5 pt-1">
                       <Button size="sm" variant="outline" onClick={() => setScheduleTarget(c)}><CalendarClock className="h-3.5 w-3.5 mr-1" />Schedule</Button>
                       {c.team && (
