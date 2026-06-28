@@ -93,7 +93,7 @@ const completedWithin = (j: Job, start: Date, end: Date) => {
 
 export const useCommandMetrics = (): CommandMetrics => {
   // Pull ALL jobs (no category filter) so we share the Genie's cached fetch.
-  const { jobs, loading } = useJobs() as any;
+  const { jobs, isLoading } = useJobs() as any;
   const { categories } = useCategories();
 
   const today = new Date();
