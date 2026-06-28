@@ -64,12 +64,16 @@ const AAJobTracker = () => {
   const fire = (msg: string) => { setLog(msg); console.log(`[AA-Tracker] ${msg}`); setTimeout(() => setLog(null), 1500); };
 
   const cm = useCommandMetrics();
+  const tracker = useTrackerJobs('aa');
+  const IN_PROGRESS = tracker.inProgress;
+  const COMPLETED = tracker.completed;
+
   const stats = useMemo(() => ({
     target: 6,
     completed: cm.aa.completedToday,
     inProgress: cm.aa.active,
-    flagged: cm.openFlags.filter((j: any) => j.categoryId === cm.aa.categoryId).length,
-  }), [cm.aa, cm.openFlags]);
+    flagged: tracker.urgent.length,
+  }), [cm.aa, tracker.urgent.length]);
 
   const today = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
