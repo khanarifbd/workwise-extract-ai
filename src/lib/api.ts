@@ -518,6 +518,7 @@ export const sendWhatsAppNotification = async (
 // timeouts under load — the same query was being issued 5-10x concurrently).
 const _jobsInflight = new Map<string, Promise<Job[]>>();
 const _jobsCache = new Map<string, { at: number; data: Job[] }>();
+const jobsCacheKey = (categoryId?: string) => categoryId || '__all__';
 // Coalesce bursts AND serve a recent result for ~15s so rapid remounts /
 // multiple hooks subscribing to the same category don't each issue their
 // own /jobs query (every duplicate request was costing ~1s of DB time).
@@ -572,8 +573,23 @@ const _runFetchJobs = async (categoryId?: string): Promise<Job[]> => {
   return allData.map(mapDatabaseJobToJob);
 };
 
-export const fetchJobs = async (categoryId?: string): Promise<Job[]> => {
-  const key = categoryId || '__all__';
+export const invalidateJobsCache = (categoryId?: string) => {
+  if (categoryId) {
+    _jobsCache.delete(jobsCacheKey(categoryId));
+    _jobsInflight.delete(jobsCacheKey(categoryId));
+    return;
+  }
+  _jobsCache.clear();
+  _jobsInflight.clear();
+};
+
+export const fetchJobs = async (categoryId?: string, options?: { force?: boolean }): Promise<Job[]> => {
+  const key = jobsCacheKey(categoryId);
+
+  if (options?.force) {
+    _jobsCache.delete(key);
+    _jobsInflight.delete(key);
+  }
 
   const cached = _jobsCache.get(key);
   if (cached && Date.now() - cached.at < JOBS_DEDUPE_TTL) return cached.data;
