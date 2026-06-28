@@ -240,11 +240,7 @@ const AAJobTracker = () => {
                     <p className="text-xs text-muted-foreground mt-0.5">{p.address}</p>
                     <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{(p.job as any).description ?? p.description}</p>
                   </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    <Button size="sm" variant="outline" onClick={() => fire(`Schedule ${p.jobNumber}`)}><CalendarClock className="h-3.5 w-3.5 mr-1" />Schedule</Button>
-                    <Button size="sm" variant="outline" onClick={() => fire(`Assign ${p.jobNumber}`)}><UserPlus className="h-3.5 w-3.5 mr-1" />Assign</Button>
-                    <Button size="sm" variant="outline" onClick={() => fire(`Materials ${p.jobNumber}`)}><Package className="h-3.5 w-3.5 mr-1" />Materials</Button>
-                  </div>
+                  <PipelineActions row={p} />
                 </li>
               ))}
             </ul>
