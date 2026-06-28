@@ -19,6 +19,7 @@ import { MetricsDriftBanner } from "@/components/command/MetricsIntegrityPanel";
 
 import AddLogEntryModal, { type LogEntryDraft } from "@/components/AddLogEntryModal";
 import { TeamCallLogDialog } from "@/components/command/TeamCallLogDialog";
+import { TeamConversationNotebook } from "@/components/command/TeamConversationNotebook";
 import { ScheduleDialog } from "@/components/command/ScheduleDialog";
 import { CollapsibleDateGroups, type DatedItem } from "@/components/command/CollapsibleDateGroups";
 
@@ -99,6 +100,7 @@ const LiveMonitoringLog = () => {
 
   // Call dialog
   const [callTarget, setCallTarget] = useState<{ team: string; phone: string } | null>(null);
+  const [notebookTarget, setNotebookTarget] = useState<{ team: string; jobNumber?: string; flagTitle?: string; severity?: string } | null>(null);
 
   // Schedule dialog (for coaching items — kept as a UI affordance; persisted in command_events)
   const [scheduleTarget, setScheduleTarget] = useState<CommandEvent | null>(null);
@@ -351,8 +353,18 @@ const LiveMonitoringLog = () => {
                         <CheckCircle2 className="h-3.5 w-3.5 mr-1" />Mark Resolved
                       </Button>
                       {f.team && (
-                        <Button size="sm" variant="outline" onClick={() => setCallTarget({ team: f.team!, phone: "" })}>
-                          <PhoneCall className="h-3.5 w-3.5 mr-1" />Call
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setNotebookTarget({
+                            team: f.team!,
+                            jobNumber: f.job_number ?? undefined,
+                            flagTitle: f.title ?? undefined,
+                            severity: f.severity,
+                          })}
+                          title="Open Nav ↔ team conversation notebook"
+                        >
+                          <StickyNote className="h-3.5 w-3.5 mr-1" />Notebook
                         </Button>
                       )}
                     </div>
@@ -423,8 +435,18 @@ const LiveMonitoringLog = () => {
                     <div className="flex flex-wrap gap-1.5 pt-1">
                       <Button size="sm" variant="outline" onClick={() => setScheduleTarget(c)}><CalendarClock className="h-3.5 w-3.5 mr-1" />Schedule</Button>
                       {c.team && (
-                        <Button size="sm" variant="outline" onClick={() => setCallTarget({ team: c.team!, phone: "" })}>
-                          <PhoneCall className="h-3.5 w-3.5 mr-1" />Call
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setNotebookTarget({
+                            team: c.team!,
+                            jobNumber: c.job_number ?? undefined,
+                            flagTitle: c.title ?? undefined,
+                            severity: c.severity,
+                          })}
+                          title="Open Nav ↔ team conversation notebook"
+                        >
+                          <StickyNote className="h-3.5 w-3.5 mr-1" />Notebook
                         </Button>
                       )}
                       <Button size="sm" variant="ghost" onClick={() => handleMarkResolved(c.id)}><X className="h-3.5 w-3.5 mr-1" />Dismiss</Button>
@@ -497,6 +519,18 @@ const LiveMonitoringLog = () => {
         subtitle={scheduleTarget?.body ?? undefined}
         onSchedule={handleScheduleConfirm}
       />
+      {notebookTarget && (
+        <TeamConversationNotebook
+          open={!!notebookTarget}
+          onOpenChange={(v) => !v && setNotebookTarget(null)}
+          team={notebookTarget.team}
+          context={{
+            jobNumber: notebookTarget.jobNumber,
+            flagTitle: notebookTarget.flagTitle,
+            severity: notebookTarget.severity,
+          }}
+        />
+      )}
     </div>
   );
 };
