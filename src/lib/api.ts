@@ -652,16 +652,39 @@ export const createJob = async (job: Omit<Job, 'id'>, categoryId?: string): Prom
 
 export const updateJob = async (id: string, updates: Partial<Job>): Promise<Job> => {
   const dbUpdates = mapJobToDatabase(updates);
+  let existingCompletionDate: string | null = null;
+  let existingWasComplete = false;
+
+  if (dbUpdates.status === 'complete' || dbUpdates.is_completed === true) {
+    const { data: existing, error: existingError } = await supabase
+      .from('jobs')
+      .select('status,is_completed,completion_date')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (existingError) {
+      console.warn('Could not pre-read job completion state:', existingError);
+    } else if (existing) {
+      existingWasComplete = existing.status === 'complete' || existing.is_completed === true;
+      existingCompletionDate = existing.completion_date || null;
+    }
+  }
   
   // CRITICAL: Enforce completion consistency at the database level
   if (dbUpdates.status === 'complete') {
     dbUpdates.is_completed = true;
     dbUpdates.progress = 100;
-    if (!dbUpdates.completion_date) dbUpdates.completion_date = new Date().toISOString();
+    if (!dbUpdates.completion_date) {
+      if (existingWasComplete && existingCompletionDate) dbUpdates.completion_date = existingCompletionDate;
+      else if (!existingWasComplete) dbUpdates.completion_date = new Date().toISOString();
+    }
   } else if (dbUpdates.is_completed === true) {
     dbUpdates.status = 'complete';
     dbUpdates.progress = 100;
-    if (!dbUpdates.completion_date) dbUpdates.completion_date = new Date().toISOString();
+    if (!dbUpdates.completion_date) {
+      if (existingWasComplete && existingCompletionDate) dbUpdates.completion_date = existingCompletionDate;
+      else if (!existingWasComplete) dbUpdates.completion_date = new Date().toISOString();
+    }
   } else if (dbUpdates.status && dbUpdates.status !== 'complete' && dbUpdates.is_completed !== true) {
     // Moving away from complete: ensure is_completed is false
     if (dbUpdates.is_completed === undefined) {
