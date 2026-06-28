@@ -374,11 +374,7 @@ const DMJobTracker = () => {
                     </div>
                   )}
                 </div>
-                <div className="flex flex-wrap gap-1.5">
-                  <Button size="sm" variant="outline" onClick={() => handleSchedulePreVisit(p.jobNumber)}><CalendarClock className="h-3.5 w-3.5 mr-1" />Schedule Pre-visit</Button>
-                  <Button size="sm" variant="outline" onClick={() => handleAssignTrades(p.jobNumber)}><UserPlus className="h-3.5 w-3.5 mr-1" />Assign Trades</Button>
-                  <Button size="sm" variant="outline" onClick={() => handleConfirmMaterials(p.jobNumber)}><Package className="h-3.5 w-3.5 mr-1" />Confirm Materials</Button>
-                </div>
+                <PipelineActions row={p} />
               </li>
             ))}
           </ul>
