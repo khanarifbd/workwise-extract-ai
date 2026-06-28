@@ -159,12 +159,15 @@ const DMJobTracker = () => {
   const COMPLETED = tracker.completed;
   const PIPELINE = tracker.pipeline;
 
+  // Pills mirror the on-screen section lists 1:1 so Command always matches
+  // what Nav can see (and what the canonical Genie shows for the same scope).
   const stats = useMemo(() => ({
     target: 8,
-    completed: cm.dm.completedToday,
-    inProgress: cm.dm.active,
-    flagged: URGENT.length,
-  }), [cm.dm, URGENT.length]);
+    completed: COMPLETED.length,      // = completed today (canonical)
+    inProgress: IN_PROGRESS.length,   // = active & booked today
+    flagged: URGENT.length,           // = open flags
+    activeTotal: cm.dm.active,        // canonical DM active backlog
+  }), [COMPLETED.length, IN_PROGRESS.length, URGENT.length, cm.dm.active]);
 
   const today = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
@@ -196,10 +199,11 @@ const DMJobTracker = () => {
                 <p className="text-sm text-muted-foreground">{today}</p>
               </div>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 lg:gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 lg:gap-3">
               <SummaryPill label="Target/day" value={`${stats.target}`} tone="blue" />
-              <SummaryPill label="Completed" value={`${stats.completed}`} tone="emerald" />
-              <SummaryPill label="In Progress" value={`${stats.inProgress}`} tone="amber" />
+              <SummaryPill label="Completed today" value={`${stats.completed}`} tone="emerald" />
+              <SummaryPill label="Booked today" value={`${stats.inProgress}`} tone="amber" />
+              <SummaryPill label="Active backlog" value={`${stats.activeTotal}`} tone="blue" />
               <SummaryPill label="Flagged" value={`${stats.flagged}`} tone="red" />
             </div>
           </div>
