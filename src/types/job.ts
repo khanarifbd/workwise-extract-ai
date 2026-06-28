@@ -140,6 +140,7 @@ export interface Job {
   blockerNotes: string; // Blocker notes
   blockerSetAt: Date | null; // When blocker was tagged
   blockerChaseDate: Date | null; // Chase follow-up date
+  categoryId?: string | null; // Genie category (DM Jobs, A & A, Fans, etc.)
 }
 
 export interface Attachment {

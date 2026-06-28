@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { TeamCallLogDialog } from "@/components/command/TeamCallLogDialog";
 import { FlagJobDialog } from "@/components/command/FlagJobDialog";
 import { useSectionTone, type SectionPresetId } from "@/lib/sectionTheme";
+import { useCommandMetrics } from "@/hooks/useCommandMetrics";
 
 
 type Status = "done" | "in_progress" | "flagged" | "urgent";
@@ -136,25 +137,32 @@ const QuickAction = ({
 
 const NavCommandCenter = () => {
   const navigate = useNavigate();
-  const [lastUpdated, setLastUpdated] = useState(new Date());
   const [callTarget, setCallTarget] = useState<TeamRow | null>(null);
   const [flagTarget, setFlagTarget] = useState<TeamRow | null>(null);
 
-  const dmDoneToday = 5;
-  const dmTargetToday = 8;
-  const aaDoneToday = 3;
-  const aaTargetToday = 6;
-  const urgentFlags = 2;
-  const warningFlags = 3;
+  // Canonical metrics — same data the main Genie renders.
+  const metrics = useCommandMetrics();
+  const [lastUpdated, setLastUpdated] = useState(metrics.lastUpdated);
 
-  const dmWeek = 22;
+  // Daily/weekly targets (configurable in one place).
+  const dmTargetToday = 8;
+  const aaTargetToday = 6;
   const dmWeekTarget = 32;
-  const aaWeek = 11;
   const aaWeekTarget = 18;
 
-  const dmWeekPct = Math.round((dmWeek / dmWeekTarget) * 100);
-  const aaWeekPct = Math.round((aaWeek / aaWeekTarget) * 100);
-  const overallPct = Math.round(((dmWeek + aaWeek) / (dmWeekTarget + aaWeekTarget)) * 100);
+  const dmDoneToday = metrics.dm.completedToday;
+  const aaDoneToday = metrics.aa.completedToday;
+  const dmWeek = metrics.dm.completedThisWeek;
+  const aaWeek = metrics.aa.completedThisWeek;
+
+  const urgentFlags = metrics.openFlags.filter(
+    (j) => (j as any).isUrgent || j.status === 'no_show' || (metrics.dm && j.referBack),
+  ).length;
+  const warningFlags = Math.max(0, metrics.openFlags.length - urgentFlags);
+
+  const dmWeekPct = Math.round((dmWeek / dmWeekTarget) * 100) || 0;
+  const aaWeekPct = Math.round((aaWeek / aaWeekTarget) * 100) || 0;
+  const overallPct = Math.round(((dmWeek + aaWeek) / (dmWeekTarget + aaWeekTarget)) * 100) || 0;
   const onTrack = overallPct >= 65;
 
   const teams = useMemo(() => SAMPLE_TEAMS, []);

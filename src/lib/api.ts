@@ -791,6 +791,7 @@ export function mapDatabaseJobToJob(dbJob: any): Job {
     blockerNotes: dbJob.blocker_notes || '',
     blockerSetAt: dbJob.blocker_set_at ? new Date(dbJob.blocker_set_at) : null,
     blockerChaseDate: dbJob.blocker_chase_date ? new Date(dbJob.blocker_chase_date) : null,
+    categoryId: dbJob.category_id || null,
   };
 }
 
