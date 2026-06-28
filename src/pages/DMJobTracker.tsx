@@ -209,12 +209,13 @@ const DMJobTracker = () => {
     toast.success(`Materials confirmed for ${jobNumber}`);
   };
 
+  const cm = useCommandMetrics();
   const stats = useMemo(() => ({
     target: 8,
-    completed: COMPLETED.length,
-    inProgress: IN_PROGRESS.length,
-    flagged: URGENT.length,
-  }), []);
+    completed: cm.dm.completedToday,
+    inProgress: cm.dm.active,
+    flagged: cm.openFlags.filter((j: any) => (j.categoryName || '').match(/DM/i) || (j as any).categoryId === cm.dm.categoryId).length,
+  }), [cm.dm, cm.openFlags]);
 
   const today = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
