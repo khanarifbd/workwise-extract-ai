@@ -51,77 +51,18 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   team: string;
   phone: string;
+  jobNumber?: string;
+  address?: string;
+  bookedDate?: Date | null;
+  description?: string;
 }
 
-export function TeamCallLogDialog({ open, onOpenChange, team, phone }: Props) {
-  const [all, setAll] = useState<TeamCallEntry[]>([]);
-  const [outcome, setOutcome] = useState<TeamCallOutcome | null>(null);
-  const [notes, setNotes] = useState("");
+export function TeamCallLogDialog({ open, onOpenChange, team, phone, jobNumber, address, bookedDate, description }: Props) {
+  const hasContext = !!(jobNumber || address || bookedDate || description);
+  const bookedLabel = bookedDate
+    ? new Date(bookedDate).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "2-digit" })
+    : null;
 
-  useEffect(() => {
-    if (open) {
-      setAll(readAll());
-      setOutcome(null);
-      setNotes("");
-    }
-  }, [open]);
-
-  const history = useMemo(
-    () => all
-      .filter(e => e.team === team)
-      .sort((a, b) => new Date(b.contactDate).getTime() - new Date(a.contactDate).getTime()),
-    [all, team]
-  );
-
-  const save = () => {
-    if (!outcome) {
-      toast.error("Select a call outcome first");
-      return;
-    }
-    const entry: TeamCallEntry = {
-      id: crypto.randomUUID(),
-      team,
-      phone,
-      contactDate: new Date().toISOString(),
-      outcome,
-      notes: notes.trim() || undefined,
-    };
-    const next = [entry, ...all];
-    writeAll(next);
-    setAll(next);
-    setOutcome(null);
-    setNotes("");
-    toast.success(`Logged: ${TEAM_CALL_OUTCOMES.find(o => o.value === entry.outcome)?.label}`);
-  };
-
-  const dial = () => {
-    window.location.href = `tel:${phone}`;
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Phone className="h-5 w-5 text-blue-600" />
-            Call Log — {team}
-          </DialogTitle>
-          <DialogDescription>
-            Log the outcome of your call attempt. Tap the number to dial.
-          </DialogDescription>
-        </DialogHeader>
-
-        {/* Phone bar */}
-        <button
-          onClick={dial}
-          className="w-full flex items-center justify-between rounded-xl border bg-muted/40 hover:bg-muted px-4 py-3 transition"
-        >
-          <div className="flex items-center gap-2 text-sm">
-            <Phone className="h-4 w-4 text-muted-foreground" />
-            <span className="font-medium tabular-nums">{phone || "No number on file"}</span>
-          </div>
-          <Badge variant="secondary" className="text-xs">Tap to dial</Badge>
-        </button>
 
         {/* Outcome selector */}
         <div>
