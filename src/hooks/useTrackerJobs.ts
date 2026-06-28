@@ -5,9 +5,10 @@
 import { useMemo } from 'react';
 import { format, addDays } from 'date-fns';
 import { useCommandMetrics } from '@/hooks/useCommandMetrics';
+import { useCategories } from '@/hooks/useCategories';
 import {
   belongsToDM, belongsToAA,
-  isActive, isComplete, isOpenFlag,
+  isActive, isOpenFlag,
   completedOnDay, bookedOnDay,
 } from '@/lib/genieMetrics';
 import type { Job } from '@/types/job';
