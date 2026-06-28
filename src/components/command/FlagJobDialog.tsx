@@ -7,12 +7,12 @@ import { Badge } from "@/components/ui/badge";
 import { Flag, AlertTriangle, StickyNote, Info, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useCommandEvents } from "@/hooks/useCommandEvents";
 
 /**
- * Persists into the same store the Live Monitoring Log reads (command.logEntries.v1)
- * so the new flag immediately appears under Flags / Quality Notes.
+ * Persists into the backend `command_events` table so flags are shared
+ * across all admins in real time (no more browser localStorage).
  */
-const LOG_STORE = "command.logEntries.v1";
 
 type Severity = "Urgent" | "Warning" | "Note";
 
