@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useSectionTone } from "@/lib/sectionTheme";
+import { useCommandMetrics } from "@/hooks/useCommandMetrics";
 
 
 interface InProgressJob {
@@ -91,13 +92,13 @@ const AAJobTracker = () => {
   const [log, setLog] = useState<string | null>(null);
   const fire = (msg: string) => { setLog(msg); console.log(`[AA-Tracker] ${msg}`); setTimeout(() => setLog(null), 1500); };
 
-  const flagged = 0;
+  const cm = useCommandMetrics();
   const stats = useMemo(() => ({
     target: 6,
-    completed: COMPLETED.length,
-    inProgress: IN_PROGRESS.length,
-    flagged,
-  }), []);
+    completed: cm.aa.completedToday,
+    inProgress: cm.aa.active,
+    flagged: cm.openFlags.filter((j: any) => j.categoryId === cm.aa.categoryId).length,
+  }), [cm.aa, cm.openFlags]);
 
   const today = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
