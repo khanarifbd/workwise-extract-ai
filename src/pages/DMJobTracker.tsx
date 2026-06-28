@@ -18,70 +18,9 @@ import { MetricsDriftBanner } from "@/components/command/MetricsIntegrityPanel";
 
 
 
-// ---------- Types ----------
-interface UrgentFlag {
-  id: string;
-  jobNumber: string;
-  team: string;
-  overrun: string;
-  description: string;
-}
+// All tracker rows are now derived from canonical job data via
+// `useTrackerJobs('dm')`. No hard-coded seed arrays.
 
-interface InProgressJob {
-  id: string;
-  jobNumber: string;
-  team: string;
-  address: string;
-  elapsed: string;
-  tenantOK: boolean;
-  tier: 1 | 2 | 3;
-  materialsOK: boolean;
-  tradesOK: boolean;
-}
-
-interface CompletedJob {
-  id: string;
-  jobNumber: string;
-  team: string;
-  duration: string;
-  signOffTime: string;
-  photosOK: boolean;
-  descriptionOK: boolean;
-  signed: boolean;
-}
-
-interface PipelineJob {
-  id: string;
-  jobNumber: string;
-  address: string;
-  team: string;
-  risk?: string;
-  preVisitNeeded: boolean;
-}
-
-// ---------- Sample data ----------
-const URGENT: UrgentFlag[] = [
-  { id: "u1", jobNumber: "N2640150", team: "Shakthi", overrun: "+2h 15m overrun", description: "Tenant locked out — keys not on site." },
-  { id: "u2", jobNumber: "N2640199", team: "Pradeep", overrun: "+3h 40m overrun", description: "Asbestos suspected in kitchen ceiling — work paused." },
-];
-
-const IN_PROGRESS: InProgressJob[] = [
-  { id: "p1", jobNumber: "N2640201", team: "Shakthi", address: "8 Park Ave, SE5", elapsed: "1h 20m",  tenantOK: true,  tier: 2, materialsOK: true,  tradesOK: false },
-  { id: "p2", jobNumber: "N2640210", team: "Suresh",  address: "17 Beech Dr, SE15", elapsed: "2h 05m", tenantOK: false, tier: 3, materialsOK: true,  tradesOK: true  },
-  { id: "p3", jobNumber: "N2640177", team: "Indika",  address: "44 King Rd, SE22", elapsed: "0h 45m", tenantOK: true,  tier: 1, materialsOK: false, tradesOK: true  },
-];
-
-const COMPLETED: CompletedJob[] = [
-  { id: "c1", jobNumber: "N2640188", team: "Indika",  duration: "3h 10m", signOffTime: "10:42", photosOK: true,  descriptionOK: true,  signed: true  },
-  { id: "c2", jobNumber: "N2640218", team: "Suresh",  duration: "2h 25m", signOffTime: "11:55", photosOK: true,  descriptionOK: false, signed: true  },
-  { id: "c3", jobNumber: "N2640142", team: "Shakthi", duration: "4h 05m", signOffTime: "12:08", photosOK: true,  descriptionOK: true,  signed: true  },
-];
-
-const PIPELINE: PipelineJob[] = [
-  { id: "t1", jobNumber: "N2640230", address: "5 Lavender Hill, SW11", team: "Shakthi", risk: "No tenant confirmation",          preVisitNeeded: true  },
-  { id: "t2", jobNumber: "N2640231", address: "22 Brook Cl, SE6",     team: "Indika",  preVisitNeeded: false },
-  { id: "t3", jobNumber: "N2640232", address: "9 Elm Rd, SE13",       team: "Pradeep", risk: "Materials not yet ordered",        preVisitNeeded: false },
-];
 
 // ---------- Helpers ----------
 const Tick = ({ ok }: { ok: boolean }) => ok ? (
