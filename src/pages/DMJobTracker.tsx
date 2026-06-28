@@ -1,3 +1,4 @@
+import { CommandTabs } from "@/components/command/CommandTabs";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
