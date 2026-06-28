@@ -104,10 +104,11 @@ const AAJobTracker = () => {
                 <p className="text-sm text-muted-foreground">{today}</p>
               </div>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 lg:gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 lg:gap-3">
               <SummaryPill label="Target/day" value={`${stats.target}`} tone="blue" />
-              <SummaryPill label="Completed" value={`${stats.completed}`} tone="emerald" />
-              <SummaryPill label="In Progress" value={`${stats.inProgress}`} tone="amber" />
+              <SummaryPill label="Completed today" value={`${stats.completed}`} tone="emerald" />
+              <SummaryPill label="Booked today" value={`${stats.inProgress}`} tone="amber" />
+              <SummaryPill label="Active backlog" value={`${stats.activeTotal}`} tone="blue" />
               <SummaryPill label="Flagged" value={`${stats.flagged}`} tone="red" />
             </div>
           </div>
