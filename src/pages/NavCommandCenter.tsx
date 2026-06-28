@@ -15,6 +15,7 @@ import { TeamCallLogDialog } from "@/components/command/TeamCallLogDialog";
 import { FlagJobDialog } from "@/components/command/FlagJobDialog";
 import { useSectionTone, type SectionPresetId } from "@/lib/sectionTheme";
 import { useCommandMetrics } from "@/hooks/useCommandMetrics";
+import { MetricsIntegrityPanel, MetricsDriftBanner } from "@/components/command/MetricsIntegrityPanel";
 
 
 type Status = "done" | "in_progress" | "flagged" | "urgent";
