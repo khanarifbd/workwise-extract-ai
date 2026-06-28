@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useSectionTone } from "@/lib/sectionTheme";
+import { PipelineActions } from "@/components/command/PipelineActions";
 import { useCommandMetrics } from "@/hooks/useCommandMetrics";
 import { useTrackerJobs } from "@/hooks/useTrackerJobs";
 import { MetricsDriftBanner } from "@/components/command/MetricsIntegrityPanel";
