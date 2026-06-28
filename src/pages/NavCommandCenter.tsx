@@ -394,6 +394,20 @@ const NavCommandCenter = () => {
         team={callTarget?.team || ""}
         phone={callTarget?.phone || ""}
       />
+
+      <FlagJobDialog
+        open={!!flagTarget}
+        onOpenChange={(o) => !o && setFlagTarget(null)}
+        team={flagTarget?.team || ""}
+        jobNumber={
+          flagTarget
+            ? (flagTarget.am.split(" – ")[0] !== "—"
+                ? flagTarget.am.split(" – ")[0]
+                : flagTarget.pm.split(" – ")[0])
+            : undefined
+        }
+      />
+
     </div>
   );
 };
