@@ -420,6 +420,7 @@ export const useJobs = (categoryId?: string) => {
       const newTeam2 = updates.team2;
       const previousStatus = currentJob?.status;
       const newStatus = updates.status;
+      const wasAlreadyComplete = currentJob.status === 'complete' || currentJob.isCompleted === true;
 
       // CRITICAL: Booking a job should always bring it back into active booked flow
       // Clear refer-back flags when a new booking date is set
@@ -445,7 +446,7 @@ export const useJobs = (categoryId?: string) => {
       if (newStatus === 'complete') {
         updates.isCompleted = true;
         updates.progress = 100;
-        if (!updates.completionDate) {
+        if (!updates.completionDate && !wasAlreadyComplete) {
           updates.completionDate = new Date();
         }
       }
@@ -462,7 +463,7 @@ export const useJobs = (categoryId?: string) => {
         if (updates.isCompleted) {
           updates.status = 'complete';
           updates.progress = 100;
-          if (!updates.completionDate) updates.completionDate = new Date();
+          if (!updates.completionDate && !wasAlreadyComplete) updates.completionDate = new Date();
         } else if (currentJob.isCompleted || currentJob.status === 'complete') {
           // Un-completing: revert to 'started' if booked, else 'pending'
           if (!newStatus && currentJob.status === 'complete') {

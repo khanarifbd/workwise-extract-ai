@@ -9,7 +9,7 @@ import { useCategories } from '@/hooks/useCategories';
 import {
   belongsToDM, belongsToAA,
   isActive, isOpenFlag,
-  completedOnDay, bookedOnDay,
+  bookedOnDay, completedForOperationalDay,
 } from '@/lib/genieMetrics';
 import type { Job } from '@/types/job';
 
@@ -117,7 +117,7 @@ export function useTrackerJobs(silo: 'dm' | 'aa') {
       stats: silo === 'dm' ? cm.dm : cm.aa,
       urgent:     list.filter(isOpenFlag).map(adapt),
       inProgress: list.filter(j => isActive(j) && bookedOnDay(j, todayKey)).map(adapt),
-      completed:  list.filter(j => completedOnDay(j, todayKey)).map(adapt),
+      completed:  list.filter(j => completedForOperationalDay(j, todayKey)).map(adapt),
       pipeline:   list.filter(j => isActive(j) && bookedOnDay(j, tomorrowKey)).map(adapt),
       all: list.map(adapt),
     };

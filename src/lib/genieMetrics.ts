@@ -10,6 +10,7 @@
  *   isComplete / isReferBack / isActive / isOverdue / isOpenFlag
  *   belongsToDM / belongsToAA
  *   completedOnDay / completedInRange / bookedOnDay
+ *   completedForOperationalDay / completedForOperationalRange
  *   summaryCounts(jobs)         — Total / Complete / Active / Booked / Overdue
  *   categoryBreakdown(jobs, cats) — per-silo CategoryBreakdown
  *   validateMetrics(jobs)       — checksum (Active + Complete + ReferBack == Total)
@@ -47,9 +48,12 @@ export const isOpenFlag = (j: Job): boolean =>
 /* ───────────────────────── Category scope ───────────────────────── */
 
 const DM_RX = /^DM\b|DM\s*Jobs/i;
-/** A&A scope intentionally includes the connected trade silos
- *  (Roofing / Flooring / Fire Door / Carpentry) that the A&A team books. */
-const AA_RX = /A\s*&\s*A|Adaption|Roofing|Flooring|Fire\s*Door|Carpent/i;
+/**
+ * A&A tracker scope must match the main Genie A&A category exactly.
+ * Roofing/Flooring/Fans/etc. remain their own Genie categories and must not
+ * leak into the A&A Command counts.
+ */
+const AA_RX = /A\s*&\s*A|Adaption/i;
 
 export const belongsToDM = (categoryName?: string | null): boolean =>
   !!categoryName && DM_RX.test(categoryName);
@@ -74,6 +78,21 @@ export const completedInRange = (j: Job, start: Date, end: Date): boolean => {
 export const bookedOnDay = (j: Job, ymd: string): boolean => {
   if (!j.bookedDate) return false;
   try { return format(new Date(j.bookedDate), 'yyyy-MM-dd') === ymd; }
+  catch { return false; }
+};
+
+/**
+ * Operational “completed today” for Command = jobs booked for that day which
+ * are now complete. This deliberately DOES NOT use completion_date alone,
+ * because historical/backfilled completion dates can move old jobs into today
+ * and make Command disagree with Genie's booked-day view.
+ */
+export const completedForOperationalDay = (j: Job, ymd: string): boolean =>
+  isComplete(j) && bookedOnDay(j, ymd);
+
+export const completedForOperationalRange = (j: Job, start: Date, end: Date): boolean => {
+  if (!isComplete(j) || !j.bookedDate) return false;
+  try { return isWithinInterval(new Date(j.bookedDate), { start, end }); }
   catch { return false; }
 };
 
@@ -153,8 +172,8 @@ export const categoryBreakdown = (
     b.total++;
     if (isComplete(j)) {
       b.complete++;
-      if (completedOnDay(j, todayKey)) b.completedToday++;
-      if (completedInRange(j, weekStart, weekEnd)) b.completedThisWeek++;
+      if (completedForOperationalDay(j, todayKey)) b.completedToday++;
+      if (completedForOperationalRange(j, weekStart, weekEnd)) b.completedThisWeek++;
     } else if (isReferBack(j)) {
       b.referBack++;
     } else {
