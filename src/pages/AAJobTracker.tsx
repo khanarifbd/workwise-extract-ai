@@ -272,6 +272,12 @@ const AAJobTracker = () => {
           </div>
         </div>
       </div>
+
+      <JobDetailsDialog
+        row={detailsRow}
+        open={!!detailsRow}
+        onOpenChange={(o) => !o && setDetailsRow(null)}
+      />
     </div>
   );
 };
