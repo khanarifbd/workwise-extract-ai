@@ -119,8 +119,8 @@ const DMJobTracker = () => {
     navigate(`/command/log?team=${encodeURIComponent(team)}&job=${encodeURIComponent(jobNumber)}`);
   };
 
-  const handleDetails = (jobNumber: string) => {
-    navigate(`/command/log?job=${encodeURIComponent(jobNumber)}`);
+  const handleDetails = (row: TrackerRow) => {
+    setDetailsRow(row);
   };
 
   const handleViewSignOff = (row: TrackerRow) => {
