@@ -17,6 +17,7 @@ import { useTrackerJobs, type TrackerRow } from "@/hooks/useTrackerJobs";
 import { MetricsDriftBanner } from "@/components/command/MetricsIntegrityPanel";
 import { PipelineActions } from "@/components/command/PipelineActions";
 import { UrgentFlagActions } from "@/components/command/UrgentFlagActions";
+import { JobDetailsDialog } from "@/components/command/JobDetailsDialog";
 
 
 
