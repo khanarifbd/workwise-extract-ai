@@ -408,6 +408,14 @@ const DMJobTracker = () => {
         onOpenChange={(o) => !o && setSignOffJob(null)}
         job={signOffJob}
       />
+
+      <JobDetailsDialog
+        row={detailsRow}
+        open={!!detailsRow}
+        onOpenChange={(o) => !o && setDetailsRow(null)}
+        notes={detailsRow ? notes[detailsRow.jobNumber] ?? [] : []}
+        flagReason={detailsRow ? flagged[detailsRow.jobNumber] : undefined}
+      />
     </div>
   );
 };
