@@ -16,6 +16,8 @@ import { FlagJobDialog } from "@/components/command/FlagJobDialog";
 import { useSectionTone, type SectionPresetId } from "@/lib/sectionTheme";
 import { useCommandMetrics } from "@/hooks/useCommandMetrics";
 import { MetricsIntegrityPanel, MetricsDriftBanner } from "@/components/command/MetricsIntegrityPanel";
+import { TodaysScheduleBoard } from "@/components/command/TodaysScheduleBoard";
+
 
 
 type Status = "done" | "in_progress" | "flagged" | "urgent";
