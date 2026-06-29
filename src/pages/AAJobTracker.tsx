@@ -63,6 +63,7 @@ const Stat = ({ label, value }: { label: string; value: React.ReactNode }) => (
 const AAJobTracker = () => {
   const navigate = useNavigate();
   const [log, setLog] = useState<string | null>(null);
+  const [detailsRow, setDetailsRow] = useState<TrackerRow | null>(null);
   const fire = (msg: string) => { setLog(msg); console.log(`[AA-Tracker] ${msg}`); setTimeout(() => setLog(null), 1500); };
 
   const cm = useCommandMetrics();
