@@ -277,94 +277,19 @@ const NavCommandCenter = () => {
             action={<Badge variant="outline" className="px-2.5 py-1 bg-card">{teams.length} teams</Badge>}
           />
 
-          <div className="rounded-2xl border bg-card shadow-sm overflow-hidden">
-            {/* Desktop table */}
-            <div className="hidden md:block overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/40 text-[11px] uppercase tracking-wider text-muted-foreground">
-                  <tr>
-                    <th className="text-left px-5 py-3 font-semibold">Team</th>
-                    <th className="text-left px-5 py-3 font-semibold">AM Job</th>
-                    <th className="text-left px-5 py-3 font-semibold">PM Job</th>
-                    <th className="text-left px-5 py-3 font-semibold">Status</th>
-                    <th className="text-right px-5 py-3 font-semibold">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {teams.map((t) => {
-                    const meta = STATUS_META[t.status];
-                    const StatusIcon = meta.icon;
-                    return (
-                      <tr key={t.team} className="border-t hover:bg-muted/30 transition-colors">
-                        <td className="px-5 py-3.5 font-medium">
-                          <div className="flex items-center gap-2">
-                            <span className={cn("h-2 w-2 rounded-full", meta.dot)} />
-                            {t.team}{t.aa && <span className="text-emerald-600 font-bold ml-0.5">*</span>}
-                          </div>
-                        </td>
-                        <td className="px-5 py-3.5 text-muted-foreground">{t.am}</td>
-                        <td className="px-5 py-3.5 text-muted-foreground">{t.pm}</td>
-                        <td className="px-5 py-3.5">
-                          <span className={cn("inline-flex items-center gap-1 px-2 py-1 rounded-md border text-xs font-medium", meta.cls)}>
-                            <StatusIcon className="h-3 w-3" /> {meta.label}
-                          </span>
-                        </td>
-                        <td className="px-5 py-3.5">
-                          <div className="flex items-center justify-end gap-1.5">
-                            <Button size="sm" variant="outline" className="h-8" onClick={() => onView(t)}>
-                              <Eye className="h-3.5 w-3.5 mr-1" />View
-                            </Button>
-                            <Button size="sm" variant="outline" className="h-8" onClick={() => onFlag(t)}>
-                              <Flag className="h-3.5 w-3.5 mr-1" />Flag
-                            </Button>
-                            <Button size="sm" variant="outline" className="h-8" onClick={() => onCall(t)}>
-                              <PhoneCall className="h-3.5 w-3.5 mr-1" />Call
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+          <TodaysScheduleBoard
+            schedule={metrics.todaysSchedule}
+            onView={(r) => navigate(r.isAA ? '/command/aa' : '/command/dm')}
+            onFlag={(r) => setFlagTarget({
+              team: r.team, aa: r.isAA, am: `${r.jobNumber} – ${r.address}`,
+              pm: '—', status: r.status, phone: '', trackerPath: r.isAA ? '/command/aa' : '/command/dm',
+            })}
+            onCall={(r) => setCallTarget({
+              team: r.team, aa: r.isAA, am: `${r.jobNumber} – ${r.address}`,
+              pm: '—', status: r.status, phone: '', trackerPath: r.isAA ? '/command/aa' : '/command/dm',
+            })}
+          />
 
-            {/* Mobile cards */}
-            <div className="md:hidden divide-y">
-              {teams.map((t) => {
-                const meta = STATUS_META[t.status];
-                const StatusIcon = meta.icon;
-                return (
-                  <div key={t.team} className="p-4 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="font-semibold flex items-center gap-1.5">
-                        <span className={cn("h-2 w-2 rounded-full", meta.dot)} />
-                        {t.team}{t.aa && <span className="text-emerald-600 font-bold">*</span>}
-                      </div>
-                      <span className={cn("inline-flex items-center gap-1 px-2 py-1 rounded-md border text-xs font-medium", meta.cls)}>
-                        <StatusIcon className="h-3 w-3" /> {meta.label}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div><span className="text-muted-foreground">AM:</span> {t.am}</div>
-                      <div><span className="text-muted-foreground">PM:</span> {t.pm}</div>
-                    </div>
-                    <div className="flex gap-1.5 pt-1">
-                      <Button size="sm" variant="outline" className="flex-1 h-9" onClick={() => onView(t)}>
-                        <Eye className="h-3.5 w-3.5 mr-1" />View
-                      </Button>
-                      <Button size="sm" variant="outline" className="flex-1 h-9" onClick={() => onFlag(t)}>
-                        <Flag className="h-3.5 w-3.5 mr-1" />Flag
-                      </Button>
-                      <Button size="sm" variant="outline" className="flex-1 h-9" onClick={() => onCall(t)}>
-                        <PhoneCall className="h-3.5 w-3.5 mr-1" />Call
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
         </Band>
 
         {/* ───── 03 · PERFORMANCE (emerald) ───── */}
