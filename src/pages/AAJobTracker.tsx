@@ -12,8 +12,9 @@ import { cn } from "@/lib/utils";
 import { useSectionTone } from "@/lib/sectionTheme";
 import { PipelineActions } from "@/components/command/PipelineActions";
 import { useCommandMetrics } from "@/hooks/useCommandMetrics";
-import { useTrackerJobs } from "@/hooks/useTrackerJobs";
+import { useTrackerJobs, type TrackerRow } from "@/hooks/useTrackerJobs";
 import { MetricsDriftBanner } from "@/components/command/MetricsIntegrityPanel";
+import { JobDetailsDialog } from "@/components/command/JobDetailsDialog";
 
 // Rows are derived from canonical job data via `useTrackerJobs('aa')`.
 
