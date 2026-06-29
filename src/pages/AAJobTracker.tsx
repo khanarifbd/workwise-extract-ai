@@ -150,7 +150,7 @@ const AAJobTracker = () => {
                     <td className="px-5 py-3 text-center"><Tick ok={j.materialsOK} /></td>
                     <td className="px-5 py-3">
                       <div className="flex justify-end gap-1.5">
-                        <Button size="sm" variant="outline" onClick={() => fire(`View ${j.jobNumber}`)}><Eye className="h-3.5 w-3.5 mr-1" />Details</Button>
+                        <Button size="sm" variant="outline" onClick={() => setDetailsRow(j)}><Eye className="h-3.5 w-3.5 mr-1" />Details</Button>
                         <Button size="sm" variant="outline" onClick={() => fire(`Note ${j.jobNumber}`)}><StickyNote className="h-3.5 w-3.5 mr-1" />Note</Button>
                         <Button size="sm" variant="outline" onClick={() => fire(`Flag ${j.jobNumber}`)}><Flag className="h-3.5 w-3.5 mr-1" />Flag</Button>
                       </div>
@@ -178,7 +178,7 @@ const AAJobTracker = () => {
                   <Stat label="Materials" value={<Tick ok={j.materialsOK} />} />
                 </div>
                 <div className="flex gap-1.5">
-                  <Button size="sm" variant="outline" className="flex-1" onClick={() => fire(`View ${j.jobNumber}`)}><Eye className="h-3.5 w-3.5 mr-1" />Details</Button>
+                  <Button size="sm" variant="outline" className="flex-1" onClick={() => setDetailsRow(j)}><Eye className="h-3.5 w-3.5 mr-1" />Details</Button>
                   <Button size="sm" variant="outline" className="flex-1" onClick={() => fire(`Note ${j.jobNumber}`)}><StickyNote className="h-3.5 w-3.5 mr-1" />Note</Button>
                   <Button size="sm" variant="outline" className="flex-1" onClick={() => fire(`Flag ${j.jobNumber}`)}><Flag className="h-3.5 w-3.5 mr-1" />Flag</Button>
                 </div>
