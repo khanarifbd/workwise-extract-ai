@@ -17,6 +17,7 @@ import { useTrackerJobs, type TrackerRow } from "@/hooks/useTrackerJobs";
 import { MetricsDriftBanner } from "@/components/command/MetricsIntegrityPanel";
 import { PipelineActions } from "@/components/command/PipelineActions";
 import { UrgentFlagActions } from "@/components/command/UrgentFlagActions";
+import { JobDetailsDialog } from "@/components/command/JobDetailsDialog";
 
 
 
@@ -77,6 +78,7 @@ const DMJobTracker = () => {
   const [materials, setMaterials] = useState<Record<string, string>>(() => readLS(LS.materials, {}));
   const [signOffs, setSignOffs] = useState<string[]>(() => readLS(LS.signOffs, []));
   const [signOffJob, setSignOffJob] = useState<SignOffJob | null>(null);
+  const [detailsRow, setDetailsRow] = useState<TrackerRow | null>(null);
 
   useEffect(() => { localStorage.setItem(LS.notes, JSON.stringify(notes)); }, [notes]);
   useEffect(() => { localStorage.setItem(LS.flags, JSON.stringify(flagged)); }, [flagged]);
@@ -117,8 +119,8 @@ const DMJobTracker = () => {
     navigate(`/command/log?team=${encodeURIComponent(team)}&job=${encodeURIComponent(jobNumber)}`);
   };
 
-  const handleDetails = (jobNumber: string) => {
-    navigate(`/command/log?job=${encodeURIComponent(jobNumber)}`);
+  const handleDetails = (row: TrackerRow) => {
+    setDetailsRow(row);
   };
 
   const handleViewSignOff = (row: TrackerRow) => {
@@ -276,7 +278,7 @@ const DMJobTracker = () => {
                     <td className="px-5 py-3 text-center"><Tick ok={j.tradesOK} /></td>
                     <td className="px-5 py-3">
                       <div className="flex justify-end gap-1.5">
-                        <Button size="sm" variant="outline" onClick={() => handleDetails(j.jobNumber)}><Eye className="h-3.5 w-3.5 mr-1" />Details</Button>
+                        <Button size="sm" variant="outline" onClick={() => handleDetails(j)}><Eye className="h-3.5 w-3.5 mr-1" />Details</Button>
                         <Button size="sm" variant="outline" onClick={() => handleAddNote(j.jobNumber)}><StickyNote className="h-3.5 w-3.5 mr-1" />Note</Button>
                         <Button size="sm" variant="outline" onClick={() => handleFlag(j.jobNumber, j.team)}><Flag className="h-3.5 w-3.5 mr-1" />Flag</Button>
                       </div>
@@ -305,7 +307,7 @@ const DMJobTracker = () => {
                   <Stat label="Trades" value={<Tick ok={j.tradesOK} />} />
                 </div>
                 <div className="flex gap-1.5">
-                  <Button size="sm" variant="outline" className="flex-1" onClick={() => handleDetails(j.jobNumber)}><Eye className="h-3.5 w-3.5 mr-1" />Details</Button>
+                  <Button size="sm" variant="outline" className="flex-1" onClick={() => handleDetails(j)}><Eye className="h-3.5 w-3.5 mr-1" />Details</Button>
                   <Button size="sm" variant="outline" className="flex-1" onClick={() => handleAddNote(j.jobNumber)}><StickyNote className="h-3.5 w-3.5 mr-1" />Note</Button>
                   <Button size="sm" variant="outline" className="flex-1" onClick={() => handleFlag(j.jobNumber, j.team)}><Flag className="h-3.5 w-3.5 mr-1" />Flag</Button>
                 </div>
@@ -405,6 +407,14 @@ const DMJobTracker = () => {
         open={!!signOffJob}
         onOpenChange={(o) => !o && setSignOffJob(null)}
         job={signOffJob}
+      />
+
+      <JobDetailsDialog
+        row={detailsRow}
+        open={!!detailsRow}
+        onOpenChange={(o) => !o && setDetailsRow(null)}
+        notes={detailsRow ? notes[detailsRow.jobNumber] ?? [] : []}
+        flagReason={detailsRow ? flagged[detailsRow.jobNumber] : undefined}
       />
     </div>
   );

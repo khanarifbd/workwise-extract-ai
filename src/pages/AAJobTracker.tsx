@@ -12,8 +12,9 @@ import { cn } from "@/lib/utils";
 import { useSectionTone } from "@/lib/sectionTheme";
 import { PipelineActions } from "@/components/command/PipelineActions";
 import { useCommandMetrics } from "@/hooks/useCommandMetrics";
-import { useTrackerJobs } from "@/hooks/useTrackerJobs";
+import { useTrackerJobs, type TrackerRow } from "@/hooks/useTrackerJobs";
 import { MetricsDriftBanner } from "@/components/command/MetricsIntegrityPanel";
+import { JobDetailsDialog } from "@/components/command/JobDetailsDialog";
 
 // Rows are derived from canonical job data via `useTrackerJobs('aa')`.
 
@@ -62,6 +63,7 @@ const Stat = ({ label, value }: { label: string; value: React.ReactNode }) => (
 const AAJobTracker = () => {
   const navigate = useNavigate();
   const [log, setLog] = useState<string | null>(null);
+  const [detailsRow, setDetailsRow] = useState<TrackerRow | null>(null);
   const fire = (msg: string) => { setLog(msg); console.log(`[AA-Tracker] ${msg}`); setTimeout(() => setLog(null), 1500); };
 
   const cm = useCommandMetrics();
@@ -148,7 +150,7 @@ const AAJobTracker = () => {
                     <td className="px-5 py-3 text-center"><Tick ok={j.materialsOK} /></td>
                     <td className="px-5 py-3">
                       <div className="flex justify-end gap-1.5">
-                        <Button size="sm" variant="outline" onClick={() => fire(`View ${j.jobNumber}`)}><Eye className="h-3.5 w-3.5 mr-1" />Details</Button>
+                        <Button size="sm" variant="outline" onClick={() => setDetailsRow(j)}><Eye className="h-3.5 w-3.5 mr-1" />Details</Button>
                         <Button size="sm" variant="outline" onClick={() => fire(`Note ${j.jobNumber}`)}><StickyNote className="h-3.5 w-3.5 mr-1" />Note</Button>
                         <Button size="sm" variant="outline" onClick={() => fire(`Flag ${j.jobNumber}`)}><Flag className="h-3.5 w-3.5 mr-1" />Flag</Button>
                       </div>
@@ -176,7 +178,7 @@ const AAJobTracker = () => {
                   <Stat label="Materials" value={<Tick ok={j.materialsOK} />} />
                 </div>
                 <div className="flex gap-1.5">
-                  <Button size="sm" variant="outline" className="flex-1" onClick={() => fire(`View ${j.jobNumber}`)}><Eye className="h-3.5 w-3.5 mr-1" />Details</Button>
+                  <Button size="sm" variant="outline" className="flex-1" onClick={() => setDetailsRow(j)}><Eye className="h-3.5 w-3.5 mr-1" />Details</Button>
                   <Button size="sm" variant="outline" className="flex-1" onClick={() => fire(`Note ${j.jobNumber}`)}><StickyNote className="h-3.5 w-3.5 mr-1" />Note</Button>
                   <Button size="sm" variant="outline" className="flex-1" onClick={() => fire(`Flag ${j.jobNumber}`)}><Flag className="h-3.5 w-3.5 mr-1" />Flag</Button>
                 </div>
@@ -270,6 +272,12 @@ const AAJobTracker = () => {
           </div>
         </div>
       </div>
+
+      <JobDetailsDialog
+        row={detailsRow}
+        open={!!detailsRow}
+        onOpenChange={(o) => !o && setDetailsRow(null)}
+      />
     </div>
   );
 };
