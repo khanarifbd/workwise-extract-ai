@@ -32,16 +32,19 @@ export const RenderWithProgressor: React.FC<{ text: string | null | undefined; c
   className,
 }) => {
   if (!text) return null;
-  const re = /\[\[PROG\]\]([\s\S]*?)\[\[\/PROG\]\]/g;
+  // Match either [[PROG]]…[[/PROG]] markers or the legacy <<<…>>> convention
+  // typed manually by progressors. Both render as purple progressor edits.
+  const re = /\[\[PROG\]\]([\s\S]*?)\[\[\/PROG\]\]|<<<([\s\S]*?)>>>/g;
   const parts: React.ReactNode[] = [];
   let last = 0;
   let m: RegExpExecArray | null;
   let i = 0;
   while ((m = re.exec(text)) !== null) {
     if (m.index > last) parts.push(<span key={`p${i++}`}>{text.slice(last, m.index)}</span>);
+    const inner = m[1] ?? m[2] ?? '';
     parts.push(
       <span key={`b${i++}`} className="text-progressor font-medium">
-        {m[1]}
+        {inner}
       </span>,
     );
     last = m.index + m[0].length;
