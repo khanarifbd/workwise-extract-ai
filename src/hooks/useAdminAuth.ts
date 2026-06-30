@@ -187,7 +187,7 @@ export const useAdminAuth = () => {
       return { error };
     }
 
-    if (data.session?.user) {
+    if (data?.session?.user) {
       const runId = ++authCheckRunRef.current;
       setState(prev => ({
         ...prev,
