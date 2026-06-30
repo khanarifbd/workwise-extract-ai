@@ -18,6 +18,14 @@ export const useCategories = () => {
 
       if (error) throw error;
 
+      const fixedOrder: Record<string, number> = {
+        'dm-jobs': 0,
+        'a--a': 1,
+        'a-a': 1,
+        insulation: 2,
+        roofing: 3,
+      };
+
       setCategories((data || []).map(cat => ({
         id: cat.id,
         name: cat.name,
@@ -25,7 +33,11 @@ export const useCategories = () => {
         color: cat.color || '#3B82F6',
         sortOrder: cat.sort_order,
         createdAt: new Date(cat.created_at)
-      })));
+      })).sort((a, b) => {
+        const aOrder = fixedOrder[a.slug] ?? a.sortOrder;
+        const bOrder = fixedOrder[b.slug] ?? b.sortOrder;
+        return aOrder - bOrder || a.name.localeCompare(b.name);
+      }));
     } catch (error) {
       console.error('Error loading categories:', error);
       toast({
