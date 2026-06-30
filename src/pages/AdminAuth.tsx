@@ -53,13 +53,18 @@ export default function AdminAuth() {
     }
   }, [isAuthenticated, hasAccess, isLoading, navigate, location.search]);
 
-  const validateForm = (isSignUp: boolean): boolean => {
+  const validateForm = (
+    isSignUp: boolean,
+    emailValue = email,
+    passwordValue = password,
+    confirmPasswordValue = confirmPassword,
+  ): boolean => {
     setValidationError(null);
     setBreachWarning(null);
     clearError();
 
     try {
-      emailSchema.parse(email);
+      emailSchema.parse(emailValue.trim());
     } catch (e) {
       if (e instanceof z.ZodError) {
         setValidationError(e.errors[0].message);
@@ -67,16 +72,21 @@ export default function AdminAuth() {
       }
     }
 
-    try {
-      passwordSchema.parse(password);
-    } catch (e) {
-      if (e instanceof z.ZodError) {
-        setValidationError(e.errors[0].message);
-        return false;
+    if (isSignUp) {
+      try {
+        passwordSchema.parse(passwordValue);
+      } catch (e) {
+        if (e instanceof z.ZodError) {
+          setValidationError(e.errors[0].message);
+          return false;
+        }
       }
+    } else if (!passwordValue.trim()) {
+      setValidationError('Enter your password to sign in.');
+      return false;
     }
 
-    if (isSignUp && password !== confirmPassword) {
+    if (isSignUp && passwordValue !== confirmPasswordValue) {
       setValidationError('Passwords do not match');
       return false;
     }
@@ -100,7 +110,7 @@ export default function AdminAuth() {
       return;
     }
 
-    if (!validateForm(false)) return;
+    if (!validateForm(false, emailToUse, passwordToUse)) return;
 
     setIsSubmitting(true);
     const { error } = await signIn(emailToUse, passwordToUse);
