@@ -92,7 +92,7 @@ export const useAdminAuth = () => {
         // Defer role checks with setTimeout to prevent deadlock
         if (session?.user) {
           setTimeout(async () => {
-            const { isAdmin, isViewer } = await resolveRoles(session.user.id);
+            const { isAdmin, isViewer, isTester } = await resolveRoles(session.user.id);
 
             if (!isMounted) return;
 
@@ -100,6 +100,7 @@ export const useAdminAuth = () => {
               ...prev,
               isAdmin,
               isViewer,
+              isTester,
               isLoading: false,
               isCheckingRoles: false,
             }));
@@ -109,6 +110,7 @@ export const useAdminAuth = () => {
             ...prev,
             isAdmin: false,
             isViewer: false,
+            isTester: false,
             isLoading: false,
             isCheckingRoles: false,
           }));
