@@ -212,6 +212,7 @@ export const useAdminAuth = () => {
       session: null,
       isAdmin: false,
       isViewer: false,
+      isTester: false,
       isLoading: false,
       isCheckingRoles: false,
       error: null,
@@ -229,9 +230,9 @@ export const useAdminAuth = () => {
     signOut,
     clearError,
     isAuthenticated: !!state.session,
-    // User has access if they are either admin or viewer
-    hasAccess: state.isAdmin || state.isViewer,
-    // User can edit only if they are a full admin
+    // Admin = full access; Viewer & Tester = read-only end-to-end access
+    hasAccess: state.isAdmin || state.isViewer || state.isTester,
+    // Only full admins can edit
     canEdit: state.isAdmin,
   };
 };
