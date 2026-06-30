@@ -10,6 +10,17 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
 
+const hydrateCachedJob = (job: Job): Job => ({
+  ...job,
+  createdAt: job.createdAt ? new Date(job.createdAt) : new Date(),
+  dateIssued: job.dateIssued ? new Date(job.dateIssued) : new Date(),
+  bookedDate: job.bookedDate ? new Date(job.bookedDate) : null,
+  completionDate: job.completionDate ? new Date(job.completionDate) : null,
+  referBackDate: job.referBackDate ? new Date(job.referBackDate) : null,
+  expectedCompletionDate: job.expectedCompletionDate ? new Date(job.expectedCompletionDate) : null,
+  blockerSetAt: job.blockerSetAt ? new Date(job.blockerSetAt) : null,
+  blockerChaseDate: job.blockerChaseDate ? new Date(job.blockerChaseDate) : null,
+});
 
 export const useJobs = (categoryId?: string, options?: { enabled?: boolean }) => {
   const enabled = options?.enabled ?? true;
@@ -20,7 +31,7 @@ export const useJobs = (categoryId?: string, options?: { enabled?: boolean }) =>
       const cached = sessionStorage.getItem(cacheKey);
       if (cached) {
         const { data, timestamp } = JSON.parse(cached);
-        if (Date.now() - timestamp < 10 * 60 * 1000) return data;
+        if (Date.now() - timestamp < 10 * 60 * 1000) return (data || []).map(hydrateCachedJob);
       }
     } catch {}
     return [];
