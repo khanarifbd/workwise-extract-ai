@@ -45,8 +45,9 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
-import { ChevronDown, ChevronUp, Loader2, Images, PenLine, CalendarDays, X as XIcon, ClipboardPaste, Sparkles } from 'lucide-react';
+import { BarChart3, ChevronDown, ChevronRight, ChevronUp, Loader2, Images, PenLine, CalendarDays, X as XIcon, ClipboardPaste, Sparkles } from 'lucide-react';
 const MaterialsReportModal = lazy(() => import('@/components/MaterialsReportModal').then(m => ({ default: m.MaterialsReportModal })));
 import { isAfter, isBefore, startOfDay, endOfDay, format, parseISO, isValid } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -151,6 +152,7 @@ const Index = () => {
   const [completionDateTo, setCompletionDateTo] = useState<Date | undefined>(undefined);
   const [showAnalyticsReport, setShowAnalyticsReport] = useState(false);
   const [showMaterialsReport, setShowMaterialsReport] = useState(false);
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
   const [duplicateCheck, setDuplicateCheck] = useState<{
     newJob: Omit<Job, 'id'>;
     existingJob: Job;
@@ -1408,19 +1410,33 @@ const Index = () => {
       )}
       
       <main className="flex-1 container mx-auto px-4 py-3 flex flex-col gap-3">
-        {/* Compact Stats Row — always uses full jobs array for accurate totals */}
-        <div className="flex items-center justify-between gap-3 bg-section-stats rounded-lg px-3 py-2">
-          {isInsulationCategory ? (
-            <InsulationStatsCards jobs={jobs} />
-          ) : isFanCategory ? (
-            <FanStatsCards jobs={jobs} />
-          ) : (
-            <StatsCards jobs={jobs} allJobs={jobs} tradeBookings={tradeBookings} />
-          )}
-          <div className="shrink-0">
-            <ActionHub />
+        {/* Compact Analytics Row — collapsed by default to keep the dashboard clear */}
+        <Collapsible open={analyticsOpen} onOpenChange={setAnalyticsOpen} className="bg-section-stats rounded-lg px-3 py-2">
+          <div className="flex items-center justify-between gap-3">
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-8 px-2 gap-2 text-muted-foreground hover:text-foreground">
+                {analyticsOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                <BarChart3 className="h-4 w-4" />
+                <span className="font-semibold">Analytics</span>
+                <span className="text-xs text-muted-foreground">{jobs.length} jobs</span>
+              </Button>
+            </CollapsibleTrigger>
+            <div className="shrink-0">
+              <ActionHub />
+            </div>
           </div>
-        </div>
+          <CollapsibleContent>
+            <div className="pt-2">
+              {isInsulationCategory ? (
+                <InsulationStatsCards jobs={jobs} />
+              ) : isFanCategory ? (
+                <FanStatsCards jobs={jobs} />
+              ) : (
+                <StatsCards jobs={jobs} allJobs={jobs} tradeBookings={tradeBookings} />
+              )}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
 
         {/* Category Tabs - hide add/edit for viewers */}
         <CategoryTabs

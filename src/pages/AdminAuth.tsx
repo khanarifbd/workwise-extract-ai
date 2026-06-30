@@ -53,13 +53,18 @@ export default function AdminAuth() {
     }
   }, [isAuthenticated, hasAccess, isLoading, navigate, location.search]);
 
-  const validateForm = (isSignUp: boolean): boolean => {
+  const validateForm = (
+    isSignUp: boolean,
+    emailValue = email,
+    passwordValue = password,
+    confirmPasswordValue = confirmPassword,
+  ): boolean => {
     setValidationError(null);
     setBreachWarning(null);
     clearError();
 
     try {
-      emailSchema.parse(email);
+      emailSchema.parse(emailValue.trim());
     } catch (e) {
       if (e instanceof z.ZodError) {
         setValidationError(e.errors[0].message);
@@ -67,16 +72,21 @@ export default function AdminAuth() {
       }
     }
 
-    try {
-      passwordSchema.parse(password);
-    } catch (e) {
-      if (e instanceof z.ZodError) {
-        setValidationError(e.errors[0].message);
-        return false;
+    if (isSignUp) {
+      try {
+        passwordSchema.parse(passwordValue);
+      } catch (e) {
+        if (e instanceof z.ZodError) {
+          setValidationError(e.errors[0].message);
+          return false;
+        }
       }
+    } else if (!passwordValue.trim()) {
+      setValidationError('Enter your password to sign in.');
+      return false;
     }
 
-    if (isSignUp && password !== confirmPassword) {
+    if (isSignUp && passwordValue !== confirmPasswordValue) {
       setValidationError('Passwords do not match');
       return false;
     }
@@ -86,17 +96,28 @@ export default function AdminAuth() {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateForm(false)) return;
-
+    const latestEmail = (document.getElementById('signin-email') as HTMLInputElement | null)?.value ?? email;
     const latestPassword = passwordInputRef.current?.value ?? password;
 
+    setEmail(latestEmail);
+    setPassword(latestPassword);
+
+    const emailToUse = latestEmail.trim();
+    const passwordToUse = latestPassword.replace(/^\s+|\s+$/g, '');
+
+    if (!emailToUse || !passwordToUse) {
+      setValidationError('Enter your email and password to sign in.');
+      return;
+    }
+
+    if (!validateForm(false, emailToUse, passwordToUse)) return;
+
     setIsSubmitting(true);
-    const { error } = await signIn(email, latestPassword);
+    const { error } = await signIn(emailToUse, passwordToUse);
     setIsSubmitting(false);
 
     if (error) {
       setFailedSignInCount((count) => count + 1);
-      setPassword('');
       requestAnimationFrame(() => passwordInputRef.current?.focus());
     } else {
       setFailedSignInCount(0);
@@ -290,11 +311,6 @@ export default function AdminAuth() {
                       <AlertCircle className="h-4 w-4" />
                       <AlertDescription>
                         {validationError || error}
-                        {error && failedSignInCount > 0 && !validationError && (
-                          <span className="mt-2 block text-sm">
-                            I have cleared the password box. Type the password manually again so the browser cannot reuse a saved value.
-                          </span>
-                        )}
                       </AlertDescription>
                     </Alert>
                   )}
