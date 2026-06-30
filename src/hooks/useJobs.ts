@@ -11,9 +11,11 @@ import { useToast } from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
 
 
-export const useJobs = (categoryId?: string) => {
+export const useJobs = (categoryId?: string, options?: { enabled?: boolean }) => {
+  const enabled = options?.enabled ?? true;
   const cacheKey = `genie_jobs_cache_${categoryId || 'all'}`;
   const [jobs, setJobs] = useState<Job[]>(() => {
+    if (!enabled) return [];
     try {
       const cached = sessionStorage.getItem(cacheKey);
       if (cached) {
@@ -24,6 +26,7 @@ export const useJobs = (categoryId?: string) => {
     return [];
   });
   const [isLoading, setIsLoading] = useState(() => {
+    if (!enabled) return false;
     try {
       const cached = sessionStorage.getItem(cacheKey);
       if (cached) {
@@ -43,12 +46,17 @@ export const useJobs = (categoryId?: string) => {
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastFetchRef = useRef<number>(0);
   const freshnessIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const persistTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     jobsLengthRef.current = jobs.length;
   }, [jobs.length]);
 
   const loadJobs = useCallback(async (force = false, background = false) => {
+    if (!enabled) {
+      setIsLoading(false);
+      return;
+    }
     // Prevent concurrent fetches unless forced
     if (loadingRef.current && !force) {
       console.log('Skipping fetch - already loading');
@@ -95,7 +103,10 @@ export const useJobs = (categoryId?: string) => {
       });
       // Cache for instant restore
       try {
-        sessionStorage.setItem(cacheKey, JSON.stringify({ data, timestamp: Date.now() }));
+        if (persistTimerRef.current) window.clearTimeout(persistTimerRef.current);
+        persistTimerRef.current = window.setTimeout(() => {
+          try { sessionStorage.setItem(cacheKey, JSON.stringify({ data, timestamp: Date.now() })); } catch {}
+        }, 0);
       } catch {}
     } catch (error) {
       console.error('Error loading jobs:', error);
@@ -113,7 +124,7 @@ export const useJobs = (categoryId?: string) => {
       loadingRef.current = false;
       if (!background) setIsLoading(false);
     }
-  }, [categoryId, toast]);
+  }, [categoryId, cacheKey, enabled, toast]);
 
   // Debounced reload for realtime events
   const debouncedReload = useCallback(() => {
@@ -132,6 +143,11 @@ export const useJobs = (categoryId?: string) => {
   }, [loadJobs]);
 
   useEffect(() => {
+    if (!enabled) {
+      setJobs([]);
+      setIsLoading(false);
+      return;
+    }
     // Do not force-clear the warm session/in-memory cache on mount. Forcing a
     // full jobs reload immediately after sign-in was causing avoidable timeout
     // toasts when the Command app opened alongside the main Genie data layer.
@@ -234,11 +250,15 @@ export const useJobs = (categoryId?: string) => {
         clearInterval(freshnessIntervalRef.current);
         freshnessIntervalRef.current = null;
       }
+      if (persistTimerRef.current) {
+        window.clearTimeout(persistTimerRef.current);
+        persistTimerRef.current = null;
+      }
       document.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener('focus', onVisible);
       supabase.removeChannel(channel);
     };
-  }, [categoryId, loadJobs, debouncedReload]);
+  }, [categoryId, enabled, loadJobs, debouncedReload]);
 
   const addJob = async (job: Omit<Job, 'id'>) => {
     try {
