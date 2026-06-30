@@ -295,6 +295,12 @@ export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount
                   {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
                   {isDark ? 'Light Mode' : 'Dark Mode'}
                 </DropdownMenuItem>
+                {isAdmin && (
+                  <DropdownMenuItem onClick={() => setShowTesterAccess(true)} className="flex items-center gap-2 cursor-pointer">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                    Tester Access
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-2 cursor-pointer text-destructive">
                   <LogOut className="w-4 h-4" />
