@@ -115,7 +115,7 @@ export function JobDetailsDialog({ row, open, onOpenChange, notes = [], flagReas
                   (Progressor edits shown in purple)
                 </span>
               </h3>
-              <div className="rounded-lg border bg-muted/30 p-3 text-sm whitespace-pre-wrap break-words">
+              <div className="rounded-lg border bg-muted/30 p-3 text-sm whitespace-pre-wrap break-words max-h-[40vh] overflow-y-auto overscroll-contain">
                 {description ? (
                   <RenderWithProgressor text={description} />
                 ) : (
