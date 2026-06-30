@@ -290,11 +290,11 @@ const NavCommandCenter = () => {
           <TodaysScheduleBoard
             schedule={metrics.todaysSchedule}
             onView={(r) => navigate(r.isAA ? '/command/aa' : '/command/dm')}
-            onFlag={(r) => setFlagTarget({
+            onFlag={(r) => canEdit && setFlagTarget({
               team: r.team, aa: r.isAA, am: `${r.jobNumber} – ${r.address}`,
               pm: '—', status: r.status, phone: '', trackerPath: r.isAA ? '/command/aa' : '/command/dm',
             })}
-            onCall={(r) => setCallTarget({
+            onCall={(r) => canEdit && setCallTarget({
               team: r.team, aa: r.isAA, am: `${r.jobNumber} – ${r.address}`,
               pm: '—', status: r.status, phone: '', trackerPath: r.isAA ? '/command/aa' : '/command/dm',
             })}
@@ -389,14 +389,14 @@ const NavCommandCenter = () => {
       </div>
 
       <TeamCallLogDialog
-        open={!!callTarget}
+        open={canEdit && !!callTarget}
         onOpenChange={(o) => !o && setCallTarget(null)}
         team={callTarget?.team || ""}
         phone={callTarget?.phone || ""}
       />
 
       <FlagJobDialog
-        open={!!flagTarget}
+        open={canEdit && !!flagTarget}
         onOpenChange={(o) => !o && setFlagTarget(null)}
         team={flagTarget?.team || ""}
         jobNumber={
