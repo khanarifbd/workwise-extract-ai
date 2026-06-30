@@ -323,6 +323,7 @@ export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount
       <OpsNotesModal isOpen={showOpsNotes} onClose={() => setShowOpsNotes(false)} onJobClick={onJobClick} />
       <MaterialsReportModal open={showMaterialsReport} onOpenChange={setShowMaterialsReport} />
       <SendTeamMessageModal isOpen={showSendMessage} onClose={() => setShowSendMessage(false)} />
+      <TesterAccessModal open={showTesterAccess} onOpenChange={setShowTesterAccess} />
     </header>
   );
 };
