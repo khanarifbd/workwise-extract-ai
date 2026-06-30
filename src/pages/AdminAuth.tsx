@@ -170,7 +170,7 @@ export default function AdminAuth() {
           <CardHeader>
             <CardTitle className="text-destructive">Access Denied</CardTitle>
             <CardDescription>
-              Your account does not have administrator or viewer privileges. Please contact an existing admin to grant you access.
+              Your account does not have administrator, viewer, or tester privileges. Please contact an existing admin to grant you access.
             </CardDescription>
           </CardHeader>
           <CardFooter>
@@ -362,7 +362,7 @@ export default function AdminAuth() {
                     <AlertDescription>
                       Account created successfully! Please check your email to confirm your account, then sign in.
                       <br /><br />
-                      <strong>Note:</strong> You'll need an existing admin to grant you admin privileges before you can access the admin portal.
+                      <strong>Note:</strong> You'll need an existing admin to grant you admin, viewer, or tester privileges before you can access the Genie portal.
                     </AlertDescription>
                   </Alert>
                 </CardContent>
