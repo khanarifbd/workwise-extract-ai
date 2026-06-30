@@ -7,6 +7,7 @@ interface AdminAuthState {
   session: Session | null;
   isAdmin: boolean;
   isViewer: boolean;
+  isTester: boolean;
   isLoading: boolean;
   isCheckingRoles: boolean;
   error: string | null;
@@ -18,41 +19,43 @@ export const useAdminAuth = () => {
     session: null,
     isAdmin: false,
     isViewer: false,
+    isTester: false,
     isLoading: true,
     isCheckingRoles: false,
     error: null,
   });
 
-  const resolveRoles = useCallback(async (userId: string): Promise<{ isAdmin: boolean; isViewer: boolean }> => {
+  const resolveRoles = useCallback(async (userId: string): Promise<{ isAdmin: boolean; isViewer: boolean; isTester: boolean }> => {
     const maxAttempts = 5;
 
-    // Retry with backoff to handle brief token/session propagation delays
     for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
       try {
-        const [{ data: isAdmin, error: adminError }, { data: isViewer, error: viewerError }] = await Promise.all([
+        const [{ data: isAdmin, error: adminError }, { data: isViewer, error: viewerError }, { data: isTester, error: testerError }] = await Promise.all([
           supabase.rpc('is_admin', { _user_id: userId }),
           supabase.rpc('is_viewer', { _user_id: userId }),
+          supabase.rpc('is_tester', { _user_id: userId }),
         ]);
 
-        if (adminError || viewerError) {
-          throw adminError ?? viewerError;
+        if (adminError || viewerError || testerError) {
+          throw adminError ?? viewerError ?? testerError;
         }
 
         return {
           isAdmin: Boolean(isAdmin),
           isViewer: Boolean(isViewer),
+          isTester: Boolean(isTester),
         };
       } catch (err) {
         if (attempt === maxAttempts - 1) {
           console.error('Failed to resolve admin roles:', err);
-          return { isAdmin: false, isViewer: false };
+          return { isAdmin: false, isViewer: false, isTester: false };
         }
 
         await new Promise((resolve) => setTimeout(resolve, 200 * (attempt + 1)));
       }
     }
 
-    return { isAdmin: false, isViewer: false };
+    return { isAdmin: false, isViewer: false, isTester: false };
   }, []);
 
   useEffect(() => {
@@ -89,7 +92,7 @@ export const useAdminAuth = () => {
         // Defer role checks with setTimeout to prevent deadlock
         if (session?.user) {
           setTimeout(async () => {
-            const { isAdmin, isViewer } = await resolveRoles(session.user.id);
+            const { isAdmin, isViewer, isTester } = await resolveRoles(session.user.id);
 
             if (!isMounted) return;
 
@@ -97,6 +100,7 @@ export const useAdminAuth = () => {
               ...prev,
               isAdmin,
               isViewer,
+              isTester,
               isLoading: false,
               isCheckingRoles: false,
             }));
@@ -106,6 +110,7 @@ export const useAdminAuth = () => {
             ...prev,
             isAdmin: false,
             isViewer: false,
+            isTester: false,
             isLoading: false,
             isCheckingRoles: false,
           }));
@@ -125,7 +130,7 @@ export const useAdminAuth = () => {
       }));
 
       if (session?.user) {
-        const { isAdmin, isViewer } = await resolveRoles(session.user.id);
+        const { isAdmin, isViewer, isTester } = await resolveRoles(session.user.id);
 
         if (!isMounted) return;
 
@@ -133,6 +138,7 @@ export const useAdminAuth = () => {
           ...prev,
           isAdmin,
           isViewer,
+          isTester,
           isLoading: false,
           isCheckingRoles: false,
         }));
@@ -206,6 +212,7 @@ export const useAdminAuth = () => {
       session: null,
       isAdmin: false,
       isViewer: false,
+      isTester: false,
       isLoading: false,
       isCheckingRoles: false,
       error: null,
@@ -223,9 +230,9 @@ export const useAdminAuth = () => {
     signOut,
     clearError,
     isAuthenticated: !!state.session,
-    // User has access if they are either admin or viewer
-    hasAccess: state.isAdmin || state.isViewer,
-    // User can edit only if they are a full admin
+    // Admin = full access; Viewer & Tester = read-only end-to-end access
+    hasAccess: state.isAdmin || state.isViewer || state.isTester,
+    // Only full admins can edit
     canEdit: state.isAdmin,
   };
 };
