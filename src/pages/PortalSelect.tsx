@@ -23,17 +23,23 @@ export default function PortalSelect() {
       const { data, error: invokeErr } = await supabase.functions.invoke('tester-login', {
         body: { code: code.trim() },
       });
-      if (invokeErr || !data?.email || !data?.password) {
+      if (invokeErr || !data?.session?.access_token || !data?.session?.refresh_token) {
         setError(data?.error || 'Invalid access code.');
         setSubmitting(false);
         return;
       }
-      const { error: signInErr } = await supabase.auth.signInWithPassword({
-        email: data.email,
-        password: data.password,
+      const { error: signInErr } = await supabase.auth.setSession({
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
       });
       if (signInErr) {
         setError('Could not start your preview session. Please try again.');
+        setSubmitting(false);
+        return;
+      }
+      const { data: sessionCheck } = await supabase.auth.getSession();
+      if (!sessionCheck.session) {
+        setError('Could not confirm your preview session. Please try again.');
         setSubmitting(false);
         return;
       }

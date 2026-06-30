@@ -18,6 +18,8 @@ function timingSafeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
@@ -30,8 +32,11 @@ Deno.serve(async (req) => {
     const password = Deno.env.get('TESTER_USER_PASSWORD') ?? '';
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const serviceRole = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const authKey = Deno.env.get('SUPABASE_ANON_KEY')
+      ?? Deno.env.get('SUPABASE_PUBLISHABLE_KEY')
+      ?? serviceRole;
 
-    if (!expected || !email || !password || !serviceRole) {
+    if (!expected || !email || !password || !supabaseUrl || !serviceRole || !authKey) {
       return new Response(JSON.stringify({ error: 'Tester login not configured.' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -59,10 +64,17 @@ Deno.serve(async (req) => {
     if (existing) {
       userId = existing.id;
       // Make sure the password matches what we hand back to the browser
-      await admin.auth.admin.updateUserById(existing.id, {
+      const { error: updateErr } = await admin.auth.admin.updateUserById(existing.id, {
         password,
         email_confirm: true,
       });
+      if (updateErr) {
+        console.error('updateUserById failed', updateErr);
+        return new Response(JSON.stringify({ error: 'Could not refresh tester account.' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
     } else {
       const { data: created, error: createErr } = await admin.auth.admin.createUser({
         email,
@@ -82,14 +94,67 @@ Deno.serve(async (req) => {
 
     // Ensure the tester role is assigned
     if (userId) {
-      await admin
+      const { error: roleErr } = await admin
         .from('user_roles')
         .upsert({ user_id: userId, role: 'tester' }, { onConflict: 'user_id,role' });
+      if (roleErr) {
+        console.error('tester role upsert failed', roleErr);
+        return new Response(JSON.stringify({ error: 'Could not enable tester access.' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
     }
 
-    return new Response(JSON.stringify({ email, password }), {
+    // Sign in inside the function and return a ready session. This removes the
+    // browser-side password handoff/race that was producing intermittent
+    // “Invalid login credentials” after the tester account password was rotated.
+    const authClient = createClient(supabaseUrl, authKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+
+    let session: Awaited<ReturnType<typeof authClient.auth.signInWithPassword>>['data']['session'] | null = null;
+    let signInError: Awaited<ReturnType<typeof authClient.auth.signInWithPassword>>['error'] | null = null;
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const { data: signInData, error: signInErr } = await authClient.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (!signInErr && signInData.session) {
+        session = signInData.session;
+        signInError = null;
+        break;
+      }
+
+      signInError = signInErr;
+      await wait(250 * (attempt + 1));
+    }
+
+    if (!session) {
+      console.error('tester session creation failed', signInError);
+      return new Response(JSON.stringify({ error: 'Could not start tester session.' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    return new Response(JSON.stringify({
+      session: {
+        access_token: session.access_token,
+        refresh_token: session.refresh_token,
+        expires_at: session.expires_at,
+        expires_in: session.expires_in,
+        token_type: session.token_type,
+        user: {
+          id: session.user.id,
+          email: session.user.email,
+        },
+      },
+    }), {
       status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
     });
   } catch (err) {
     console.error('tester-login error', err);
