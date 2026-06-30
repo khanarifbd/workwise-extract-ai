@@ -187,18 +187,20 @@ export const useAdminAuth = () => {
       return { error };
     }
 
-    if (data?.session?.user) {
+    const session = data?.session ?? null;
+
+    if (session?.user) {
       const runId = ++authCheckRunRef.current;
       setState(prev => ({
         ...prev,
-        session: data.session,
-        user: data.session.user,
+        session,
+        user: session.user,
         error: null,
         isLoading: false,
         isCheckingRoles: true,
       }));
 
-      const { isAdmin, isViewer, isTester } = await resolveRoles(data.session.user.id);
+      const { isAdmin, isViewer, isTester } = await resolveRoles(session.user.id);
 
       if (runId === authCheckRunRef.current) {
         setState(prev => ({
