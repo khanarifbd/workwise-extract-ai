@@ -151,8 +151,16 @@ export const useAdminAuth = () => {
 
     const cleanEmail = email.trim().toLowerCase();
     const rawPassword = password.normalize('NFC');
-    const trimmedPassword = rawPassword.replace(/^\s+|\s+$/g, '');
-    const passwordAttempts = Array.from(new Set([rawPassword, trimmedPassword].filter(Boolean)));
+    const zeroWidthCleaned = rawPassword.replace(/[\u200B-\u200D\uFEFF]/g, '');
+    const compatibilityNormalized = rawPassword.normalize('NFKC');
+    const passwordAttempts = Array.from(new Set([
+      rawPassword,
+      rawPassword.trim(),
+      zeroWidthCleaned,
+      zeroWidthCleaned.trim(),
+      compatibilityNormalized,
+      compatibilityNormalized.trim(),
+    ].filter(Boolean)));
 
     let data: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>['data'] | null = null;
     let error: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>['error'] | null = null;
@@ -170,12 +178,36 @@ export const useAdminAuth = () => {
       if ((error as { code?: string }).code !== 'invalid_credentials') break;
     }
 
+    if (error && (error as { code?: string }).code === 'invalid_credentials') {
+      try {
+        const fallback = await supabase.functions.invoke('admin-password-login', {
+          body: { email: cleanEmail, password },
+        });
+
+        if (!fallback.error && fallback.data?.session?.access_token && fallback.data?.session?.refresh_token) {
+          const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+            access_token: fallback.data.session.access_token,
+            refresh_token: fallback.data.session.refresh_token,
+          });
+
+          if (!sessionError && sessionData.session) {
+            data = { user: sessionData.session.user, session: sessionData.session };
+            error = null;
+          } else if (sessionError) {
+            error = sessionError;
+          }
+        }
+      } catch (fallbackErr) {
+        console.warn('[admin-auth] backend fallback unavailable', fallbackErr);
+      }
+    }
+
     if (error) {
       console.warn('[admin-auth] sign-in failed', {
         emailLength: cleanEmail.length,
-        passwordLength: trimmedPassword.length,
+        passwordLength: rawPassword.trim().length,
         rawPasswordLength: password.length,
-        passwordTrimmed: trimmedPassword.length !== rawPassword.length,
+        passwordTrimmed: rawPassword.trim().length !== rawPassword.length,
         attemptedPasswordVariants: passwordAttempts.length,
         code: (error as { code?: string }).code ?? null,
         message: error.message,
