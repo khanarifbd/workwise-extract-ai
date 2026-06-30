@@ -1859,6 +1859,27 @@ export type Database = {
         }
         Relationships: []
       }
+      tester_section_permissions: {
+        Row: {
+          enabled: boolean
+          section_key: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          enabled?: boolean
+          section_key: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          enabled?: boolean
+          section_key?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       trade_companies: {
         Row: {
           contact_name: string | null
