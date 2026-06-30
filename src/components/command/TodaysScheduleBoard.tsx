@@ -14,7 +14,7 @@ import { format } from "date-fns";
 import { CheckCircle2, Clock, Flag, AlertTriangle, Eye, PhoneCall, GripVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+
 import { cn } from "@/lib/utils";
 import type { ScheduleRow } from "@/hooks/useCommandMetrics";
 
@@ -177,7 +177,7 @@ export function TodaysScheduleBoard({ schedule, onView, onFlag, onCall }: Props)
           No {silo === "all" ? "" : silo === "dm" ? "DM " : "A&A "}jobs scheduled for today.
         </p>
       ) : (
-        <ScrollArea className="max-h-[640px]">
+        <div className="max-h-[70vh] overflow-y-auto overscroll-contain">
           <ul className="divide-y">
             {groups.map((g) => (
               <li key={g.team} className="p-3 sm:p-4">
@@ -192,7 +192,7 @@ export function TodaysScheduleBoard({ schedule, onView, onFlag, onCall }: Props)
                 </div>
 
                 {/* Horizontal scroll row of ordered job slots */}
-                <ScrollArea className="w-full whitespace-nowrap">
+                <div className="w-full whitespace-nowrap overflow-x-auto overscroll-contain">
                   <div className="flex gap-2.5 pb-2">
                     {g.jobs.map((j, idx) => {
                       const meta = STATUS_META[j.status];
@@ -273,12 +273,11 @@ export function TodaysScheduleBoard({ schedule, onView, onFlag, onCall }: Props)
                       Drop here
                     </div>
                   </div>
-                  <ScrollBar orientation="horizontal" />
-                </ScrollArea>
+                </div>
               </li>
             ))}
           </ul>
-        </ScrollArea>
+        </div>
       )}
     </div>
   );
