@@ -220,7 +220,7 @@ const DMJobTracker = () => {
           {URGENT.length === 0 ? (
             <p className="px-5 py-6 text-sm text-muted-foreground">No urgent flags.</p>
           ) : (
-            <ul className="divide-y">
+            <ul className="divide-y max-h-[60vh] overflow-y-auto overscroll-contain">
               {URGENT.map((u) => (
                 <li key={u.id} className="px-5 py-4 flex flex-col lg:flex-row lg:items-center gap-3 bg-red-500/5">
                   <div className="flex-1 min-w-0">
@@ -247,7 +247,7 @@ const DMJobTracker = () => {
           <SectionHeader title="In Progress" count={IN_PROGRESS.length} icon={Clock} accent="bg-amber-500" />
 
           {/* Desktop table */}
-          <div className="hidden md:block overflow-x-auto">
+          <div className="hidden md:block overflow-x-auto overflow-y-auto overscroll-contain max-h-[60vh]">
             <table className="w-full text-sm">
               <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
@@ -290,7 +290,7 @@ const DMJobTracker = () => {
           </div>
 
           {/* Mobile cards */}
-          <ul className="md:hidden divide-y">
+          <ul className="md:hidden divide-y max-h-[60vh] overflow-y-auto overscroll-contain">
             {IN_PROGRESS.map((j) => (
               <li key={j.id} className="p-4 space-y-2">
                 <div className="flex items-center justify-between">
@@ -321,7 +321,7 @@ const DMJobTracker = () => {
         <div className={cn("rounded-3xl border-2 p-2 sm:p-3 shadow-md", dmCompletedTone)}>
         <section className="rounded-2xl border bg-card shadow-sm overflow-hidden">
           <SectionHeader title="Completed Today" count={COMPLETED.length} icon={CheckCircle2} accent="bg-emerald-500" />
-          <ul className="divide-y">
+          <ul className="divide-y max-h-[60vh] overflow-y-auto overscroll-contain">
             {COMPLETED.map((c) => (
               <li key={c.id} className="px-5 py-3 flex flex-col md:flex-row md:items-center gap-3">
                 <div className="flex-1 min-w-0 flex flex-wrap items-center gap-2">
@@ -348,7 +348,7 @@ const DMJobTracker = () => {
         <div className={cn("rounded-3xl border-2 p-2 sm:p-3 shadow-md", dmPipelineTone)}>
         <section className="rounded-2xl border bg-card shadow-sm overflow-hidden">
           <SectionHeader title="Tomorrow's Pipeline" count={PIPELINE.length} icon={CalendarClock} accent="bg-blue-500" />
-          <ul className="divide-y">
+          <ul className="divide-y max-h-[60vh] overflow-y-auto overscroll-contain">
             {PIPELINE.map((p) => (
               <li key={p.id} className="px-5 py-3 flex flex-col lg:flex-row lg:items-center gap-3">
                 <div className="flex-1 min-w-0">
