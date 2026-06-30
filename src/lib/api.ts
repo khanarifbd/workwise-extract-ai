@@ -525,31 +525,30 @@ const jobsCacheKey = (categoryId?: string) => categoryId || '__all__';
 const JOBS_DEDUPE_TTL = 15_000;
 
 const _runFetchJobs = async (categoryId?: string): Promise<Job[]> => {
-  // Keep batches deliberately small. The jobs table contains several large
-  // jsonb fields (attachments/work_items/costs); fetching 1000 rows at once can
-  // hit Postgres statement_timeout and surface as "Failed to load jobs".
-  const batchSize = 250;
-  const allData: any[] = [];
-  let offset = 0;
-  let hasMore = true;
+  // Fetch the first page immediately, then load remaining pages in parallel.
+  // This keeps each DB request small enough for large JSONB rows while removing
+  // the previous serial 250-row waterfall on first app load.
+  const batchSize = 350;
   const maxAttemptsPerBatch = 3;
+  const buildQuery = (from: number, to: number, withCount = false) => {
+    let query = supabase
+      .from('jobs')
+      .select('*', withCount ? { count: 'exact' } : undefined)
+      .is('deleted_at', null)
+      .order('date_issued', { ascending: false })
+      .order('id', { ascending: false })
+      .range(from, to);
+    if (categoryId) query = query.eq('category_id', categoryId);
+    return query;
+  };
 
-  while (hasMore) {
+  const fetchRange = async (from: number, to: number, withCount = false): Promise<{ rows: any[]; count: number | null }> => {
     let attempt = 0;
     let lastErr: any = null;
-    let data: any[] | null = null;
 
     while (attempt < maxAttemptsPerBatch) {
-      let query = supabase
-        .from('jobs')
-        .select('*')
-        .is('deleted_at', null)
-        .order('date_issued', { ascending: false })
-        .range(offset, offset + batchSize - 1);
-      if (categoryId) query = query.eq('category_id', categoryId);
-
-      const { data: rows, error } = await query;
-      if (!error) { data = rows ?? []; break; }
+      const { data: rows, error, count } = await buildQuery(from, to, withCount);
+      if (!error) return { rows: rows ?? [], count: count ?? null };
       lastErr = error;
       // 57014 = statement_timeout — back off briefly and retry the same range.
       if ((error as any)?.code === '57014' && attempt < maxAttemptsPerBatch - 1) {
@@ -562,18 +561,28 @@ const _runFetchJobs = async (categoryId?: string): Promise<Job[]> => {
       throw error;
     }
 
-    if (!data) throw lastErr ?? new Error('Failed to fetch jobs');
+    throw lastErr ?? new Error('Failed to fetch jobs');
+  };
 
-    if (data.length > 0) {
-      allData.push(...data);
-      offset += batchSize;
-      hasMore = data.length === batchSize;
-    } else {
-      hasMore = false;
-    }
+  const firstPage = await fetchRange(0, batchSize - 1, true);
+  if (firstPage.rows.length < batchSize || !firstPage.count || firstPage.count <= batchSize) {
+    return firstPage.rows.map(mapDatabaseJobToJob);
   }
 
-  return allData.map(mapDatabaseJobToJob);
+  const ranges: Array<[number, number]> = [];
+  for (let offset = batchSize; offset < firstPage.count; offset += batchSize) {
+    ranges.push([offset, Math.min(offset + batchSize - 1, firstPage.count - 1)]);
+  }
+
+  const remainingPages: any[][] = [];
+  const concurrency = 4;
+  for (let i = 0; i < ranges.length; i += concurrency) {
+    const chunk = ranges.slice(i, i + concurrency);
+    const pages = await Promise.all(chunk.map(([from, to]) => fetchRange(from, to).then(result => result.rows)));
+    remainingPages.push(...pages);
+  }
+
+  return [firstPage.rows, ...remainingPages].flat().map(mapDatabaseJobToJob);
 };
 
 export const invalidateJobsCache = (categoryId?: string) => {

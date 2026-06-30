@@ -26,6 +26,7 @@ export default function AdminAuth() {
   const location = useLocation();
   const { isAuthenticated, isAdmin, isViewer, hasAccess, isLoading, isCheckingRoles, error, signIn, signUp, clearError } = useAdminAuth();
   const { checkPassword, isChecking: isCheckingBreach } = usePasswordBreachCheck();
+  const emailInputRef = useRef<HTMLInputElement>(null);
   const passwordInputRef = useRef<HTMLInputElement>(null);
   
   const [email, setEmail] = useState('');
@@ -96,14 +97,20 @@ export default function AdminAuth() {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    const latestEmail = (document.getElementById('signin-email') as HTMLInputElement | null)?.value ?? email;
-    const latestPassword = passwordInputRef.current?.value ?? password;
+    const form = e.currentTarget as HTMLFormElement;
+    const formData = new FormData(form);
+    const latestEmail = String(formData.get('email') ?? emailInputRef.current?.value ?? email);
+    const latestPassword = String(formData.get('password') ?? passwordInputRef.current?.value ?? '');
 
+    // Keep component state in sync for forgot-password / sign-up, but do not use
+    // controlled sign-in inputs. Safari/Keychain can visually autofill a field
+    // without React state updating, which caused valid saved logins to submit
+    // stale/empty values.
     setEmail(latestEmail);
     setPassword(latestPassword);
 
     const emailToUse = latestEmail.trim();
-    const passwordToUse = latestPassword.replace(/^\s+|\s+$/g, '');
+    const passwordToUse = latestPassword;
 
     if (!emailToUse || !passwordToUse) {
       setValidationError('Enter your email and password to sign in.');
@@ -121,6 +128,7 @@ export default function AdminAuth() {
       requestAnimationFrame(() => passwordInputRef.current?.focus());
     } else {
       setFailedSignInCount(0);
+      form.reset();
     }
   };
 
@@ -319,12 +327,14 @@ export default function AdminAuth() {
                     <Label htmlFor="signin-email">Email</Label>
                     <Input
                       id="signin-email"
+                      ref={emailInputRef}
+                      name="email"
                       type="email"
                       placeholder="admin@example.com"
-                      value={email}
+                      defaultValue={email}
                       onChange={(e) => setEmail(e.target.value)}
                       disabled={isSubmitting}
-                      autoComplete="email"
+                      autoComplete="username"
                     />
                   </div>
 
@@ -342,16 +352,15 @@ export default function AdminAuth() {
                     <Input
                       id="signin-password"
                       ref={passwordInputRef}
+                      name="password"
                       type="password"
-                      value={password}
+                      defaultValue=""
                       onChange={(e) => {
                         setPassword(e.target.value);
                         if (error) clearError();
                       }}
                       disabled={isSubmitting}
                       autoComplete="current-password"
-                      data-1p-ignore="true"
-                      data-lpignore="true"
                     />
                   </div>
                 </CardContent>

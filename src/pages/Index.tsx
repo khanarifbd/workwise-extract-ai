@@ -94,8 +94,9 @@ const Index = () => {
   // Use URL category or fall back to first category
   const activeCategory = urlCategory;
   const setActiveCategory = setUrlCategory;
+  const jobsReadyToLoad = !!activeCategory;
   
-  const { jobs, isLoading: jobsLoading, addJob, editJob, removeJob, toggleComplete, refreshJobs } = useJobs(activeCategory ?? undefined);
+  const { jobs, isLoading: jobsLoading, addJob, editJob, removeJob, toggleComplete, refreshJobs } = useJobs(activeCategory ?? undefined, { enabled: jobsReadyToLoad });
   // Continuously validates that totals/active/complete/booked counts reconcile.
   useMetricsIntegrity(jobs);
   

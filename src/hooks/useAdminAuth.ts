@@ -150,43 +150,57 @@ export const useAdminAuth = () => {
     setState(prev => ({ ...prev, error: null }));
 
     const cleanEmail = email.trim().toLowerCase();
-    // Trim outer whitespace only — autofill / copy-paste frequently adds a
-    // trailing space which GoTrue treats as a different password.
-    const cleanPassword = password.replace(/^\s+|\s+$/g, '');
+    const rawPassword = password.normalize('NFC');
+    const trimmedPassword = rawPassword.replace(/^\s+|\s+$/g, '');
+    const passwordAttempts = Array.from(new Set([rawPassword, trimmedPassword].filter(Boolean)));
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: cleanEmail,
-      password: cleanPassword,
-    });
+    let data: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>['data'] | null = null;
+    let error: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>['error'] | null = null;
+
+    for (const attemptPassword of passwordAttempts) {
+      const result = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password: attemptPassword,
+      });
+
+      data = result.data;
+      error = result.error;
+
+      if (!error) break;
+      if ((error as { code?: string }).code !== 'invalid_credentials') break;
+    }
 
     if (error) {
       console.warn('[admin-auth] sign-in failed', {
         emailLength: cleanEmail.length,
-        passwordLength: cleanPassword.length,
+        passwordLength: trimmedPassword.length,
         rawPasswordLength: password.length,
-        passwordTrimmed: cleanPassword.length !== password.length,
+        passwordTrimmed: trimmedPassword.length !== rawPassword.length,
+        attemptedPasswordVariants: passwordAttempts.length,
         code: (error as { code?: string }).code ?? null,
         message: error.message,
       });
       const message = (error as { code?: string }).code === 'invalid_credentials'
-        ? 'Login details were rejected. Please clear the saved password and type it manually, or use Forgot password if it still fails.'
+        ? 'Login details were rejected by the authentication service. Please reselect the saved login or use Forgot password if it still fails.'
         : error.message;
       setState(prev => ({ ...prev, error: message }));
       return { error };
     }
 
-    if (data.session?.user) {
+    const session = data?.session ?? null;
+
+    if (session?.user) {
       const runId = ++authCheckRunRef.current;
       setState(prev => ({
         ...prev,
-        session: data.session,
-        user: data.session.user,
+        session,
+        user: session.user,
         error: null,
         isLoading: false,
         isCheckingRoles: true,
       }));
 
-      const { isAdmin, isViewer, isTester } = await resolveRoles(data.session.user.id);
+      const { isAdmin, isViewer, isTester } = await resolveRoles(session.user.id);
 
       if (runId === authCheckRunRef.current) {
         setState(prev => ({
