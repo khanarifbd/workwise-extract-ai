@@ -56,7 +56,8 @@ export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount
   const [showSendMessage, setShowSendMessage] = useState(false);
   const [opsNotesCount, setOpsNotesCount] = useState(0);
   const [showSubcontractors, setShowSubcontractors] = useState(false);
-  const { signOut, user } = useAdminAuth();
+  const [showTesterAccess, setShowTesterAccess] = useState(false);
+  const { signOut, user, isAdmin } = useAdminAuth();
   const { toast } = useToast();
   const [isBackfilling, setIsBackfilling] = useState(false);
 
