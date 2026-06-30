@@ -15,6 +15,7 @@ import { useCommandMetrics } from "@/hooks/useCommandMetrics";
 import { useTrackerJobs, type TrackerRow } from "@/hooks/useTrackerJobs";
 import { MetricsDriftBanner } from "@/components/command/MetricsIntegrityPanel";
 import { JobDetailsDialog } from "@/components/command/JobDetailsDialog";
+import { useAdminAuth } from "@/hooks/useAdminAuth";
 
 // Rows are derived from canonical job data via `useTrackerJobs('aa')`.
 
@@ -62,6 +63,7 @@ const Stat = ({ label, value }: { label: string; value: React.ReactNode }) => (
 
 const AAJobTracker = () => {
   const navigate = useNavigate();
+  const { canEdit } = useAdminAuth();
   const [log, setLog] = useState<string | null>(null);
   const [detailsRow, setDetailsRow] = useState<TrackerRow | null>(null);
   const fire = (msg: string) => { setLog(msg); console.log(`[AA-Tracker] ${msg}`); setTimeout(() => setLog(null), 1500); };
@@ -151,8 +153,12 @@ const AAJobTracker = () => {
                     <td className="px-5 py-3">
                       <div className="flex justify-end gap-1.5">
                         <Button size="sm" variant="outline" onClick={() => setDetailsRow(j)}><Eye className="h-3.5 w-3.5 mr-1" />Details</Button>
-                        <Button size="sm" variant="outline" onClick={() => fire(`Note ${j.jobNumber}`)}><StickyNote className="h-3.5 w-3.5 mr-1" />Note</Button>
-                        <Button size="sm" variant="outline" onClick={() => fire(`Flag ${j.jobNumber}`)}><Flag className="h-3.5 w-3.5 mr-1" />Flag</Button>
+                        {canEdit && (
+                          <>
+                            <Button size="sm" variant="outline" onClick={() => fire(`Note ${j.jobNumber}`)}><StickyNote className="h-3.5 w-3.5 mr-1" />Note</Button>
+                            <Button size="sm" variant="outline" onClick={() => fire(`Flag ${j.jobNumber}`)}><Flag className="h-3.5 w-3.5 mr-1" />Flag</Button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -179,8 +185,12 @@ const AAJobTracker = () => {
                 </div>
                 <div className="flex gap-1.5">
                   <Button size="sm" variant="outline" className="flex-1" onClick={() => setDetailsRow(j)}><Eye className="h-3.5 w-3.5 mr-1" />Details</Button>
-                  <Button size="sm" variant="outline" className="flex-1" onClick={() => fire(`Note ${j.jobNumber}`)}><StickyNote className="h-3.5 w-3.5 mr-1" />Note</Button>
-                  <Button size="sm" variant="outline" className="flex-1" onClick={() => fire(`Flag ${j.jobNumber}`)}><Flag className="h-3.5 w-3.5 mr-1" />Flag</Button>
+                  {canEdit && (
+                    <>
+                      <Button size="sm" variant="outline" className="flex-1" onClick={() => fire(`Note ${j.jobNumber}`)}><StickyNote className="h-3.5 w-3.5 mr-1" />Note</Button>
+                      <Button size="sm" variant="outline" className="flex-1" onClick={() => fire(`Flag ${j.jobNumber}`)}><Flag className="h-3.5 w-3.5 mr-1" />Flag</Button>
+                    </>
+                  )}
                 </div>
               </li>
             ))}
@@ -265,10 +275,14 @@ const AAJobTracker = () => {
           </Link>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => fire("Filter")}><Filter className="h-4 w-4 mr-1.5" />Filter</Button>
-            <Button variant="outline" size="sm" onClick={() => fire("Export")}><Download className="h-4 w-4 mr-1.5" />Export</Button>
-            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => fire("Add Job")}>
-              <Plus className="h-4 w-4 mr-1.5" />Add Job
-            </Button>
+            {canEdit && (
+              <>
+                <Button variant="outline" size="sm" onClick={() => fire("Export")}><Download className="h-4 w-4 mr-1.5" />Export</Button>
+                <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => fire("Add Job")}>
+                  <Plus className="h-4 w-4 mr-1.5" />Add Job
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </div>
