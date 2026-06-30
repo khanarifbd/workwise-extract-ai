@@ -34,8 +34,8 @@ export const useCategories = () => {
         sortOrder: cat.sort_order,
         createdAt: new Date(cat.created_at)
       })).sort((a, b) => {
-        const aOrder = fixedOrder[a.slug] ?? a.sortOrder;
-        const bOrder = fixedOrder[b.slug] ?? b.sortOrder;
+        const aOrder = fixedOrder[a.slug] ?? 1000 + a.sortOrder;
+        const bOrder = fixedOrder[b.slug] ?? 1000 + b.sortOrder;
         return aOrder - bOrder || a.name.localeCompare(b.name);
       }));
     } catch (error) {
