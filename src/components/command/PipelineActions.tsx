@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { TeamCallLogDialog } from "./TeamCallLogDialog";
 import { FlagJobDialog } from "./FlagJobDialog";
 import type { TrackerRow } from "@/hooks/useTrackerJobs";
+import { useAdminAuth } from "@/hooks/useAdminAuth";
 
 const PREVISIT_KEY = "command.previsit.v1";
 
@@ -45,6 +46,7 @@ interface Props {
 }
 
 export function PipelineActions({ row }: Props) {
+  const { canEdit } = useAdminAuth();
   const [callOpen, setCallOpen] = useState(false);
   const [flagOpen, setFlagOpen] = useState(false);
   const [popOpen, setPopOpen] = useState(false);
@@ -71,6 +73,7 @@ export function PipelineActions({ row }: Props) {
 
 
   const saveVisit = () => {
+    if (!canEdit) return;
     setPreVisit({ done: draftDone, notes: draftNotes.trim(), at: new Date().toISOString() });
     toast.success(draftDone ? `Pre-visit marked done for ${row.jobNumber}` : `Pre-visit notes saved for ${row.jobNumber}`);
     setPopOpen(false);
@@ -92,6 +95,7 @@ export function PipelineActions({ row }: Props) {
           )}
         </div>
       )}
+      {canEdit ? (
       <div className="flex flex-wrap gap-1.5">
         <Button size="sm" variant="outline" onClick={() => setCallOpen(true)}>
           <PhoneCall className="h-3.5 w-3.5 mr-1" />Call Tenant
@@ -138,6 +142,9 @@ export function PipelineActions({ row }: Props) {
           </PopoverContent>
         </Popover>
       </div>
+      ) : (
+        <Badge variant="outline" className="text-xs">Read-only preview</Badge>
+      )}
 
       <TeamCallLogDialog
         open={callOpen}

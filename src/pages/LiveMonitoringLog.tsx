@@ -16,6 +16,7 @@ import { useSectionTone } from "@/lib/sectionTheme";
 import { useCommandMetrics } from "@/hooks/useCommandMetrics";
 import { useCommandEvents, type CommandEvent } from "@/hooks/useCommandEvents";
 import { MetricsDriftBanner } from "@/components/command/MetricsIntegrityPanel";
+import { useAdminAuth } from "@/hooks/useAdminAuth";
 
 import AddLogEntryModal, { type LogEntryDraft } from "@/components/AddLogEntryModal";
 import { TeamCallLogDialog } from "@/components/command/TeamCallLogDialog";
@@ -50,6 +51,7 @@ const fmtNow = () => new Date().toLocaleTimeString("en-GB", { hour: "2-digit", m
 
 const LiveMonitoringLog = () => {
   const navigate = useNavigate();
+  const { canEdit } = useAdminAuth();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterKind>("all");
   const [lastRefresh, setLastRefresh] = useState(fmtNow());
@@ -62,6 +64,7 @@ const LiveMonitoringLog = () => {
     useCommandEvents({ includeResolved: true });
 
   const handleDelete = async (id: string) => {
+    if (!canEdit) return;
     if (!window.confirm("Delete this flag permanently? This cannot be undone.")) return;
     try { await remove(id); fire("Deleted"); }
     catch (err: any) { fire(err?.message ?? "Failed to delete"); }
@@ -70,6 +73,7 @@ const LiveMonitoringLog = () => {
   const fire = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 1500); };
 
   const handleSaveEntry = async (e: LogEntryDraft) => {
+    if (!canEdit) return;
     const sev = e.severity === "Urgent" ? "urgent"
       : e.severity === "Warning" ? "warning" : "note";
     const kind = e.severity === "Resolved" ? "note"
@@ -100,6 +104,7 @@ const LiveMonitoringLog = () => {
   };
 
   const handleMarkResolved = async (id: string) => {
+    if (!canEdit) return;
     try { await resolve(id); fire("Resolved"); }
     catch (err: any) { fire(err?.message ?? "Failed"); }
   };
@@ -111,6 +116,7 @@ const LiveMonitoringLog = () => {
   // Schedule dialog (for coaching items — kept as a UI affordance; persisted in command_events)
   const [scheduleTarget, setScheduleTarget] = useState<CommandEvent | null>(null);
   const handleScheduleConfirm = async (payload: { date: string; time: string; notes?: string }) => {
+    if (!canEdit) return;
     if (!scheduleTarget) return;
     try {
       await add({
@@ -276,9 +282,13 @@ const LiveMonitoringLog = () => {
 
         {/* Top bar */}
         <div className="rounded-2xl border bg-card p-3 shadow-sm flex flex-wrap items-center gap-2">
-          <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={() => setLogModalOpen(true)}>
-            <Plus className="h-4 w-4 mr-1.5" /> Add Entry
-          </Button>
+          {canEdit ? (
+            <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={() => setLogModalOpen(true)}>
+              <Plus className="h-4 w-4 mr-1.5" /> Add Entry
+            </Button>
+          ) : (
+            <Badge variant="outline" className="bg-muted/40">Tester preview · read-only</Badge>
+          )}
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -312,9 +322,11 @@ const LiveMonitoringLog = () => {
             )}
           </div>
 
-          <Button size="sm" variant="outline" onClick={() => fire("Export CSV")}>
-            <Download className="h-4 w-4 mr-1.5" /> Export
-          </Button>
+          {canEdit && (
+            <Button size="sm" variant="outline" onClick={() => fire("Export CSV")}>
+              <Download className="h-4 w-4 mr-1.5" /> Export
+            </Button>
+          )}
           <Button size="sm" variant="ghost" onClick={doRefresh} disabled={isRefreshing}>
             <RefreshCw className={cn("h-4 w-4 mr-1.5", isRefreshing && "animate-spin")} /> Refresh
           </Button>
@@ -354,6 +366,7 @@ const LiveMonitoringLog = () => {
                         {f.metadata?.followUp && <Badge variant="outline">Follow-up: {f.metadata.followUp}</Badge>}
                       </div>
                     )}
+                    {canEdit && (
                     <div className="flex flex-wrap gap-1.5 pt-1">
                       <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => handleMarkResolved(f.id)}>
                         <CheckCircle2 className="h-3.5 w-3.5 mr-1" />Mark Resolved
@@ -374,6 +387,7 @@ const LiveMonitoringLog = () => {
                         </Button>
                       )}
                     </div>
+                    )}
                   </article>
                 )}
               />
@@ -438,6 +452,7 @@ const LiveMonitoringLog = () => {
                         {c.metadata?.followUp && <Badge variant="outline">Follow-up: {c.metadata.followUp}</Badge>}
                       </div>
                     )}
+                    {canEdit && (
                     <div className="flex flex-wrap gap-1.5 pt-1">
                       <Button size="sm" variant="outline" onClick={() => setScheduleTarget(c)}><CalendarClock className="h-3.5 w-3.5 mr-1" />Schedule</Button>
                       {c.team && (
@@ -457,6 +472,7 @@ const LiveMonitoringLog = () => {
                       )}
                       <Button size="sm" variant="ghost" onClick={() => handleMarkResolved(c.id)}><X className="h-3.5 w-3.5 mr-1" />Dismiss</Button>
                     </div>
+                    )}
                   </article>
                 )}
               />
@@ -487,16 +503,18 @@ const LiveMonitoringLog = () => {
                       {r.title && <div><span className="text-muted-foreground">Category:</span> {r.title}</div>}
                       {r.body && <div><span className="text-muted-foreground">Notes:</span> {r.body}</div>}
                     </div>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleDelete(r.id)}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-500/10"
-                      aria-label="Delete flag"
-                      title="Delete flag permanently"
-                    >
-                      <Trash2 className="h-3.5 w-3.5 mr-1" />Delete
-                    </Button>
+                    {canEdit && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleDelete(r.id)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-500/10"
+                        aria-label="Delete flag"
+                        title="Delete flag permanently"
+                      >
+                        <Trash2 className="h-3.5 w-3.5 mr-1" />Delete
+                      </Button>
+                    )}
                   </div>
                 )}
               />
@@ -515,11 +533,13 @@ const LiveMonitoringLog = () => {
           {toast}
         </div>
       )}
-      <AddLogEntryModal
-        open={logModalOpen}
-        onOpenChange={setLogModalOpen}
-        onSave={handleSaveEntry}
-      />
+      {canEdit && (
+        <AddLogEntryModal
+          open={logModalOpen}
+          onOpenChange={setLogModalOpen}
+          onSave={handleSaveEntry}
+        />
+      )}
       {callTarget && (
         <TeamCallLogDialog
           open={!!callTarget}

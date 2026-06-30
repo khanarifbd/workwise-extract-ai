@@ -17,6 +17,7 @@ import { useSectionTone, type SectionPresetId } from "@/lib/sectionTheme";
 import { useCommandMetrics } from "@/hooks/useCommandMetrics";
 import { MetricsIntegrityPanel, MetricsDriftBanner } from "@/components/command/MetricsIntegrityPanel";
 import { TodaysScheduleBoard } from "@/components/command/TodaysScheduleBoard";
+import { useAdminAuth } from "@/hooks/useAdminAuth";
 
 
 
@@ -133,6 +134,7 @@ const QuickAction = ({
 
 const NavCommandCenter = () => {
   const navigate = useNavigate();
+  const { canEdit } = useAdminAuth();
   const [callTarget, setCallTarget] = useState<TeamRow | null>(null);
   const [flagTarget, setFlagTarget] = useState<TeamRow | null>(null);
 
@@ -211,8 +213,8 @@ const NavCommandCenter = () => {
   };
 
   const onView = (t: TeamRow) => navigate(t.trackerPath);
-  const onFlag = (t: TeamRow) => setFlagTarget(t);
-  const onCall = (t: TeamRow) => setCallTarget(t);
+  const onFlag = (t: TeamRow) => canEdit && setFlagTarget(t);
+  const onCall = (t: TeamRow) => canEdit && setCallTarget(t);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-sky-100 via-sky-200 to-sky-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
@@ -244,9 +246,15 @@ const NavCommandCenter = () => {
                 onTrack ? "bg-emerald-400 animate-pulse" : "bg-red-400 animate-pulse")} />
               {onTrack ? "On Track" : "Behind Target"}
             </Badge>
-            <Button variant="secondary" size="sm" onClick={refresh}>
-              <RefreshCw className="h-4 w-4 mr-1.5" /> Refresh
-            </Button>
+            {canEdit ? (
+              <Button variant="secondary" size="sm" onClick={refresh}>
+                <RefreshCw className="h-4 w-4 mr-1.5" /> Refresh
+              </Button>
+            ) : (
+              <Badge variant="outline" className="border-slate-400/60 text-slate-200 bg-white/5">
+                Tester preview · read-only
+              </Badge>
+            )}
           </div>
         </header>
 
@@ -282,11 +290,11 @@ const NavCommandCenter = () => {
           <TodaysScheduleBoard
             schedule={metrics.todaysSchedule}
             onView={(r) => navigate(r.isAA ? '/command/aa' : '/command/dm')}
-            onFlag={(r) => setFlagTarget({
+            onFlag={(r) => canEdit && setFlagTarget({
               team: r.team, aa: r.isAA, am: `${r.jobNumber} – ${r.address}`,
               pm: '—', status: r.status, phone: '', trackerPath: r.isAA ? '/command/aa' : '/command/dm',
             })}
-            onCall={(r) => setCallTarget({
+            onCall={(r) => canEdit && setCallTarget({
               team: r.team, aa: r.isAA, am: `${r.jobNumber} – ${r.address}`,
               pm: '—', status: r.status, phone: '', trackerPath: r.isAA ? '/command/aa' : '/command/dm',
             })}
@@ -339,9 +347,13 @@ const NavCommandCenter = () => {
           />
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
             <QuickAction to="/command/log"     label="Open Live Log"   icon={Activity}     accent="bg-blue-500" />
-            <QuickAction to="/command/log"     label="Flag Issue"      icon={Flag}         accent="bg-red-500" />
-            <QuickAction to="/command/log"     label="Log Completion"  icon={CheckCircle2} accent="bg-emerald-500" />
-            <QuickAction to="/command/log"     label="Add Note"        icon={StickyNote}   accent="bg-amber-500" />
+            {canEdit && (
+              <>
+                <QuickAction to="/command/log" label="Flag Issue"     icon={Flag}         accent="bg-red-500" />
+                <QuickAction to="/command/log" label="Log Completion" icon={CheckCircle2} accent="bg-emerald-500" />
+                <QuickAction to="/command/log" label="Add Note"       icon={StickyNote}   accent="bg-amber-500" />
+              </>
+            )}
             <QuickAction to="/command/reports" label="Run Report"      icon={FileBarChart} accent="bg-violet-500" />
             <QuickAction to="/command/owners"  label="Owner's View"    icon={Eye}          accent="bg-slate-700" />
           </div>
@@ -361,9 +373,11 @@ const NavCommandCenter = () => {
             Last updated: {lastUpdated.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
           </div>
           <div className="flex items-center gap-4">
-            <button onClick={refresh} className="inline-flex items-center gap-1.5 hover:text-foreground transition-colors">
-              <RefreshCw className="h-4 w-4" /> Refresh
-            </button>
+            {canEdit && (
+              <button onClick={refresh} className="inline-flex items-center gap-1.5 hover:text-foreground transition-colors">
+                <RefreshCw className="h-4 w-4" /> Refresh
+              </button>
+            )}
             <Link to="/command/reports" className="inline-flex items-center gap-1.5 hover:text-foreground transition-colors">
               <FileBarChart className="h-4 w-4" /> Reports
             </Link>
@@ -375,14 +389,14 @@ const NavCommandCenter = () => {
       </div>
 
       <TeamCallLogDialog
-        open={!!callTarget}
+        open={canEdit && !!callTarget}
         onOpenChange={(o) => !o && setCallTarget(null)}
         team={callTarget?.team || ""}
         phone={callTarget?.phone || ""}
       />
 
       <FlagJobDialog
-        open={!!flagTarget}
+        open={canEdit && !!flagTarget}
         onOpenChange={(o) => !o && setFlagTarget(null)}
         team={flagTarget?.team || ""}
         jobNumber={

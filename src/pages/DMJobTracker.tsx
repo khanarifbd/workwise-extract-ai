@@ -18,6 +18,7 @@ import { MetricsDriftBanner } from "@/components/command/MetricsIntegrityPanel";
 import { PipelineActions } from "@/components/command/PipelineActions";
 import { UrgentFlagActions } from "@/components/command/UrgentFlagActions";
 import { JobDetailsDialog } from "@/components/command/JobDetailsDialog";
+import { useAdminAuth } from "@/hooks/useAdminAuth";
 
 
 
@@ -54,6 +55,7 @@ const SectionHeader = ({
 
 const DMJobTracker = () => {
   const navigate = useNavigate();
+  const { canEdit } = useAdminAuth();
   const [log, setLog] = useState<string | null>(null);
   const fire = (msg: string) => { setLog(msg); setTimeout(() => setLog(null), 1500); };
 
@@ -94,6 +96,7 @@ const DMJobTracker = () => {
   };
 
   const handleCall = (team: string) => {
+    if (!canEdit) return;
     const phone = TEAM_PHONES[team];
     if (!phone) { toast.error(`No number stored for ${team}`); return; }
     window.location.href = `tel:${phone}`;
@@ -101,6 +104,7 @@ const DMJobTracker = () => {
   };
 
   const handleAddNote = (jobNumber: string) => {
+    if (!canEdit) return;
     const note = window.prompt(`Add a note for ${jobNumber}:`);
     if (!note?.trim()) return;
     setNotes((prev) => ({ ...prev, [jobNumber]: [...(prev[jobNumber] ?? []), note.trim()] }));
@@ -108,11 +112,13 @@ const DMJobTracker = () => {
   };
 
   const handleResolve = (jobNumber: string) => {
+    if (!canEdit) return;
     setResolved((prev) => prev.includes(jobNumber) ? prev : [...prev, jobNumber]);
     toast.success(`${jobNumber} marked resolved`);
   };
 
   const handleFlag = (jobNumber: string, team: string) => {
+    if (!canEdit) return;
     const reason = window.prompt(`Reason to flag ${jobNumber} (${team}):`);
     if (!reason?.trim()) return;
     setFlagged((prev) => ({ ...prev, [jobNumber]: reason.trim() }));
@@ -124,6 +130,18 @@ const DMJobTracker = () => {
   };
 
   const handleViewSignOff = (row: TrackerRow) => {
+    if (!canEdit) {
+      setSignOffJob({
+        jobNumber: row.jobNumber,
+        team: row.team,
+        duration: "—",
+        signOffTime: row.completionDate ? row.completionDate.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "—",
+        photosOK: true,
+        descriptionOK: true,
+        signed: true,
+      });
+      return;
+    }
     setSignOffs((prev) => prev.includes(row.jobNumber) ? prev : [...prev, row.jobNumber]);
     setSignOffJob({
       jobNumber: row.jobNumber,
@@ -137,6 +155,7 @@ const DMJobTracker = () => {
   };
 
   const handleSchedulePreVisit = (jobNumber: string) => {
+    if (!canEdit) return;
     const when = window.prompt(`Schedule pre-visit for ${jobNumber} (e.g. Tomorrow 09:00):`);
     if (!when?.trim()) return;
     setSchedules((prev) => ({ ...prev, [jobNumber]: when.trim() }));
@@ -144,6 +163,7 @@ const DMJobTracker = () => {
   };
 
   const handleAssignTrades = (jobNumber: string) => {
+    if (!canEdit) return;
     const trades = window.prompt(`Assign trades for ${jobNumber} (comma separated):`);
     if (!trades?.trim()) return;
     setAssignments((prev) => ({ ...prev, [jobNumber]: trades.trim() }));
@@ -151,6 +171,7 @@ const DMJobTracker = () => {
   };
 
   const handleConfirmMaterials = (jobNumber: string) => {
+    if (!canEdit) return;
     const stamp = new Date().toLocaleString("en-GB");
     setMaterials((prev) => ({ ...prev, [jobNumber]: stamp }));
     toast.success(`Materials confirmed for ${jobNumber}`);
@@ -279,8 +300,12 @@ const DMJobTracker = () => {
                     <td className="px-5 py-3">
                       <div className="flex justify-end gap-1.5">
                         <Button size="sm" variant="outline" onClick={() => handleDetails(j)}><Eye className="h-3.5 w-3.5 mr-1" />Details</Button>
-                        <Button size="sm" variant="outline" onClick={() => handleAddNote(j.jobNumber)}><StickyNote className="h-3.5 w-3.5 mr-1" />Note</Button>
-                        <Button size="sm" variant="outline" onClick={() => handleFlag(j.jobNumber, j.team)}><Flag className="h-3.5 w-3.5 mr-1" />Flag</Button>
+                        {canEdit && (
+                          <>
+                            <Button size="sm" variant="outline" onClick={() => handleAddNote(j.jobNumber)}><StickyNote className="h-3.5 w-3.5 mr-1" />Note</Button>
+                            <Button size="sm" variant="outline" onClick={() => handleFlag(j.jobNumber, j.team)}><Flag className="h-3.5 w-3.5 mr-1" />Flag</Button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -308,8 +333,12 @@ const DMJobTracker = () => {
                 </div>
                 <div className="flex gap-1.5">
                   <Button size="sm" variant="outline" className="flex-1" onClick={() => handleDetails(j)}><Eye className="h-3.5 w-3.5 mr-1" />Details</Button>
-                  <Button size="sm" variant="outline" className="flex-1" onClick={() => handleAddNote(j.jobNumber)}><StickyNote className="h-3.5 w-3.5 mr-1" />Note</Button>
-                  <Button size="sm" variant="outline" className="flex-1" onClick={() => handleFlag(j.jobNumber, j.team)}><Flag className="h-3.5 w-3.5 mr-1" />Flag</Button>
+                  {canEdit && (
+                    <>
+                      <Button size="sm" variant="outline" className="flex-1" onClick={() => handleAddNote(j.jobNumber)}><StickyNote className="h-3.5 w-3.5 mr-1" />Note</Button>
+                      <Button size="sm" variant="outline" className="flex-1" onClick={() => handleFlag(j.jobNumber, j.team)}><Flag className="h-3.5 w-3.5 mr-1" />Flag</Button>
+                    </>
+                  )}
                 </div>
               </li>
             ))}
@@ -395,10 +424,14 @@ const DMJobTracker = () => {
           </Link>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => fire("Filter")}><Filter className="h-4 w-4 mr-1.5" />Filter</Button>
-            <Button variant="outline" size="sm" onClick={() => fire("Export")}><Download className="h-4 w-4 mr-1.5" />Export</Button>
-            <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={() => fire("Add Job")}>
-              <Plus className="h-4 w-4 mr-1.5" />Add Job
-            </Button>
+            {canEdit && (
+              <>
+                <Button variant="outline" size="sm" onClick={() => fire("Export")}><Download className="h-4 w-4 mr-1.5" />Export</Button>
+                <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={() => fire("Add Job")}>
+                  <Plus className="h-4 w-4 mr-1.5" />Add Job
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </div>

@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 
 import { cn } from "@/lib/utils";
 import type { ScheduleRow } from "@/hooks/useCommandMetrics";
+import { useAdminAuth } from "@/hooks/useAdminAuth";
 
 type Silo = "all" | "dm" | "aa";
 type Status = ScheduleRow["status"];
@@ -60,6 +61,7 @@ interface Props {
 }
 
 export function TodaysScheduleBoard({ schedule, onView, onFlag, onCall }: Props) {
+  const { canEdit } = useAdminAuth();
   const [silo, setSilo] = useState<Silo>("all");
   const dateKey = format(new Date(), "yyyy-MM-dd");
   const [orderMap, setOrderMap] = useState<OrderMap>(() => loadOrder(dateKey));
@@ -168,7 +170,7 @@ export function TodaysScheduleBoard({ schedule, onView, onFlag, onCall }: Props)
           ))}
         </div>
         <p className="text-[11px] text-muted-foreground hidden sm:block">
-          Drag a job onto a slot to reorder. Slots show running order (1st, 2nd, 3rd…).
+          {canEdit ? "Drag a job onto a slot to reorder. Slots show running order (1st, 2nd, 3rd…)." : "Read-only preview. Slots show running order (1st, 2nd, 3rd…)."}
         </p>
       </div>
 
@@ -201,15 +203,17 @@ export function TodaysScheduleBoard({ schedule, onView, onFlag, onCall }: Props)
                       return (
                         <div
                           key={j.id}
-                          draggable
+                          draggable={canEdit}
                           onDragStart={(e) => {
+                            if (!canEdit) return;
                             setDraggingId(j.id);
                             e.dataTransfer.effectAllowed = "move";
                             e.dataTransfer.setData("text/plain", j.id);
                           }}
                           onDragEnd={() => setDraggingId(null)}
-                          onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }}
+                          onDragOver={(e) => { if (!canEdit) return; e.preventDefault(); e.dataTransfer.dropEffect = "move"; }}
                           onDrop={(e) => {
+                            if (!canEdit) return;
                             e.preventDefault();
                             const id = e.dataTransfer.getData("text/plain") || draggingId;
                             if (id && id !== j.id) moveJob(id, g.team, idx);
@@ -217,7 +221,7 @@ export function TodaysScheduleBoard({ schedule, onView, onFlag, onCall }: Props)
                           }}
                           className={cn(
                             "shrink-0 w-[260px] sm:w-[280px] rounded-xl border bg-card p-3 transition-all",
-                            "hover:shadow-md hover:-translate-y-0.5 cursor-grab active:cursor-grabbing",
+                            canEdit ? "hover:shadow-md hover:-translate-y-0.5 cursor-grab active:cursor-grabbing" : "cursor-default",
                             isDragging && "opacity-40 ring-2 ring-primary"
                           )}
                         >
@@ -245,33 +249,39 @@ export function TodaysScheduleBoard({ schedule, onView, onFlag, onCall }: Props)
                             <Button size="sm" variant="outline" className="h-7 px-2 flex-1" onClick={() => onView(j)}>
                               <Eye className="h-3 w-3 mr-1" />View
                             </Button>
-                            <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => onFlag(j)}>
-                              <Flag className="h-3 w-3" />
-                            </Button>
-                            <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => onCall(j)}>
-                              <PhoneCall className="h-3 w-3" />
-                            </Button>
+                            {canEdit && (
+                              <>
+                                <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => onFlag(j)}>
+                                  <Flag className="h-3 w-3" />
+                                </Button>
+                                <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => onCall(j)}>
+                                  <PhoneCall className="h-3 w-3" />
+                                </Button>
+                              </>
+                            )}
                           </div>
                         </div>
                       );
                     })}
 
                     {/* Trailing drop zone — append to end of this team */}
-                    <div
-                      onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        const id = e.dataTransfer.getData("text/plain") || draggingId;
-                        if (id) moveJob(id, g.team, g.jobs.length);
-                        setDraggingId(null);
-                      }}
-                      className={cn(
-                        "shrink-0 w-[140px] rounded-xl border-2 border-dashed flex items-center justify-center text-[11px] text-muted-foreground",
-                        draggingId ? "border-primary/60 bg-primary/5" : "border-muted"
-                      )}
-                    >
-                      Drop here
-                    </div>
+                    {canEdit && (
+                      <div
+                        onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          const id = e.dataTransfer.getData("text/plain") || draggingId;
+                          if (id) moveJob(id, g.team, g.jobs.length);
+                          setDraggingId(null);
+                        }}
+                        className={cn(
+                          "shrink-0 w-[140px] rounded-xl border-2 border-dashed flex items-center justify-center text-[11px] text-muted-foreground",
+                          draggingId ? "border-primary/60 bg-primary/5" : "border-muted"
+                        )}
+                      >
+                        Drop here
+                      </div>
+                    )}
                   </div>
                 </div>
               </li>
