@@ -19,6 +19,7 @@ export const useAdminAuth = () => {
     session: null,
     isAdmin: false,
     isViewer: false,
+    isTester: false,
     isLoading: true,
     isCheckingRoles: false,
     error: null,
