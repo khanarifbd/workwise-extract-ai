@@ -159,12 +159,16 @@ const App = () => (
               <Route path="/admin" element={<AdminAuth />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/" element={
-                <AdminRoute>
+                <AdminRoute section="genie">
                   <PageErrorBoundary><Suspense fallback={<PageLoader />}><Index /></Suspense></PageErrorBoundary>
                 </AdminRoute>
               } />
               <Route path="/team" element={<TeamPortal />} />
-              <Route path="/archive" element={<TeamArchive />} />
+              <Route path="/archive" element={
+                <AdminRoute section="archive">
+                  <PageErrorBoundary><Suspense fallback={<PageLoader />}><TeamArchive /></Suspense></PageErrorBoundary>
+                </AdminRoute>
+              } />
               <Route path="/progressor-login" element={<Navigate to="/progressor" replace />} />
               <Route path="/progressor" element={
                 <AdminRoute>
@@ -174,47 +178,47 @@ const App = () => (
               <Route path="/progressor-panel" element={<Navigate to="/progressor" replace />} />
               <Route path="/team-progressor" element={<Navigate to="/progressor" replace />} />
               <Route path="/auto-assign" element={
-                <AdminRoute>
+                <AdminRoute section="auto-assign">
                   <PageErrorBoundary><Suspense fallback={<PageLoader />}><AutoAssignPanel /></Suspense></PageErrorBoundary>
                 </AdminRoute>
               } />
               <Route path="/command" element={
-                <AdminRoute>
+                <AdminRoute section="command">
                   <PageErrorBoundary><Suspense fallback={<PageLoader />}><NavCommandCenter /></Suspense></PageErrorBoundary>
                 </AdminRoute>
               } />
               <Route path="/command/dm" element={
-                <AdminRoute>
+                <AdminRoute section="command-dm">
                   <PageErrorBoundary><Suspense fallback={<PageLoader />}><DMJobTracker /></Suspense></PageErrorBoundary>
                 </AdminRoute>
               } />
               <Route path="/command/aa" element={
-                <AdminRoute>
+                <AdminRoute section="command-aa">
                   <PageErrorBoundary><Suspense fallback={<PageLoader />}><AAJobTracker /></Suspense></PageErrorBoundary>
                 </AdminRoute>
               } />
               <Route path="/command/log" element={
-                <AdminRoute>
+                <AdminRoute section="command-log">
                   <PageErrorBoundary><Suspense fallback={<PageLoader />}><LiveMonitoringLog /></Suspense></PageErrorBoundary>
                 </AdminRoute>
               } />
               <Route path="/command/reports" element={
-                <AdminRoute>
+                <AdminRoute section="command-reports">
                   <PageErrorBoundary><Suspense fallback={<PageLoader />}><ReportsAnalytics /></Suspense></PageErrorBoundary>
                 </AdminRoute>
               } />
               <Route path="/command/owners" element={
-                <AdminRoute>
+                <AdminRoute section="command-owners">
                   <PageErrorBoundary><Suspense fallback={<PageLoader />}><OwnersDashboard /></Suspense></PageErrorBoundary>
                 </AdminRoute>
               } />
               <Route path="/roadmaps" element={
-                <AdminRoute>
+                <AdminRoute section="roadmaps">
                   <PageErrorBoundary><Suspense fallback={<PageLoader />}><Roadmaps /></Suspense></PageErrorBoundary>
                 </AdminRoute>
               } />
               <Route path="/roadmaps/:id" element={
-                <AdminRoute>
+                <AdminRoute section="roadmaps">
                   <PageErrorBoundary><Suspense fallback={<PageLoader />}><RoadmapEditor /></Suspense></PageErrorBoundary>
                 </AdminRoute>
               } />

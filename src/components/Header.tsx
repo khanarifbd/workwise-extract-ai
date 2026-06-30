@@ -1,4 +1,4 @@
-import { FileDown, Moon, Sun, Settings, History, KeyRound, Users, LogOut, ChevronDown, CalendarDays, CheckCircle2, Briefcase, AlertTriangle, Mic, MessageSquare, StickyNote, MoreHorizontal, Package, Workflow, Sparkles, HardHat, Scan, Command as CommandIcon, ExternalLink } from 'lucide-react';
+import { FileDown, Moon, Sun, Settings, History, KeyRound, Users, LogOut, ChevronDown, CalendarDays, CheckCircle2, Briefcase, AlertTriangle, Mic, MessageSquare, StickyNote, MoreHorizontal, Package, Workflow, Sparkles, HardHat, Scan, Command as CommandIcon, ExternalLink, ShieldCheck } from 'lucide-react';
 import { backfillTradeScans } from '@/lib/backfillTradeScans';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,7 @@ import { AdminTeamJobsModal } from './AdminTeamJobsModal';
 import { SendTeamMessageModal } from './SendTeamMessageModal';
 import { OpsNotesModal } from './OpsNotesModal';
 import { MaterialsReportModal } from './MaterialsReportModal';
+import { TesterAccessModal } from './TesterAccessModal';
 import { ADMIN_USERS } from './AdminNotesOrganiser';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -55,7 +56,8 @@ export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount
   const [showSendMessage, setShowSendMessage] = useState(false);
   const [opsNotesCount, setOpsNotesCount] = useState(0);
   const [showSubcontractors, setShowSubcontractors] = useState(false);
-  const { signOut, user } = useAdminAuth();
+  const [showTesterAccess, setShowTesterAccess] = useState(false);
+  const { signOut, user, isAdmin } = useAdminAuth();
   const { toast } = useToast();
   const [isBackfilling, setIsBackfilling] = useState(false);
 
@@ -293,6 +295,12 @@ export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount
                   {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
                   {isDark ? 'Light Mode' : 'Dark Mode'}
                 </DropdownMenuItem>
+                {isAdmin && (
+                  <DropdownMenuItem onClick={() => setShowTesterAccess(true)} className="flex items-center gap-2 cursor-pointer">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                    Tester Access
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-2 cursor-pointer text-destructive">
                   <LogOut className="w-4 h-4" />
@@ -315,6 +323,7 @@ export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount
       <OpsNotesModal isOpen={showOpsNotes} onClose={() => setShowOpsNotes(false)} onJobClick={onJobClick} />
       <MaterialsReportModal open={showMaterialsReport} onOpenChange={setShowMaterialsReport} />
       <SendTeamMessageModal isOpen={showSendMessage} onClose={() => setShowSendMessage(false)} />
+      <TesterAccessModal open={showTesterAccess} onOpenChange={setShowTesterAccess} />
     </header>
   );
 };
