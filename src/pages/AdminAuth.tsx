@@ -86,17 +86,28 @@ export default function AdminAuth() {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateForm(false)) return;
-
+    const latestEmail = (document.getElementById('signin-email') as HTMLInputElement | null)?.value ?? email;
     const latestPassword = passwordInputRef.current?.value ?? password;
 
+    setEmail(latestEmail);
+    setPassword(latestPassword);
+
+    const emailToUse = latestEmail.trim();
+    const passwordToUse = latestPassword.replace(/^\s+|\s+$/g, '');
+
+    if (!emailToUse || !passwordToUse) {
+      setValidationError('Enter your email and password to sign in.');
+      return;
+    }
+
+    if (!validateForm(false)) return;
+
     setIsSubmitting(true);
-    const { error } = await signIn(email, latestPassword);
+    const { error } = await signIn(emailToUse, passwordToUse);
     setIsSubmitting(false);
 
     if (error) {
       setFailedSignInCount((count) => count + 1);
-      setPassword('');
       requestAnimationFrame(() => passwordInputRef.current?.focus());
     } else {
       setFailedSignInCount(0);
@@ -290,11 +301,6 @@ export default function AdminAuth() {
                       <AlertCircle className="h-4 w-4" />
                       <AlertDescription>
                         {validationError || error}
-                        {error && failedSignInCount > 0 && !validationError && (
-                          <span className="mt-2 block text-sm">
-                            I have cleared the password box. Type the password manually again so the browser cannot reuse a saved value.
-                          </span>
-                        )}
                       </AlertDescription>
                     </Alert>
                   )}
