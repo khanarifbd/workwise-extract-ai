@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -14,6 +14,7 @@ interface AdminAuthState {
 }
 
 export const useAdminAuth = () => {
+  const authCheckRunRef = useRef(0);
   const [state, setState] = useState<AdminAuthState>({
     user: null,
     session: null,
@@ -60,66 +61,11 @@ export const useAdminAuth = () => {
 
   useEffect(() => {
     let isMounted = true;
+    let subscription: { unsubscribe: () => void } | null = null;
 
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        // CRITICAL: Skip disruptive state resets on token refresh events.
-        // TOKEN_REFRESHED fires periodically and should NOT cause the UI to
-        // unmount/remount (which loses all page state and redirects the user).
-        if (event === 'TOKEN_REFRESHED') {
-          // Silently update session/user refs without touching role flags
-          if (!isMounted) return;
+    const applySession = async (session: Session | null) => {
+      const runId = ++authCheckRunRef.current;
 
-          setState(prev => ({
-            ...prev,
-            session,
-            user: session?.user ?? null,
-          }));
-          return;
-        }
-
-        // For SIGNED_IN, SIGNED_OUT, USER_UPDATED etc. do the full flow
-        if (!isMounted) return;
-
-        setState(prev => ({
-          ...prev,
-          session,
-          user: session?.user ?? null,
-          isCheckingRoles: !!session?.user,
-        }));
-
-        // Defer role checks with setTimeout to prevent deadlock
-        if (session?.user) {
-          setTimeout(async () => {
-            const { isAdmin, isViewer, isTester } = await resolveRoles(session.user.id);
-
-            if (!isMounted) return;
-
-            setState(prev => ({
-              ...prev,
-              isAdmin,
-              isViewer,
-              isTester,
-              isLoading: false,
-              isCheckingRoles: false,
-            }));
-          }, 0);
-        } else {
-          setState(prev => ({
-            ...prev,
-            isAdmin: false,
-            isViewer: false,
-            isTester: false,
-            isLoading: false,
-            isCheckingRoles: false,
-          }));
-        }
-      }
-    );
-
-    // THEN check for existing session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!isMounted) return;
 
       setState(prev => ({
@@ -132,7 +78,7 @@ export const useAdminAuth = () => {
       if (session?.user) {
         const { isAdmin, isViewer, isTester } = await resolveRoles(session.user.id);
 
-        if (!isMounted) return;
+        if (!isMounted || runId !== authCheckRunRef.current) return;
 
         setState(prev => ({
           ...prev,
@@ -143,17 +89,60 @@ export const useAdminAuth = () => {
           isCheckingRoles: false,
         }));
       } else {
+        if (!isMounted || runId !== authCheckRunRef.current) return;
+
+        setState(prev => ({
+          ...prev,
+          isAdmin: false,
+          isViewer: false,
+          isTester: false,
+          isLoading: false,
+          isCheckingRoles: false,
+        }));
+      }
+    };
+
+    // Restore the stored auth session before subscribing, so role-gated queries
+    // do not run while auth.uid() is still temporarily unavailable.
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      await applySession(session);
+
+      if (!isMounted) return;
+
+      const { data } = supabase.auth.onAuthStateChange((event, session) => {
+        if (!isMounted) return;
+
+        if (event === 'TOKEN_REFRESHED') {
+          setState(prev => ({
+            ...prev,
+            session,
+            user: session?.user ?? null,
+          }));
+          return;
+        }
+
+        // Defer role checks outside the auth callback to avoid blocking auth.
+        setTimeout(() => {
+          void applySession(session);
+        }, 0);
+      });
+
+      subscription = data.subscription;
+    }).catch((err) => {
+      console.error('Failed to initialise admin auth:', err);
+      if (isMounted) {
         setState(prev => ({
           ...prev,
           isLoading: false,
           isCheckingRoles: false,
+          error: 'Sign-in could not start. Please refresh and try again.',
         }));
       }
     });
 
     return () => {
       isMounted = false;
-      subscription.unsubscribe();
+      subscription?.unsubscribe();
     };
   }, [resolveRoles]);
 
@@ -165,7 +154,7 @@ export const useAdminAuth = () => {
     // trailing space which GoTrue treats as a different password.
     const cleanPassword = password.replace(/^\s+|\s+$/g, '');
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email: cleanEmail,
       password: cleanPassword,
     });
@@ -184,6 +173,30 @@ export const useAdminAuth = () => {
         : error.message;
       setState(prev => ({ ...prev, error: message }));
       return { error };
+    }
+
+    if (data.session?.user) {
+      const runId = ++authCheckRunRef.current;
+      setState(prev => ({
+        ...prev,
+        session: data.session,
+        user: data.session.user,
+        error: null,
+        isLoading: false,
+        isCheckingRoles: true,
+      }));
+
+      const { isAdmin, isViewer, isTester } = await resolveRoles(data.session.user.id);
+
+      if (runId === authCheckRunRef.current) {
+        setState(prev => ({
+          ...prev,
+          isAdmin,
+          isViewer,
+          isTester,
+          isCheckingRoles: false,
+        }));
+      }
     }
 
     return { error: null };
