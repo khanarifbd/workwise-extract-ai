@@ -104,3 +104,7 @@ verify_jwt = true
 
 [functions.surveyor-qa-audit]
 verify_jwt = true
+
+[functions.tester-login]
+verify_jwt = false
+
