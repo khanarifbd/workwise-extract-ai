@@ -130,7 +130,7 @@ export const useAdminAuth = () => {
       }));
 
       if (session?.user) {
-        const { isAdmin, isViewer } = await resolveRoles(session.user.id);
+        const { isAdmin, isViewer, isTester } = await resolveRoles(session.user.id);
 
         if (!isMounted) return;
 
@@ -138,6 +138,7 @@ export const useAdminAuth = () => {
           ...prev,
           isAdmin,
           isViewer,
+          isTester,
           isLoading: false,
           isCheckingRoles: false,
         }));
