@@ -57,8 +57,9 @@ export function useTesterPermissions() {
     } else {
       setLoading(false);
     }
+    const channelId = `tester-perms-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const channel = supabase
-      .channel('tester-perms')
+      .channel(channelId)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tester_section_permissions' }, () => {
         fetchPerms();
       })
