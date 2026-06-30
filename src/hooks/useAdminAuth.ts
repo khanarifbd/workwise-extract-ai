@@ -7,6 +7,7 @@ interface AdminAuthState {
   session: Session | null;
   isAdmin: boolean;
   isViewer: boolean;
+  isTester: boolean;
   isLoading: boolean;
   isCheckingRoles: boolean;
   error: string | null;
