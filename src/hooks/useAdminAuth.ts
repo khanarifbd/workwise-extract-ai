@@ -25,36 +25,37 @@ export const useAdminAuth = () => {
     error: null,
   });
 
-  const resolveRoles = useCallback(async (userId: string): Promise<{ isAdmin: boolean; isViewer: boolean }> => {
+  const resolveRoles = useCallback(async (userId: string): Promise<{ isAdmin: boolean; isViewer: boolean; isTester: boolean }> => {
     const maxAttempts = 5;
 
-    // Retry with backoff to handle brief token/session propagation delays
     for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
       try {
-        const [{ data: isAdmin, error: adminError }, { data: isViewer, error: viewerError }] = await Promise.all([
+        const [{ data: isAdmin, error: adminError }, { data: isViewer, error: viewerError }, { data: isTester, error: testerError }] = await Promise.all([
           supabase.rpc('is_admin', { _user_id: userId }),
           supabase.rpc('is_viewer', { _user_id: userId }),
+          supabase.rpc('is_tester', { _user_id: userId }),
         ]);
 
-        if (adminError || viewerError) {
-          throw adminError ?? viewerError;
+        if (adminError || viewerError || testerError) {
+          throw adminError ?? viewerError ?? testerError;
         }
 
         return {
           isAdmin: Boolean(isAdmin),
           isViewer: Boolean(isViewer),
+          isTester: Boolean(isTester),
         };
       } catch (err) {
         if (attempt === maxAttempts - 1) {
           console.error('Failed to resolve admin roles:', err);
-          return { isAdmin: false, isViewer: false };
+          return { isAdmin: false, isViewer: false, isTester: false };
         }
 
         await new Promise((resolve) => setTimeout(resolve, 200 * (attempt + 1)));
       }
     }
 
-    return { isAdmin: false, isViewer: false };
+    return { isAdmin: false, isViewer: false, isTester: false };
   }, []);
 
   useEffect(() => {
