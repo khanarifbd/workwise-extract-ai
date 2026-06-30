@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Phone, History, Plus, Check, User, MapPin, Calendar, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useAdminAuth } from "@/hooks/useAdminAuth";
 
 export type TeamCallOutcome =
   | "ringing"
@@ -60,6 +61,7 @@ interface Props {
 export function TeamCallLogDialog({
   open, onOpenChange, team, phone, jobNumber, address, bookedDate, description,
 }: Props) {
+  const { canEdit } = useAdminAuth();
   const [all, setAll] = useState<TeamCallEntry[]>([]);
   const [outcome, setOutcome] = useState<TeamCallOutcome | null>(null);
   const [notes, setNotes] = useState("");
@@ -84,6 +86,7 @@ export function TeamCallLogDialog({
     : null;
 
   const save = () => {
+    if (!canEdit) return;
     if (!outcome) {
       toast.error("Select a call outcome first");
       return;
@@ -168,6 +171,7 @@ export function TeamCallLogDialog({
         </div>
 
         {/* Outcome selector */}
+        {canEdit ? (
         <div>
           <p className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground mb-2">
             Call outcome
@@ -195,9 +199,12 @@ export function TeamCallLogDialog({
             })}
           </div>
         </div>
+        ) : (
+          <Badge variant="outline" className="w-fit">Read-only preview — call logging is disabled for testers</Badge>
+        )}
 
         {/* Notes */}
-        <div>
+        {canEdit && <div>
           <p className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground mb-2">
             Notes (optional)
           </p>
@@ -207,13 +214,15 @@ export function TeamCallLogDialog({
             placeholder="e.g. Confirmed arrival at 10:30, materials onsite, will update after AM job"
             rows={3}
           />
-        </div>
+        </div>}
 
         <div className="flex items-center justify-end gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
-          <Button onClick={save}>
-            <Plus className="h-4 w-4 mr-1.5" /> Save log entry
-          </Button>
+          {canEdit && (
+            <Button onClick={save}>
+              <Plus className="h-4 w-4 mr-1.5" /> Save log entry
+            </Button>
+          )}
         </div>
 
         {/* History */}

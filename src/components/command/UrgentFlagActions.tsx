@@ -3,6 +3,7 @@ import { PhoneCall, StickyNote, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TeamCallLogDialog } from "./TeamCallLogDialog";
 import type { TrackerRow } from "@/hooks/useTrackerJobs";
+import { useAdminAuth } from "@/hooks/useAdminAuth";
 
 /**
  * Actions row for an Urgent Flag tied to a JOB.
@@ -17,6 +18,7 @@ interface Props {
 }
 
 export function UrgentFlagActions({ row, onAddNote, onResolve }: Props) {
+  const { canEdit } = useAdminAuth();
   const [callOpen, setCallOpen] = useState(false);
 
   const tenant = useMemo(() => {
@@ -30,15 +32,19 @@ export function UrgentFlagActions({ row, onAddNote, onResolve }: Props) {
 
   return (
     <div className="flex flex-wrap gap-1.5">
-      <Button size="sm" variant="outline" onClick={() => setCallOpen(true)}>
-        <PhoneCall className="h-3.5 w-3.5 mr-1" />Call Tenant
-      </Button>
-      <Button size="sm" variant="outline" onClick={() => onAddNote(row.jobNumber)}>
-        <StickyNote className="h-3.5 w-3.5 mr-1" />Add Note
-      </Button>
-      <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => onResolve(row.jobNumber)}>
-        <CheckCircle2 className="h-3.5 w-3.5 mr-1" />Resolve
-      </Button>
+      {canEdit && (
+        <>
+          <Button size="sm" variant="outline" onClick={() => setCallOpen(true)}>
+            <PhoneCall className="h-3.5 w-3.5 mr-1" />Call Tenant
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => onAddNote(row.jobNumber)}>
+            <StickyNote className="h-3.5 w-3.5 mr-1" />Add Note
+          </Button>
+          <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => onResolve(row.jobNumber)}>
+            <CheckCircle2 className="h-3.5 w-3.5 mr-1" />Resolve
+          </Button>
+        </>
+      )}
 
       <TeamCallLogDialog
         open={callOpen}

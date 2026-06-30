@@ -8,6 +8,7 @@ import { Flag, AlertTriangle, StickyNote, Info, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useCommandEvents } from "@/hooks/useCommandEvents";
+import { useAdminAuth } from "@/hooks/useAdminAuth";
 
 /**
  * Persists into the backend `command_events` table so flags are shared
@@ -38,6 +39,7 @@ interface Props {
 }
 
 export function FlagJobDialog({ open, onOpenChange, team, jobNumber }: Props) {
+  const { canEdit } = useAdminAuth();
   const [severity, setSeverity] = useState<Severity>("Warning");
   const [category, setCategory] = useState<string>("Quality");
   const [job, setJob] = useState(jobNumber || "");
@@ -54,6 +56,7 @@ export function FlagJobDialog({ open, onOpenChange, team, jobNumber }: Props) {
   }, [open, jobNumber]);
 
   const save = async () => {
+    if (!canEdit) return;
     if (!description.trim()) {
       toast.error("Add a short description of the issue");
       return;
@@ -104,6 +107,10 @@ export function FlagJobDialog({ open, onOpenChange, team, jobNumber }: Props) {
           </div>
         </div>
 
+        {!canEdit && (
+          <Badge variant="outline" className="w-fit">Read-only preview — raising flags is disabled for testers</Badge>
+        )}
+
         {/* Severity */}
         <div>
           <p className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground mb-2">
@@ -116,7 +123,8 @@ export function FlagJobDialog({ open, onOpenChange, team, jobNumber }: Props) {
               return (
                 <button
                   key={s.value}
-                  onClick={() => setSeverity(s.value)}
+                  onClick={() => canEdit && setSeverity(s.value)}
+                  disabled={!canEdit}
                   className={cn(
                     "flex items-center justify-center gap-1.5 rounded-lg border-2 px-3 py-2 text-sm font-medium transition",
                     active ? s.cls : "bg-card hover:border-foreground/30"
@@ -141,7 +149,8 @@ export function FlagJobDialog({ open, onOpenChange, team, jobNumber }: Props) {
               return (
                 <button
                   key={c}
-                  onClick={() => setCategory(c)}
+                  onClick={() => canEdit && setCategory(c)}
+                  disabled={!canEdit}
                   className={cn(
                     "px-2.5 py-1 rounded-md border text-xs font-medium transition",
                     active
@@ -164,6 +173,7 @@ export function FlagJobDialog({ open, onOpenChange, team, jobNumber }: Props) {
           <Input
             value={job}
             onChange={(e) => setJob(e.target.value)}
+            disabled={!canEdit}
             placeholder="e.g. N2640199"
             className="h-9"
           />
@@ -178,6 +188,7 @@ export function FlagJobDialog({ open, onOpenChange, team, jobNumber }: Props) {
             rows={3}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
+            disabled={!canEdit}
             placeholder="e.g. Tenant unreachable, materials short, overrun 2h+"
           />
         </div>
@@ -188,9 +199,11 @@ export function FlagJobDialog({ open, onOpenChange, team, jobNumber }: Props) {
           </Badge>
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button onClick={save}>
-              <Flag className="h-4 w-4 mr-1.5" /> Raise flag
-            </Button>
+            {canEdit && (
+              <Button onClick={save}>
+                <Flag className="h-4 w-4 mr-1.5" /> Raise flag
+              </Button>
+            )}
           </div>
         </div>
       </DialogContent>

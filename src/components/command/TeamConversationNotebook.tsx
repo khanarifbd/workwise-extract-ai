@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { NotebookPen, Plus, Send, Trash2, User2, Phone } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useAdminAuth } from "@/hooks/useAdminAuth";
 
 /**
  * TeamConversationNotebook
@@ -53,6 +54,7 @@ interface Props {
 }
 
 export function TeamConversationNotebook({ open, onOpenChange, team, context }: Props) {
+  const { canEdit } = useAdminAuth();
   const [all, setAll] = useState<NotebookEntry[]>([]);
   const [sender, setSender] = useState<NotebookSender>("nav");
   const [channel, setChannel] = useState<NonNullable<NotebookEntry["channel"]>>("call");
@@ -68,6 +70,7 @@ export function TeamConversationNotebook({ open, onOpenChange, team, context }: 
   );
 
   const post = () => {
+    if (!canEdit) return;
     if (!body.trim()) { toast.error("Type something first"); return; }
     const entry: NotebookEntry = {
       id: crypto.randomUUID(),
@@ -83,6 +86,7 @@ export function TeamConversationNotebook({ open, onOpenChange, team, context }: 
   };
 
   const remove = (id: string) => {
+    if (!canEdit) return;
     const next = all.filter(e => e.id !== id);
     writeAll(next); setAll(next);
   };
@@ -137,13 +141,15 @@ export function TeamConversationNotebook({ open, onOpenChange, team, context }: 
                     </span>
                   </div>
                   <p className="whitespace-pre-wrap">{e.body}</p>
-                  <button
-                    onClick={() => remove(e.id)}
-                    className="absolute -top-2 -right-2 p-1 rounded-full bg-background border opacity-0 group-hover:opacity-100 transition"
-                    aria-label="Delete"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </button>
+                  {canEdit && (
+                    <button
+                      onClick={() => remove(e.id)}
+                      className="absolute -top-2 -right-2 p-1 rounded-full bg-background border opacity-0 group-hover:opacity-100 transition"
+                      aria-label="Delete"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  )}
                 </div>
               </div>
             );
@@ -151,6 +157,7 @@ export function TeamConversationNotebook({ open, onOpenChange, team, context }: 
         </div>
 
         {/* Composer */}
+        {canEdit ? (
         <div className="space-y-2">
           <div className="flex flex-wrap gap-1.5">
             <Button
@@ -197,6 +204,12 @@ export function TeamConversationNotebook({ open, onOpenChange, team, context }: 
             </Button>
           </div>
         </div>
+        ) : (
+          <div className="flex items-center justify-between rounded-lg border bg-muted/30 p-3">
+            <Badge variant="outline">Read-only preview</Badge>
+            <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
