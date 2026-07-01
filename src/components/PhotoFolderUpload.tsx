@@ -49,12 +49,27 @@ interface PhotoFolderUploadProps {
 // Default folder names
 const DEFAULT_FOLDERS = ['Before Works', 'After Works'];
 
-// Get public URL for an attachment
+// Extract storage path from a stored URL if a `path` field isn't available
+const extractPathFromUrl = (url: string): string | null => {
+  const m = url.match(/\/job-attachments\/(.+?)(\?|$)/);
+  return m ? m[1] : null;
+};
+
+// Get public URL for an attachment (legacy — bucket is now private)
 const getPublicUrl = (path: string): string => {
   const { data } = supabase.storage
     .from('job-attachments')
     .getPublicUrl(path);
   return data.publicUrl;
+};
+
+// Create a signed URL for a private-bucket path (valid 1 hour)
+const getSignedUrl = async (path: string): Promise<string | null> => {
+  const { data, error } = await supabase.storage
+    .from('job-attachments')
+    .createSignedUrl(path, 3600);
+  if (error || !data?.signedUrl) return null;
+  return data.signedUrl;
 };
 
 export const PhotoFolderUpload = ({ 
@@ -100,20 +115,29 @@ export const PhotoFolderUpload = ({
     fetchFolders();
   }, [jobId]);
 
-  // Generate display URLs for all image attachments
+  // Generate signed URLs for all image attachments (bucket is private)
   useEffect(() => {
+    let cancelled = false;
     const imageAttachments = attachments.filter(a => a.type === 'image');
-    const urlMap: Record<string, string> = {};
-    
-    imageAttachments.forEach((attachment) => {
-      if (attachment.path) {
-        urlMap[attachment.id] = getPublicUrl(attachment.path);
-      } else {
-        urlMap[attachment.id] = attachment.url;
-      }
-    });
-    
-    setDisplayUrls(urlMap);
+
+    (async () => {
+      const entries = await Promise.all(
+        imageAttachments.map(async (attachment) => {
+          const path = attachment.path || extractPathFromUrl(attachment.url);
+          if (path) {
+            const signed = await getSignedUrl(path);
+            if (signed) return [attachment.id, signed] as const;
+          }
+          return [attachment.id, attachment.url] as const;
+        })
+      );
+      if (cancelled) return;
+      const urlMap: Record<string, string> = {};
+      for (const [id, url] of entries) urlMap[id] = url;
+      setDisplayUrls(urlMap);
+    })();
+
+    return () => { cancelled = true; };
   }, [attachments]);
 
   const fetchFolders = async () => {
