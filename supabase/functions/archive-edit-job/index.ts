@@ -31,6 +31,21 @@ interface Attachment {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+function extractJobAttachmentPath(url?: string | null): string | undefined {
+  if (!url) return undefined;
+  if (!url.startsWith('http') && !url.startsWith('data:') && !url.startsWith('blob:')) {
+    return url.replace(/^job-attachments\//, '');
+  }
+
+  const match = url.match(/\/job-attachments\/(.+?)(?:\?|$)/);
+  if (!match?.[1]) return undefined;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return match[1];
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") {
@@ -165,12 +180,14 @@ Deno.serve(async (req) => {
         }
       } else {
         // Already-hosted URL — record as-is
+        const path = extractJobAttachmentPath(item);
         uploadedUrls.push(item);
         newAttachments.push({
           id: `${Date.now()}-${i}`,
           name: `archive-${jobId}-${i}`,
           type: "image",
           url: item,
+          ...(path ? { path } : {}),
           uploadedAt: timestamp,
           uploadedBy: teamName,
           category: "archive-edit",
