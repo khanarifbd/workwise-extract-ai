@@ -49,12 +49,27 @@ interface PhotoFolderUploadProps {
 // Default folder names
 const DEFAULT_FOLDERS = ['Before Works', 'After Works'];
 
-// Get public URL for an attachment
+// Extract storage path from a stored URL if a `path` field isn't available
+const extractPathFromUrl = (url: string): string | null => {
+  const m = url.match(/\/job-attachments\/(.+?)(\?|$)/);
+  return m ? m[1] : null;
+};
+
+// Get public URL for an attachment (legacy — bucket is now private)
 const getPublicUrl = (path: string): string => {
   const { data } = supabase.storage
     .from('job-attachments')
     .getPublicUrl(path);
   return data.publicUrl;
+};
+
+// Create a signed URL for a private-bucket path (valid 1 hour)
+const getSignedUrl = async (path: string): Promise<string | null> => {
+  const { data, error } = await supabase.storage
+    .from('job-attachments')
+    .createSignedUrl(path, 3600);
+  if (error || !data?.signedUrl) return null;
+  return data.signedUrl;
 };
 
 export const PhotoFolderUpload = ({ 
