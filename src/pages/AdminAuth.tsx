@@ -115,7 +115,7 @@ export default function AdminAuth() {
 
     setIsPasswordSubmitting(true);
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(emailCheck.data, {
-      redirectTo: `${window.location.origin}/#/reset-password`,
+      redirectTo: `${window.location.origin}/reset-password`,
     });
     setIsPasswordSubmitting(false);
 

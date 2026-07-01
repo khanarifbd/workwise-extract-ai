@@ -18,6 +18,27 @@ const passwordSchema = z.string()
   .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
   .regex(/[0-9]/, 'Password must contain at least one number');
 
+const getRecoveryParams = () => {
+  const candidates = [window.location.search, window.location.hash];
+
+  for (const candidate of candidates) {
+    const segments = [
+      candidate.includes('#') ? candidate.slice(candidate.lastIndexOf('#') + 1) : '',
+      candidate.includes('?') ? candidate.slice(candidate.lastIndexOf('?') + 1) : '',
+      candidate.replace(/^[#?]/, ''),
+    ].filter(Boolean);
+
+    for (const segment of segments) {
+      const params = new URLSearchParams(segment);
+      if (params.get('access_token') || params.get('refresh_token') || params.get('code') || params.get('type') === 'recovery') {
+        return params;
+      }
+    }
+  }
+
+  return new URLSearchParams();
+};
+
 export default function ResetPassword() {
   const navigate = useNavigate();
   const { checkPassword, isChecking } = usePasswordBreachCheck();
@@ -35,16 +56,28 @@ export default function ResetPassword() {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       
-      // Check URL for recovery token
-      const hashParams = new URLSearchParams(window.location.hash.substring(1));
-      const accessToken = hashParams.get('access_token');
-      const type = hashParams.get('type');
+      // Recovery links can arrive as /reset-password#access_token=..., or after
+      // HashRouter normalization as /#/reset-password#access_token=... .
+      const recoveryParams = getRecoveryParams();
+      const accessToken = recoveryParams.get('access_token');
+      const refreshToken = recoveryParams.get('refresh_token');
+      const code = recoveryParams.get('code');
+      const type = recoveryParams.get('type');
       
-      if (type === 'recovery' && accessToken) {
-        // Set the session from the recovery token
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+
+        if (error) {
+          console.error('Error exchanging recovery code:', error);
+          setIsValidSession(false);
+        } else {
+          setIsValidSession(true);
+        }
+      } else if ((type === 'recovery' || accessToken) && accessToken && refreshToken) {
+        // Set the session from the recovery token.
         const { error } = await supabase.auth.setSession({
           access_token: accessToken,
-          refresh_token: hashParams.get('refresh_token') || '',
+          refresh_token: refreshToken,
         });
         
         if (error) {

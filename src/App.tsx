@@ -12,7 +12,7 @@ import { SectionThemePicker } from "./components/command/SectionThemePicker";
 const normalizeHashRoute = () => {
   if (typeof window === "undefined") return;
 
-  const { pathname, search, origin } = window.location;
+  const { pathname, search, hash, origin } = window.location;
   const appPathPrefixes = [
     "/command",
     "/admin",
@@ -30,7 +30,9 @@ const normalizeHashRoute = () => {
     return;
   }
 
-  window.history.replaceState(null, "", `${origin}/#${pathname}${search}`);
+  // Preserve auth recovery tokens that arrive in the URL fragment, otherwise
+  // password reset links are normalized into the app route with the token lost.
+  window.history.replaceState(null, "", `${origin}/#${pathname}${search}${hash}`);
 };
 
 normalizeHashRoute();
