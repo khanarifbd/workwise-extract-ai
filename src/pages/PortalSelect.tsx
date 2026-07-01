@@ -108,8 +108,7 @@ export default function PortalSelect() {
               <Eye className="h-4 w-4 text-emerald-300" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-white">Tester preview access</p>
-              <p className="text-xs text-white/50">Read-only walkthrough of Genie. No password needed — just your code.</p>
+              <p className="text-sm font-semibold text-white">Code Preview access</p>
             </div>
           </div>
           <form onSubmit={handleTesterLogin} className="flex flex-col sm:flex-row gap-2">
