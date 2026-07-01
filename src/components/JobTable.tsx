@@ -1222,19 +1222,31 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                               </div>
                             )}
                             {/* External sub-contractors */}
-                            {externals.map(ext => (
-                              <div key={ext.id} className="flex items-center gap-1">
-                                <Badge
-                                  variant="outline"
-                                  className="cursor-pointer text-xs border-slate-400/60 bg-slate-100 dark:bg-slate-800/60 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700"
-                                  onClick={() => setExternalPickerJobId(job.id)}
-                                  title={`External: ${ext.name}${ext.company ? ` · ${ext.company}` : ''}${ext.trade ? ` · ${ext.trade}` : ''}${ext.phone ? ` · ${ext.phone}` : ''}`}
-                                >
-                                  <Briefcase className="w-3 h-3 mr-1" />
-                                  <span className="truncate max-w-[110px]">{ext.name}</span>
-                                </Badge>
-                              </div>
-                            ))}
+                            {externals.map(ext => {
+                              const extSigned = signedExternalIds.has(ext.id);
+                              return (
+                                <div key={ext.id} className="flex items-center gap-1">
+                                  <Badge
+                                    variant="outline"
+                                    className={cn(
+                                      "cursor-pointer text-xs",
+                                      extSigned
+                                        ? "border-emerald-500 bg-emerald-500 text-white hover:bg-emerald-600 ring-2 ring-emerald-400 shadow-sm font-semibold"
+                                        : "border-slate-400/60 bg-slate-100 dark:bg-slate-800/60 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700"
+                                    )}
+                                    onClick={() => setExternalPickerJobId(job.id)}
+                                    title={`External: ${ext.name}${ext.company ? ` · ${ext.company}` : ''}${ext.trade ? ` · ${ext.trade}` : ''}${ext.phone ? ` · ${ext.phone}` : ''}${extSigned ? ' · Signed off ✓' : ''}`}
+                                  >
+                                    {extSigned ? (
+                                      <CheckCircle2 className="w-3 h-3 mr-1" />
+                                    ) : (
+                                      <Briefcase className="w-3 h-3 mr-1" />
+                                    )}
+                                    <span className="truncate max-w-[110px]">{ext.name}</span>
+                                  </Badge>
+                                </div>
+                              );
+                            })}
                             {/* Action buttons */}
                             <div className="flex items-center gap-1 flex-wrap">
                               {!hasAnyAssignment ? (
