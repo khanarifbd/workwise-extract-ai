@@ -43,6 +43,22 @@ const pathLooksScopedToJob = (path: string, jobId: string): boolean => {
   return parts.includes(jobId);
 };
 
+const storedAttachmentMatchesPath = (value: unknown, targetPath: string): boolean => {
+  const storedPath = normalisePath(value);
+  return storedPath === targetPath;
+};
+
+const attachmentListContainsPath = (attachments: unknown, targetPath: string): boolean => {
+  if (!Array.isArray(attachments)) return false;
+
+  return attachments.some((attachment) => {
+    if (!attachment || typeof attachment !== 'object') return false;
+    const record = attachment as { path?: unknown; url?: unknown };
+    return storedAttachmentMatchesPath(record.path, targetPath)
+      || storedAttachmentMatchesPath(record.url, targetPath);
+  });
+};
+
 const isAuthorizedAuthUser = async (
   supabase: ReturnType<typeof createClient>,
   req: Request,
@@ -76,7 +92,6 @@ const isAuthorizedTeam = async (
   jobId: string | null,
 ): Promise<boolean> => {
   if (!teamId || !jobId || !UUID_RE.test(jobId)) return false;
-  if (!pathLooksScopedToJob(path, jobId)) return false;
 
   const { data: teamRow, error: teamError } = await supabase
     .from('team_access_codes')
@@ -90,22 +105,40 @@ const isAuthorizedTeam = async (
 
   const { data: jobRow } = await supabase
     .from('jobs')
-    .select('id, team, team2')
+    .select('id, team, team2, attachments')
     .eq('id', jobId)
     .is('deleted_at', null)
     .maybeSingle();
 
-  if (jobRow && (jobRow.team === teamName || jobRow.team2 === teamName)) return true;
+  let teamCanOpenJob = !!jobRow && (jobRow.team === teamName || jobRow.team2 === teamName);
 
-  const { data: signOffRow } = await supabase
-    .from('team_sign_offs')
-    .select('id')
+  if (!teamCanOpenJob) {
+    const { data: signOffRow } = await supabase
+      .from('team_sign_offs')
+      .select('id')
+      .eq('job_id', jobId)
+      .eq('team_id', teamId)
+      .limit(1)
+      .maybeSingle();
+    teamCanOpenJob = !!signOffRow;
+  }
+
+  if (!teamCanOpenJob) return false;
+
+  if (pathLooksScopedToJob(path, jobId)) return true;
+  if (attachmentListContainsPath(jobRow?.attachments, path)) return true;
+
+  const { data: updateRows } = await supabase
+    .from('team_job_updates')
+    .select('photos')
     .eq('job_id', jobId)
     .eq('team_id', teamId)
-    .limit(1)
-    .maybeSingle();
+    .limit(200);
 
-  return !!signOffRow;
+  return (updateRows ?? []).some((row) => {
+    const photos = Array.isArray(row.photos) ? row.photos : [];
+    return photos.some((photo) => storedAttachmentMatchesPath(photo, path));
+  });
 };
 
 Deno.serve(async (req) => {
