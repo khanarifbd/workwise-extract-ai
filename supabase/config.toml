@@ -112,5 +112,5 @@ verify_jwt = false
 verify_jwt = false
 
 
-[functions._temp-reset-admin]
+[functions.temp-reset-admin]
 verify_jwt = false
