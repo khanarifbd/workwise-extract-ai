@@ -66,9 +66,28 @@ export const BulkMediaDownload = ({
     return new Blob([bytes], { type: mimeType });
   };
 
+  // Extract storage path from any job-attachments URL (public or signed)
+  const extractPath = (u: string): string | null => {
+    const m = u?.match(/\/job-attachments\/(.+?)(\?|$)/);
+    return m ? m[1] : null;
+  };
+
+  // Always mint a fresh signed URL right before download so links never expire mid-session
+  const resolveFreshUrl = async (photo: Attachment): Promise<string> => {
+    const anyPhoto = photo as Attachment & { path?: string };
+    const path = anyPhoto.path || extractPath(displayUrls[photo.id] || photo.url || '');
+    if (path) {
+      const { data } = await supabase.storage
+        .from('job-attachments')
+        .createSignedUrl(path, 3600);
+      if (data?.signedUrl) return data.signedUrl;
+    }
+    return displayUrls[photo.id] || photo.url;
+  };
+
   const downloadSingleFile = async (photo: Attachment): Promise<{ name: string; blob: Blob } | null> => {
     try {
-      const url = displayUrls[photo.id] || photo.url;
+      const url = await resolveFreshUrl(photo);
       
       let blob: Blob;
       let mimeType = 'image/jpeg';
