@@ -301,9 +301,10 @@ export const useAdminAuth = () => {
     signOut,
     clearError,
     isAuthenticated: !!state.session,
-    // Admin = full access; Viewer & Tester = read-only end-to-end access
+    // Admin = full access; Viewer = read-only; Tester = full feature access gated by section permissions
     hasAccess: state.isAdmin || state.isViewer || state.isTester,
-    // Only full admins can edit
-    canEdit: state.isAdmin,
+    // Admins and testers can edit (tester scope is limited via tester_section_permissions).
+    // Viewers remain strictly read-only.
+    canEdit: state.isAdmin || state.isTester,
   };
 };
