@@ -22,8 +22,9 @@ export const useCategories = () => {
         'dm-jobs': 0,
         'a--a': 1,
         'a-a': 1,
-        insulation: 2,
-        roofing: 3,
+        fans: 2,
+        insulation: 3,
+        roofing: 4,
       };
 
       setCategories((data || []).map(cat => ({

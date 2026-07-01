@@ -978,11 +978,33 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
               // Check if this is a trade-booked job (no own bookedDate, but has trade bookings)
               const isTradeBookedJob = !job.bookedDate && tradeBookings.has(job.id);
               const tradeInfo = tradeBookings.get(job.id);
+
+              // Traffic-light sign-off progress across teams AND external sub-contractors
+              const rowExternals = getExternalAssignees(job.id);
+              const rowSignOffRows = getSignOffRows(job.id);
+              const assignedTeams = [job.team, job.team2].filter(Boolean) as string[];
+              const teamSignedNames = new Set(
+                rowSignOffRows
+                  .filter(r => (r.on_behalf_of ?? 'team') === 'team' && r.team_name)
+                  .map(r => r.team_name as string)
+              );
+              const teamsSignedCount = assignedTeams.filter(t => teamSignedNames.has(t)).length;
+              const signedExternalIds = new Set(
+                rowSignOffRows
+                  .filter(r => r.on_behalf_of === 'external' && r.external_assignee_id)
+                  .map(r => r.external_assignee_id as string)
+              );
+              const externalsSignedCount = rowExternals.filter(e => signedExternalIds.has(e.id)).length;
+              const totalExpected = assignedTeams.length + rowExternals.length;
+              const totalSigned = teamsSignedCount + externalsSignedCount;
+              const allSignedTrafficLight = totalExpected > 0 && totalSigned === totalExpected;
+              const partialSigned = totalExpected > 0 && totalSigned > 0 && totalSigned < totalExpected;
               
               // Get row background class based on action urgency
               const getActionRowClass = (): string => {
                 if (isDuplicate) return "bg-red-500/30 dark:bg-red-900/50 border-l-8 border-l-red-600 hover:bg-red-500/40 dark:hover:bg-red-800/60 ring-2 ring-red-500 animate-pulse";
-                if (isCompleted) return "bg-emerald-200/80 dark:bg-emerald-800/60 border-l-4 border-l-emerald-500 hover:bg-emerald-300/80 dark:hover:bg-emerald-700/60 ring-1 ring-emerald-300 dark:ring-emerald-600";
+                if (isCompleted || allSignedTrafficLight) return "bg-emerald-200/80 dark:bg-emerald-800/60 border-l-4 border-l-emerald-500 hover:bg-emerald-300/80 dark:hover:bg-emerald-700/60 ring-1 ring-emerald-300 dark:ring-emerald-600";
+                if (partialSigned) return "bg-orange-200/80 dark:bg-orange-900/50 border-l-4 border-l-orange-500 hover:bg-orange-300/80 dark:hover:bg-orange-800/60 ring-1 ring-orange-300 dark:ring-orange-600";
                 
                 // Trade-booked jobs get a distinct violet/purple highlight
                 if (isTradeBookedJob) return "bg-violet-100/90 dark:bg-violet-900/40 border-l-4 border-l-violet-600 hover:bg-violet-200/90 dark:hover:bg-violet-900/50 ring-1 ring-violet-300 dark:ring-violet-700";
@@ -1200,19 +1222,31 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                               </div>
                             )}
                             {/* External sub-contractors */}
-                            {externals.map(ext => (
-                              <div key={ext.id} className="flex items-center gap-1">
-                                <Badge
-                                  variant="outline"
-                                  className="cursor-pointer text-xs border-slate-400/60 bg-slate-100 dark:bg-slate-800/60 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700"
-                                  onClick={() => setExternalPickerJobId(job.id)}
-                                  title={`External: ${ext.name}${ext.company ? ` · ${ext.company}` : ''}${ext.trade ? ` · ${ext.trade}` : ''}${ext.phone ? ` · ${ext.phone}` : ''}`}
-                                >
-                                  <Briefcase className="w-3 h-3 mr-1" />
-                                  <span className="truncate max-w-[110px]">{ext.name}</span>
-                                </Badge>
-                              </div>
-                            ))}
+                            {externals.map(ext => {
+                              const extSigned = signedExternalIds.has(ext.id);
+                              return (
+                                <div key={ext.id} className="flex items-center gap-1">
+                                  <Badge
+                                    variant="outline"
+                                    className={cn(
+                                      "cursor-pointer text-xs",
+                                      extSigned
+                                        ? "border-emerald-500 bg-emerald-500 text-white hover:bg-emerald-600 ring-2 ring-emerald-400 shadow-sm font-semibold"
+                                        : "border-slate-400/60 bg-slate-100 dark:bg-slate-800/60 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700"
+                                    )}
+                                    onClick={() => setExternalPickerJobId(job.id)}
+                                    title={`External: ${ext.name}${ext.company ? ` · ${ext.company}` : ''}${ext.trade ? ` · ${ext.trade}` : ''}${ext.phone ? ` · ${ext.phone}` : ''}${extSigned ? ' · Signed off ✓' : ''}`}
+                                  >
+                                    {extSigned ? (
+                                      <CheckCircle2 className="w-3 h-3 mr-1" />
+                                    ) : (
+                                      <Briefcase className="w-3 h-3 mr-1" />
+                                    )}
+                                    <span className="truncate max-w-[110px]">{ext.name}</span>
+                                  </Badge>
+                                </div>
+                              );
+                            })}
                             {/* Action buttons */}
                             <div className="flex items-center gap-1 flex-wrap">
                               {!hasAnyAssignment ? (

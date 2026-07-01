@@ -107,7 +107,10 @@ export const CategoryTabs = ({
           ) : (
             <button
               className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all whitespace-nowrap",
+                "flex items-center gap-2 rounded-lg font-medium transition-all whitespace-nowrap",
+                ['dm-jobs', 'a--a', 'a-a', 'fans'].includes(cat.slug)
+                  ? "px-5 py-2.5 text-base font-semibold"
+                  : "px-4 py-2 text-sm",
                 activeCategory === cat.id
                   ? "text-white shadow-md"
                   : "bg-muted/50 text-muted-foreground hover:bg-muted"
@@ -116,7 +119,10 @@ export const CategoryTabs = ({
               onClick={() => onCategoryChange(cat.id)}
             >
               <span
-                className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                className={cn(
+                  "rounded-full flex-shrink-0",
+                  ['dm-jobs', 'a--a', 'a-a', 'fans'].includes(cat.slug) ? "w-3 h-3" : "w-2.5 h-2.5"
+                )}
                 style={{ backgroundColor: cat.color }}
               />
               {cat.name}
