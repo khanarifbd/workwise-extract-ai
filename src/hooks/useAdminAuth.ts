@@ -146,106 +146,117 @@ export const useAdminAuth = () => {
     };
   }, [resolveRoles]);
 
+  const applyAuthenticatedSession = async (session: Session): Promise<void> => {
+    const runId = ++authCheckRunRef.current;
+    setState(prev => ({
+      ...prev,
+      session,
+      user: session.user,
+      error: null,
+      isLoading: false,
+      isCheckingRoles: true,
+    }));
+
+    const { isAdmin, isViewer, isTester } = await resolveRoles(session.user.id);
+
+    if (runId === authCheckRunRef.current) {
+      setState(prev => ({
+        ...prev,
+        isAdmin,
+        isViewer,
+        isTester,
+        isCheckingRoles: false,
+      }));
+    }
+  };
+
   const signIn = async (email: string, password: string): Promise<{ error: Error | null }> => {
     setState(prev => ({ ...prev, error: null }));
 
     const cleanEmail = email.trim().toLowerCase();
-    const rawPassword = password.normalize('NFC');
-    const zeroWidthCleaned = rawPassword.replace(/[\u200B-\u200D\uFEFF]/g, '');
-    const compatibilityNormalized = rawPassword.normalize('NFKC');
-    const passwordAttempts = Array.from(new Set([
-      rawPassword,
-      rawPassword.trim(),
-      zeroWidthCleaned,
-      zeroWidthCleaned.trim(),
-      compatibilityNormalized,
-      compatibilityNormalized.trim(),
-    ].filter(Boolean)));
+    const normalizedPassword = password.normalize('NFC');
 
-    let data: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>['data'] | null = null;
-    let error: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>['error'] | null = null;
+    let error: Error | null = null;
 
-    for (const attemptPassword of passwordAttempts) {
-      const result = await supabase.auth.signInWithPassword({
-        email: cleanEmail,
-        password: attemptPassword,
+    try {
+      const { data, error: functionError } = await supabase.functions.invoke('admin-password-login', {
+        body: { email: cleanEmail, password: normalizedPassword },
       });
 
-      data = result.data;
-      error = result.error;
-
-      if (!error) break;
-      if ((error as { code?: string }).code !== 'invalid_credentials') break;
-    }
-
-    if (error && (error as { code?: string }).code === 'invalid_credentials') {
-      try {
-        const fallback = await supabase.functions.invoke('admin-password-login', {
-          body: { email: cleanEmail, password },
+      if (functionError) {
+        error = new Error((data as { error?: string } | null)?.error || functionError.message);
+      } else if (!data?.session?.access_token || !data?.session?.refresh_token) {
+        error = new Error('Login service did not return a valid session. Please try again.');
+      } else {
+        const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token,
         });
 
-        if (!fallback.error && fallback.data?.session?.access_token && fallback.data?.session?.refresh_token) {
-          const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
-            access_token: fallback.data.session.access_token,
-            refresh_token: fallback.data.session.refresh_token,
-          });
-
-          if (!sessionError && sessionData.session) {
-            data = { user: sessionData.session.user, session: sessionData.session };
-            error = null;
-          } else if (sessionError) {
-            error = sessionError;
-          }
+        if (sessionError || !sessionData.session) {
+          error = sessionError ?? new Error('Could not start your Genie session. Please try again.');
+        } else {
+          await applyAuthenticatedSession(sessionData.session);
         }
-      } catch (fallbackErr) {
-        console.warn('[admin-auth] backend fallback unavailable', fallbackErr);
       }
+    } catch (err) {
+      error = err instanceof Error ? err : new Error('Login service could not be reached. Please try again.');
     }
 
     if (error) {
       console.warn('[admin-auth] sign-in failed', {
         emailLength: cleanEmail.length,
-        passwordLength: rawPassword.trim().length,
+        passwordLength: normalizedPassword.trim().length,
         rawPasswordLength: password.length,
-        passwordTrimmed: rawPassword.trim().length !== rawPassword.length,
-        attemptedPasswordVariants: passwordAttempts.length,
-        code: (error as { code?: string }).code ?? null,
+        passwordTrimmed: normalizedPassword.trim().length !== normalizedPassword.length,
         message: error.message,
       });
-      const message = (error as { code?: string }).code === 'invalid_credentials'
-        ? 'Login details were rejected by the authentication service. Please reselect the saved login or use Forgot password if it still fails.'
-        : error.message;
-      setState(prev => ({ ...prev, error: message }));
+      setState(prev => ({ ...prev, error: error.message }));
       return { error };
     }
 
-    const session = data?.session ?? null;
-
-    if (session?.user) {
-      const runId = ++authCheckRunRef.current;
-      setState(prev => ({
-        ...prev,
-        session,
-        user: session.user,
-        error: null,
-        isLoading: false,
-        isCheckingRoles: true,
-      }));
-
-      const { isAdmin, isViewer, isTester } = await resolveRoles(session.user.id);
-
-      if (runId === authCheckRunRef.current) {
-        setState(prev => ({
-          ...prev,
-          isAdmin,
-          isViewer,
-          isTester,
-          isCheckingRoles: false,
-        }));
-      }
-    }
-
     return { error: null };
+  };
+
+  const signInWithTesterCode = async (code: string): Promise<{ error: Error | null }> => {
+    setState(prev => ({ ...prev, error: null }));
+
+    try {
+      const { data, error: functionError } = await supabase.functions.invoke('tester-login', {
+        body: { code: code.trim() },
+      });
+
+      if (functionError) {
+        const message = (data as { error?: string } | null)?.error || functionError.message || 'Invalid access code.';
+        const error = new Error(message);
+        setState(prev => ({ ...prev, error: message }));
+        return { error };
+      }
+
+      if (!data?.session?.access_token || !data?.session?.refresh_token) {
+        const error = new Error('Could not start your Genie preview session. Please try again.');
+        setState(prev => ({ ...prev, error: error.message }));
+        return { error };
+      }
+
+      const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+      });
+
+      if (sessionError || !sessionData.session) {
+        const error = sessionError ?? new Error('Could not start your Genie preview session. Please try again.');
+        setState(prev => ({ ...prev, error: error.message }));
+        return { error };
+      }
+
+      await applyAuthenticatedSession(sessionData.session);
+      return { error: null };
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error('Preview access could not be reached. Please try again.');
+      setState(prev => ({ ...prev, error: error.message }));
+      return { error };
+    }
   };
 
   const signUp = async (email: string, password: string): Promise<{ error: Error | null }> => {
@@ -285,6 +296,7 @@ export const useAdminAuth = () => {
   return {
     ...state,
     signIn,
+    signInWithTesterCode,
     signUp,
     signOut,
     clearError,
