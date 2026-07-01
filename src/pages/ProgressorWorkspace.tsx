@@ -790,9 +790,10 @@ const MediaTab = ({ job, onChanged }: { job: IncompleteJob; onChanged: () => voi
   const images = (job.attachments || []).filter((a: any) => a?.type === 'image' || (a?.url && /\.(jpe?g|png|gif|webp)$/i.test(a.url)));
   const videos = (job.attachments || []).filter((a: any) => a?.type === 'video' || (a?.url && /\.(mp4|mov|webm)$/i.test(a.url)));
   const others = (job.attachments || []).filter((a: any) => !images.includes(a) && !videos.includes(a));
-  const imageDisplayUrls = useJobAttachmentDisplayUrls(images);
-  const videoDisplayUrls = useJobAttachmentDisplayUrls(videos);
-  const otherDisplayUrls = useJobAttachmentDisplayUrls(others);
+  const attachmentUrlContext = useMemo(() => ({ jobId: job.id }), [job.id]);
+  const imageDisplayUrls = useJobAttachmentDisplayUrls(images, attachmentUrlContext);
+  const videoDisplayUrls = useJobAttachmentDisplayUrls(videos, attachmentUrlContext);
+  const otherDisplayUrls = useJobAttachmentDisplayUrls(others, attachmentUrlContext);
 
   return (
     <div className="space-y-4">
