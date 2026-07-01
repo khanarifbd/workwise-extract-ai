@@ -115,20 +115,29 @@ export const PhotoFolderUpload = ({
     fetchFolders();
   }, [jobId]);
 
-  // Generate display URLs for all image attachments
+  // Generate signed URLs for all image attachments (bucket is private)
   useEffect(() => {
+    let cancelled = false;
     const imageAttachments = attachments.filter(a => a.type === 'image');
-    const urlMap: Record<string, string> = {};
-    
-    imageAttachments.forEach((attachment) => {
-      if (attachment.path) {
-        urlMap[attachment.id] = getPublicUrl(attachment.path);
-      } else {
-        urlMap[attachment.id] = attachment.url;
-      }
-    });
-    
-    setDisplayUrls(urlMap);
+
+    (async () => {
+      const entries = await Promise.all(
+        imageAttachments.map(async (attachment) => {
+          const path = attachment.path || extractPathFromUrl(attachment.url);
+          if (path) {
+            const signed = await getSignedUrl(path);
+            if (signed) return [attachment.id, signed] as const;
+          }
+          return [attachment.id, attachment.url] as const;
+        })
+      );
+      if (cancelled) return;
+      const urlMap: Record<string, string> = {};
+      for (const [id, url] of entries) urlMap[id] = url;
+      setDisplayUrls(urlMap);
+    })();
+
+    return () => { cancelled = true; };
   }, [attachments]);
 
   const fetchFolders = async () => {
