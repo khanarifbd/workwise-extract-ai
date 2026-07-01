@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { AwaitingTradeModal } from './AwaitingTradeModal';
 import { Job, JobStatus, JOB_STATUS_OPTIONS, WorkItem } from '@/types/job';
 import { Button } from '@/components/ui/button';
@@ -25,6 +25,7 @@ import { AIWritingAssistant } from './AIWritingAssistant';
 import { VoiceDictation } from './VoiceDictation';
 import { RenderWithProgressor } from '@/lib/progressorMarkup';
 import { uploadFileToStorage, DEFAULT_STORAGE_UPLOAD_TIMEOUT_MS } from '@/lib/storageUpload';
+import { getAttachmentDisplayUrl, useJobAttachmentDisplayUrls } from '@/lib/attachmentUrls';
 
 interface TeamJobDetailProps {
   job: Job;
@@ -91,13 +92,20 @@ export const TeamJobDetail = ({
     documents: false,
   });
 
-  // Extract existing saved attachments from job
-  const existingPhotos = (job.attachments || []).filter(a => a.type === 'image').map(a => a.url);
-  const existingVideos = (job.attachments || []).filter(a => a.type === 'video').map(a => a.url);
-  const existingDocuments = (job.attachments || []).filter(a => a.type === 'document').map(a => ({
+  // Extract existing saved attachments from job and render them through signed URLs
+  const existingPhotoAttachments = useMemo(() => (job.attachments || []).filter(a => a.type === 'image'), [job.attachments]);
+  const existingVideoAttachments = useMemo(() => (job.attachments || []).filter(a => a.type === 'video'), [job.attachments]);
+  const existingDocumentAttachments = useMemo(() => (job.attachments || []).filter(a => a.type === 'document'), [job.attachments]);
+  const attachmentUrlContext = useMemo(() => ({ teamId, jobId: job.id }), [teamId, job.id]);
+  const existingPhotoDisplayUrls = useJobAttachmentDisplayUrls(existingPhotoAttachments, attachmentUrlContext);
+  const existingVideoDisplayUrls = useJobAttachmentDisplayUrls(existingVideoAttachments, attachmentUrlContext);
+  const existingDocumentDisplayUrls = useJobAttachmentDisplayUrls(existingDocumentAttachments, attachmentUrlContext);
+  const existingPhotos = existingPhotoAttachments.map((a, index) => getAttachmentDisplayUrl(a, existingPhotoDisplayUrls, index));
+  const existingVideos = existingVideoAttachments.map((a, index) => getAttachmentDisplayUrl(a, existingVideoDisplayUrls, index));
+  const existingDocuments = existingDocumentAttachments.map((a, index) => ({
     name: a.name,
-    url: a.url,
-    type: 'application/octet-stream'
+    url: getAttachmentDisplayUrl(a, existingDocumentDisplayUrls, index),
+    type: a.type || 'application/octet-stream'
   }));
 
   // Combined arrays for display

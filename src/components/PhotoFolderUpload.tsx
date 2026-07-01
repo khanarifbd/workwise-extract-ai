@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import { Attachment } from '@/types/job';
 import { compressImages, formatBytes, calculateSavings } from '@/lib/imageCompression';
 import { BulkMediaDownload } from './BulkMediaDownload';
+import { createJobAttachmentSignedUrl, extractJobAttachmentPath, getJobAttachmentPublicUrl } from '@/lib/attachmentUrls';
 import {
   Collapsible,
   CollapsibleContent,
@@ -48,29 +49,6 @@ interface PhotoFolderUploadProps {
 
 // Default folder names
 const DEFAULT_FOLDERS = ['Before Works', 'After Works'];
-
-// Extract storage path from a stored URL if a `path` field isn't available
-const extractPathFromUrl = (url: string): string | null => {
-  const m = url.match(/\/job-attachments\/(.+?)(\?|$)/);
-  return m ? m[1] : null;
-};
-
-// Get public URL for an attachment (legacy — bucket is now private)
-const getPublicUrl = (path: string): string => {
-  const { data } = supabase.storage
-    .from('job-attachments')
-    .getPublicUrl(path);
-  return data.publicUrl;
-};
-
-// Create a signed URL for a private-bucket path (valid 1 hour)
-const getSignedUrl = async (path: string): Promise<string | null> => {
-  const { data, error } = await supabase.storage
-    .from('job-attachments')
-    .createSignedUrl(path, 3600);
-  if (error || !data?.signedUrl) return null;
-  return data.signedUrl;
-};
 
 export const PhotoFolderUpload = ({ 
   jobId, 
@@ -123,12 +101,8 @@ export const PhotoFolderUpload = ({
     (async () => {
       const entries = await Promise.all(
         imageAttachments.map(async (attachment) => {
-          const path = attachment.path || extractPathFromUrl(attachment.url);
-          if (path) {
-            const signed = await getSignedUrl(path);
-            if (signed) return [attachment.id, signed] as const;
-          }
-          return [attachment.id, attachment.url] as const;
+          const signed = await createJobAttachmentSignedUrl(attachment, { jobId, teamId });
+          return [attachment.id, signed || attachment.url] as const;
         })
       );
       if (cancelled) return;
@@ -138,7 +112,7 @@ export const PhotoFolderUpload = ({
     })();
 
     return () => { cancelled = true; };
-  }, [attachments]);
+  }, [attachments, jobId, teamId]);
 
   const fetchFolders = async () => {
     try {
@@ -283,7 +257,8 @@ export const PhotoFolderUpload = ({
       return null;
     }
 
-    return { path: data.path, publicUrl: getPublicUrl(data.path) };
+    const signedUrl = await createJobAttachmentSignedUrl({ path: data.path }, { jobId, teamId });
+    return { path: data.path, publicUrl: signedUrl || getJobAttachmentPublicUrl(data.path) };
   };
 
   const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -419,8 +394,9 @@ export const PhotoFolderUpload = ({
 
   const removePhoto = async (attachment: Attachment) => {
     try {
-      if (attachment.path) {
-        await supabase.storage.from('job-attachments').remove([attachment.path]);
+      const path = attachment.path || extractJobAttachmentPath(attachment.url);
+      if (path) {
+        await supabase.storage.from('job-attachments').remove([path]);
       }
     } catch (error) {
       console.error('Error deleting from storage:', error);
@@ -687,6 +663,8 @@ export const PhotoFolderUpload = ({
             folderName={downloadFolder.name}
             photos={downloadFolder.id === 'uncategorized' ? uncategorizedPhotos : getFolderPhotos(downloadFolder.id)}
             displayUrls={displayUrls}
+            jobId={jobId}
+            teamId={teamId}
             onClose={() => setDownloadFolder(null)}
           />
         )}

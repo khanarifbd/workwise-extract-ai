@@ -9,6 +9,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
+import { getAttachmentDisplayUrl, useJobAttachmentDisplayUrls } from '@/lib/attachmentUrls';
 import {
   Loader2,
   LogOut,
@@ -624,12 +625,34 @@ function JobEditSheet({ job, session, onClose, onSaved }: JobEditSheetProps) {
       .finally(() => setLoadingHistory(false));
   }, [job, session.teamId]);
 
-  const existingPhotos: { url: string; uploadedAt?: string; uploadedBy?: string }[] = useMemo(() => {
+  const existingPhotoAttachments = useMemo(() => {
     if (!job?.attachments) return [];
     return (job.attachments as any[])
-      .filter((a) => a && (a.type === 'image' || /\.(png|jpe?g|webp|gif)$/i.test(a.url || '')))
-      .map((a) => ({ url: a.url, uploadedAt: a.uploadedAt, uploadedBy: a.uploadedBy }));
+      .filter((a) => a && (a.type === 'image' || /\.(png|jpe?g|webp|gif)$/i.test(a.url || '')));
   }, [job]);
+  const existingPhotoDisplayUrls = useJobAttachmentDisplayUrls(existingPhotoAttachments, {
+    teamId: session.teamId,
+    jobId: job?.job_id,
+  });
+  const existingPhotos: { url: string; uploadedAt?: string; uploadedBy?: string }[] = useMemo(() => (
+    existingPhotoAttachments.map((a, index) => ({
+      url: getAttachmentDisplayUrl(a, existingPhotoDisplayUrls, index),
+      uploadedAt: a.uploadedAt,
+      uploadedBy: a.uploadedBy,
+    }))
+  ), [existingPhotoAttachments, existingPhotoDisplayUrls]);
+
+  const historyPhotoAttachments = useMemo(() => (
+    history.flatMap((entry) => (
+      Array.isArray(entry.photos)
+        ? entry.photos.map((url, index) => ({ id: `${entry.id}-${index}`, url }))
+        : []
+    ))
+  ), [history]);
+  const historyPhotoDisplayUrls = useJobAttachmentDisplayUrls(historyPhotoAttachments, {
+    teamId: session.teamId,
+    jobId: job?.job_id,
+  });
 
   const handlePickFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -881,11 +904,14 @@ function JobEditSheet({ job, session, onClose, onSaved }: JobEditSheetProps) {
                           )}
                           {Array.isArray(h.photos) && h.photos.length > 0 && (
                             <div className="grid grid-cols-4 gap-1.5 mt-2">
-                              {h.photos.map((u, i) => (
-                                <a key={i} href={u} target="_blank" rel="noreferrer" className="aspect-square rounded overflow-hidden bg-muted">
-                                  <img src={u} alt="" loading="lazy" className="w-full h-full object-cover" />
+                              {h.photos.map((u, i) => {
+                                const signedUrl = historyPhotoDisplayUrls[`${h.id}-${i}`] || u;
+                                return (
+                                <a key={i} href={signedUrl} target="_blank" rel="noreferrer" className="aspect-square rounded overflow-hidden bg-muted">
+                                  <img src={signedUrl} alt="" loading="lazy" className="w-full h-full object-cover" />
                                 </a>
-                              ))}
+                                );
+                              })}
                             </div>
                           )}
                         </li>

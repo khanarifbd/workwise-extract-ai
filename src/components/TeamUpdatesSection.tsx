@@ -17,6 +17,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { Attachment, WorkItem } from '@/types/job';
+import { getAttachmentDisplayUrl, useJobAttachmentDisplayUrls } from '@/lib/attachmentUrls';
 
 interface TeamJobUpdate {
   id: string;
@@ -59,12 +60,14 @@ export const TeamUpdatesSection = ({ jobId, attachments, workItems, team1, team2
   const teamPhotos = attachments.filter(a => 
     a.type === 'image' && (a as any).category === 'team-photo'
   );
+  const teamPhotoDisplayUrls = useJobAttachmentDisplayUrls(teamPhotos, { jobId });
   const teamVideos = attachments.filter(a => 
     a.type === 'video' && (a as any).category === 'team-video'
   );
   const teamDocuments = attachments.filter(a => 
     a.type === 'document' && (a as any).category === 'team-document'
   );
+  const teamDocumentDisplayUrls = useJobAttachmentDisplayUrls(teamDocuments, { jobId });
 
   // Calculate work item stats
   const confirmedItems = workItems.filter(item => item.isConfirmed !== false);
@@ -240,10 +243,12 @@ export const TeamUpdatesSection = ({ jobId, attachments, workItems, team1, team2
               <div className="space-y-2">
                 <p className="text-xs font-medium text-muted-foreground">Team Documents:</p>
                 <div className="space-y-1">
-                  {teamDocuments.map((doc, index) => (
+                  {teamDocuments.map((doc, index) => {
+                    const displayUrl = getAttachmentDisplayUrl(doc, teamDocumentDisplayUrls, index);
+                    return (
                     <a
                       key={doc.id || index}
-                      href={doc.url}
+                      href={displayUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-2 p-2 bg-muted/30 rounded hover:bg-muted/50 transition-colors"
@@ -251,7 +256,8 @@ export const TeamUpdatesSection = ({ jobId, attachments, workItems, team1, team2
                       <FileText className="h-4 w-4 text-orange-500" />
                       <span className="text-xs truncate flex-1">{doc.name}</span>
                     </a>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -283,21 +289,24 @@ export const TeamUpdatesSection = ({ jobId, attachments, workItems, team1, team2
               <div className="space-y-2">
                 <p className="text-xs font-medium text-muted-foreground">Team Photos:</p>
                 <div className="grid grid-cols-4 gap-2">
-                  {teamPhotos.map((photo, index) => (
+                    {teamPhotos.map((photo, index) => {
+                      const displayUrl = getAttachmentDisplayUrl(photo, teamPhotoDisplayUrls, index);
+                      return (
                     <a
                       key={photo.id || index}
-                      href={photo.url}
+                      href={displayUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="aspect-square rounded-lg overflow-hidden bg-muted hover:opacity-80 transition-opacity"
                     >
                       <img
-                        src={photo.url}
+                        src={displayUrl}
                         alt={photo.name}
                         className="w-full h-full object-cover"
                       />
                     </a>
-                  ))}
+                      );
+                    })}
                 </div>
               </div>
             )}

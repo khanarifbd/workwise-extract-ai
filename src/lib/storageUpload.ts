@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { getJobAttachmentPublicUrl } from '@/lib/attachmentUrls';
 
 interface UploadToStorageOptions {
   bucket: string;
@@ -65,14 +66,16 @@ export async function uploadFileToStorage({
       throw error;
     }
 
-    const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(data.path);
-    return urlData.publicUrl;
+    return bucket === 'job-attachments'
+      ? getJobAttachmentPublicUrl(data.path)
+      : supabase.storage.from(bucket).getPublicUrl(data.path).data.publicUrl;
   } catch (error) {
     const message = getErrorMessage(error);
 
     if (isLikelyDuplicateUploadError(message)) {
-      const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath);
-      return urlData.publicUrl;
+      return bucket === 'job-attachments'
+        ? getJobAttachmentPublicUrl(filePath)
+        : supabase.storage.from(bucket).getPublicUrl(filePath).data.publicUrl;
     }
 
     throw new Error(message);

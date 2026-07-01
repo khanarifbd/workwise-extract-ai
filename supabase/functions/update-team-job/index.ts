@@ -47,6 +47,21 @@ interface Attachment {
   category?: string; // 'team-photo', 'team-video', 'team-document'
 }
 
+function extractJobAttachmentPath(url?: string | null): string | undefined {
+  if (!url) return undefined;
+  if (!url.startsWith('http') && !url.startsWith('data:') && !url.startsWith('blob:')) {
+    return url.replace(/^job-attachments\//, '');
+  }
+
+  const match = url.match(/\/job-attachments\/(.+?)(?:\?|$)/);
+  if (!match?.[1]) return undefined;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return match[1];
+  }
+}
+
 // Rate limiting configuration
 interface RateLimitEntry {
   count: number;
@@ -383,11 +398,13 @@ Deno.serve(async (req) => {
         }
         
         const photoId = `photo-${canonicalTeamName}-${Date.now()}-${index}`;
+        const path = extractJobAttachmentPath(photoUrl);
         newAttachments.push({
           id: photoId,
           name: `Team Photo ${index + 1}`,
           type: 'image',
           url: photoUrl,
+          ...(path ? { path } : {}),
           uploadedAt: timestamp,
           uploadedBy: canonicalTeamName,
           category: 'team-photo',
@@ -406,11 +423,13 @@ Deno.serve(async (req) => {
         }
         
         const videoId = `video-${canonicalTeamName}-${Date.now()}-${index}`;
+        const path = extractJobAttachmentPath(videoUrl);
         newAttachments.push({
           id: videoId,
           name: `Team Video ${index + 1}`,
           type: 'video',
           url: videoUrl,
+          ...(path ? { path } : {}),
           uploadedAt: timestamp,
           uploadedBy: canonicalTeamName,
           category: 'team-video',
@@ -429,11 +448,13 @@ Deno.serve(async (req) => {
         }
         
         const docId = `doc-${canonicalTeamName}-${Date.now()}-${index}`;
+        const path = extractJobAttachmentPath(doc.url);
         newAttachments.push({
           id: docId,
           name: doc.name,
           type: 'document',
           url: doc.url,
+          ...(path ? { path } : {}),
           uploadedAt: timestamp,
           uploadedBy: canonicalTeamName,
           category: 'team-document',
