@@ -101,7 +101,7 @@ export const PhotoFolderUpload = ({
     (async () => {
       const entries = await Promise.all(
         imageAttachments.map(async (attachment) => {
-          const signed = await createJobAttachmentSignedUrl(attachment);
+          const signed = await createJobAttachmentSignedUrl(attachment, { jobId, teamId });
           return [attachment.id, signed || attachment.url] as const;
         })
       );
@@ -112,7 +112,7 @@ export const PhotoFolderUpload = ({
     })();
 
     return () => { cancelled = true; };
-  }, [attachments]);
+  }, [attachments, jobId, teamId]);
 
   const fetchFolders = async () => {
     try {
@@ -257,7 +257,7 @@ export const PhotoFolderUpload = ({
       return null;
     }
 
-    const signedUrl = await createJobAttachmentSignedUrl({ path: data.path });
+    const signedUrl = await createJobAttachmentSignedUrl({ path: data.path }, { jobId, teamId });
     return { path: data.path, publicUrl: signedUrl || getJobAttachmentPublicUrl(data.path) };
   };
 
@@ -663,6 +663,8 @@ export const PhotoFolderUpload = ({
             folderName={downloadFolder.name}
             photos={downloadFolder.id === 'uncategorized' ? uncategorizedPhotos : getFolderPhotos(downloadFolder.id)}
             displayUrls={displayUrls}
+            jobId={jobId}
+            teamId={teamId}
             onClose={() => setDownloadFolder(null)}
           />
         )}
