@@ -96,9 +96,10 @@ export const TeamJobDetail = ({
   const existingPhotoAttachments = useMemo(() => (job.attachments || []).filter(a => a.type === 'image'), [job.attachments]);
   const existingVideoAttachments = useMemo(() => (job.attachments || []).filter(a => a.type === 'video'), [job.attachments]);
   const existingDocumentAttachments = useMemo(() => (job.attachments || []).filter(a => a.type === 'document'), [job.attachments]);
-  const existingPhotoDisplayUrls = useJobAttachmentDisplayUrls(existingPhotoAttachments);
-  const existingVideoDisplayUrls = useJobAttachmentDisplayUrls(existingVideoAttachments);
-  const existingDocumentDisplayUrls = useJobAttachmentDisplayUrls(existingDocumentAttachments);
+  const attachmentUrlContext = useMemo(() => ({ teamId, jobId: job.id }), [teamId, job.id]);
+  const existingPhotoDisplayUrls = useJobAttachmentDisplayUrls(existingPhotoAttachments, attachmentUrlContext);
+  const existingVideoDisplayUrls = useJobAttachmentDisplayUrls(existingVideoAttachments, attachmentUrlContext);
+  const existingDocumentDisplayUrls = useJobAttachmentDisplayUrls(existingDocumentAttachments, attachmentUrlContext);
   const existingPhotos = existingPhotoAttachments.map((a, index) => getAttachmentDisplayUrl(a, existingPhotoDisplayUrls, index));
   const existingVideos = existingVideoAttachments.map((a, index) => getAttachmentDisplayUrl(a, existingVideoDisplayUrls, index));
   const existingDocuments = existingDocumentAttachments.map((a, index) => ({
