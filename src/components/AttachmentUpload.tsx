@@ -55,7 +55,7 @@ export const AttachmentUpload = ({ jobId, attachments, onAttachmentsChange }: At
     const loadDisplayUrls = async () => {
       const urlMap: Record<string, string> = {};
       await Promise.all(attachments.map(async (attachment) => {
-        const signedUrl = await createJobAttachmentSignedUrl(attachment);
+        const signedUrl = await createJobAttachmentSignedUrl(attachment, { jobId });
         urlMap[attachment.id] = signedUrl || attachment.url;
       }));
       if (cancelled) return;
@@ -69,7 +69,7 @@ export const AttachmentUpload = ({ jobId, attachments, onAttachmentsChange }: At
     }
 
     return () => { cancelled = true; };
-  }, [attachments]);
+  }, [attachments, jobId]);
 
   const uploadToStorage = async (file: File, category: MediaCategory): Promise<{ path: string; publicUrl: string } | null> => {
     const fileExt = file.name.split('.').pop();
@@ -130,7 +130,7 @@ export const AttachmentUpload = ({ jobId, attachments, onAttachmentsChange }: At
         
         newAttachments.push(attachment);
         
-        const displayUrl = await createJobAttachmentSignedUrl({ path: result.path });
+        const displayUrl = await createJobAttachmentSignedUrl({ path: result.path }, { jobId });
         setDisplayUrls(prev => ({ ...prev, [attachment.id]: displayUrl || result.publicUrl }));
       }
 
