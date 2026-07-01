@@ -88,7 +88,8 @@ export function ProgressorJobExpandedContent({
   const { logAction } = useAuditLog();
   const { categories } = useCategories();
   const existingAttachments = useMemo(() => job.attachments || [], [job.attachments]);
-  const existingAttachmentDisplayUrls = useJobAttachmentDisplayUrls(existingAttachments as any[]);
+  const attachmentUrlContext = useMemo(() => ({ jobId: job.id }), [job.id]);
+  const existingAttachmentDisplayUrls = useJobAttachmentDisplayUrls(existingAttachments as any[], attachmentUrlContext);
   const [editingOngoingReason, setEditingOngoingReason] = useState(false);
   const [ongoingReasonDraft, setOngoingReasonDraft] = useState('');
   const [callLogOpen, setCallLogOpen] = useState(false);
