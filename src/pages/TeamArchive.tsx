@@ -630,7 +630,10 @@ function JobEditSheet({ job, session, onClose, onSaved }: JobEditSheetProps) {
     return (job.attachments as any[])
       .filter((a) => a && (a.type === 'image' || /\.(png|jpe?g|webp|gif)$/i.test(a.url || '')));
   }, [job]);
-  const existingPhotoDisplayUrls = useJobAttachmentDisplayUrls(existingPhotoAttachments);
+  const existingPhotoDisplayUrls = useJobAttachmentDisplayUrls(existingPhotoAttachments, {
+    teamId: session.teamId,
+    jobId: job?.job_id,
+  });
   const existingPhotos: { url: string; uploadedAt?: string; uploadedBy?: string }[] = useMemo(() => (
     existingPhotoAttachments.map((a, index) => ({
       url: getAttachmentDisplayUrl(a, existingPhotoDisplayUrls, index),
