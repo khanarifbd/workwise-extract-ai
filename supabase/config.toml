@@ -111,4 +111,7 @@ verify_jwt = false
 [functions.admin-password-login]
 verify_jwt = false
 
+[functions.sign-job-attachment-url]
+verify_jwt = false
+
 
