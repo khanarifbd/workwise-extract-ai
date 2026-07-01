@@ -14,6 +14,8 @@ interface BulkMediaDownloadProps {
   folderName: string;
   photos: Attachment[];
   displayUrls: Record<string, string>;
+  jobId?: string;
+  teamId?: string;
   onClose: () => void;
 }
 
@@ -21,6 +23,8 @@ export const BulkMediaDownload = ({
   folderName,
   photos,
   displayUrls,
+  jobId,
+  teamId,
   onClose,
 }: BulkMediaDownloadProps) => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(photos.map(p => p.id)));
@@ -73,7 +77,7 @@ export const BulkMediaDownload = ({
       ...photo,
       url: displayUrls[photo.id] || photo.url,
       path: photo.path || extractJobAttachmentPath(displayUrls[photo.id] || photo.url),
-    });
+    }, { jobId, teamId });
     if (signedUrl) return signedUrl;
     return displayUrls[photo.id] || photo.url;
   };
