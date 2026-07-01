@@ -60,14 +60,14 @@ export const TeamUpdatesSection = ({ jobId, attachments, workItems, team1, team2
   const teamPhotos = attachments.filter(a => 
     a.type === 'image' && (a as any).category === 'team-photo'
   );
-  const teamPhotoDisplayUrls = useJobAttachmentDisplayUrls(teamPhotos);
+  const teamPhotoDisplayUrls = useJobAttachmentDisplayUrls(teamPhotos, { jobId });
   const teamVideos = attachments.filter(a => 
     a.type === 'video' && (a as any).category === 'team-video'
   );
   const teamDocuments = attachments.filter(a => 
     a.type === 'document' && (a as any).category === 'team-document'
   );
-  const teamDocumentDisplayUrls = useJobAttachmentDisplayUrls(teamDocuments);
+  const teamDocumentDisplayUrls = useJobAttachmentDisplayUrls(teamDocuments, { jobId });
 
   // Calculate work item stats
   const confirmedItems = workItems.filter(item => item.isConfirmed !== false);
