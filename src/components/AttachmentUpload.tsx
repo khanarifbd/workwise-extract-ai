@@ -6,6 +6,7 @@ import { Attachment } from '@/types/job';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { createJobAttachmentSignedUrl, extractJobAttachmentPath, getJobAttachmentPublicUrl } from '@/lib/attachmentUrls';
 
 interface AttachmentUploadProps {
   jobId: string;
@@ -34,20 +35,6 @@ const getAttachmentType = (category: MediaCategory): 'image' | 'video' | 'docume
   return 'document';
 };
 
-// Get public URL for an attachment (bucket is public)
-const getPublicUrl = (path: string): string => {
-  const { data } = supabase.storage
-    .from('job-attachments')
-    .getPublicUrl(path);
-  return data.publicUrl;
-};
-
-// Extract path from URL format
-const extractPathFromUrl = (url: string): string | null => {
-  const match = url.match(/\/job-attachments\/(.+)$/);
-  return match ? match[1] : null;
-};
-
 export const AttachmentUpload = ({ jobId, attachments, onAttachmentsChange }: AttachmentUploadProps) => {
   const [isUploading, setIsUploading] = useState(false);
   const [activeCategory, setActiveCategory] = useState<MediaCategory>('images');
@@ -61,25 +48,27 @@ export const AttachmentUpload = ({ jobId, attachments, onAttachmentsChange }: At
     documents: attachments.filter(a => a.type === 'document'),
   };
 
-  // Generate public URLs for all attachments
+  // Generate signed URLs for all attachments because the bucket is private
   useEffect(() => {
-    const loadDisplayUrls = () => {
+    let cancelled = false;
+
+    const loadDisplayUrls = async () => {
       const urlMap: Record<string, string> = {};
-      attachments.forEach((attachment) => {
-        // Use path if available to get public URL, otherwise use stored URL
-        const path = attachment.path || extractPathFromUrl(attachment.url);
-        if (path) {
-          urlMap[attachment.id] = getPublicUrl(path);
-        } else {
-          urlMap[attachment.id] = attachment.url;
-        }
-      });
+      await Promise.all(attachments.map(async (attachment) => {
+        const signedUrl = await createJobAttachmentSignedUrl(attachment);
+        urlMap[attachment.id] = signedUrl || attachment.url;
+      }));
+      if (cancelled) return;
       setDisplayUrls(urlMap);
     };
 
     if (attachments.length > 0) {
-      loadDisplayUrls();
+      void loadDisplayUrls();
+    } else {
+      setDisplayUrls({});
     }
+
+    return () => { cancelled = true; };
   }, [attachments]);
 
   const uploadToStorage = async (file: File, category: MediaCategory): Promise<{ path: string; publicUrl: string } | null> => {
@@ -95,8 +84,8 @@ export const AttachmentUpload = ({ jobId, attachments, onAttachmentsChange }: At
       return null;
     }
 
-    // Get public URL for immediate display
-    const publicUrl = getPublicUrl(data.path);
+    // Store a legacy URL for compatibility, but use signed URLs for display
+    const publicUrl = getJobAttachmentPublicUrl(data.path);
     return { path: data.path, publicUrl };
   };
 
@@ -141,8 +130,8 @@ export const AttachmentUpload = ({ jobId, attachments, onAttachmentsChange }: At
         
         newAttachments.push(attachment);
         
-        // Update display URLs
-        setDisplayUrls(prev => ({ ...prev, [attachment.id]: result.publicUrl }));
+        const displayUrl = await createJobAttachmentSignedUrl({ path: result.path });
+        setDisplayUrls(prev => ({ ...prev, [attachment.id]: displayUrl || result.publicUrl }));
       }
 
       if (newAttachments.length > 0) {
@@ -170,7 +159,7 @@ export const AttachmentUpload = ({ jobId, attachments, onAttachmentsChange }: At
   const removeAttachment = async (attachment: Attachment) => {
     try {
       // Use path if available, otherwise extract from URL
-      const path = attachment.path || extractPathFromUrl(attachment.url);
+      const path = attachment.path || extractJobAttachmentPath(attachment.url);
       if (path) {
         await supabase.storage.from('job-attachments').remove([path]);
       }

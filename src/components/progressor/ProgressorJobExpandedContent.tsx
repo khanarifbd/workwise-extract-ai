@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Job, JOB_STATUS_OPTIONS, FanInfo } from '@/types/job';
 import { SubTask, SUB_TASK_STATUS_OPTIONS } from '@/types/subTask';
@@ -28,6 +28,7 @@ import { JobTimerStrip } from '@/components/progressor/JobTimerStrip';
 import { AutoFlagsBar } from '@/components/progressor/AutoFlagsBar';
 import { useRoleMode } from '@/contexts/RoleModeContext';
 import { useJobClosureChecks } from '@/hooks/useJobClosureChecks';
+import { extractJobAttachmentPath, getAttachmentDisplayUrl, useJobAttachmentDisplayUrls } from '@/lib/attachmentUrls';
 import { extractFansWithAI, createLinkedFanJob, syncLinkedFanJob } from '@/lib/api';
 import {
   AlertTriangle, Phone, MapPin, User, Flag, Plus, MessageSquare,
@@ -86,6 +87,8 @@ export function ProgressorJobExpandedContent({
 }: ProgressorJobExpandedContentProps) {
   const { logAction } = useAuditLog();
   const { categories } = useCategories();
+  const existingAttachments = useMemo(() => job.attachments || [], [job.attachments]);
+  const existingAttachmentDisplayUrls = useJobAttachmentDisplayUrls(existingAttachments as any[]);
   const [editingOngoingReason, setEditingOngoingReason] = useState(false);
   const [ongoingReasonDraft, setOngoingReasonDraft] = useState('');
   const [callLogOpen, setCallLogOpen] = useState(false);
@@ -726,12 +729,14 @@ export function ProgressorJobExpandedContent({
                 📎 Existing Media ({job.attachments.length})
               </span>
               <div className="grid grid-cols-4 md:grid-cols-6 gap-2 max-h-[200px] overflow-y-auto">
-                {job.attachments.map((att: any) => (
+                {job.attachments.map((att: any, index: number) => {
+                  const displayUrl = getAttachmentDisplayUrl(att, existingAttachmentDisplayUrls, index);
+                  return (
                   <div key={att.id || att.url} className="relative group rounded-md border overflow-hidden">
-                    <a href={att.url} target="_blank" rel="noopener noreferrer"
+                    <a href={displayUrl} target="_blank" rel="noopener noreferrer"
                       className="block hover:ring-2 hover:ring-primary transition-all">
                       {att.type === 'image' ? (
-                        <img src={att.url} alt={att.name || 'Photo'} className="w-full h-16 object-cover" loading="lazy" />
+                        <img src={displayUrl} alt={att.name || 'Photo'} className="w-full h-16 object-cover" loading="lazy" />
                       ) : att.type === 'video' ? (
                         <div className="w-full h-16 bg-muted flex items-center justify-center text-[10px] text-muted-foreground">🎥 Video</div>
                       ) : (
@@ -744,7 +749,7 @@ export function ProgressorJobExpandedContent({
                         if (!confirm(`Delete ${att.name || 'this file'}?`)) return;
                         try {
                           // Remove from storage if path exists
-                          const path = att.path || att.url?.match(/\/job-attachments\/(.+)$/)?.[1];
+                          const path = att.path || extractJobAttachmentPath(att.url);
                           if (path) {
                             await supabase.storage.from('job-attachments').remove([path]);
                           }
@@ -764,7 +769,8 @@ export function ProgressorJobExpandedContent({
                       <X className="w-3 h-3" />
                     </button>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

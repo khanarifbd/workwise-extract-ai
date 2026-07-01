@@ -7,6 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { Attachment } from '@/types/job';
 import { supabase } from '@/integrations/supabase/client';
+import { createJobAttachmentSignedUrl, extractJobAttachmentPath } from '@/lib/attachmentUrls';
 import JSZip from 'jszip';
 
 interface BulkMediaDownloadProps {
@@ -66,22 +67,14 @@ export const BulkMediaDownload = ({
     return new Blob([bytes], { type: mimeType });
   };
 
-  // Extract storage path from any job-attachments URL (public or signed)
-  const extractPath = (u: string): string | null => {
-    const m = u?.match(/\/job-attachments\/(.+?)(\?|$)/);
-    return m ? m[1] : null;
-  };
-
   // Always mint a fresh signed URL right before download so links never expire mid-session
   const resolveFreshUrl = async (photo: Attachment): Promise<string> => {
-    const anyPhoto = photo as Attachment & { path?: string };
-    const path = anyPhoto.path || extractPath(displayUrls[photo.id] || photo.url || '');
-    if (path) {
-      const { data } = await supabase.storage
-        .from('job-attachments')
-        .createSignedUrl(path, 3600);
-      if (data?.signedUrl) return data.signedUrl;
-    }
+    const signedUrl = await createJobAttachmentSignedUrl({
+      ...photo,
+      url: displayUrls[photo.id] || photo.url,
+      path: photo.path || extractJobAttachmentPath(displayUrls[photo.id] || photo.url),
+    });
+    if (signedUrl) return signedUrl;
     return displayUrls[photo.id] || photo.url;
   };
 

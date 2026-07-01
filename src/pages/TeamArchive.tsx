@@ -9,6 +9,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
+import { getAttachmentDisplayUrl, useJobAttachmentDisplayUrls } from '@/lib/attachmentUrls';
 import {
   Loader2,
   LogOut,
@@ -624,12 +625,19 @@ function JobEditSheet({ job, session, onClose, onSaved }: JobEditSheetProps) {
       .finally(() => setLoadingHistory(false));
   }, [job, session.teamId]);
 
-  const existingPhotos: { url: string; uploadedAt?: string; uploadedBy?: string }[] = useMemo(() => {
+  const existingPhotoAttachments = useMemo(() => {
     if (!job?.attachments) return [];
     return (job.attachments as any[])
-      .filter((a) => a && (a.type === 'image' || /\.(png|jpe?g|webp|gif)$/i.test(a.url || '')))
-      .map((a) => ({ url: a.url, uploadedAt: a.uploadedAt, uploadedBy: a.uploadedBy }));
+      .filter((a) => a && (a.type === 'image' || /\.(png|jpe?g|webp|gif)$/i.test(a.url || '')));
   }, [job]);
+  const existingPhotoDisplayUrls = useJobAttachmentDisplayUrls(existingPhotoAttachments);
+  const existingPhotos: { url: string; uploadedAt?: string; uploadedBy?: string }[] = useMemo(() => (
+    existingPhotoAttachments.map((a, index) => ({
+      url: getAttachmentDisplayUrl(a, existingPhotoDisplayUrls, index),
+      uploadedAt: a.uploadedAt,
+      uploadedBy: a.uploadedBy,
+    }))
+  ), [existingPhotoAttachments, existingPhotoDisplayUrls]);
 
   const handlePickFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;

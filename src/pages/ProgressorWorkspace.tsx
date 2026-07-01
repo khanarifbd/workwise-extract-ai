@@ -25,6 +25,7 @@ import { ProgressorMediaUpload } from '@/components/progressor/ProgressorMediaUp
 import { ControlPanelTab } from '@/components/progressor/ControlPanelTab';
 import { AutoFlagsBar } from '@/components/progressor/AutoFlagsBar';
 import { JobTimerStrip } from '@/components/progressor/JobTimerStrip';
+import { getAttachmentDisplayUrl, useJobAttachmentDisplayUrls } from '@/lib/attachmentUrls';
 import { useRoleMode } from '@/contexts/RoleModeContext';
 import { ShieldAlert } from 'lucide-react';
 
@@ -789,6 +790,9 @@ const MediaTab = ({ job, onChanged }: { job: IncompleteJob; onChanged: () => voi
   const images = (job.attachments || []).filter((a: any) => a?.type === 'image' || (a?.url && /\.(jpe?g|png|gif|webp)$/i.test(a.url)));
   const videos = (job.attachments || []).filter((a: any) => a?.type === 'video' || (a?.url && /\.(mp4|mov|webm)$/i.test(a.url)));
   const others = (job.attachments || []).filter((a: any) => !images.includes(a) && !videos.includes(a));
+  const imageDisplayUrls = useJobAttachmentDisplayUrls(images);
+  const videoDisplayUrls = useJobAttachmentDisplayUrls(videos);
+  const otherDisplayUrls = useJobAttachmentDisplayUrls(others);
 
   return (
     <div className="space-y-4">
@@ -797,11 +801,14 @@ const MediaTab = ({ job, onChanged }: { job: IncompleteJob; onChanged: () => voi
         <div>
           <h4 className="text-xs font-semibold mb-2">Photos ({images.length})</h4>
           <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-            {images.map((a: any, i: number) => (
-              <a key={i} href={a.url} target="_blank" rel="noreferrer" className="block">
-                <img src={a.url} alt="" className="w-full h-24 object-cover rounded-md border" />
+            {images.map((a: any, i: number) => {
+              const displayUrl = getAttachmentDisplayUrl(a, imageDisplayUrls, i);
+              return (
+              <a key={i} href={displayUrl} target="_blank" rel="noreferrer" className="block">
+                <img src={displayUrl} alt="" className="w-full h-24 object-cover rounded-md border" />
               </a>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -810,7 +817,7 @@ const MediaTab = ({ job, onChanged }: { job: IncompleteJob; onChanged: () => voi
           <h4 className="text-xs font-semibold mb-2">Videos ({videos.length})</h4>
           <div className="grid grid-cols-2 gap-2">
             {videos.map((a: any, i: number) => (
-              <video key={i} src={a.url} controls className="w-full rounded-md border" />
+              <video key={i} src={getAttachmentDisplayUrl(a, videoDisplayUrls, i)} controls className="w-full rounded-md border" />
             ))}
           </div>
         </div>
@@ -819,9 +826,12 @@ const MediaTab = ({ job, onChanged }: { job: IncompleteJob; onChanged: () => voi
         <div>
           <h4 className="text-xs font-semibold mb-2">Files ({others.length})</h4>
           <ul className="text-xs space-y-1">
-            {others.map((a: any, i: number) => (
-              <li key={i}><a className="text-progressor underline" href={a.url} target="_blank" rel="noreferrer">{a.name || a.url}</a></li>
-            ))}
+            {others.map((a: any, i: number) => {
+              const displayUrl = getAttachmentDisplayUrl(a, otherDisplayUrls, i);
+              return (
+                <li key={i}><a className="text-progressor underline" href={displayUrl} target="_blank" rel="noreferrer">{a.name || a.url}</a></li>
+              );
+            })}
           </ul>
         </div>
       )}
