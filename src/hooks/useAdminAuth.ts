@@ -24,6 +24,7 @@ type SessionPayload = {
 
 export const useAdminAuth = () => {
   const authCheckRunRef = useRef(0);
+  const manualLoginInFlightRef = useRef(false);
   const [state, setState] = useState<AdminAuthState>({
     user: null,
     session: null,
@@ -139,6 +140,8 @@ export const useAdminAuth = () => {
       const { data } = supabase.auth.onAuthStateChange((event, session) => {
         if (!isMounted) return;
 
+        if (manualLoginInFlightRef.current) return;
+
         if (event === 'TOKEN_REFRESHED') {
           setState(prev => ({
             ...prev,
@@ -241,6 +244,8 @@ export const useAdminAuth = () => {
     let error: Error | null = null;
 
     try {
+      manualLoginInFlightRef.current = true;
+
       // Remove stale browser sessions before starting a fresh password login.
       // This prevents a previous preview/team token from racing the admin session.
       await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined);
@@ -268,6 +273,8 @@ export const useAdminAuth = () => {
       }
     } catch (err) {
       error = err instanceof Error ? err : new Error('Login service could not be reached. Please try again.');
+    } finally {
+      manualLoginInFlightRef.current = false;
     }
 
     if (error) {
