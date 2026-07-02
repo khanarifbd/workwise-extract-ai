@@ -3,6 +3,15 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Shield, HardHat, ArrowRight, KeyRound, Loader2, Eye } from 'lucide-react';
 import allsaintsLogo from '@/assets/allsaints-logo.png';
 import { supabase } from '@/integrations/supabase/client';
+import { callLoginFunction } from '@/lib/loginFunction';
+
+type PreviewLoginPayload = {
+  session?: {
+    access_token?: string;
+    refresh_token?: string;
+  };
+  error?: string;
+};
 
 export default function PortalSelect() {
   const navigate = useNavigate();
@@ -20,26 +29,32 @@ export default function PortalSelect() {
     setSubmitting(true);
     setError(null);
     try {
-      const { data, error: invokeErr } = await supabase.functions.invoke('tester-login', {
-        body: { code: code.trim() },
+      const { data, error: invokeErr } = await callLoginFunction<PreviewLoginPayload>('tester-login', {
+        code: code.trim(),
       });
       if (invokeErr || !data?.session?.access_token || !data?.session?.refresh_token) {
-        setError(data?.error || 'Invalid access code.');
+        setError(data?.error || invokeErr?.message || 'Invalid access code.');
         setSubmitting(false);
         return;
       }
-      const { error: signInErr } = await supabase.auth.setSession({
-        access_token: data.session.access_token,
-        refresh_token: data.session.refresh_token,
-      });
-      if (signInErr) {
-        setError('Could not start your preview session. Please try again.');
-        setSubmitting(false);
-        return;
+      let sessionStarted = false;
+      let signInMessage = 'Could not start your preview session. Please try again.';
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const { error: signInErr } = await supabase.auth.setSession({
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token,
+        });
+        const { data: sessionCheck } = await supabase.auth.getSession();
+        if (!signInErr && sessionCheck.session) {
+          sessionStarted = true;
+          break;
+        }
+        signInMessage = signInErr?.message || signInMessage;
+        await new Promise((resolve) => window.setTimeout(resolve, 200 * (attempt + 1)));
       }
-      const { data: sessionCheck } = await supabase.auth.getSession();
-      if (!sessionCheck.session) {
-        setError('Could not confirm your preview session. Please try again.');
+
+      if (!sessionStarted) {
+        setError(signInMessage);
         setSubmitting(false);
         return;
       }

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { callLoginFunction } from '@/lib/loginFunction';
 
 interface AdminAuthState {
   user: User | null;
@@ -12,6 +13,14 @@ interface AdminAuthState {
   isCheckingRoles: boolean;
   error: string | null;
 }
+
+type SessionPayload = {
+  session?: {
+    access_token?: string;
+    refresh_token?: string;
+  };
+  error?: string;
+};
 
 export const useAdminAuth = () => {
   const authCheckRunRef = useRef(0);
@@ -170,6 +179,29 @@ export const useAdminAuth = () => {
     }
   };
 
+  const startBrowserSession = async (accessToken: string, refreshToken: string): Promise<{ session: Session | null; error: Error | null }> => {
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      });
+
+      if (!sessionError && sessionData.session) {
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        if (!userError && userData.user) return { session: sessionData.session, error: null };
+        lastError = userError ?? new Error('Could not verify your Genie session.');
+      } else {
+        lastError = sessionError ?? new Error('Could not start your Genie session.');
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 200 * (attempt + 1)));
+    }
+
+    return { session: null, error: lastError ?? new Error('Could not start your Genie session. Please try again.') };
+  };
+
   const signIn = async (email: string, password: string): Promise<{ error: Error | null }> => {
     setState(prev => ({ ...prev, error: null }));
 
@@ -179,24 +211,25 @@ export const useAdminAuth = () => {
     let error: Error | null = null;
 
     try {
-      const { data, error: functionError } = await supabase.functions.invoke('admin-password-login', {
-        body: { email: cleanEmail, password: normalizedPassword },
+      const { data, error: functionError } = await callLoginFunction<SessionPayload>('admin-password-login', {
+        email: cleanEmail,
+        password: normalizedPassword,
       });
 
       if (functionError) {
-        error = new Error((data as { error?: string } | null)?.error || functionError.message);
+        error = new Error(data?.error || functionError.message);
       } else if (!data?.session?.access_token || !data?.session?.refresh_token) {
         error = new Error('Login service did not return a valid session. Please try again.');
       } else {
-        const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
-          access_token: data.session.access_token,
-          refresh_token: data.session.refresh_token,
-        });
+        const { session, error: sessionError } = await startBrowserSession(
+          data.session.access_token,
+          data.session.refresh_token,
+        );
 
-        if (sessionError || !sessionData.session) {
+        if (sessionError || !session) {
           error = sessionError ?? new Error('Could not start your Genie session. Please try again.');
         } else {
-          await applyAuthenticatedSession(sessionData.session);
+          await applyAuthenticatedSession(session);
         }
       }
     } catch (err) {
@@ -222,12 +255,12 @@ export const useAdminAuth = () => {
     setState(prev => ({ ...prev, error: null }));
 
     try {
-      const { data, error: functionError } = await supabase.functions.invoke('tester-login', {
-        body: { code: code.trim() },
+      const { data, error: functionError } = await callLoginFunction<SessionPayload>('tester-login', {
+        code: code.trim(),
       });
 
       if (functionError) {
-        const message = (data as { error?: string } | null)?.error || functionError.message || 'Invalid access code.';
+        const message = data?.error || functionError.message || 'Invalid access code.';
         const error = new Error(message);
         setState(prev => ({ ...prev, error: message }));
         return { error };
@@ -239,18 +272,18 @@ export const useAdminAuth = () => {
         return { error };
       }
 
-      const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
-        access_token: data.session.access_token,
-        refresh_token: data.session.refresh_token,
-      });
+      const { session, error: sessionError } = await startBrowserSession(
+        data.session.access_token,
+        data.session.refresh_token,
+      );
 
-      if (sessionError || !sessionData.session) {
+      if (sessionError || !session) {
         const error = sessionError ?? new Error('Could not start your Genie preview session. Please try again.');
         setState(prev => ({ ...prev, error: error.message }));
         return { error };
       }
 
-      await applyAuthenticatedSession(sessionData.session);
+      await applyAuthenticatedSession(session);
       return { error: null };
     } catch (err) {
       const error = err instanceof Error ? err : new Error('Preview access could not be reached. Please try again.');
