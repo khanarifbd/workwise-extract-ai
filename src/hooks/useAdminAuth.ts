@@ -77,6 +77,24 @@ export const useAdminAuth = () => {
 
       if (!isMounted) return;
 
+      if (session?.user) {
+        const { data: verifiedUser, error: verifyError } = await supabase.auth.getUser();
+        if (verifyError || !verifiedUser.user) {
+          if (!isMounted || runId !== authCheckRunRef.current) return;
+          setState(prev => ({
+            ...prev,
+            session: null,
+            user: null,
+            isAdmin: false,
+            isViewer: false,
+            isTester: false,
+            isLoading: false,
+            isCheckingRoles: false,
+          }));
+          return;
+        }
+      }
+
       setState(prev => ({
         ...prev,
         session,
@@ -182,7 +200,7 @@ export const useAdminAuth = () => {
   const startBrowserSession = async (accessToken: string, refreshToken: string): Promise<{ session: Session | null; error: Error | null }> => {
     let lastError: Error | null = null;
 
-    for (let attempt = 0; attempt < 3; attempt += 1) {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
       const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
         access_token: accessToken,
         refresh_token: refreshToken,
@@ -190,20 +208,32 @@ export const useAdminAuth = () => {
 
       if (!sessionError && sessionData.session) {
         const { data: userData, error: userError } = await supabase.auth.getUser();
-        if (!userError && userData.user) return { session: sessionData.session, error: null };
+        const { data: storedSession } = await supabase.auth.getSession();
+        if (!userError && userData.user && storedSession.session?.user?.id === userData.user.id) {
+          return { session: storedSession.session, error: null };
+        }
         lastError = userError ?? new Error('Could not verify your Genie session.');
       } else {
         lastError = sessionError ?? new Error('Could not start your Genie session.');
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 200 * (attempt + 1)));
+      await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)));
     }
 
     return { session: null, error: lastError ?? new Error('Could not start your Genie session. Please try again.') };
   };
 
   const signIn = async (email: string, password: string): Promise<{ error: Error | null }> => {
-    setState(prev => ({ ...prev, error: null }));
+    setState(prev => ({
+      ...prev,
+      session: null,
+      user: null,
+      isAdmin: false,
+      isViewer: false,
+      isTester: false,
+      isCheckingRoles: false,
+      error: null,
+    }));
 
     const cleanEmail = email.trim().toLowerCase();
     const normalizedPassword = password.normalize('NFC');
@@ -211,6 +241,10 @@ export const useAdminAuth = () => {
     let error: Error | null = null;
 
     try {
+      // Remove stale browser sessions before starting a fresh password login.
+      // This prevents a previous preview/team token from racing the admin session.
+      await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined);
+
       const { data, error: functionError } = await callLoginFunction<SessionPayload>('admin-password-login', {
         email: cleanEmail,
         password: normalizedPassword,
@@ -237,13 +271,7 @@ export const useAdminAuth = () => {
     }
 
     if (error) {
-      console.warn('[admin-auth] sign-in failed', {
-        emailLength: cleanEmail.length,
-        passwordLength: normalizedPassword.trim().length,
-        rawPasswordLength: password.length,
-        passwordTrimmed: normalizedPassword.trim().length !== normalizedPassword.length,
-        message: error.message,
-      });
+      console.warn('[admin-auth] sign-in failed:', error.message);
       setState(prev => ({ ...prev, error: error.message }));
       return { error };
     }
