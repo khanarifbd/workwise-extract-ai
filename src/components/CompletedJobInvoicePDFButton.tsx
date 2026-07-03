@@ -76,15 +76,22 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
   const { codes: allTeamCodes } = useTeamAccessCodes();
 
   const availableTeams = useMemo(() => {
-    // Case-insensitive dedupe so "YAM" and "Yam" don't appear twice.
+    // Only show teams that actually have jobs in this category. Case-insensitive
+    // dedupe so "YAM" and "Yam" don't appear twice. Prefer the canonical roster
+    // spelling from team_access_codes when available (fixes typos like Shakhti vs Shakthi).
+    const canonical = new Map<string, string>();
+    allTeamCodes.forEach((c) => {
+      if (!c.isActive || !c.teamName) return;
+      const key = normalizeTeamName(c.teamName);
+      if (key && !canonical.has(key)) canonical.set(key, c.teamName.trim());
+    });
     const map = new Map<string, string>();
     const add = (name?: string | null) => {
       if (!name) return;
       const key = normalizeTeamName(name);
       if (!key) return;
-      if (!map.has(key)) map.set(key, name.trim());
+      if (!map.has(key)) map.set(key, canonical.get(key) ?? name.trim());
     };
-    allTeamCodes.forEach((c) => { if (c.isActive) add(c.teamName); });
     invoiceEligibleJobs.forEach((j) => { add(j.team); add(j.team2); });
     return Array.from(map.values()).sort((a, b) => a.localeCompare(b));
   }, [invoiceEligibleJobs, allTeamCodes]);
@@ -484,7 +491,15 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
             <div className="text-muted-foreground">
               {filteredJobs.length} booked / completed job{filteredJobs.length === 1 ? '' : 's'} in this {mode}.
             </div>
-            <div className={isSelectedTeamValid ? 'text-muted-foreground' : 'text-destructive font-medium'}>
+            <div
+              className={
+                !isSelectedTeamValid
+                  ? 'text-destructive font-semibold'
+                  : teamFilter === ALL_TEAMS_VALUE
+                    ? 'text-muted-foreground'
+                    : 'text-primary font-semibold'
+              }
+            >
               Team: {teamFilter === ALL_TEAMS_VALUE ? 'All teams' : teamFilter}
             </div>
             {filteredJobs.length > 0 && (
