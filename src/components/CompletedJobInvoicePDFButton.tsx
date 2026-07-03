@@ -22,6 +22,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useTeamAccessCodes } from '@/hooks/useTeamAccessCodes';
 
 type RangeMode = 'day' | 'week' | 'month';
+const ALL_TEAMS_VALUE = '__all__';
 
 interface Props {
   jobs: Job[];
@@ -38,11 +39,13 @@ const isCompleteJob = (job: Job) => job.status === 'complete' || job.isCompleted
 
 const isBookedJob = (job: Job) => Boolean(job.bookedDate);
 
+const normalizeTeamName = (name: string | null | undefined) => (name ?? '').trim().toLowerCase();
+
 export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold' }: Props) => {
   const [isOpen, setIsOpen] = useState(false);
   const [mode, setMode] = useState<RangeMode>('month');
   const [anchorDate, setAnchorDate] = useState<Date>(new Date());
-  const [teamFilter, setTeamFilter] = useState<string>('__all__');
+  const [teamFilter, setTeamFilter] = useState<string>(ALL_TEAMS_VALUE);
 
   const range = useMemo(() => {
     if (mode === 'day') return { start: startOfDay(anchorDate), end: endOfDay(anchorDate) };
@@ -77,7 +80,7 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
     const map = new Map<string, string>();
     const add = (name?: string | null) => {
       if (!name) return;
-      const key = name.trim().toLowerCase();
+      const key = normalizeTeamName(name);
       if (!key) return;
       if (!map.has(key)) map.set(key, name.trim());
     };
@@ -89,14 +92,26 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
   const filteredJobs = useMemo(
     () => invoiceEligibleJobs.filter((j) => {
       if (!inRange(j)) return false;
-      if (teamFilter === '__all__') return true;
-      const target = teamFilter.trim().toLowerCase();
-      const t1 = (j.team || '').trim().toLowerCase();
-      const t2 = (j.team2 || '').trim().toLowerCase();
+      if (teamFilter === ALL_TEAMS_VALUE) return true;
+      const target = normalizeTeamName(teamFilter);
+      const t1 = normalizeTeamName(j.team);
+      const t2 = normalizeTeamName(j.team2);
       return t1 === target || t2 === target;
     }),
     [invoiceEligibleJobs, inRange, teamFilter],
   );
+
+  const isSelectedTeamValid = useMemo(() => {
+    if (teamFilter === ALL_TEAMS_VALUE) return true;
+    const target = normalizeTeamName(teamFilter);
+    return availableTeams.some((team) => normalizeTeamName(team) === target);
+  }, [availableTeams, teamFilter]);
+
+  const hasRequiredInputs = Boolean(mode && anchorDate && teamFilter && isSelectedTeamValid);
+
+  const handleTeamSelect = useCallback((value: string) => {
+    setTeamFilter(value);
+  }, []);
 
   const rangeLabel = useMemo(() => {
     if (mode === 'day') return format(range.start, 'EEEE, dd MMM yyyy');
@@ -131,6 +146,11 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
 
   const handleGenerate = (targetWindow: Window | null) => {
     try {
+      if (!hasRequiredInputs) {
+        alert('Please select a valid team and date range before generating the invoice PDF.');
+        return;
+      }
+
       if (filteredJobs.length === 0) {
         alert('No invoice jobs found for the selected ' + mode);
         return;
@@ -147,7 +167,7 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
       doc.setFontSize(10);
       doc.setFont('helvetica', 'normal');
       doc.text(`Category: ${categoryName}`, 14, 23);
-      doc.text(`Team: ${teamFilter === '__all__' ? 'All Teams' : teamFilter}`, 120, 23);
+      doc.text(`Team: ${teamFilter === ALL_TEAMS_VALUE ? 'All Teams' : teamFilter}`, 120, 23);
       doc.text(`Range (${mode}): ${rangeLabel}`, 14, 29);
       doc.text(`Generated: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 14, 35);
       doc.text(`Total Jobs: ${strictJobs.length}`, 14, 41);
@@ -408,14 +428,21 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
               style={{ maxHeight: 'min(50vh, 320px)', WebkitOverflowScrolling: 'touch' }}
             >
               <div className="p-1 space-y-0.5">
-                {[{ value: '__all__', label: 'All teams' }, ...availableTeams.map((t) => ({ value: t, label: t }))].map((opt) => {
-                  const active = teamFilter === opt.value;
+                {[{ value: ALL_TEAMS_VALUE, label: 'All teams' }, ...availableTeams.map((t) => ({ value: t, label: t }))].map((opt) => {
+                  const active = opt.value === ALL_TEAMS_VALUE
+                    ? teamFilter === ALL_TEAMS_VALUE
+                    : normalizeTeamName(teamFilter) === normalizeTeamName(opt.value);
                   return (
                     <button
                       key={opt.value}
                       type="button"
-                      onClick={() => setTeamFilter(opt.value)}
-                      className={`w-full text-left text-xs px-2 py-1.5 rounded transition-colors ${
+                      aria-pressed={active}
+                      onPointerDown={(event) => {
+                        event.preventDefault();
+                        handleTeamSelect(opt.value);
+                      }}
+                      onClick={() => handleTeamSelect(opt.value)}
+                      className={`w-full text-left text-xs px-2 py-1.5 rounded transition-colors cursor-pointer ${
                         active ? 'bg-primary/10 ring-1 ring-primary/30 font-medium' : 'hover:bg-muted'
                       }`}
                     >
@@ -457,6 +484,9 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
             <div className="text-muted-foreground">
               {filteredJobs.length} booked / completed job{filteredJobs.length === 1 ? '' : 's'} in this {mode}.
             </div>
+            <div className={isSelectedTeamValid ? 'text-muted-foreground' : 'text-destructive font-medium'}>
+              Team: {teamFilter === ALL_TEAMS_VALUE ? 'All teams' : teamFilter}
+            </div>
             {filteredJobs.length > 0 && (
               <div className={accuracyReport.issues.length === 0 ? 'text-emerald-600 font-medium' : 'text-amber-600 font-medium'}>
                 Accuracy: {accuracyReport.clean}/{accuracyReport.total} fully populated
@@ -477,7 +507,7 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
               handleGenerate(invoiceWindow);
             }}
             className="w-full bg-blue-600 hover:bg-blue-700"
-            disabled={filteredJobs.length === 0}
+            disabled={!hasRequiredInputs}
           >
             <FileText className="w-4 h-4 mr-2" />
             Generate PDF ({filteredJobs.length})
