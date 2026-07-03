@@ -392,6 +392,23 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
           </div>
 
           <div className="space-y-2">
+            <Label className="text-xs">Team filter</Label>
+            <Select value={teamFilter} onValueChange={setTeamFilter}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="All teams" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">All teams</SelectItem>
+                {availableTeams.map((t) => (
+                  <SelectItem key={t} value={t}>{t}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+
+
+          <div className="space-y-2">
             <Label className="text-xs">
               {mode === 'day' ? 'Select date' : mode === 'week' ? 'Pick any date in the week' : 'Pick any date in the month'}
             </Label>
