@@ -10,6 +10,7 @@ import { JobTable } from '@/components/JobTable';
 import { Header } from '@/components/Header';
 import { StatsCards } from '@/components/StatsCards';
 import { FanStatsCards } from '@/components/FanStatsCards';
+import { BookTodaysFansButton } from '@/components/BookTodaysFansButton';
 import { InsulationStatsCards } from '@/components/InsulationStatsCards';
 const InsulationAnalyticsReport = lazy(() => import('@/components/InsulationAnalyticsReport').then(m => ({ default: m.InsulationAnalyticsReport })));
 import { ExportPanel } from '@/components/ExportPanel';
@@ -1431,7 +1432,16 @@ const Index = () => {
               {isInsulationCategory ? (
                 <InsulationStatsCards jobs={jobs} />
               ) : isFanCategory ? (
-                <FanStatsCards jobs={jobs} />
+                <div className="space-y-2">
+                  <FanStatsCards jobs={jobs} />
+                  <div className="flex justify-end">
+                    <BookTodaysFansButton
+                      jobs={jobs}
+                      fanCategoryId={categories.find(c => c.name.toLowerCase().includes('fan'))?.id}
+                      onDone={() => refreshJobs()}
+                    />
+                  </div>
+                </div>
               ) : (
                 <StatsCards jobs={jobs} allJobs={jobs} tradeBookings={tradeBookings} />
               )}
