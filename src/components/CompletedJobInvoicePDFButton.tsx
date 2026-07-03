@@ -371,7 +371,7 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
           Invoice Data PDF
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 p-4" align="end">
+      <PopoverContent className="w-[min(360px,calc(100vw-2rem))] max-h-[85vh] overflow-y-auto p-4" align="end">
         <div className="space-y-4">
           <div>
             <h4 className="font-medium text-sm">Completed Jobs - Invoice Data</h4>
