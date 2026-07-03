@@ -1431,7 +1431,16 @@ const Index = () => {
               {isInsulationCategory ? (
                 <InsulationStatsCards jobs={jobs} />
               ) : isFanCategory ? (
-                <FanStatsCards jobs={jobs} />
+                <div className="space-y-2">
+                  <FanStatsCards jobs={jobs} />
+                  <div className="flex justify-end">
+                    <BookTodaysFansButton
+                      jobs={jobs}
+                      fanCategoryId={categories.find(c => c.name.toLowerCase().includes('fan'))?.id}
+                      onDone={() => refreshJobs()}
+                    />
+                  </div>
+                </div>
               ) : (
                 <StatsCards jobs={jobs} allJobs={jobs} tradeBookings={tradeBookings} />
               )}
