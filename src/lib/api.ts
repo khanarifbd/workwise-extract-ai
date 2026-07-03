@@ -1350,9 +1350,44 @@ export const syncLinkedFanJob = async (
     return { linkedFanJobId: sourceJob.linkedFanJobId, created: false };
   }
 
+  // Adopt any orphaned existing fan job with the same job number before inserting.
+  // This prevents duplicate-key errors when a linked fan job exists but the parent
+  // lost its linked_fan_job_id reference.
+  const fanJobNumber = `${sourceJob.jobNumber}-FAN`;
+  const { data: existingFanJob } = await supabase
+    .from('jobs')
+    .select('id')
+    .eq('job_number', fanJobNumber)
+    .eq('category_id', fanCategoryId)
+    .maybeSingle();
+
+  if (existingFanJob?.id) {
+    const updateData: any = {
+      fan_info: fanInfo as unknown as Json,
+      description: fanDescription,
+    };
+    if (bookedDate !== undefined) {
+      updateData.booked_date = bookedDate ? formatDateOnly(bookedDate) : null;
+      if (bookedDate) updateData.date_issued = formatDateOnly(bookedDate);
+    }
+    const { error: updErr } = await supabase
+      .from('jobs')
+      .update(updateData)
+      .eq('id', existingFanJob.id);
+    if (updErr) {
+      console.error('Error updating orphaned fan job:', updErr);
+      throw updErr;
+    }
+    await supabase
+      .from('jobs')
+      .update({ linked_fan_job_id: existingFanJob.id, fan_info: fanInfo as unknown as Json })
+      .eq('id', sourceJob.id);
+    return { linkedFanJobId: existingFanJob.id, created: false };
+  }
+
   // Create new fan job
   const fanJob: Omit<Job, 'id'> = {
-    jobNumber: `${sourceJob.jobNumber}-FAN`,
+    jobNumber: fanJobNumber,
     name: sourceJob.name,
     address: sourceJob.address,
     phoneNumber: sourceJob.phoneNumber,
