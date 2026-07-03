@@ -70,9 +70,22 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
     return false;
   }, [range]);
 
+  const availableTeams = useMemo(() => {
+    const set = new Set<string>();
+    invoiceEligibleJobs.forEach((j) => {
+      if (j.team) set.add(j.team);
+      if (j.team2) set.add(j.team2);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [invoiceEligibleJobs]);
+
   const filteredJobs = useMemo(
-    () => invoiceEligibleJobs.filter(inRange),
-    [invoiceEligibleJobs, inRange],
+    () => invoiceEligibleJobs.filter((j) => {
+      if (!inRange(j)) return false;
+      if (teamFilter === '__all__') return true;
+      return j.team === teamFilter || j.team2 === teamFilter;
+    }),
+    [invoiceEligibleJobs, inRange, teamFilter],
   );
 
   const rangeLabel = useMemo(() => {
