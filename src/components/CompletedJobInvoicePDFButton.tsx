@@ -73,24 +73,27 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
   const { codes: allTeamCodes } = useTeamAccessCodes();
 
   const availableTeams = useMemo(() => {
-    const set = new Set<string>();
-    // Include every active team roster-wide so DM / A&A / Fans members all appear.
-    allTeamCodes.forEach((c) => {
-      if (c.isActive && c.teamName) set.add(c.teamName);
-    });
-    // Also include any team names present on eligible jobs (covers legacy/custom names).
-    invoiceEligibleJobs.forEach((j) => {
-      if (j.team) set.add(j.team);
-      if (j.team2) set.add(j.team2);
-    });
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
+    // Case-insensitive dedupe so "YAM" and "Yam" don't appear twice.
+    const map = new Map<string, string>();
+    const add = (name?: string | null) => {
+      if (!name) return;
+      const key = name.trim().toLowerCase();
+      if (!key) return;
+      if (!map.has(key)) map.set(key, name.trim());
+    };
+    allTeamCodes.forEach((c) => { if (c.isActive) add(c.teamName); });
+    invoiceEligibleJobs.forEach((j) => { add(j.team); add(j.team2); });
+    return Array.from(map.values()).sort((a, b) => a.localeCompare(b));
   }, [invoiceEligibleJobs, allTeamCodes]);
 
   const filteredJobs = useMemo(
     () => invoiceEligibleJobs.filter((j) => {
       if (!inRange(j)) return false;
       if (teamFilter === '__all__') return true;
-      return j.team === teamFilter || j.team2 === teamFilter;
+      const target = teamFilter.trim().toLowerCase();
+      const t1 = (j.team || '').trim().toLowerCase();
+      const t2 = (j.team2 || '').trim().toLowerCase();
+      return t1 === target || t2 === target;
     }),
     [invoiceEligibleJobs, inRange, teamFilter],
   );
