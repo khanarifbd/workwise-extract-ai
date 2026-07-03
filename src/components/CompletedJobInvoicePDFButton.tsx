@@ -70,14 +70,21 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
     return false;
   }, [range]);
 
+  const { codes: allTeamCodes } = useTeamAccessCodes();
+
   const availableTeams = useMemo(() => {
     const set = new Set<string>();
+    // Include every active team roster-wide so DM / A&A / Fans members all appear.
+    allTeamCodes.forEach((c) => {
+      if (c.isActive && c.teamName) set.add(c.teamName);
+    });
+    // Also include any team names present on eligible jobs (covers legacy/custom names).
     invoiceEligibleJobs.forEach((j) => {
       if (j.team) set.add(j.team);
       if (j.team2) set.add(j.team2);
     });
     return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [invoiceEligibleJobs]);
+  }, [invoiceEligibleJobs, allTeamCodes]);
 
   const filteredJobs = useMemo(
     () => invoiceEligibleJobs.filter((j) => {
