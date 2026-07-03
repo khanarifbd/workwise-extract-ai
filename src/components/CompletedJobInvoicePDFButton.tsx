@@ -464,10 +464,6 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
                       key={opt.value}
                       type="button"
                       aria-pressed={active}
-                      onPointerDown={(event) => {
-                        event.preventDefault();
-                        handleTeamSelect(opt.value);
-                      }}
                       onClick={() => handleTeamSelect(opt.value)}
                       className={`w-full text-left text-xs px-2 py-1.5 rounded transition-colors cursor-pointer ${
                         active ? 'bg-primary/10 ring-1 ring-primary/30 font-medium' : 'hover:bg-muted'
