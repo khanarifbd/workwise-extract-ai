@@ -393,18 +393,30 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
 
           <div className="space-y-2">
             <Label className="text-xs">Team filter</Label>
-            <Select value={teamFilter} onValueChange={setTeamFilter}>
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue placeholder="All teams" />
-              </SelectTrigger>
-              <SelectContent className="max-h-[280px] overflow-y-auto overscroll-contain">
-                <SelectItem value="__all__">All teams</SelectItem>
-                {availableTeams.map((t) => (
-                  <SelectItem key={t} value={t}>{t}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div
+              className="rounded-md border border-border bg-background overflow-y-auto overscroll-contain"
+              style={{ maxHeight: 'min(40vh, 240px)', WebkitOverflowScrolling: 'touch' }}
+            >
+              <div className="p-1 space-y-0.5">
+                {[{ value: '__all__', label: 'All teams' }, ...availableTeams.map((t) => ({ value: t, label: t }))].map((opt) => {
+                  const active = teamFilter === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setTeamFilter(opt.value)}
+                      className={`w-full text-left text-xs px-2 py-1.5 rounded transition-colors ${
+                        active ? 'bg-primary/10 ring-1 ring-primary/30 font-medium' : 'hover:bg-muted'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
+
 
 
 
