@@ -76,19 +76,16 @@ export const EODReminder = ({ teamId, teamName, jobs, enabled = true, autoOpen =
       setSubmitted(true);
       return;
     }
-    // Server-side check (authoritative)
-    supabase
-      .from('eod_reports')
-      .select('id')
-      .eq('team_id', teamId)
-      .eq('report_date', todayStrGMT())
-      .maybeSingle()
+    // Server-side check via edge function (RLS restricts direct client SELECT)
+    supabase.functions
+      .invoke('check-eod-submitted', { body: { teamId } })
       .then(({ data }) => {
-        if (data) {
+        if (data?.submitted) {
           setSubmitted(true);
           localStorage.setItem(submittedKey, '1');
         }
-      });
+      })
+      .catch(() => {});
   }, [teamId, enabled, dismissKey, submittedKey]);
 
   // Auto-open the dialog when caller passes autoOpen=true (deep-link from push)

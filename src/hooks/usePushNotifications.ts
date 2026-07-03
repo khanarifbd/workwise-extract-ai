@@ -63,16 +63,16 @@ export const usePushNotifications = (teamId: string | null) => {
 
       const subscriptionJson = subscription.toJSON();
 
-      // Save subscription to database
-      const { error } = await supabase.from('team_push_subscriptions').upsert(
-        {
-          team_id: teamId,
+      // Save subscription via edge function (service role bypasses RLS)
+      const { error } = await supabase.functions.invoke('manage-push-subscription', {
+        body: {
+          action: 'subscribe',
+          teamId,
           endpoint: subscriptionJson.endpoint!,
           p256dh: subscriptionJson.keys?.p256dh || '',
           auth: subscriptionJson.keys?.auth || '',
         },
-        { onConflict: 'team_id,endpoint' }
-      );
+      });
 
       if (error) throw error;
 
@@ -107,12 +107,10 @@ export const usePushNotifications = (teamId: string | null) => {
       if (subscription) {
         await subscription.unsubscribe();
 
-        // Remove from database
-        await supabase
-          .from('team_push_subscriptions')
-          .delete()
-          .eq('team_id', teamId)
-          .eq('endpoint', subscription.endpoint);
+        // Remove via edge function (service role bypasses RLS)
+        await supabase.functions.invoke('manage-push-subscription', {
+          body: { action: 'unsubscribe', teamId, endpoint: subscription.endpoint },
+        });
       }
 
       setIsSubscribed(false);

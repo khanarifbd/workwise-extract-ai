@@ -343,25 +343,14 @@ const TeamPortal = () => {
       const platform = Capacitor.getPlatform();
       console.log('[push] saving token for team', { teamId, platform });
 
-      const { data: existing, error: selectError } = await supabase
-        .from('team_fcm_tokens' as any)
-        .select('id')
-        .eq('team_id', teamId)
-        .eq('fcm_token', token)
-        .maybeSingle();
+      const { error } = await supabase.functions.invoke('register-fcm-token', {
+        body: { action: 'upsert', teamId, fcmToken: token, platform },
+      });
 
-      if (selectError) console.error('[push] select token error', selectError);
-
-      if (!existing) {
-        const { error: insertError } = await supabase
-          .from('team_fcm_tokens' as any)
-          .insert({ team_id: teamId, fcm_token: token, platform } as any);
-
-        if (insertError) {
-          console.error('[push] insert token error', insertError);
-        } else {
-          console.log('[push] token saved');
-        }
+      if (error) {
+        console.error('[push] register-fcm-token error', error);
+      } else {
+        console.log('[push] token saved');
       }
     },
     []
