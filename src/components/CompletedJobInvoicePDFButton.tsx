@@ -19,7 +19,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useTeamAccessCodes } from '@/hooks/useTeamAccessCodes';
 
 type RangeMode = 'day' | 'week' | 'month';
 
@@ -70,14 +70,21 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
     return false;
   }, [range]);
 
+  const { codes: allTeamCodes } = useTeamAccessCodes();
+
   const availableTeams = useMemo(() => {
     const set = new Set<string>();
+    // Include every active team roster-wide so DM / A&A / Fans members all appear.
+    allTeamCodes.forEach((c) => {
+      if (c.isActive && c.teamName) set.add(c.teamName);
+    });
+    // Also include any team names present on eligible jobs (covers legacy/custom names).
     invoiceEligibleJobs.forEach((j) => {
       if (j.team) set.add(j.team);
       if (j.team2) set.add(j.team2);
     });
     return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [invoiceEligibleJobs]);
+  }, [invoiceEligibleJobs, allTeamCodes]);
 
   const filteredJobs = useMemo(
     () => invoiceEligibleJobs.filter((j) => {
@@ -364,7 +371,7 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
           Invoice Data PDF
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 p-4" align="end">
+      <PopoverContent className="w-[min(360px,calc(100vw-2rem))] max-h-[85vh] overflow-y-auto p-4" align="end">
         <div className="space-y-4">
           <div>
             <h4 className="font-medium text-sm">Completed Jobs - Invoice Data</h4>
@@ -395,7 +402,7 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
             <Label className="text-xs">Team filter</Label>
             <div
               className="rounded-md border border-border bg-background overflow-y-auto overscroll-contain"
-              style={{ maxHeight: 'min(40vh, 240px)', WebkitOverflowScrolling: 'touch' }}
+              style={{ maxHeight: 'min(50vh, 320px)', WebkitOverflowScrolling: 'touch' }}
             >
               <div className="p-1 space-y-0.5">
                 {[{ value: '__all__', label: 'All teams' }, ...availableTeams.map((t) => ({ value: t, label: t }))].map((opt) => {
