@@ -137,6 +137,7 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
       doc.setFontSize(10);
       doc.setFont('helvetica', 'normal');
       doc.text(`Category: ${categoryName}`, 14, 23);
+      doc.text(`Team: ${teamFilter === '__all__' ? 'All Teams' : teamFilter}`, 120, 23);
       doc.text(`Range (${mode}): ${rangeLabel}`, 14, 29);
       doc.text(`Generated: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 14, 35);
       doc.text(`Total Jobs: ${strictJobs.length}`, 14, 41);
