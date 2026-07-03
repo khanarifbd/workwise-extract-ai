@@ -42,6 +42,7 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
   const [isOpen, setIsOpen] = useState(false);
   const [mode, setMode] = useState<RangeMode>('month');
   const [anchorDate, setAnchorDate] = useState<Date>(new Date());
+  const [teamFilter, setTeamFilter] = useState<string>('__all__');
 
   const range = useMemo(() => {
     if (mode === 'day') return { start: startOfDay(anchorDate), end: endOfDay(anchorDate) };
