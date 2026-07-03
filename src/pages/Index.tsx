@@ -10,6 +10,7 @@ import { JobTable } from '@/components/JobTable';
 import { Header } from '@/components/Header';
 import { StatsCards } from '@/components/StatsCards';
 import { FanStatsCards } from '@/components/FanStatsCards';
+import { BookTodaysFansButton } from '@/components/BookTodaysFansButton';
 import { InsulationStatsCards } from '@/components/InsulationStatsCards';
 const InsulationAnalyticsReport = lazy(() => import('@/components/InsulationAnalyticsReport').then(m => ({ default: m.InsulationAnalyticsReport })));
 import { ExportPanel } from '@/components/ExportPanel';
