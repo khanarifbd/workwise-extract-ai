@@ -19,6 +19,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type RangeMode = 'day' | 'week' | 'month';
 
@@ -41,6 +42,7 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
   const [isOpen, setIsOpen] = useState(false);
   const [mode, setMode] = useState<RangeMode>('month');
   const [anchorDate, setAnchorDate] = useState<Date>(new Date());
+  const [teamFilter, setTeamFilter] = useState<string>('__all__');
 
   const range = useMemo(() => {
     if (mode === 'day') return { start: startOfDay(anchorDate), end: endOfDay(anchorDate) };
@@ -68,9 +70,22 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
     return false;
   }, [range]);
 
+  const availableTeams = useMemo(() => {
+    const set = new Set<string>();
+    invoiceEligibleJobs.forEach((j) => {
+      if (j.team) set.add(j.team);
+      if (j.team2) set.add(j.team2);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [invoiceEligibleJobs]);
+
   const filteredJobs = useMemo(
-    () => invoiceEligibleJobs.filter(inRange),
-    [invoiceEligibleJobs, inRange],
+    () => invoiceEligibleJobs.filter((j) => {
+      if (!inRange(j)) return false;
+      if (teamFilter === '__all__') return true;
+      return j.team === teamFilter || j.team2 === teamFilter;
+    }),
+    [invoiceEligibleJobs, inRange, teamFilter],
   );
 
   const rangeLabel = useMemo(() => {
@@ -122,6 +137,7 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
       doc.setFontSize(10);
       doc.setFont('helvetica', 'normal');
       doc.text(`Category: ${categoryName}`, 14, 23);
+      doc.text(`Team: ${teamFilter === '__all__' ? 'All Teams' : teamFilter}`, 120, 23);
       doc.text(`Range (${mode}): ${rangeLabel}`, 14, 29);
       doc.text(`Generated: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 14, 35);
       doc.text(`Total Jobs: ${strictJobs.length}`, 14, 41);
@@ -374,6 +390,23 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
               ))}
             </RadioGroup>
           </div>
+
+          <div className="space-y-2">
+            <Label className="text-xs">Team filter</Label>
+            <Select value={teamFilter} onValueChange={setTeamFilter}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="All teams" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">All teams</SelectItem>
+                {availableTeams.map((t) => (
+                  <SelectItem key={t} value={t}>{t}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+
 
           <div className="space-y-2">
             <Label className="text-xs">
