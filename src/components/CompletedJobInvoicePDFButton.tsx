@@ -397,7 +397,7 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
               <SelectTrigger className="h-8 text-xs">
                 <SelectValue placeholder="All teams" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-[280px] overflow-y-auto overscroll-contain">
                 <SelectItem value="__all__">All teams</SelectItem>
                 {availableTeams.map((t) => (
                   <SelectItem key={t} value={t}>{t}</SelectItem>
