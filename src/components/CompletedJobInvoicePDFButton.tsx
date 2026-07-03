@@ -505,7 +505,11 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
 
           <div className="text-xs space-y-1">
             <div className="text-muted-foreground">
-              {filteredJobs.length} booked / completed job{filteredJobs.length === 1 ? '' : 's'} in this {mode}.
+              <span className="font-semibold text-foreground">{completedInRange}</span> completed
+              {' • '}
+              <span className="font-semibold text-foreground">{bookedInRange}</span> booked
+              {' • '}
+              <span className="font-semibold text-foreground">{filteredJobs.length}</span> total in this {mode}.
             </div>
             <div
               className={
