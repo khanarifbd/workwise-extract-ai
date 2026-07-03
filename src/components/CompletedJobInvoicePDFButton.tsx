@@ -491,7 +491,15 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
             <div className="text-muted-foreground">
               {filteredJobs.length} booked / completed job{filteredJobs.length === 1 ? '' : 's'} in this {mode}.
             </div>
-            <div className={isSelectedTeamValid ? 'text-muted-foreground' : 'text-destructive font-medium'}>
+            <div
+              className={
+                !isSelectedTeamValid
+                  ? 'text-destructive font-semibold'
+                  : teamFilter === ALL_TEAMS_VALUE
+                    ? 'text-muted-foreground'
+                    : 'text-primary font-semibold'
+              }
+            >
               Team: {teamFilter === ALL_TEAMS_VALUE ? 'All teams' : teamFilter}
             </div>
             {filteredJobs.length > 0 && (
