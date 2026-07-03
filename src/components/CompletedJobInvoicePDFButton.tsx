@@ -402,7 +402,7 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
             <Label className="text-xs">Team filter</Label>
             <div
               className="rounded-md border border-border bg-background overflow-y-auto overscroll-contain"
-              style={{ maxHeight: 'min(40vh, 240px)', WebkitOverflowScrolling: 'touch' }}
+              style={{ maxHeight: 'min(50vh, 320px)', WebkitOverflowScrolling: 'touch' }}
             >
               <div className="p-1 space-y-0.5">
                 {[{ value: '__all__', label: 'All teams' }, ...availableTeams.map((t) => ({ value: t, label: t }))].map((opt) => {
