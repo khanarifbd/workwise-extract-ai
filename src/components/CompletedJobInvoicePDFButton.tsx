@@ -96,16 +96,36 @@ export const CompletedJobInvoicePDFButton = ({ jobs, categoryName = 'Damp & Mold
     return Array.from(map.values()).sort((a, b) => a.localeCompare(b));
   }, [invoiceEligibleJobs, allTeamCodes]);
 
+  const matchesTeam = useCallback((j: Job) => {
+    if (teamFilter === ALL_TEAMS_VALUE) return true;
+    const target = normalizeTeamName(teamFilter);
+    return normalizeTeamName(j.team) === target || normalizeTeamName(j.team2) === target;
+  }, [teamFilter]);
+
   const filteredJobs = useMemo(
+    () => invoiceEligibleJobs.filter((j) => inRange(j) && matchesTeam(j)),
+    [invoiceEligibleJobs, inRange, matchesTeam],
+  );
+
+  // Precise per-metric counts using the correct month/week/day range.
+  // Completed = completion_date falls inside the selected range.
+  // Booked    = booked_date falls inside the selected range (may or may not be complete yet).
+  const completedInRange = useMemo(
     () => invoiceEligibleJobs.filter((j) => {
-      if (!inRange(j)) return false;
-      if (teamFilter === ALL_TEAMS_VALUE) return true;
-      const target = normalizeTeamName(teamFilter);
-      const t1 = normalizeTeamName(j.team);
-      const t2 = normalizeTeamName(j.team2);
-      return t1 === target || t2 === target;
-    }),
-    [invoiceEligibleJobs, inRange, teamFilter],
+      if (!matchesTeam(j)) return false;
+      if (!isCompleteJob(j) || !j.completionDate) return false;
+      return isWithinInterval(new Date(j.completionDate), range);
+    }).length,
+    [invoiceEligibleJobs, matchesTeam, range],
+  );
+
+  const bookedInRange = useMemo(
+    () => invoiceEligibleJobs.filter((j) => {
+      if (!matchesTeam(j)) return false;
+      if (!j.bookedDate) return false;
+      return isWithinInterval(new Date(j.bookedDate), range);
+    }).length,
+    [invoiceEligibleJobs, matchesTeam, range],
   );
 
   const isSelectedTeamValid = useMemo(() => {
