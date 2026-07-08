@@ -73,27 +73,29 @@ export const useAdminAuth = () => {
     let isMounted = true;
     let subscription: { unsubscribe: () => void } | null = null;
 
-    const applySession = async (session: Session | null) => {
+    const applySession = async (session: Session | null, options: { verify?: boolean } = {}) => {
       const runId = ++authCheckRunRef.current;
 
       if (!isMounted) return;
 
-      if (session?.user) {
-        const { data: verifiedUser, error: verifyError } = await supabase.auth.getUser();
-        if (verifyError || !verifiedUser.user) {
-          if (!isMounted || runId !== authCheckRunRef.current) return;
-          setState(prev => ({
-            ...prev,
-            session: null,
-            user: null,
-            isAdmin: false,
-            isViewer: false,
-            isTester: false,
-            isLoading: false,
-            isCheckingRoles: false,
-          }));
-          return;
+      // Only verify with the auth server on the very first restore. Transient
+      // network failures on subsequent refreshes must NOT sign the user out —
+      // the stored session (with a valid refresh token) is trusted. This is
+      // the key change that keeps admins logged in until they explicitly sign
+      // out.
+      if (session?.user && options.verify) {
+        try {
+          const { data: verifiedUser, error: verifyError } = await supabase.auth.getUser();
+          if (verifyError || !verifiedUser.user) {
+            // Do NOT clear the session on transient verify errors — the
+            // Supabase client will refresh the token itself. Keep the session
+            // hydrated and continue.
+            console.warn('[admin-auth] initial getUser verification failed, keeping stored session:', verifyError?.message);
+          }
+        } catch (err) {
+          console.warn('[admin-auth] initial getUser verification threw, keeping stored session:', err);
         }
+        if (!isMounted || runId !== authCheckRunRef.current) return;
       }
 
       setState(prev => ({
@@ -129,6 +131,7 @@ export const useAdminAuth = () => {
         }));
       }
     };
+
 
     // Restore the stored auth session before subscribing, so role-gated queries
     // do not run while auth.uid() is still temporarily unavailable.
