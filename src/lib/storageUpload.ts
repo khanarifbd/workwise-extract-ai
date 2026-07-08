@@ -57,10 +57,14 @@ export async function uploadFileToStorage({
       supabase.storage.from(bucket).upload(filePath, file, {
         cacheControl,
         upsert: false,
+        // iOS Safari sometimes leaves File.type empty for camera captures.
+        // Fall back to a sensible default so the server accepts the upload.
+        contentType: file.type || 'application/octet-stream',
       }),
       timeoutMs,
       'Upload'
     );
+
 
     if (error) {
       throw error;

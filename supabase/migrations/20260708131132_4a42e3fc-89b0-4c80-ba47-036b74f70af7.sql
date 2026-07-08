@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS "Authenticated users can read category guidelines" ON public.category_guidelines;

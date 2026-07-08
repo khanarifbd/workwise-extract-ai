@@ -73,27 +73,29 @@ export const useAdminAuth = () => {
     let isMounted = true;
     let subscription: { unsubscribe: () => void } | null = null;
 
-    const applySession = async (session: Session | null) => {
+    const applySession = async (session: Session | null, options: { verify?: boolean } = {}) => {
       const runId = ++authCheckRunRef.current;
 
       if (!isMounted) return;
 
-      if (session?.user) {
-        const { data: verifiedUser, error: verifyError } = await supabase.auth.getUser();
-        if (verifyError || !verifiedUser.user) {
-          if (!isMounted || runId !== authCheckRunRef.current) return;
-          setState(prev => ({
-            ...prev,
-            session: null,
-            user: null,
-            isAdmin: false,
-            isViewer: false,
-            isTester: false,
-            isLoading: false,
-            isCheckingRoles: false,
-          }));
-          return;
+      // Only verify with the auth server on the very first restore. Transient
+      // network failures on subsequent refreshes must NOT sign the user out —
+      // the stored session (with a valid refresh token) is trusted. This is
+      // the key change that keeps admins logged in until they explicitly sign
+      // out.
+      if (session?.user && options.verify) {
+        try {
+          const { data: verifiedUser, error: verifyError } = await supabase.auth.getUser();
+          if (verifyError || !verifiedUser.user) {
+            // Do NOT clear the session on transient verify errors — the
+            // Supabase client will refresh the token itself. Keep the session
+            // hydrated and continue.
+            console.warn('[admin-auth] initial getUser verification failed, keeping stored session:', verifyError?.message);
+          }
+        } catch (err) {
+          console.warn('[admin-auth] initial getUser verification threw, keeping stored session:', err);
         }
+        if (!isMounted || runId !== authCheckRunRef.current) return;
       }
 
       setState(prev => ({
@@ -130,10 +132,11 @@ export const useAdminAuth = () => {
       }
     };
 
+
     // Restore the stored auth session before subscribing, so role-gated queries
     // do not run while auth.uid() is still temporarily unavailable.
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-      await applySession(session);
+      await applySession(session, { verify: true });
 
       if (!isMounted) return;
 
@@ -142,16 +145,21 @@ export const useAdminAuth = () => {
 
         if (manualLoginInFlightRef.current) return;
 
-        if (event === 'TOKEN_REFRESHED') {
+        // Silent events — keep the session hydrated without re-running role
+        // checks or the auth-server verify round-trip. These fire frequently
+        // (tab visibility, background refresh) and must NOT log the user out.
+        if (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED' || event === 'INITIAL_SESSION') {
           setState(prev => ({
             ...prev,
-            session,
-            user: session?.user ?? null,
+            session: session ?? prev.session,
+            user: session?.user ?? prev.user,
           }));
           return;
         }
 
-        // Defer role checks outside the auth callback to avoid blocking auth.
+        // Only clear state on an explicit SIGNED_OUT. Any other transient
+        // event (e.g. PASSWORD_RECOVERY) just refreshes role state without
+        // signing out.
         setTimeout(() => {
           void applySession(session);
         }, 0);
@@ -159,6 +167,7 @@ export const useAdminAuth = () => {
 
       subscription = data.subscription;
     }).catch((err) => {
+
       console.error('Failed to initialise admin auth:', err);
       if (isMounted) {
         setState(prev => ({
