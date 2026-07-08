@@ -71,20 +71,32 @@ export const AttachmentUpload = ({ jobId, attachments, onAttachmentsChange }: At
     return () => { cancelled = true; };
   }, [attachments, jobId]);
 
-  const uploadToStorage = async (file: File, category: MediaCategory): Promise<{ path: string; publicUrl: string } | null> => {
-    const fileExt = file.name.split('.').pop();
+  const uploadToStorage = async (file: File, category: MediaCategory): Promise<{ path: string; publicUrl: string; errorMessage?: string } | { error: string }> => {
+    const fileExt = (file.name.split('.').pop() || 'bin').toLowerCase();
     const filePath = `${jobId}/${category}/${crypto.randomUUID()}.${fileExt}`;
-    
+
+    // Ensure we have an authenticated session — the job-attachments bucket
+    // requires is_admin(auth.uid()). If the session isn't present the request
+    // goes anon and the RLS INSERT policy rejects it with a generic message.
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      return { error: 'You are signed out. Please sign in again to upload.' };
+    }
+
     const { data, error } = await supabase.storage
       .from('job-attachments')
-      .upload(filePath, file);
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false,
+        // iOS Safari camera captures sometimes report an empty MIME type.
+        contentType: file.type || 'application/octet-stream',
+      });
 
     if (error) {
       console.error('Storage upload error:', error);
-      return null;
+      return { error: error.message || 'Storage rejected the upload.' };
     }
 
-    // Store a legacy URL for compatibility, but use signed URLs for display
     const publicUrl = getJobAttachmentPublicUrl(data.path);
     return { path: data.path, publicUrl };
   };
@@ -109,11 +121,11 @@ export const AttachmentUpload = ({ jobId, attachments, onAttachmentsChange }: At
         }
 
         const result = await uploadToStorage(file, category);
-        
-        if (!result) {
+
+        if ('error' in result) {
           toast({
             title: "Upload failed",
-            description: `Failed to upload ${file.name}.`,
+            description: `${file.name}: ${result.error}`,
             variant: "destructive",
           });
           continue;
