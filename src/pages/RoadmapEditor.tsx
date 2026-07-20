@@ -2,9 +2,10 @@ import { useMemo, useRef, useState } from 'react';
 import { Check, StickyNote, Award } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Loader2, Plus, ArrowLeft, CalendarDays, Bell, Star, Diamond, Trash2, Settings2, FileUp, Copy, ChevronRight, ChevronDown, CornerDownRight } from 'lucide-react';
+import { Loader2, Plus, ArrowLeft, CalendarDays, Bell, Star, Diamond, Trash2, Settings2, FileUp, Copy, ChevronRight, ChevronDown, CornerDownRight, Wand2 } from 'lucide-react';
 import { useRoadmaps, useRoadmapItems, RoadmapItem } from '@/hooks/useRoadmaps';
 import { buildColumns, barPosition, parseLocalDate, toISODate, daysBetween } from '@/lib/roadmapUtils';
+import { generateContractorRoadmapItems } from '@/lib/roadmapPlanner';
 
 const isCertificate = (item: RoadmapItem) => /\bcert(ificate|s|ification)?\b|\bcerts?\b/i.test(item.label || '');
 
@@ -24,11 +25,12 @@ const RoadmapEditor = () => {
   const navigate = useNavigate();
   const { roadmaps, update, remove } = useRoadmaps();
   const roadmap = roadmaps.find(r => r.id === id);
-  const { items, create, update: updateItem, remove: removeItem, isLoading } = useRoadmapItems(id);
+  const { items, create, update: updateItem, remove: removeItem, refresh: refreshItems, isLoading } = useRoadmapItems(id);
   const [editing, setEditing] = useState<RoadmapItem | null>(null);
   const [addingParent, setAddingParent] = useState<string | null | undefined>(undefined);
   const [showSettings, setShowSettings] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [generatingPlan, setGeneratingPlan] = useState(false);
 
   const [openNotes, setOpenNotes] = useState<Set<string>>(new Set());
   const toggleNotes = (id: string) => setOpenNotes(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -155,6 +157,25 @@ const RoadmapEditor = () => {
   const gridTemplate = `repeat(${columns.length}, minmax(70px, ${'1fr'}))`;
   // weight columns by day count so week/day columns stay proportional but min-clamp aligns with header
   const gridTemplateWeighted = columns.map(c => `minmax(70px, ${c.days}fr)`).join(' ');
+
+  const handleGenerateContractorPlan = async () => {
+    if (!roadmap || generatingPlan) return;
+    if (items.length > 0 && !confirm('Add the contractor programme to the existing tasks?')) return;
+
+    setGeneratingPlan(true);
+    try {
+      const payload = generateContractorRoadmapItems(roadmap.start_date, roadmap.end_date)
+        .map((item, index) => ({ ...item, roadmap_id: roadmap.id, sort_order: item.sort_order ?? (index + 1) * 10 }));
+      const { error } = await supabase.from('roadmap_items').insert(payload as any);
+      if (error) throw error;
+      await refreshItems();
+      toast.success(`Generated ${payload.length} contractor-planned tasks`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not generate roadmap plan');
+    } finally {
+      setGeneratingPlan(false);
+    }
+  };
 
   const renderRow = (item: RoadmapItem, depth: number, idx: number) => {
     const liveStart = drag && drag.id === item.id ? drag.newStart : item.start_date;
@@ -334,6 +355,10 @@ const RoadmapEditor = () => {
           <Button variant="outline" size="sm" onClick={() => setImporting(true)}>
             <FileUp className="w-4 h-4 mr-1" /> Import PDF
           </Button>
+          <Button variant="outline" size="sm" onClick={handleGenerateContractorPlan} disabled={generatingPlan}>
+            {generatingPlan ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Wand2 className="w-4 h-4 mr-1" />}
+            Generate plan
+          </Button>
           <Button size="sm" onClick={() => setAddingParent(null)}>
             <Plus className="w-4 h-4 mr-1" /> Add task
           </Button>
@@ -426,7 +451,11 @@ const RoadmapEditor = () => {
                 <div className="p-10 text-center text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin inline" /></div>
               ) : roots.length === 0 ? (
                 <div className="p-10 text-center text-muted-foreground">
-                  No tasks yet. Click <strong>Add task</strong> to create your first bar.
+                  <p className="mb-4">No tasks yet. Generate a contractor-planned programme or click <strong>Add task</strong> to create your first bar.</p>
+                  <Button onClick={handleGenerateContractorPlan} disabled={generatingPlan}>
+                    {generatingPlan ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Wand2 className="w-4 h-4 mr-1" />}
+                    Generate contractor plan
+                  </Button>
                 </div>
               ) : (
                 roots.map((item, idx) => renderRow(item, 0, idx))
@@ -474,6 +503,7 @@ const RoadmapEditor = () => {
           }
           for (const u of toUpdate) await updateItem(u.id, u.patch);
           if (roadmapPatch) await update(roadmap.id, roadmapPatch);
+          await refreshItems();
         }}
       />
     </div>

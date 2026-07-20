@@ -7,6 +7,7 @@ import { Loader2, Upload, FileText, AlertTriangle, CheckCircle2 } from 'lucide-r
 import { extractTextFromPDF } from '@/lib/pdfUtils';
 import { supabase } from '@/integrations/supabase/client';
 import { ROADMAP_COLORS, parseLocalDate, toISODate } from '@/lib/roadmapUtils';
+import { generateContractorRoadmapItems } from '@/lib/roadmapPlanner';
 import { RoadmapItem, Roadmap } from '@/hooks/useRoadmaps';
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -89,7 +90,14 @@ export const RoadmapPdfImportModal = ({ open, onOpenChange, roadmap, existingIte
       if (!data?.success) throw new Error(data?.error || 'Extraction failed');
       const ex: Extracted = data.data;
       if (!ex.items || ex.items.length === 0) {
-        toast.info('No tasks found in the document.');
+        ex.items = generateContractorRoadmapItems(roadmap.start_date, roadmap.end_date).map((item) => ({
+          label: item.label || 'Roadmap task',
+          start_date: item.start_date || roadmap.start_date,
+          end_date: item.end_date || item.start_date || roadmap.start_date,
+          trade: item.assigned_team || 'general',
+          notes: item.notes || 'Contractor-planned fallback task.',
+        }));
+        toast.info('No PDF tasks were found, so a contractor-planned programme was prepared.');
       }
 
       // The edge function should provide both dates, but fall back defensively
