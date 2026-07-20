@@ -34,6 +34,9 @@ const RoadmapEditor = () => {
 
   const [openNotes, setOpenNotes] = useState<Set<string>>(new Set());
   const toggleNotes = (id: string) => setOpenNotes(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const [expandedSummary, setExpandedSummary] = useState<Set<string>>(new Set());
+  const toggleSummary = (id: string) => setExpandedSummary(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+
 
   // --- Bar drag/resize state ---
   const timelineRef = useRef<HTMLDivElement | null>(null);
@@ -203,13 +206,23 @@ const RoadmapEditor = () => {
               <span className="flex items-start gap-1.5 leading-snug break-words">
                 {item.symbol && <span className="text-xs shrink-0">{item.symbol}</span>}
                 <span className="whitespace-normal break-words">{item.label}</span>
+                {notesSummary && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); toggleSummary(item.id); }}
+                    className="ml-auto shrink-0 p-0.5 rounded hover:bg-muted text-muted-foreground"
+                    title={expandedSummary.has(item.id) ? 'Hide description' : 'Show description'}
+                  >
+                    {expandedSummary.has(item.id) ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                  </button>
+                )}
               </span>
-              {notesSummary && (
-                <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground leading-snug break-words line-clamp-2">
-                  {notesSummary}
+              {notesSummary && expandedSummary.has(item.id) && (
+                <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground leading-snug break-words whitespace-pre-wrap">
+                  {item.notes}
                 </span>
               )}
             </button>
+
             <button
               onClick={(e) => { e.stopPropagation(); toggleNotes(item.id); }}
               className={cn(
