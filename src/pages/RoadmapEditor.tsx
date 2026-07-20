@@ -426,18 +426,30 @@ const RoadmapEditor = () => {
         <div className="border rounded-lg overflow-hidden bg-card">
           {/* Column headers */}
           <div className="flex bg-[#0a2540] text-white text-sm font-semibold">
-            <div className="w-64 shrink-0 px-3 py-2.5 border-r border-white/10">Task</div>
-            <div className="flex-1 grid" style={{ gridTemplateColumns: gridTemplateWeighted }}>
+            <div className="w-80 shrink-0 px-3 py-2.5 border-r border-white/10">Task</div>
+            <div className="flex-1 grid relative" style={{ gridTemplateColumns: gridTemplateWeighted }}>
               {columns.map((c, i) => (
                 <div
                   key={c.key}
                   className={cn(
-                    'px-2 py-2.5 text-center min-w-0',
+                    'relative px-2 py-2.5 text-center min-w-0',
                     i === columns.length - 1 ? '' : 'border-r border-white/30',
                   )}
                 >
                   <div>{c.label}</div>
                   {c.sublabel && <div className="text-[10px] font-normal opacity-80">{c.sublabel}</div>}
+                  {roadmap.time_unit === 'week' && c.days > 1 && (
+                    <div className="pointer-events-none absolute inset-0 flex">
+                      {Array.from({ length: c.days }).map((_, di) => {
+                        const d = new Date(c.start); d.setDate(d.getDate() + di);
+                        return (
+                          <div key={di} className="flex-1 border-r border-white/10 last:border-transparent text-[9px] opacity-60 flex items-end justify-center pb-0.5">
+                            {d.getDate()}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -445,17 +457,26 @@ const RoadmapEditor = () => {
 
           {/* Rows with full-height grid overlay */}
           <div className="relative">
-            <div ref={timelineRef} className="absolute top-0 bottom-0 left-64 right-0 pointer-events-none z-0">
-              {/* Full-height week dividers */}
+            <div ref={timelineRef} className="absolute top-0 bottom-0 left-80 right-0 pointer-events-none z-0">
+              {/* Full-height column dividers (weeks or days depending on view) */}
               <div className="absolute inset-0 grid" style={{ gridTemplateColumns: gridTemplateWeighted }}>
                 {columns.map((c, i) => (
                   <div
                     key={c.key}
                     className={cn(
-                      'border-r min-w-0',
+                      'relative border-r min-w-0',
                       i === columns.length - 1 ? 'border-transparent' : 'border-border',
                     )}
-                  />
+                  >
+                    {roadmap.time_unit === 'week' && c.days > 1 && (
+                      <div className="absolute inset-0 flex">
+                        {Array.from({ length: c.days - 1 }).map((_, di) => (
+                          <div key={di} className="flex-1 border-r border-border/40 last:border-transparent" />
+                        ))}
+                        <div className="flex-1" />
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
               {/* Today line full-height */}
@@ -463,6 +484,7 @@ const RoadmapEditor = () => {
                 <div className="absolute top-0 bottom-0 w-px bg-red-500/70" style={{ left: `${todayPct}%` }} />
               )}
             </div>
+
 
             <div className="relative z-[1]">
               {isLoading ? (
