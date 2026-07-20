@@ -58,7 +58,7 @@ export const generateContractorRoadmapItems = (roadmapStart: string, roadmapEnd:
       start_date: toISODate(addDays(start, startOffset)),
       end_date: toISODate(addDays(start, task.is_milestone ? startOffset : endOffset)),
       color: task.color,
-      symbol: task.symbol || '',
+      symbol: '',
       sort_order: (index + 1) * 10,
       notes: task.notes,
       progress: 0,
