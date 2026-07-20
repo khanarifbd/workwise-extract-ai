@@ -101,7 +101,7 @@ const RoadmapEditor = () => {
     const totalDays = Math.max(1, (parseLocalDate(roadmap.end_date).getTime() - parseLocalDate(roadmap.start_date).getTime()) / 86400000 + 1);
     const widthPx = timelineRef.current?.getBoundingClientRect().width || 1;
     const pxPerDay = widthPx / totalDays;
-    const snap = roadmap.time_unit === 'week' ? 7 : 1;
+    const snap = 1; // always day-level
     const startX = e.clientX;
     const origStart = item.start_date;
     const origEnd = item.end_date;
@@ -183,36 +183,53 @@ const RoadmapEditor = () => {
     const kids = childrenOf[item.id] || [];
     const hasKids = kids.length > 0;
     const dragging = drag?.id === item.id;
-    const startCol = colIndexForDate(liveStart);
-    const endCol = colIndexForDate(liveEnd);
+    // Always compute bar position at day granularity so week view still respects specific start/end days
+    const pos = barPosition(liveStart, liveEnd, roadmap.start_date, roadmap.end_date, 'day');
+    const notesSummary = (item.notes || '').trim().split(/\r?\n/)[0].slice(0, 140);
     return (
       <div key={item.id}>
         <div className={cn('group flex border-b last:border-b-0 hover:bg-muted/40 transition', idx % 2 === 1 && 'bg-muted/10')}>
-          <div className="w-64 shrink-0 flex items-center gap-1 px-2 py-1 text-sm border-r" style={{ paddingLeft: 8 + depth * 14 }}>
+          <div className="w-80 shrink-0 flex items-start gap-1 px-2 py-1.5 text-sm border-r" style={{ paddingLeft: 8 + depth * 14 }}>
             {hasKids ? (
               <button
                 onClick={() => updateItem(item.id, { collapsed: !item.collapsed })}
-                className="p-0.5 hover:bg-muted rounded shrink-0"
+                className="mt-0.5 p-0.5 hover:bg-muted rounded shrink-0"
                 title={item.collapsed ? 'Expand' : 'Collapse'}
               >
                 {item.collapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
               </button>
-            ) : depth > 0 ? <CornerDownRight className="w-3 h-3 text-muted-foreground/60 shrink-0" /> : <span className="w-4" />}
-            <button onClick={() => setEditing(item)} className="flex-1 text-left truncate font-medium flex items-center gap-1.5">
-              {item.symbol && <span className="text-xs">{item.symbol}</span>}
-              <span className="truncate">{item.label}</span>
+            ) : depth > 0 ? <CornerDownRight className="mt-1 w-3 h-3 text-muted-foreground/60 shrink-0" /> : <span className="w-4" />}
+            <button onClick={() => setEditing(item)} className="flex-1 min-w-0 text-left font-medium">
+              <span className="flex items-start gap-1.5 leading-snug break-words">
+                {item.symbol && <span className="text-xs shrink-0">{item.symbol}</span>}
+                <span className="whitespace-normal break-words">{item.label}</span>
+              </span>
+              {notesSummary && (
+                <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground leading-snug break-words line-clamp-2">
+                  {notesSummary}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); toggleNotes(item.id); }}
+              className={cn(
+                "mt-0.5 p-0.5 hover:bg-muted rounded shrink-0 transition-opacity",
+                item.notes?.trim() ? "text-primary" : "opacity-30 group-hover:opacity-100 text-muted-foreground hover:text-foreground",
+              )}
+              title={openNotes.has(item.id) ? 'Hide note' : (item.notes?.trim() ? 'Edit note' : 'Add note')}
+            >
+              <StickyNote className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); setAddingParent(item.id); }}
-              className="opacity-30 group-hover:opacity-100 p-0.5 hover:bg-muted rounded text-muted-foreground hover:text-foreground shrink-0 transition-opacity"
+              className="mt-0.5 opacity-30 group-hover:opacity-100 p-0.5 hover:bg-muted rounded text-muted-foreground hover:text-foreground shrink-0 transition-opacity"
               title="Add sub-task"
             >
-              <Plus className="w-3 h-3" />
+              <Plus className="w-3.5 h-3.5" />
             </button>
           </div>
           <div
-            className="flex-1 grid relative min-h-[26px] items-center"
-            style={{ gridTemplateColumns: gridTemplateWeighted }}
+            className="flex-1 relative min-h-[26px]"
             onClick={(e) => {
               if (dragRef.current) return;
               setEditing(item);
@@ -221,8 +238,8 @@ const RoadmapEditor = () => {
           >
             {item.is_milestone ? (
               <div
-                className="relative flex items-center justify-start pl-1"
-                style={{ gridColumn: `${startCol + 1} / ${startCol + 2}` }}
+                className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2"
+                style={{ left: `${pos.leftPct}%` }}
                 title={item.label}
               >
                 <div className="w-4 h-4 rotate-45 rounded-sm shadow flex items-center justify-center text-white" style={{ background: item.color }}>
@@ -232,13 +249,15 @@ const RoadmapEditor = () => {
             ) : (
               <div
                 className={cn(
-                  "relative h-[18px] rounded flex items-center text-[10px] text-white font-semibold shadow-sm select-none mx-0",
+                  "absolute top-1/2 -translate-y-1/2 h-[20px] rounded flex items-center text-[10px] text-white font-semibold shadow-sm select-none",
                   dragging && "ring-2 ring-foreground/60 shadow-lg z-10",
                   item.progress < 100 && !dragging && liveEnd < toISODate(new Date()) && "animate-pulse",
-                  isCertificate(item) && "h-[22px] rounded-none text-amber-950 font-bold ring-2 ring-amber-400 ring-offset-1 ring-offset-background shadow-[0_0_12px_rgba(251,191,36,0.55)] cert-ribbon",
+                  isCertificate(item) && "h-[24px] rounded-none text-amber-950 font-bold ring-2 ring-amber-400 ring-offset-1 ring-offset-background shadow-[0_0_12px_rgba(251,191,36,0.55)] cert-ribbon",
                 )}
                 style={{
-                  gridColumn: `${startCol + 1} / ${endCol + 2}`,
+                  left: `${pos.leftPct}%`,
+                  width: `${pos.widthPct}%`,
+                  minWidth: '18px',
                   background: isCertificate(item)
                     ? 'repeating-linear-gradient(45deg, #fde68a 0 6px, #fbbf24 6px 12px)'
                     : item.color,
@@ -254,7 +273,6 @@ const RoadmapEditor = () => {
                 {item.progress > 0 && item.progress < 100 && (
                   <div className="absolute inset-y-0 left-0 bg-black/30 pointer-events-none rounded-l" style={{ width: `${item.progress}%` }} />
                 )}
-                {/* checkbox */}
                 <button
                   onMouseDown={(e) => e.stopPropagation()}
                   onClick={(e) => {
@@ -276,7 +294,6 @@ const RoadmapEditor = () => {
                   {dragging && <span className="ml-1 opacity-80">· {liveStart} → {liveEnd}</span>}
                 </span>
                 {(item.notify_on_start || item.notify_on_end) && <Bell className="w-2.5 h-2.5 mr-0.5 shrink-0 relative pointer-events-none" />}
-                {/* notes toggle */}
                 <button
                   onMouseDown={(e) => e.stopPropagation()}
                   onClick={(e) => { e.stopPropagation(); toggleNotes(item.id); }}
@@ -298,7 +315,7 @@ const RoadmapEditor = () => {
         </div>
         {openNotes.has(item.id) && !item.is_milestone && (
           <div className="flex border-b bg-muted/30 animate-accordion-down">
-            <div className="w-64 shrink-0 px-2 py-1.5 border-r text-[11px] text-muted-foreground flex items-center gap-1" style={{ paddingLeft: 8 + depth * 14 + 16 }}>
+            <div className="w-80 shrink-0 px-2 py-1.5 border-r text-[11px] text-muted-foreground flex items-center gap-1" style={{ paddingLeft: 8 + depth * 14 + 16 }}>
               <StickyNote className="w-3 h-3" /> Notes · {item.progress}%
             </div>
             <div className="flex-1 px-2 py-1.5">
@@ -316,6 +333,7 @@ const RoadmapEditor = () => {
       </div>
     );
   };
+
 
 
   return (
@@ -408,18 +426,30 @@ const RoadmapEditor = () => {
         <div className="border rounded-lg overflow-hidden bg-card">
           {/* Column headers */}
           <div className="flex bg-[#0a2540] text-white text-sm font-semibold">
-            <div className="w-64 shrink-0 px-3 py-2.5 border-r border-white/10">Task</div>
-            <div className="flex-1 grid" style={{ gridTemplateColumns: gridTemplateWeighted }}>
+            <div className="w-80 shrink-0 px-3 py-2.5 border-r border-white/10">Task</div>
+            <div className="flex-1 grid relative" style={{ gridTemplateColumns: gridTemplateWeighted }}>
               {columns.map((c, i) => (
                 <div
                   key={c.key}
                   className={cn(
-                    'px-2 py-2.5 text-center min-w-0',
+                    'relative px-2 py-2.5 text-center min-w-0',
                     i === columns.length - 1 ? '' : 'border-r border-white/30',
                   )}
                 >
                   <div>{c.label}</div>
                   {c.sublabel && <div className="text-[10px] font-normal opacity-80">{c.sublabel}</div>}
+                  {roadmap.time_unit === 'week' && c.days > 1 && (
+                    <div className="pointer-events-none absolute inset-0 flex">
+                      {Array.from({ length: c.days }).map((_, di) => {
+                        const d = new Date(c.start); d.setDate(d.getDate() + di);
+                        return (
+                          <div key={di} className="flex-1 border-r border-white/10 last:border-transparent text-[9px] opacity-60 flex items-end justify-center pb-0.5">
+                            {d.getDate()}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -427,17 +457,26 @@ const RoadmapEditor = () => {
 
           {/* Rows with full-height grid overlay */}
           <div className="relative">
-            <div ref={timelineRef} className="absolute top-0 bottom-0 left-64 right-0 pointer-events-none z-0">
-              {/* Full-height week dividers */}
+            <div ref={timelineRef} className="absolute top-0 bottom-0 left-80 right-0 pointer-events-none z-0">
+              {/* Full-height column dividers (weeks or days depending on view) */}
               <div className="absolute inset-0 grid" style={{ gridTemplateColumns: gridTemplateWeighted }}>
                 {columns.map((c, i) => (
                   <div
                     key={c.key}
                     className={cn(
-                      'border-r min-w-0',
+                      'relative border-r min-w-0',
                       i === columns.length - 1 ? 'border-transparent' : 'border-border',
                     )}
-                  />
+                  >
+                    {roadmap.time_unit === 'week' && c.days > 1 && (
+                      <div className="absolute inset-0 flex">
+                        {Array.from({ length: c.days - 1 }).map((_, di) => (
+                          <div key={di} className="flex-1 border-r border-border/40 last:border-transparent" />
+                        ))}
+                        <div className="flex-1" />
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
               {/* Today line full-height */}
@@ -445,6 +484,7 @@ const RoadmapEditor = () => {
                 <div className="absolute top-0 bottom-0 w-px bg-red-500/70" style={{ left: `${todayPct}%` }} />
               )}
             </div>
+
 
             <div className="relative z-[1]">
               {isLoading ? (
