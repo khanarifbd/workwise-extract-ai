@@ -101,7 +101,7 @@ const RoadmapEditor = () => {
     const totalDays = Math.max(1, (parseLocalDate(roadmap.end_date).getTime() - parseLocalDate(roadmap.start_date).getTime()) / 86400000 + 1);
     const widthPx = timelineRef.current?.getBoundingClientRect().width || 1;
     const pxPerDay = widthPx / totalDays;
-    const snap = roadmap.time_unit === 'week' ? 7 : 1;
+    const snap = 1; // always day-level
     const startX = e.clientX;
     const origStart = item.start_date;
     const origEnd = item.end_date;
