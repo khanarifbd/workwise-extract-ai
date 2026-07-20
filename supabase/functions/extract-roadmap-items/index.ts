@@ -14,6 +14,67 @@ const schema = z.object({
   timeUnit: z.enum(['week', 'day']).optional(),
 });
 
+const addDaysISO = (iso: string, days: number): string => {
+  const [y, m, d] = iso.split('-').map(Number);
+  const date = new Date(Date.UTC(y, (m || 1) - 1, d || 1));
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+};
+
+const daysInclusive = (start: string, end: string): number => {
+  const [sy, sm, sd] = start.split('-').map(Number);
+  const [ey, em, ed] = end.split('-').map(Number);
+  const s = Date.UTC(sy, (sm || 1) - 1, sd || 1);
+  const e = Date.UTC(ey, (em || 1) - 1, ed || 1);
+  return Math.max(1, Math.round((e - s) / 86_400_000) + 1);
+};
+
+const buildContractorPlan = (roadmapStart: string, roadmapEnd: string) => {
+  const total = daysInclusive(roadmapStart, roadmapEnd);
+  const max = Math.max(0, total - 1);
+  const task = (label: string, startPct: number, endPct: number, trade: string, notes: string) => {
+    const s = Math.min(max, Math.max(0, Math.round(max * startPct)));
+    const e = Math.min(max, Math.max(s, Math.round(max * endPct)));
+    return {
+      label,
+      start_date: addDaysISO(roadmapStart, s),
+      end_date: addDaysISO(roadmapStart, e),
+      duration_days: e - s + 1,
+      trade,
+      notes,
+    };
+  };
+  return {
+    customer_name: '',
+    address: '',
+    project_start: roadmapStart,
+    project_end: roadmapEnd,
+    items: [
+      task('Site setup, survey & procurement', 0, 0.05, 'general', 'protect areas and order long-lead materials'),
+      task('Strip-out and protection works', 0, 0.12, 'general', 'first operation before structure and first fix'),
+      task('Roofing / external watertight works', 0, 0.17, 'roofing', 'front-loaded weather-sensitive work'),
+      task('Structural openings and repairs', 0.08, 0.22, 'carpentry', 'must finish before boarding and plaster'),
+      task('Damp proofing / tanking', 0.16, 0.25, 'general', 'early curing before finishes'),
+      task('1st fix plumbing', 0.22, 0.34, 'plumbing', 'parallel first fix after strip-out'),
+      task('1st fix electrics', 0.22, 0.34, 'electrical', 'parallel first fix before close-up'),
+      task('1st fix carpentry / studwork', 0.25, 0.38, 'carpentry', 'frames and grounds before boarding'),
+      task('Insulation and boarding', 0.36, 0.45, 'general', 'close-up after first fix inspection'),
+      task('Plastering / making good', 0.43, 0.55, 'plastering', 'after boarding and first fix'),
+      task('Plaster drying hold point', 0.56, 0.62, 'general', 'protected drying window'),
+      task('2nd fix plumbing', 0.62, 0.72, 'plumbing', 'parallel second fix'),
+      task('2nd fix electrics', 0.62, 0.72, 'electrical', 'parallel second fix'),
+      task('2nd fix carpentry / doors', 0.62, 0.75, 'carpentry', 'doors and trim after plaster'),
+      task('Kitchen installation', 0.66, 0.8, 'kitchen', 'overlap with bathroom where separate rooms'),
+      task('Bathroom installation', 0.66, 0.82, 'bathroom', 'fit-out after first fix and plaster'),
+      task('Tiling, grout and silicone', 0.75, 0.86, 'bathroom', 'after fit-out surfaces are ready'),
+      task('Decoration preparation / mist coat', 0.8, 0.88, 'painting', 'after plaster dry'),
+      task('Final painting and decoration', 0.86, 0.96, 'painting', 'late-stage finish before flooring'),
+      task('Flooring preparation and install', 0.92, 0.99, 'flooring', 'kept late to avoid damage'),
+      task('Snagging, clean and handover', 0.96, 1, 'general', 'final checks before deadline'),
+    ],
+  };
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
@@ -133,11 +194,12 @@ E. EXTRACTION DISCIPLINE:
       method: 'POST',
       headers: { 'Authorization': `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'google/gemini-3-flash-preview',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: `Extract roadmap items from this document:\n\n${pdfText.slice(0, 80000)}` },
         ],
+        response_format: { type: 'json_object' },
       }),
     });
 
@@ -167,6 +229,11 @@ E. EXTRACTION DISCIPLINE:
     }
     if (end === -1) throw new Error('Unbalanced JSON in AI response');
     const parsedJson = JSON.parse(content.substring(start, end + 1));
+    if (!Array.isArray(parsedJson.items) || parsedJson.items.length === 0) {
+      return new Response(JSON.stringify({ success: true, data: buildContractorPlan(roadmapStart, roadmapEnd), warning: 'AI returned no roadmap items; contractor plan used.' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     return new Response(JSON.stringify({ success: true, data: parsedJson }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
