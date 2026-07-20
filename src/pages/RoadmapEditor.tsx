@@ -34,6 +34,9 @@ const RoadmapEditor = () => {
 
   const [openNotes, setOpenNotes] = useState<Set<string>>(new Set());
   const toggleNotes = (id: string) => setOpenNotes(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const [expandedSummary, setExpandedSummary] = useState<Set<string>>(new Set());
+  const toggleSummary = (id: string) => setExpandedSummary(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+
 
   // --- Bar drag/resize state ---
   const timelineRef = useRef<HTMLDivElement | null>(null);
