@@ -15,16 +15,24 @@ const daysInclusive = (a: string, b: string) => {
   return Math.max(1, Math.round((e - s) / 86400000) + 1);
 };
 
+export type RoadmapPdfOptions = {
+  pageSize?: 'a4' | 'letter';
+  orientation?: 'landscape' | 'portrait';
+  margin?: number; // points
+};
+
 /**
- * Export a roadmap to a landscape PDF containing a summary, a per-week milestone
+ * Export a roadmap to a PDF containing a summary, a per-week milestone
  * strip, a small Gantt-style visual, and a detailed task table with notes.
  */
-export function exportRoadmapPDF(roadmap: Roadmap, items: RoadmapItem[]) {
+export function exportRoadmapPDF(roadmap: Roadmap, items: RoadmapItem[], opts: RoadmapPdfOptions = {}) {
   const w = preparePDFWindow();
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+  const pageSize = opts.pageSize || 'a4';
+  const orientation = opts.orientation || 'landscape';
+  const doc = new jsPDF({ orientation, unit: 'pt', format: pageSize });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
-  const margin = 32;
+  const margin = Math.max(12, Math.min(96, opts.margin ?? 32));
 
   // Sort items hierarchically: roots then children
   const roots = items.filter(i => !i.parent_id).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0) || a.start_date.localeCompare(b.start_date));
