@@ -148,7 +148,7 @@ export function exportRoadmapPDF(roadmap: Roadmap, items: RoadmapItem[]) {
 
   // ---------- Detailed schedule table ----------
   autoTable(doc, {
-    startY: gTop + gHeight + 16,
+    startY: margin,
     head: [['#', 'Task', 'Start', 'End', 'Days', 'Progress', 'Assigned', 'Notes']],
     body: flat.map((row, i) => {
       const it = row.item;
