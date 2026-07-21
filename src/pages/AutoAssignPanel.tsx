@@ -116,13 +116,21 @@ export default function AutoAssignPanel() {
       ]);
 
       const aaTeamNames = new Set((aaJobs || []).map((j: any) => (j.team || "").trim()).filter(Boolean));
+      // Manual overrides — names hidden from a stream regardless of history.
+      const DM_EXCLUDE = new Set(["yam", "john temple", "apple test group"]);
+      const AA_EXCLUDE = new Set(["alindo"]);
       const rows: Array<TeamRow & { stream: Stream }> = (tac || [])
         .filter((t: any) => !t.is_ops_manager)
-        .map((t: any) => ({
-          teamId: t.team_id,
-          teamName: t.team_name,
-          stream: aaTeamNames.has((t.team_name || "").trim()) ? "aa" : "dm",
-        }));
+        .map((t: any) => {
+          const name = (t.team_name || "").trim();
+          const key = name.toLowerCase();
+          const inferred: Stream = aaTeamNames.has(name) ? "aa" : "dm";
+          return { teamId: t.team_id, teamName: name, stream: inferred, _key: key };
+        })
+        .filter((t: any) =>
+          t.stream === "dm" ? !DM_EXCLUDE.has(t._key) : !AA_EXCLUDE.has(t._key)
+        )
+        .map(({ _key, ...t }: any) => t);
       setAllTeams(rows);
 
       const counts: Record<string, number> = {};
