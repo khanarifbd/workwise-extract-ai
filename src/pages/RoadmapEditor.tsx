@@ -17,6 +17,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RoadmapItemDialog } from '@/components/roadmap/RoadmapItemDialog';
 import { RoadmapPdfImportModal } from '@/components/roadmap/RoadmapPdfImportModal';
+import { RoadmapExportModal } from '@/components/roadmap/RoadmapExportModal';
 import { useRoadmapAlerts } from '@/hooks/useRoadmapAlerts';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
