@@ -4,8 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Wand2, Loader2, X, Check, BookOpen, ShieldCheck, AlertTriangle, Sparkles, Download, ThumbsUp, ThumbsDown, Minus, GraduationCap, Gavel } from 'lucide-react';
+import { Wand2, Loader2, X, Check, BookOpen, ShieldCheck, AlertTriangle, Sparkles, Download, ThumbsUp, ThumbsDown, Minus, GraduationCap, Gavel, FileWarning } from 'lucide-react';
 import { convertDescriptionToTieredQuotes, ConvertResponse, ConvertTier, submitSORMatchFeedback, SORMatchRating, runSurveyorQAAudit, SurveyorQAAudit } from '@/lib/api';
+import { exportConversionValidationPDF } from '@/lib/conversionValidationReport';
 import { useToast } from '@/hooks/use-toast';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { cn } from '@/lib/utils';
@@ -689,6 +690,28 @@ export const AIWorkConverter = ({ onConvert, onClose, existingWorks, initialDesc
             <Button variant="outline" onClick={handleSaveResults} className="flex-1 min-w-[120px]" title="Download all 3 tiers (codes, descriptions, costs) as JSON + CSV">
               <Download className="w-4 h-4 mr-2" />
               Save Results
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                try {
+                  const { flags, counts } = exportConversionValidationPDF(result, description);
+                  toast({
+                    title: flags.length === 0 ? 'No issues found ✓' : `Validation report: ${flags.length} flag${flags.length === 1 ? '' : 's'}`,
+                    description: flags.length === 0
+                      ? 'Every line has a valid SOR code, description, cost and high confidence.'
+                      : `${counts.critical} critical · ${counts.warning} warnings · ${counts.info} info — PDF downloaded.`,
+                    variant: counts.critical > 0 ? 'destructive' : 'default',
+                  });
+                } catch (e: any) {
+                  toast({ title: 'Report failed', description: e?.message || 'Try again.', variant: 'destructive' });
+                }
+              }}
+              className="flex-1 min-w-[160px] border-orange-500/50 text-orange-700 hover:bg-orange-500/10"
+              title="One-click report of low-confidence matches, missing fields, and invalid SOR codes across all tiers"
+            >
+              <FileWarning className="w-4 h-4 mr-2" />
+              Validation Report
             </Button>
             <Button
               variant="outline"
