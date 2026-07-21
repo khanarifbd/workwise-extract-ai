@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { Check, StickyNote, Award } from 'lucide-react';
+import { Check, StickyNote, Award, GripVertical, Sparkles, Send } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Loader2, Plus, ArrowLeft, CalendarDays, Bell, Star, Diamond, Trash2, Settings2, FileUp, Copy, ChevronRight, ChevronDown, CornerDownRight, Wand2, FileDown } from 'lucide-react';
@@ -7,6 +7,7 @@ import { useRoadmaps, useRoadmapItems, RoadmapItem } from '@/hooks/useRoadmaps';
 import { buildColumns, barPosition, parseLocalDate, toISODate, daysBetween } from '@/lib/roadmapUtils';
 import { generateContractorRoadmapItems } from '@/lib/roadmapPlanner';
 import { exportRoadmapPDF } from '@/lib/roadmapPdfExport';
+
 
 const isCertificate = (item: RoadmapItem) => /\bcert(ificate|s|ification)?\b|\bcerts?\b/i.test(item.label || '');
 
@@ -37,6 +38,15 @@ const RoadmapEditor = () => {
   const toggleNotes = (id: string) => setOpenNotes(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const [expandedSummary, setExpandedSummary] = useState<Set<string>>(new Set());
   const toggleSummary = (id: string) => setExpandedSummary(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+
+  // --- Row reorder (drag task up/down) ---
+  const [rowDragId, setRowDragId] = useState<string | null>(null);
+  const [rowDragOverId, setRowDragOverId] = useState<string | null>(null);
+
+  // --- Text instructor state ---
+  const [instruction, setInstruction] = useState('');
+  const [runningInstructor, setRunningInstructor] = useState(false);
+
 
 
   // --- Bar drag/resize state ---
@@ -181,6 +191,105 @@ const RoadmapEditor = () => {
     }
   };
 
+  // Reorder a task relative to a target sibling. Recomputes sort_order across the same parent group.
+  const reorderTask = async (draggedId: string, targetId: string, position: 'before' | 'after') => {
+    if (draggedId === targetId) return;
+    const dragged = items.find(i => i.id === draggedId);
+    const target = items.find(i => i.id === targetId);
+    if (!dragged || !target) return;
+    // Move dragged into target's parent group so cross-group drag also works
+    const newParent = target.parent_id;
+    const siblings = items
+      .filter(i => (i.parent_id || null) === (newParent || null) && i.id !== draggedId)
+      .sort((a, b) => a.sort_order - b.sort_order || a.start_date.localeCompare(b.start_date));
+    const targetIdx = siblings.findIndex(s => s.id === targetId);
+    if (targetIdx < 0) return;
+    const insertAt = position === 'after' ? targetIdx + 1 : targetIdx;
+    const next = [...siblings];
+    next.splice(insertAt, 0, { ...dragged, parent_id: newParent } as RoadmapItem);
+    // Batch update sort_order (and parent_id for the dragged item if it changed)
+    try {
+      await Promise.all(next.map((it, i) => {
+        const patch: Partial<RoadmapItem> = { sort_order: (i + 1) * 10 };
+        if (it.id === draggedId && (dragged.parent_id || null) !== (newParent || null)) {
+          (patch as any).parent_id = newParent;
+        }
+        return updateItem(it.id, patch);
+      }));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Reorder failed');
+    }
+  };
+
+  // ---- Text instructor: send instruction to edge function and apply operations ----
+  const applyOperations = async (ops: any[]) => {
+    let applied = 0;
+    for (const op of ops || []) {
+      try {
+        if (op.op === 'update' && op.id && op.patch) {
+          await updateItem(op.id, op.patch);
+          applied++;
+        } else if (op.op === 'delete' && op.id) {
+          await removeItem(op.id);
+          applied++;
+        } else if (op.op === 'create' && op.label && op.start_date && op.end_date) {
+          const after = op.after_id ? items.find(i => i.id === op.after_id) : null;
+          const parent_id = after?.parent_id || null;
+          const sort_order = after ? after.sort_order + 5 : (items.length + 1) * 10;
+          await create({
+            label: op.label,
+            start_date: op.start_date,
+            end_date: op.end_date,
+            notes: op.notes || '',
+            color: op.color || '#2563eb',
+            parent_id,
+            sort_order,
+            progress: 0,
+            is_milestone: false,
+          } as any);
+          applied++;
+        } else if (op.op === 'reorder' && op.id && (op.after_id || op.before_id)) {
+          const targetId = op.after_id || op.before_id;
+          await reorderTask(op.id, targetId, op.after_id ? 'after' : 'before');
+          applied++;
+        }
+      } catch (e) {
+        console.error('applyOperations op failed', op, e);
+      }
+    }
+    return applied;
+  };
+
+  const runInstructor = async () => {
+    if (!roadmap || runningInstructor) return;
+    const text = instruction.trim();
+    if (!text) return;
+    setRunningInstructor(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('roadmap-instructor', {
+        body: { instruction: text, roadmap: { start_date: roadmap.start_date, end_date: roadmap.end_date }, items },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      const ops = (data as any)?.operations || [];
+      const summary = (data as any)?.summary || '';
+      const applied = await applyOperations(ops);
+      await refreshItems();
+      if (applied) {
+        toast.success(`${applied} change${applied > 1 ? 's' : ''} applied${summary ? ` · ${summary}` : ''}`);
+        setInstruction('');
+      } else {
+        toast.info(summary || 'No changes applied — try rephrasing');
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Instructor failed');
+    } finally {
+      setRunningInstructor(false);
+    }
+  };
+
+
+
   const renderRow = (item: RoadmapItem, depth: number, idx: number) => {
     const liveStart = drag && drag.id === item.id ? drag.newStart : item.start_date;
     const liveEnd = drag && drag.id === item.id ? drag.newEnd : item.end_date;
@@ -190,10 +299,42 @@ const RoadmapEditor = () => {
     // Always compute bar position at day granularity so week view still respects specific start/end days
     const pos = barPosition(liveStart, liveEnd, roadmap.start_date, roadmap.end_date, 'day');
     const notesSummary = (item.notes || '').trim().split(/\r?\n/)[0].slice(0, 140);
+    const isOver = rowDragOverId === item.id;
     return (
       <div key={item.id}>
-        <div className={cn('group flex border-b last:border-b-0 hover:bg-muted/40 transition', idx % 2 === 1 && 'bg-muted/10')}>
+        <div
+          className={cn(
+            'group flex border-b last:border-b-0 hover:bg-muted/40 transition',
+            idx % 2 === 1 && 'bg-muted/10',
+            isOver && 'ring-2 ring-primary/60 ring-inset bg-primary/5',
+            rowDragId === item.id && 'opacity-50',
+          )}
+          onDragOver={(e) => { if (rowDragId && rowDragId !== item.id) { e.preventDefault(); setRowDragOverId(item.id); } }}
+          onDragLeave={() => { if (rowDragOverId === item.id) setRowDragOverId(null); }}
+          onDrop={async (e) => {
+            e.preventDefault();
+            const draggedId = rowDragId;
+            setRowDragOverId(null);
+            setRowDragId(null);
+            if (draggedId && draggedId !== item.id) {
+              // Drop position: bottom half = after, top half = before
+              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+              const pos = (e.clientY - rect.top) > rect.height / 2 ? 'after' : 'before';
+              await reorderTask(draggedId, item.id, pos);
+            }
+          }}
+        >
           <div className="w-80 shrink-0 flex items-start gap-1 px-2 py-1.5 text-sm border-r" style={{ paddingLeft: 8 + depth * 14 }}>
+            <div
+              draggable
+              onDragStart={(e) => { setRowDragId(item.id); e.dataTransfer.effectAllowed = 'move'; }}
+              onDragEnd={() => { setRowDragId(null); setRowDragOverId(null); }}
+              className="mt-0.5 p-0.5 shrink-0 cursor-grab active:cursor-grabbing opacity-30 group-hover:opacity-100 text-muted-foreground hover:text-foreground transition-opacity"
+              title="Drag to reorder"
+            >
+              <GripVertical className="w-3.5 h-3.5" />
+            </div>
+
             {hasKids ? (
               <button
                 onClick={() => updateItem(item.id, { collapsed: !item.collapsed })}
@@ -441,8 +582,31 @@ const RoadmapEditor = () => {
         )}
       </div>
 
+      {/* Text instructor bar */}
+      <div className="container mx-auto px-4 pt-3">
+        <div className="border rounded-lg bg-gradient-to-r from-primary/5 via-background to-background p-2 flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-primary shrink-0 ml-1" />
+          <Input
+            value={instruction}
+            onChange={(e) => setInstruction(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); runInstructor(); } }}
+            placeholder='Type an instruction, e.g. "Move Remove wet room under Remove skirting and set dates 3rd Aug to 5th Aug"'
+            className="flex-1 h-9 border-0 shadow-none focus-visible:ring-0 bg-transparent"
+            disabled={runningInstructor}
+          />
+          <Button size="sm" onClick={runInstructor} disabled={runningInstructor || !instruction.trim()}>
+            {runningInstructor ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Send className="w-4 h-4 mr-1" />}
+            Apply
+          </Button>
+        </div>
+        <p className="text-[10.5px] text-muted-foreground mt-1 px-1">
+          Instructor understands: move tasks, change dates, extend/shrink bars, add or edit notes, rename, create, delete. Refers to tasks by name.
+        </p>
+      </div>
+
       {/* Gantt */}
       <div className="container mx-auto px-4 py-4">
+
         <div className="border rounded-lg overflow-hidden bg-card">
           {/* Column headers */}
           <div className="flex bg-[#0a2540] text-white text-sm font-semibold">
