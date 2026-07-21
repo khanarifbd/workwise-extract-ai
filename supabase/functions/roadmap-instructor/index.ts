@@ -74,7 +74,7 @@ instruction: ${instruction}`;
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
       body: JSON.stringify({
-        model: 'google/gemini-3-flash-preview',
+        model: 'openai/gpt-5-mini',
         messages: [
           { role: 'system', content: SYSTEM },
           { role: 'user', content: userMsg },
