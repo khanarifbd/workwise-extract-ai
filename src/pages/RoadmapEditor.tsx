@@ -191,6 +191,105 @@ const RoadmapEditor = () => {
     }
   };
 
+  // Reorder a task relative to a target sibling. Recomputes sort_order across the same parent group.
+  const reorderTask = async (draggedId: string, targetId: string, position: 'before' | 'after') => {
+    if (draggedId === targetId) return;
+    const dragged = items.find(i => i.id === draggedId);
+    const target = items.find(i => i.id === targetId);
+    if (!dragged || !target) return;
+    // Move dragged into target's parent group so cross-group drag also works
+    const newParent = target.parent_id;
+    const siblings = items
+      .filter(i => (i.parent_id || null) === (newParent || null) && i.id !== draggedId)
+      .sort((a, b) => a.sort_order - b.sort_order || a.start_date.localeCompare(b.start_date));
+    const targetIdx = siblings.findIndex(s => s.id === targetId);
+    if (targetIdx < 0) return;
+    const insertAt = position === 'after' ? targetIdx + 1 : targetIdx;
+    const next = [...siblings];
+    next.splice(insertAt, 0, { ...dragged, parent_id: newParent } as RoadmapItem);
+    // Batch update sort_order (and parent_id for the dragged item if it changed)
+    try {
+      await Promise.all(next.map((it, i) => {
+        const patch: Partial<RoadmapItem> = { sort_order: (i + 1) * 10 };
+        if (it.id === draggedId && (dragged.parent_id || null) !== (newParent || null)) {
+          (patch as any).parent_id = newParent;
+        }
+        return updateItem(it.id, patch);
+      }));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Reorder failed');
+    }
+  };
+
+  // ---- Text instructor: send instruction to edge function and apply operations ----
+  const applyOperations = async (ops: any[]) => {
+    let applied = 0;
+    for (const op of ops || []) {
+      try {
+        if (op.op === 'update' && op.id && op.patch) {
+          await updateItem(op.id, op.patch);
+          applied++;
+        } else if (op.op === 'delete' && op.id) {
+          await removeItem(op.id);
+          applied++;
+        } else if (op.op === 'create' && op.label && op.start_date && op.end_date) {
+          const after = op.after_id ? items.find(i => i.id === op.after_id) : null;
+          const parent_id = after?.parent_id || null;
+          const sort_order = after ? after.sort_order + 5 : (items.length + 1) * 10;
+          await create({
+            label: op.label,
+            start_date: op.start_date,
+            end_date: op.end_date,
+            notes: op.notes || '',
+            color: op.color || '#2563eb',
+            parent_id,
+            sort_order,
+            progress: 0,
+            is_milestone: false,
+          } as any);
+          applied++;
+        } else if (op.op === 'reorder' && op.id && (op.after_id || op.before_id)) {
+          const targetId = op.after_id || op.before_id;
+          await reorderTask(op.id, targetId, op.after_id ? 'after' : 'before');
+          applied++;
+        }
+      } catch (e) {
+        console.error('applyOperations op failed', op, e);
+      }
+    }
+    return applied;
+  };
+
+  const runInstructor = async () => {
+    if (!roadmap || runningInstructor) return;
+    const text = instruction.trim();
+    if (!text) return;
+    setRunningInstructor(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('roadmap-instructor', {
+        body: { instruction: text, roadmap: { start_date: roadmap.start_date, end_date: roadmap.end_date }, items },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      const ops = (data as any)?.operations || [];
+      const summary = (data as any)?.summary || '';
+      const applied = await applyOperations(ops);
+      await refreshItems();
+      if (applied) {
+        toast.success(`${applied} change${applied > 1 ? 's' : ''} applied${summary ? ` · ${summary}` : ''}`);
+        setInstruction('');
+      } else {
+        toast.info(summary || 'No changes applied — try rephrasing');
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Instructor failed');
+    } finally {
+      setRunningInstructor(false);
+    }
+  };
+
+
+
   const renderRow = (item: RoadmapItem, depth: number, idx: number) => {
     const liveStart = drag && drag.id === item.id ? drag.newStart : item.start_date;
     const liveEnd = drag && drag.id === item.id ? drag.newEnd : item.end_date;
