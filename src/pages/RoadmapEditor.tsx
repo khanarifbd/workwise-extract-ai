@@ -738,6 +738,7 @@ const RoadmapEditor = () => {
           try { exportRoadmapPDF(roadmap, items, opts); toast.success('Roadmap PDF generated'); }
           catch (e) { toast.error(e instanceof Error ? e.message : 'PDF export failed'); }
         }}
+      />
     </div>
   );
 };
