@@ -39,6 +39,15 @@ const RoadmapEditor = () => {
   const [expandedSummary, setExpandedSummary] = useState<Set<string>>(new Set());
   const toggleSummary = (id: string) => setExpandedSummary(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
+  // --- Row reorder (drag task up/down) ---
+  const [rowDragId, setRowDragId] = useState<string | null>(null);
+  const [rowDragOverId, setRowDragOverId] = useState<string | null>(null);
+
+  // --- Text instructor state ---
+  const [instruction, setInstruction] = useState('');
+  const [runningInstructor, setRunningInstructor] = useState(false);
+
+
 
   // --- Bar drag/resize state ---
   const timelineRef = useRef<HTMLDivElement | null>(null);
