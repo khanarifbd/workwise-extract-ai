@@ -57,82 +57,98 @@ export function exportRoadmapPDF(roadmap: Roadmap, items: RoadmapItem[]) {
   doc.text(`Generated ${new Date().toLocaleString('en-GB')}`, pageW - margin, 30, { align: 'right' });
   doc.setTextColor(0, 0, 0);
 
-  // ---------- Mini Gantt ----------
+  // ---------- Mini Gantt (paginated across as many pages as needed) ----------
   const gTop = 90;
   const gLeft = margin + 190;
   const gRight = pageW - margin;
   const gWidth = gRight - gLeft;
   const rowH = 12;
-  const maxGanttRows = Math.min(flat.length, 26);
-  const gHeight = maxGanttRows * rowH + 24;
-
-  // Header timeline (weeks)
-  doc.setFillColor(240, 244, 249);
-  doc.rect(margin, gTop, pageW - margin * 2, gHeight, 'F');
-  doc.setDrawColor(210); doc.setLineWidth(0.5);
-  doc.rect(margin, gTop, pageW - margin * 2, gHeight);
-
-  doc.setFontSize(9); doc.setFont('helvetica', 'bold');
-  doc.text('Task', margin + 6, gTop + 14);
-  doc.text('Timeline', gLeft + 4, gTop + 14);
-
-  // Week grid
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(7);
   const startMs = parseLocalDate(roadmap.start_date).getTime();
-  for (let wk = 0; wk <= weeks; wk++) {
-    const x = gLeft + (wk / weeks) * gWidth;
-    doc.setDrawColor(200);
-    doc.line(x, gTop + 18, x, gTop + gHeight - 4);
-    if (wk < weeks) {
-      const d = new Date(startMs + wk * 7 * 86400000);
-      doc.setTextColor(90);
-      doc.text(`W${wk + 1}`, x + 2, gTop + 14);
-      doc.text(d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }), x + 2, gTop + 22);
-    }
-  }
-  doc.setTextColor(0);
 
-  flat.slice(0, maxGanttRows).forEach((row, idx) => {
-    const y = gTop + 28 + idx * rowH;
-    const { item, depth } = row;
-    // Task label
-    doc.setFontSize(7); doc.setTextColor(20);
-    const label = `${'  '.repeat(depth)}${item.label}`.slice(0, 40);
-    doc.text(label, margin + 6, y + 8);
-    // Bar
-    const s = (parseLocalDate(item.start_date).getTime() - startMs) / 86400000;
-    const e = (parseLocalDate(item.end_date).getTime() - startMs) / 86400000 + 1;
-    const bx = gLeft + Math.max(0, s / totalDays) * gWidth;
-    const bw = Math.max(3, ((e - s) / totalDays) * gWidth);
-    const color = (item.color || '#3b82f6').replace('#', '');
-    const r = parseInt(color.slice(0, 2), 16) || 59;
-    const g = parseInt(color.slice(2, 4), 16) || 130;
-    const b = parseInt(color.slice(4, 6), 16) || 246;
-    if (item.is_milestone) {
-      doc.setFillColor(r, g, b);
-      doc.triangle(bx - 4, y + 4, bx + 4, y + 4, bx, y + 10, 'F');
-    } else {
-      doc.setFillColor(r, g, b);
-      doc.rect(bx, y + 3, bw, 6, 'F');
-      if (item.progress > 0 && item.progress < 100) {
-        doc.setFillColor(0, 0, 0);
-        doc.setGState(new (doc as any).GState({ opacity: 0.3 }));
-        doc.rect(bx, y + 3, bw * (item.progress / 100), 6, 'F');
-        doc.setGState(new (doc as any).GState({ opacity: 1 }));
+  const availableH = pageH - gTop - margin - 20;
+  const rowsPerPage = Math.max(6, Math.floor((availableH - 28) / rowH));
+  const totalGanttPages = Math.max(1, Math.ceil(flat.length / rowsPerPage));
+
+  const drawGanttPage = (pageIndex: number) => {
+    const startIdx = pageIndex * rowsPerPage;
+    const endIdx = Math.min(flat.length, startIdx + rowsPerPage);
+    const rowsOnPage = endIdx - startIdx;
+    const gHeight = rowsOnPage * rowH + 28;
+
+    doc.setFillColor(240, 244, 249);
+    doc.rect(margin, gTop, pageW - margin * 2, gHeight, 'F');
+    doc.setDrawColor(210); doc.setLineWidth(0.5);
+    doc.rect(margin, gTop, pageW - margin * 2, gHeight);
+
+    doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.setTextColor(0);
+    doc.text('Task', margin + 6, gTop + 14);
+    const pageLabel = totalGanttPages > 1 ? `Timeline (Gantt ${pageIndex + 1}/${totalGanttPages})` : 'Timeline';
+    doc.text(pageLabel, gLeft + 4, gTop + 14);
+
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(7);
+    for (let wk = 0; wk <= weeks; wk++) {
+      const x = gLeft + (wk / weeks) * gWidth;
+      doc.setDrawColor(200);
+      doc.line(x, gTop + 18, x, gTop + gHeight - 4);
+      if (wk < weeks) {
+        const d = new Date(startMs + wk * 7 * 86400000);
+        doc.setTextColor(90);
+        doc.text(`W${wk + 1}`, x + 2, gTop + 14);
+        doc.text(d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }), x + 2, gTop + 22);
       }
     }
     doc.setTextColor(0);
-  });
 
-  if (flat.length > maxGanttRows) {
-    doc.setFontSize(7); doc.setTextColor(120);
-    doc.text(`+ ${flat.length - maxGanttRows} more tasks — see detailed schedule below`, margin + 6, gTop + gHeight - 6);
+    for (let i = 0; i < rowsOnPage; i++) {
+      const row = flat[startIdx + i];
+      const y = gTop + 28 + i * rowH;
+      const { item, depth } = row;
+      doc.setFontSize(7); doc.setTextColor(20);
+      const label = `${'  '.repeat(depth)}${item.label}`.slice(0, 44);
+      doc.text(label, margin + 6, y + 8);
+      const s = (parseLocalDate(item.start_date).getTime() - startMs) / 86400000;
+      const e = (parseLocalDate(item.end_date).getTime() - startMs) / 86400000 + 1;
+      const bx = gLeft + Math.max(0, s / totalDays) * gWidth;
+      const bw = Math.max(3, ((e - s) / totalDays) * gWidth);
+      const color = (item.color || '#3b82f6').replace('#', '');
+      const r = parseInt(color.slice(0, 2), 16) || 59;
+      const g = parseInt(color.slice(2, 4), 16) || 130;
+      const b = parseInt(color.slice(4, 6), 16) || 246;
+      if (item.is_milestone) {
+        doc.setFillColor(r, g, b);
+        doc.triangle(bx - 4, y + 4, bx + 4, y + 4, bx, y + 10, 'F');
+      } else {
+        doc.setFillColor(r, g, b);
+        doc.rect(bx, y + 3, bw, 6, 'F');
+        if (item.progress > 0 && item.progress < 100) {
+          doc.setFillColor(0, 0, 0);
+          doc.setGState(new (doc as any).GState({ opacity: 0.3 }));
+          doc.rect(bx, y + 3, bw * (item.progress / 100), 6, 'F');
+          doc.setGState(new (doc as any).GState({ opacity: 1 }));
+        }
+      }
+      doc.setTextColor(0);
+    }
+
+    doc.setFontSize(8); doc.setTextColor(120);
+    doc.text(`${roadmap.name} — Gantt page ${pageIndex + 1}/${totalGanttPages}`, margin, pageH - 12);
+    doc.text('Generated by Genie · Roadmap export', pageW - margin, pageH - 12, { align: 'right' });
     doc.setTextColor(0);
+  };
+
+  drawGanttPage(0);
+  for (let p = 1; p < totalGanttPages; p++) {
+    doc.addPage();
+    drawGanttPage(p);
   }
+
+  doc.addPage();
+
+
 
   // ---------- Detailed schedule table ----------
   autoTable(doc, {
-    startY: gTop + gHeight + 16,
+    startY: margin,
     head: [['#', 'Task', 'Start', 'End', 'Days', 'Progress', 'Assigned', 'Notes']],
     body: flat.map((row, i) => {
       const it = row.item;
