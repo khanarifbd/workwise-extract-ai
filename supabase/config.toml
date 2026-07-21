@@ -114,4 +114,8 @@ verify_jwt = false
 [functions.sign-job-attachment-url]
 verify_jwt = false
 
+[functions.roadmap-instructor]
+verify_jwt = false
+
+
 
