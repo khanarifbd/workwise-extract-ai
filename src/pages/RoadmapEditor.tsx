@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { Check, StickyNote, Award } from 'lucide-react';
+import { Check, StickyNote, Award, GripVertical, Sparkles, Send } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Loader2, Plus, ArrowLeft, CalendarDays, Bell, Star, Diamond, Trash2, Settings2, FileUp, Copy, ChevronRight, ChevronDown, CornerDownRight, Wand2, FileDown } from 'lucide-react';
@@ -7,6 +7,7 @@ import { useRoadmaps, useRoadmapItems, RoadmapItem } from '@/hooks/useRoadmaps';
 import { buildColumns, barPosition, parseLocalDate, toISODate, daysBetween } from '@/lib/roadmapUtils';
 import { generateContractorRoadmapItems } from '@/lib/roadmapPlanner';
 import { exportRoadmapPDF } from '@/lib/roadmapPdfExport';
+
 
 const isCertificate = (item: RoadmapItem) => /\bcert(ificate|s|ification)?\b|\bcerts?\b/i.test(item.label || '');
 
