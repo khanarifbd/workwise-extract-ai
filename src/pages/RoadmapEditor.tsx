@@ -384,6 +384,12 @@ const RoadmapEditor = () => {
           <Button variant="outline" size="sm" onClick={() => setShowSettings(s => !s)}>
             <Settings2 className="w-4 h-4 mr-1" /> Settings
           </Button>
+          <Button variant="outline" size="sm" onClick={() => {
+            try { exportRoadmapPDF(roadmap, items); toast.success('Roadmap PDF generated'); }
+            catch (e) { toast.error(e instanceof Error ? e.message : 'PDF export failed'); }
+          }} disabled={items.length === 0}>
+            <FileDown className="w-4 h-4 mr-1" /> Export PDF
+          </Button>
           <Button variant="outline" size="sm" onClick={() => setImporting(true)}>
             <FileUp className="w-4 h-4 mr-1" /> Import PDF
           </Button>
