@@ -582,8 +582,31 @@ const RoadmapEditor = () => {
         )}
       </div>
 
+      {/* Text instructor bar */}
+      <div className="container mx-auto px-4 pt-3">
+        <div className="border rounded-lg bg-gradient-to-r from-primary/5 via-background to-background p-2 flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-primary shrink-0 ml-1" />
+          <Input
+            value={instruction}
+            onChange={(e) => setInstruction(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); runInstructor(); } }}
+            placeholder='Type an instruction, e.g. "Move Remove wet room under Remove skirting and set dates 3rd Aug to 5th Aug"'
+            className="flex-1 h-9 border-0 shadow-none focus-visible:ring-0 bg-transparent"
+            disabled={runningInstructor}
+          />
+          <Button size="sm" onClick={runInstructor} disabled={runningInstructor || !instruction.trim()}>
+            {runningInstructor ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Send className="w-4 h-4 mr-1" />}
+            Apply
+          </Button>
+        </div>
+        <p className="text-[10.5px] text-muted-foreground mt-1 px-1">
+          Instructor understands: move tasks, change dates, extend/shrink bars, add or edit notes, rename, create, delete. Refers to tasks by name.
+        </p>
+      </div>
+
       {/* Gantt */}
       <div className="container mx-auto px-4 py-4">
+
         <div className="border rounded-lg overflow-hidden bg-card">
           {/* Column headers */}
           <div className="flex bg-[#0a2540] text-white text-sm font-semibold">
