@@ -693,6 +693,28 @@ export const AIWorkConverter = ({ onConvert, onClose, existingWorks, initialDesc
             </Button>
             <Button
               variant="outline"
+              onClick={() => {
+                try {
+                  const { flags, counts } = exportConversionValidationPDF(result, description);
+                  toast({
+                    title: flags.length === 0 ? 'No issues found ✓' : `Validation report: ${flags.length} flag${flags.length === 1 ? '' : 's'}`,
+                    description: flags.length === 0
+                      ? 'Every line has a valid SOR code, description, cost and high confidence.'
+                      : `${counts.critical} critical · ${counts.warning} warnings · ${counts.info} info — PDF downloaded.`,
+                    variant: counts.critical > 0 ? 'destructive' : 'default',
+                  });
+                } catch (e: any) {
+                  toast({ title: 'Report failed', description: e?.message || 'Try again.', variant: 'destructive' });
+                }
+              }}
+              className="flex-1 min-w-[160px] border-orange-500/50 text-orange-700 hover:bg-orange-500/10"
+              title="One-click report of low-confidence matches, missing fields, and invalid SOR codes across all tiers"
+            >
+              <FileWarning className="w-4 h-4 mr-2" />
+              Validation Report
+            </Button>
+            <Button
+              variant="outline"
               onClick={runQAAudit}
               disabled={qaRunning}
               className="flex-1 min-w-[160px] border-amber-500/50 text-amber-700 hover:bg-amber-500/10"
