@@ -17,6 +17,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RoadmapItemDialog } from '@/components/roadmap/RoadmapItemDialog';
 import { RoadmapPdfImportModal } from '@/components/roadmap/RoadmapPdfImportModal';
+import { RoadmapExportModal } from '@/components/roadmap/RoadmapExportModal';
 import { useRoadmapAlerts } from '@/hooks/useRoadmapAlerts';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -32,6 +33,7 @@ const RoadmapEditor = () => {
   const [addingParent, setAddingParent] = useState<string | null | undefined>(undefined);
   const [showSettings, setShowSettings] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const [generatingPlan, setGeneratingPlan] = useState(false);
 
   const [openNotes, setOpenNotes] = useState<Set<string>>(new Set());
@@ -525,10 +527,7 @@ const RoadmapEditor = () => {
           <Button variant="outline" size="sm" onClick={() => setShowSettings(s => !s)}>
             <Settings2 className="w-4 h-4 mr-1" /> Settings
           </Button>
-          <Button variant="outline" size="sm" onClick={() => {
-            try { exportRoadmapPDF(roadmap, items); toast.success('Roadmap PDF generated'); }
-            catch (e) { toast.error(e instanceof Error ? e.message : 'PDF export failed'); }
-          }} disabled={items.length === 0}>
+          <Button variant="outline" size="sm" onClick={() => setExportOpen(true)} disabled={items.length === 0}>
             <FileDown className="w-4 h-4 mr-1" /> Export PDF
           </Button>
           <Button variant="outline" size="sm" onClick={() => setImporting(true)}>
@@ -728,6 +727,16 @@ const RoadmapEditor = () => {
           for (const u of toUpdate) await updateItem(u.id, u.patch);
           if (roadmapPatch) await update(roadmap.id, roadmapPatch);
           await refreshItems();
+        }}
+      />
+      <RoadmapExportModal
+        open={exportOpen}
+        onOpenChange={setExportOpen}
+        taskCount={items.length}
+        roadmapName={roadmap.name || 'Roadmap'}
+        onConfirm={(opts) => {
+          try { exportRoadmapPDF(roadmap, items, opts); toast.success('Roadmap PDF generated'); }
+          catch (e) { toast.error(e instanceof Error ? e.message : 'PDF export failed'); }
         }}
       />
     </div>
