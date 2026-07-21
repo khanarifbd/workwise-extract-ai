@@ -299,10 +299,42 @@ const RoadmapEditor = () => {
     // Always compute bar position at day granularity so week view still respects specific start/end days
     const pos = barPosition(liveStart, liveEnd, roadmap.start_date, roadmap.end_date, 'day');
     const notesSummary = (item.notes || '').trim().split(/\r?\n/)[0].slice(0, 140);
+    const isOver = rowDragOverId === item.id;
     return (
       <div key={item.id}>
-        <div className={cn('group flex border-b last:border-b-0 hover:bg-muted/40 transition', idx % 2 === 1 && 'bg-muted/10')}>
+        <div
+          className={cn(
+            'group flex border-b last:border-b-0 hover:bg-muted/40 transition',
+            idx % 2 === 1 && 'bg-muted/10',
+            isOver && 'ring-2 ring-primary/60 ring-inset bg-primary/5',
+            rowDragId === item.id && 'opacity-50',
+          )}
+          onDragOver={(e) => { if (rowDragId && rowDragId !== item.id) { e.preventDefault(); setRowDragOverId(item.id); } }}
+          onDragLeave={() => { if (rowDragOverId === item.id) setRowDragOverId(null); }}
+          onDrop={async (e) => {
+            e.preventDefault();
+            const draggedId = rowDragId;
+            setRowDragOverId(null);
+            setRowDragId(null);
+            if (draggedId && draggedId !== item.id) {
+              // Drop position: bottom half = after, top half = before
+              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+              const pos = (e.clientY - rect.top) > rect.height / 2 ? 'after' : 'before';
+              await reorderTask(draggedId, item.id, pos);
+            }
+          }}
+        >
           <div className="w-80 shrink-0 flex items-start gap-1 px-2 py-1.5 text-sm border-r" style={{ paddingLeft: 8 + depth * 14 }}>
+            <div
+              draggable
+              onDragStart={(e) => { setRowDragId(item.id); e.dataTransfer.effectAllowed = 'move'; }}
+              onDragEnd={() => { setRowDragId(null); setRowDragOverId(null); }}
+              className="mt-0.5 p-0.5 shrink-0 cursor-grab active:cursor-grabbing opacity-30 group-hover:opacity-100 text-muted-foreground hover:text-foreground transition-opacity"
+              title="Drag to reorder"
+            >
+              <GripVertical className="w-3.5 h-3.5" />
+            </div>
+
             {hasKids ? (
               <button
                 onClick={() => updateItem(item.id, { collapsed: !item.collapsed })}
