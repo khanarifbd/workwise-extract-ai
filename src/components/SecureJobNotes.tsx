@@ -124,7 +124,7 @@ export function SecureJobNotes({ jobId, jobNumber, compact = false, context }: P
     setVerifying(true);
     try {
       await callFn('verify', code);
-      sessionStorage.setItem(CODE_SESSION_KEY, code);
+      // Do NOT cache the code — require re-entry every time for security.
       setUnlocked(true);
     } catch (e) {
       toast({
