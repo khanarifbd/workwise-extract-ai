@@ -944,7 +944,7 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                   />
                 </th>
               )}
-              {showExtraColumns && <th className="w-28">Issued</th>}
+              {showExtraColumns && <th className="w-28">Uploaded</th>}
               {showExtraColumns && <th className="w-28">Job #</th>}
               <th className="w-40">Name / Address</th>
               <th className="w-32">Action</th>
