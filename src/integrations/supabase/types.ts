@@ -377,6 +377,44 @@ export type Database = {
         }
         Relationships: []
       }
+      job_admin_secure_notes: {
+        Row: {
+          author_name: string | null
+          author_user_id: string | null
+          created_at: string
+          id: string
+          job_id: string
+          note_text: string
+          updated_at: string
+        }
+        Insert: {
+          author_name?: string | null
+          author_user_id?: string | null
+          created_at?: string
+          id?: string
+          job_id: string
+          note_text: string
+          updated_at?: string
+        }
+        Update: {
+          author_name?: string | null
+          author_user_id?: string | null
+          created_at?: string
+          id?: string
+          job_id?: string
+          note_text?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_admin_secure_notes_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_control_records: {
         Row: {
           action_details: string
