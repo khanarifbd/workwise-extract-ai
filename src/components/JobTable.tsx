@@ -46,6 +46,7 @@ import { FireDoorEditor } from './FireDoorEditor';
 import { InsulationEditor } from './InsulationEditor';
 import { InsulationBookingDateDialog } from './InsulationBookingDateDialog';
 import { OngoingNotesEditor } from './OngoingNotesEditor';
+import { SecureJobNotes } from './SecureJobNotes';
 import { ContactCell } from './ContactCell';
 import { BookedDateCell } from './BookedDateCell';
 import { SignOffStatusIndicator } from './SignOffStatusIndicator';
@@ -943,7 +944,7 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                   />
                 </th>
               )}
-              {showExtraColumns && <th className="w-28">Issued</th>}
+              {showExtraColumns && <th className="w-28">Uploaded</th>}
               {showExtraColumns && <th className="w-28">Job #</th>}
               <th className="w-40">Name / Address</th>
               <th className="w-32">Action</th>
@@ -954,11 +955,11 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
               <th className="w-24">Roof</th>
               <th className="w-24">Floor</th>
               <th className="w-24">Insul</th>
-              <th className="w-24">Door</th>
               <th className="w-40">Ongoing Notes</th>
-              {showExtraColumns && <th className="w-36">Booked/End</th>}
+              {showExtraColumns && <th className="w-36">Booked/Compl</th>}
               {showExtraColumns && <th className="w-20">Files</th>}
               {showExtraColumns && <th className="w-20">Sign-Off</th>}
+              <th className="w-12" title="Secure admin notes"></th>
               {!readOnly && <th className="w-12"></th>}
             </tr>
           </thead>
@@ -1561,40 +1562,6 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                        )}
                      </div>
                    </td>
-                   {/* Fire Door Column */}
-                  <td onClick={(e) => e.stopPropagation()}>
-                    <div className="flex flex-col gap-1">
-                      <FireDoorEditor
-                        fireDoorInfo={job.fireDoorInfo}
-                        onUpdate={(info) => onUpdateJob({ ...job, fireDoorInfo: info })}
-                        job={job}
-                        fireDoorCategoryId={fireDoorCategoryId}
-                        onJobUpdated={(updates) => {
-                          onUpdateJob({ ...job, ...updates });
-                          if (updates?.linkedFireDoorJobId) {
-                            onFireDoorJobCreated?.();
-                          }
-                        }}
-                        onDeleteLinkedJob={async () => {
-                          if (job.linkedFireDoorJobId) {
-                            try {
-                              await deleteLinkedJob(job.linkedFireDoorJobId, job.id, 'fire_door');
-                              onUpdateJob({ ...job, linkedFireDoorJobId: null, fireDoorInfo: null });
-                              onFireDoorJobCreated?.();
-                              toast({ title: 'Fire Door job deleted' });
-                            } catch (e) {
-                              toast({ title: 'Error', description: 'Failed to delete fire door job', variant: 'destructive' });
-                            }
-                          }
-                        }}
-                      />
-                      {job.linkedFireDoorJobId && (
-                        <Badge variant="outline" className="text-xs bg-green-500/10 text-green-700 dark:text-green-400">
-                          Linked
-                        </Badge>
-                      )}
-                    </div>
-                  </td>
                   {/* Ongoing Notes Column - illuminated when job is ongoing */}
                   <td 
                     onClick={(e) => e.stopPropagation()} 
@@ -1638,15 +1605,23 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                     </div>
                   </td>
                   {showExtraColumns && (
-                  <td>
-                    <div className="text-xs text-muted-foreground space-y-0.5">
+                  <td title={`Booked: ${job.bookedDate ? format(job.bookedDate, 'EEE dd MMM yyyy') : 'not booked'} · Completed: ${job.completionDate ? format(job.completionDate, 'EEE dd MMM yyyy') : 'not completed'}`}>
+                    <div className="text-xs space-y-0.5">
                       <div className="flex items-center gap-1">
-                        <span className="text-muted-foreground/70">B:</span>
-                        <span>{job.bookedDate ? format(job.bookedDate, 'dd/MM/yy') : '-'}</span>
+                        <span className="text-muted-foreground/70 font-semibold">B:</span>
+                        <span className={job.bookedDate ? 'text-foreground font-mono' : 'text-muted-foreground'}>
+                          {job.bookedDate instanceof Date && !isNaN(job.bookedDate.getTime())
+                            ? format(job.bookedDate, 'dd/MM/yy')
+                            : '-'}
+                        </span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <span className="text-muted-foreground/70">E:</span>
-                        <span>{job.completionDate ? format(job.completionDate, 'dd/MM/yy') : '-'}</span>
+                        <span className="text-muted-foreground/70 font-semibold">C:</span>
+                        <span className={job.completionDate ? 'text-emerald-600 dark:text-emerald-400 font-mono' : 'text-muted-foreground'}>
+                          {job.completionDate instanceof Date && !isNaN(job.completionDate.getTime())
+                            ? format(job.completionDate, 'dd/MM/yy')
+                            : '-'}
+                        </span>
                       </div>
                     </div>
                   </td>
@@ -1698,6 +1673,25 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                     </div>
                   </td>
                   )}
+                  {/* Secure admin notes — locked column, always rendered */}
+                  <td onClick={(e) => e.stopPropagation()} className="relative z-20">
+                    <SecureJobNotes
+                      jobId={job.id}
+                      jobNumber={job.jobNumber}
+                      compact
+                      context={{
+                        description: job.description,
+                        summaryOfWorks: job.summaryOfWorks,
+                        workItems: job.workItems,
+                        additionalWorks: job.additionalWorks,
+                        ongoingReason: job.ongoingReason,
+                        progressNotes: job.progressNotes,
+                        privateNotes: job.privateNotes,
+                        isOngoing: job.isOngoing,
+                        scheduledTrades: job.scheduledTrades,
+                      }}
+                    />
+                  </td>
                   {!readOnly && (
                     <td onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center gap-1">
