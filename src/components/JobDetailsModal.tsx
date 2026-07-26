@@ -252,6 +252,7 @@ export const JobDetailsModal = forwardRef<HTMLDivElement, JobDetailsModalProps>(
             <p className="text-xs text-muted-foreground">{editedJob.name}</p>
           </div>
           <div className="flex items-center gap-2">
+            <SecureJobNotes jobId={editedJob.id} jobNumber={editedJob.jobNumber} />
             <Button variant="outline" size="sm" onClick={onClose}>
               Cancel
             </Button>
