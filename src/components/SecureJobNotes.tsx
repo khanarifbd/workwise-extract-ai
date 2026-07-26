@@ -32,9 +32,23 @@ interface SecureNote {
   updated_at: string;
 }
 
+interface JobContext {
+  description?: string;
+  summaryOfWorks?: string;
+  workItems?: Array<{ sorCode?: string; description?: string; qty?: number; cost?: number }>;
+  additionalWorks?: Array<{ sorCode?: string; description?: string; qty?: number; cost?: number }>;
+  ongoingReason?: string;
+  progressNotes?: string;
+  privateNotes?: string;
+  isOngoing?: boolean;
+  scheduledTrades?: Array<{ trade: string; tradesman: string; date: string }>;
+}
+
 interface Props {
   jobId: string;
   jobNumber?: string;
+  compact?: boolean;
+  context?: JobContext;
 }
 
 const CODE_SESSION_KEY = 'admin_secure_notes_code';
