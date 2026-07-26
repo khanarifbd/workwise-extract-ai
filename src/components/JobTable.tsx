@@ -1605,15 +1605,23 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                     </div>
                   </td>
                   {showExtraColumns && (
-                  <td>
-                    <div className="text-xs text-muted-foreground space-y-0.5">
+                  <td title={`Booked: ${job.bookedDate ? format(job.bookedDate, 'EEE dd MMM yyyy') : 'not booked'} · Completed: ${job.completionDate ? format(job.completionDate, 'EEE dd MMM yyyy') : 'not completed'}`}>
+                    <div className="text-xs space-y-0.5">
                       <div className="flex items-center gap-1">
-                        <span className="text-muted-foreground/70">B:</span>
-                        <span>{job.bookedDate ? format(job.bookedDate, 'dd/MM/yy') : '-'}</span>
+                        <span className="text-muted-foreground/70 font-semibold">B:</span>
+                        <span className={job.bookedDate ? 'text-foreground font-mono' : 'text-muted-foreground'}>
+                          {job.bookedDate instanceof Date && !isNaN(job.bookedDate.getTime())
+                            ? format(job.bookedDate, 'dd/MM/yy')
+                            : '-'}
+                        </span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <span className="text-muted-foreground/70">E:</span>
-                        <span>{job.completionDate ? format(job.completionDate, 'dd/MM/yy') : '-'}</span>
+                        <span className="text-muted-foreground/70 font-semibold">C:</span>
+                        <span className={job.completionDate ? 'text-emerald-600 dark:text-emerald-400 font-mono' : 'text-muted-foreground'}>
+                          {job.completionDate instanceof Date && !isNaN(job.completionDate.getTime())
+                            ? format(job.completionDate, 'dd/MM/yy')
+                            : '-'}
+                        </span>
                       </div>
                     </div>
                   </td>
