@@ -189,19 +189,31 @@ export function SecureJobNotes({ jobId, jobNumber, compact = false, context }: P
 
   return (
     <>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => setOpen(true)}
-        className="border-purple-500/40 text-purple-700 dark:text-purple-300 hover:bg-purple-500/10"
-        title="Secure admin-only notes"
-      >
-        <Lock className="w-3.5 h-3.5 mr-1.5" />
-        Secure Notes
-      </Button>
+      {compact ? (
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setOpen(true)}
+          className="h-7 w-7 text-purple-600 dark:text-purple-300 hover:bg-purple-500/10"
+          title="Secure admin-only notes"
+        >
+          <Lock className="w-4 h-4" />
+        </Button>
+      ) : (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setOpen(true)}
+          className="border-purple-500/40 text-purple-700 dark:text-purple-300 hover:bg-purple-500/10"
+          title="Secure admin-only notes"
+        >
+          <Lock className="w-3.5 h-3.5 mr-1.5" />
+          Secure Notes
+        </Button>
+      )}
 
       <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ShieldCheck className="w-5 h-5 text-purple-600" />
