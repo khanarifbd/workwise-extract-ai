@@ -1562,40 +1562,6 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                        )}
                      </div>
                    </td>
-                   {/* Fire Door Column */}
-                  <td onClick={(e) => e.stopPropagation()}>
-                    <div className="flex flex-col gap-1">
-                      <FireDoorEditor
-                        fireDoorInfo={job.fireDoorInfo}
-                        onUpdate={(info) => onUpdateJob({ ...job, fireDoorInfo: info })}
-                        job={job}
-                        fireDoorCategoryId={fireDoorCategoryId}
-                        onJobUpdated={(updates) => {
-                          onUpdateJob({ ...job, ...updates });
-                          if (updates?.linkedFireDoorJobId) {
-                            onFireDoorJobCreated?.();
-                          }
-                        }}
-                        onDeleteLinkedJob={async () => {
-                          if (job.linkedFireDoorJobId) {
-                            try {
-                              await deleteLinkedJob(job.linkedFireDoorJobId, job.id, 'fire_door');
-                              onUpdateJob({ ...job, linkedFireDoorJobId: null, fireDoorInfo: null });
-                              onFireDoorJobCreated?.();
-                              toast({ title: 'Fire Door job deleted' });
-                            } catch (e) {
-                              toast({ title: 'Error', description: 'Failed to delete fire door job', variant: 'destructive' });
-                            }
-                          }
-                        }}
-                      />
-                      {job.linkedFireDoorJobId && (
-                        <Badge variant="outline" className="text-xs bg-green-500/10 text-green-700 dark:text-green-400">
-                          Linked
-                        </Badge>
-                      )}
-                    </div>
-                  </td>
                   {/* Ongoing Notes Column - illuminated when job is ongoing */}
                   <td 
                     onClick={(e) => e.stopPropagation()} 
