@@ -76,14 +76,19 @@ export function SecureJobNotes({ jobId, jobNumber, compact = false, context }: P
   const [editDraft, setEditDraft] = useState('');
   const [saving, setSaving] = useState(false);
 
-  // Restore cached code
+  // Security: always require the code on every open. No session caching.
   useEffect(() => {
-    if (!open) return;
-    const cached = sessionStorage.getItem(CODE_SESSION_KEY);
-    if (cached) {
-      setCode(cached);
-      setUnlocked(true);
+    if (!open) {
+      setCode('');
+      setUnlocked(false);
+      setNotes([]);
+      return;
     }
+    // Purge any legacy cached code from earlier builds
+    try {
+      sessionStorage.removeItem(CODE_SESSION_KEY);
+      localStorage.removeItem(CODE_SESSION_KEY);
+    } catch {}
   }, [open]);
 
   const loadNotes = useCallback(async (usingCode: string) => {
