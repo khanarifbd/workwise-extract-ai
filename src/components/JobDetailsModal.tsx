@@ -25,6 +25,7 @@ import { PhotoFolderUpload } from './PhotoFolderUpload';
 import { SortableWorkItem } from './SortableWorkItem';
 import { TeamUpdatesSection } from './TeamUpdatesSection';
 import { TeamSignOffNotesBox } from './TeamSignOffNotesBox';
+import { SecureJobNotes } from './SecureJobNotes';
 import { ExternalAssigneesPanel } from './ExternalAssigneesPanel';
 import { searchSORCodes, SORCode } from '@/data/sorCodes';
 import {
@@ -251,6 +252,7 @@ export const JobDetailsModal = forwardRef<HTMLDivElement, JobDetailsModalProps>(
             <p className="text-xs text-muted-foreground">{editedJob.name}</p>
           </div>
           <div className="flex items-center gap-2">
+            <SecureJobNotes jobId={editedJob.id} jobNumber={editedJob.jobNumber} />
             <Button variant="outline" size="sm" onClick={onClose}>
               Cancel
             </Button>
