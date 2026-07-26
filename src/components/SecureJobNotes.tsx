@@ -53,6 +53,15 @@ interface Props {
 
 const CODE_SESSION_KEY = 'admin_secure_notes_code';
 
+// Module-load purge: eliminate any legacy cached code from earlier builds.
+// This runs once when the app loads, before any component mounts.
+if (typeof window !== 'undefined') {
+  try {
+    sessionStorage.removeItem(CODE_SESSION_KEY);
+    localStorage.removeItem(CODE_SESSION_KEY);
+  } catch {}
+}
+
 async function callFn(action: string, code: string, payload: Record<string, unknown> = {}) {
   const { data, error } = await supabase.functions.invoke('secure-job-notes', {
     body: { action, code, ...payload },
