@@ -25,6 +25,7 @@ import { PhotoFolderUpload } from './PhotoFolderUpload';
 import { SortableWorkItem } from './SortableWorkItem';
 import { TeamUpdatesSection } from './TeamUpdatesSection';
 import { TeamSignOffNotesBox } from './TeamSignOffNotesBox';
+import { SecureJobNotes } from './SecureJobNotes';
 import { ExternalAssigneesPanel } from './ExternalAssigneesPanel';
 import { searchSORCodes, SORCode } from '@/data/sorCodes';
 import {
