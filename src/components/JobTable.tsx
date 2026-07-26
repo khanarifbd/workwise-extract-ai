@@ -46,6 +46,7 @@ import { FireDoorEditor } from './FireDoorEditor';
 import { InsulationEditor } from './InsulationEditor';
 import { InsulationBookingDateDialog } from './InsulationBookingDateDialog';
 import { OngoingNotesEditor } from './OngoingNotesEditor';
+import { SecureJobNotes } from './SecureJobNotes';
 import { ContactCell } from './ContactCell';
 import { BookedDateCell } from './BookedDateCell';
 import { SignOffStatusIndicator } from './SignOffStatusIndicator';
