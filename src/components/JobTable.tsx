@@ -955,11 +955,11 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
               <th className="w-24">Roof</th>
               <th className="w-24">Floor</th>
               <th className="w-24">Insul</th>
-              <th className="w-24">Door</th>
               <th className="w-40">Ongoing Notes</th>
-              {showExtraColumns && <th className="w-36">Booked/End</th>}
+              {showExtraColumns && <th className="w-36">Booked/Compl</th>}
               {showExtraColumns && <th className="w-20">Files</th>}
               {showExtraColumns && <th className="w-20">Sign-Off</th>}
+              <th className="w-12" title="Secure admin notes"></th>
               {!readOnly && <th className="w-12"></th>}
             </tr>
           </thead>
