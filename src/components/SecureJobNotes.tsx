@@ -62,7 +62,7 @@ async function callFn(action: string, code: string, payload: Record<string, unkn
   return data;
 }
 
-export function SecureJobNotes({ jobId, jobNumber }: Props) {
+export function SecureJobNotes({ jobId, jobNumber, compact = false, context }: Props) {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [code, setCode] = useState('');
