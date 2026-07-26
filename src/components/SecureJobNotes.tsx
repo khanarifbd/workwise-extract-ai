@@ -274,6 +274,84 @@ export function SecureJobNotes({ jobId, jobNumber, compact = false, context }: P
                 </Button>
               </div>
 
+              {/* Read-only job context: SORs + descriptions + ongoing data */}
+              {context && (
+                <div className="border rounded-lg bg-muted/20 p-3 space-y-3 text-xs">
+                  <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Job context (read-only)
+                  </div>
+
+                  {(context.description || context.summaryOfWorks) && (
+                    <div>
+                      <div className="font-semibold mb-1">Description</div>
+                      <p className="whitespace-pre-wrap break-words text-sm">
+                        {context.description || context.summaryOfWorks}
+                      </p>
+                    </div>
+                  )}
+
+                  {context.workItems && context.workItems.length > 0 && (
+                    <div>
+                      <div className="font-semibold mb-1">SOR codes ({context.workItems.length})</div>
+                      <ul className="space-y-1">
+                        {context.workItems.map((w, i) => (
+                          <li key={i} className="flex gap-2 border-l-2 border-purple-500/40 pl-2">
+                            <span className="font-mono text-purple-700 dark:text-purple-300 shrink-0">
+                              {w.sorCode || '—'}
+                            </span>
+                            <span className="text-muted-foreground shrink-0">×{w.qty ?? 1}</span>
+                            <span className="flex-1">{w.description}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {context.additionalWorks && context.additionalWorks.length > 0 && (
+                    <div>
+                      <div className="font-semibold mb-1">Additional works ({context.additionalWorks.length})</div>
+                      <ul className="space-y-1">
+                        {context.additionalWorks.map((w, i) => (
+                          <li key={i} className="flex gap-2 border-l-2 border-amber-500/40 pl-2">
+                            <span className="font-mono text-amber-700 dark:text-amber-300 shrink-0">
+                              {w.sorCode || '—'}
+                            </span>
+                            <span className="text-muted-foreground shrink-0">×{w.qty ?? 1}</span>
+                            <span className="flex-1">{w.description}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {(context.isOngoing || context.ongoingReason || context.progressNotes || context.privateNotes) && (
+                    <div className="space-y-1.5">
+                      <div className="font-semibold">Ongoing data</div>
+                      {context.isOngoing && (
+                        <div className="text-amber-700 dark:text-amber-400">⚠ Job flagged as ongoing</div>
+                      )}
+                      {context.ongoingReason && (
+                        <div><span className="text-muted-foreground">Reason: </span>{context.ongoingReason}</div>
+                      )}
+                      {context.progressNotes && (
+                        <div><span className="text-muted-foreground">Progress: </span>{context.progressNotes}</div>
+                      )}
+                      {context.privateNotes && (
+                        <div><span className="text-muted-foreground">Private notes: </span>{context.privateNotes}</div>
+                      )}
+                      {context.scheduledTrades && context.scheduledTrades.length > 0 && (
+                        <div>
+                          <span className="text-muted-foreground">Scheduled trades: </span>
+                          {context.scheduledTrades.map(t => `${t.trade} (${t.tradesman}) ${t.date}`).join('; ')}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+
+
               {/* Add note */}
               <div className="space-y-2 border rounded-lg p-3 bg-muted/30">
                 <Textarea
