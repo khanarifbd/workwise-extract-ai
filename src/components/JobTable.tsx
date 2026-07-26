@@ -1673,6 +1673,25 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                     </div>
                   </td>
                   )}
+                  {/* Secure admin notes — locked column, always rendered */}
+                  <td onClick={(e) => e.stopPropagation()} className="relative z-20">
+                    <SecureJobNotes
+                      jobId={job.id}
+                      jobNumber={job.jobNumber}
+                      compact
+                      context={{
+                        description: job.description,
+                        summaryOfWorks: job.summaryOfWorks,
+                        workItems: job.workItems,
+                        additionalWorks: job.additionalWorks,
+                        ongoingReason: job.ongoingReason,
+                        progressNotes: job.progressNotes,
+                        privateNotes: job.privateNotes,
+                        isOngoing: job.isOngoing,
+                        scheduledTrades: job.scheduledTrades,
+                      }}
+                    />
+                  </td>
                   {!readOnly && (
                     <td onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center gap-1">
