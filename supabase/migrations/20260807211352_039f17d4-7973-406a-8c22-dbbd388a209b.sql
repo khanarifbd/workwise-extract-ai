@@ -1,0 +1,1 @@
+UPDATE public.jobs SET deleted_at = NULL, updated_at = now() WHERE job_number IN ('N2674261','N2675933');
