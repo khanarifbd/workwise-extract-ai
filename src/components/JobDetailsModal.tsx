@@ -24,6 +24,8 @@ import { AttachmentUpload } from './AttachmentUpload';
 import { PhotoFolderUpload } from './PhotoFolderUpload';
 import { SortableWorkItem } from './SortableWorkItem';
 import { TeamUpdatesSection } from './TeamUpdatesSection';
+import { JobHistoryPanel } from './JobHistoryPanel';
+
 import { TeamSignOffNotesBox } from './TeamSignOffNotesBox';
 import { SecureJobNotes } from './SecureJobNotes';
 import { ExternalAssigneesPanel } from './ExternalAssigneesPanel';
