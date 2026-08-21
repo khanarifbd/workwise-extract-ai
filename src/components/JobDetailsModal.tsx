@@ -608,7 +608,31 @@ export const JobDetailsModal = forwardRef<HTMLDivElement, JobDetailsModalProps>(
                 />
               </div>
             </TabsContent>
+
+            <TabsContent value="history" className="space-y-4">
+              <JobHistoryPanel
+                jobId={editedJob.id}
+                onRestore={(field, value) => {
+                  const map: Record<string, string> = {
+                    description: 'description',
+                    summary_of_works: 'summaryOfWorks',
+                    progress_notes: 'progressNotes',
+                    private_notes: 'privateNotes',
+                    booking_notes: 'bookingNotes',
+                    ongoing_reason: 'ongoingReason',
+                    blocker_notes: 'blockerNotes',
+                    refer_back_reason: 'referBackReason',
+                    name: 'name',
+                    address: 'address',
+                  };
+                  const key = map[field];
+                  if (!key) return;
+                  setEditedJob({ ...editedJob, [key]: value } as typeof editedJob);
+                }}
+              />
+            </TabsContent>
           </Tabs>
+
         </div>
       </div>
     </div>
