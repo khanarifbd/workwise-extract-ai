@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.record_job_field_versions() FROM PUBLIC, anon, authenticated;

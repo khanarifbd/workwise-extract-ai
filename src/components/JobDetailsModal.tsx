@@ -24,6 +24,8 @@ import { AttachmentUpload } from './AttachmentUpload';
 import { PhotoFolderUpload } from './PhotoFolderUpload';
 import { SortableWorkItem } from './SortableWorkItem';
 import { TeamUpdatesSection } from './TeamUpdatesSection';
+import { JobHistoryPanel } from './JobHistoryPanel';
+
 import { TeamSignOffNotesBox } from './TeamSignOffNotesBox';
 import { SecureJobNotes } from './SecureJobNotes';
 import { ExternalAssigneesPanel } from './ExternalAssigneesPanel';
@@ -278,7 +280,9 @@ export const JobDetailsModal = forwardRef<HTMLDivElement, JobDetailsModalProps>(
               <TabsTrigger value="additional" className="text-xs">Additional</TabsTrigger>
               <TabsTrigger value="attachments" className="text-xs">Attachments</TabsTrigger>
               <TabsTrigger value="team" className="text-xs">Team Updates</TabsTrigger>
+              <TabsTrigger value="history" className="text-xs">History</TabsTrigger>
             </TabsList>
+
 
             <TabsContent value="details" className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
@@ -606,7 +610,31 @@ export const JobDetailsModal = forwardRef<HTMLDivElement, JobDetailsModalProps>(
                 />
               </div>
             </TabsContent>
+
+            <TabsContent value="history" className="space-y-4">
+              <JobHistoryPanel
+                jobId={editedJob.id}
+                onRestore={(field, value) => {
+                  const map: Record<string, string> = {
+                    description: 'description',
+                    summary_of_works: 'summaryOfWorks',
+                    progress_notes: 'progressNotes',
+                    private_notes: 'privateNotes',
+                    booking_notes: 'bookingNotes',
+                    ongoing_reason: 'ongoingReason',
+                    blocker_notes: 'blockerNotes',
+                    refer_back_reason: 'referBackReason',
+                    name: 'name',
+                    address: 'address',
+                  };
+                  const key = map[field];
+                  if (!key) return;
+                  setEditedJob({ ...editedJob, [key]: value } as typeof editedJob);
+                }}
+              />
+            </TabsContent>
           </Tabs>
+
         </div>
       </div>
     </div>
