@@ -278,7 +278,9 @@ export const JobDetailsModal = forwardRef<HTMLDivElement, JobDetailsModalProps>(
               <TabsTrigger value="additional" className="text-xs">Additional</TabsTrigger>
               <TabsTrigger value="attachments" className="text-xs">Attachments</TabsTrigger>
               <TabsTrigger value="team" className="text-xs">Team Updates</TabsTrigger>
+              <TabsTrigger value="history" className="text-xs">History</TabsTrigger>
             </TabsList>
+
 
             <TabsContent value="details" className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
