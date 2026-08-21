@@ -505,6 +505,65 @@ export type Database = {
           },
         ]
       }
+      job_field_versions: {
+        Row: {
+          change_kind: string
+          changed_by: string | null
+          changed_by_email: string | null
+          changed_by_label: string | null
+          chars_added: number
+          chars_removed: number
+          created_at: string
+          field_name: string
+          id: string
+          job_id: string
+          job_number: string | null
+          new_value: string | null
+          old_value: string | null
+          version: number
+        }
+        Insert: {
+          change_kind?: string
+          changed_by?: string | null
+          changed_by_email?: string | null
+          changed_by_label?: string | null
+          chars_added?: number
+          chars_removed?: number
+          created_at?: string
+          field_name: string
+          id?: string
+          job_id: string
+          job_number?: string | null
+          new_value?: string | null
+          old_value?: string | null
+          version: number
+        }
+        Update: {
+          change_kind?: string
+          changed_by?: string | null
+          changed_by_email?: string | null
+          changed_by_label?: string | null
+          chars_added?: number
+          chars_removed?: number
+          created_at?: string
+          field_name?: string
+          id?: string
+          job_id?: string
+          job_number?: string | null
+          new_value?: string | null
+          old_value?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_field_versions_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_sub_tasks: {
         Row: {
           assigned_team: string | null
