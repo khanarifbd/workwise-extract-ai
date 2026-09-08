@@ -709,7 +709,7 @@ export const updateJob = async (id: string, updates: Partial<Job>): Promise<Job>
     .update(dbUpdates)
     .eq('id', id)
     .select()
-    .single();
+    .maybeSingle();
 
   if (error) {
     console.error('Error updating job:', error);
@@ -722,8 +722,10 @@ export const updateJob = async (id: string, updates: Partial<Job>): Promise<Job>
   }
 
   if (!data) {
-    throw new Error('Job update returned no data - job may not exist');
+    // No row came back: the update was blocked by access rules (or the job is gone)
+    throw new Error("Your account doesn't have permission to save changes to this job (or it no longer exists). Please sign in with an account that can edit jobs.");
   }
+
 
   const updatedJob = mapDatabaseJobToJob(data);
 
