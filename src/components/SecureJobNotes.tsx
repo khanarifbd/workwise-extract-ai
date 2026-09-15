@@ -63,13 +63,37 @@ if (typeof window !== 'undefined') {
 }
 
 async function callFn(action: string, code: string, payload: Record<string, unknown> = {}) {
+  // Make sure we send a live token — an expired/absent session is the most
+  // common cause of a silent "no access" on the padlock.
+  const { data: sessionData } = await supabase.auth.getSession();
+  if (!sessionData.session) {
+    throw new Error('You are signed out. Please sign in again, then reopen the padlock.');
+  }
+
   const { data, error } = await supabase.functions.invoke('secure-job-notes', {
     body: { action, code, ...payload },
   });
-  if (error) throw new Error(error.message || 'Request failed');
+
+  if (error) {
+    // supabase-js hides the server message behind a generic non-2xx error.
+    // Pull the real reason out of the response body so the user can act on it.
+    let serverMessage = '';
+    try {
+      const res = (error as any)?.context;
+      if (res && typeof res.json === 'function') {
+        const parsed = await res.clone().json();
+        serverMessage = parsed?.error || '';
+      }
+    } catch {
+      /* ignore parse issues */
+    }
+    throw new Error(serverMessage || error.message || 'Request failed');
+  }
+
   if (data?.error) throw new Error(data.error);
   return data;
 }
+
 
 export function SecureJobNotes({ jobId, jobNumber, compact = false, context }: Props) {
   const { toast } = useToast();
