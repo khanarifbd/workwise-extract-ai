@@ -107,14 +107,29 @@ export function downloadPDF(doc: jsPDF, filename: string, options?: { targetWind
   const url = URL.createObjectURL(blob);
   const revoke = () => setTimeout(() => URL.revokeObjectURL(url), 180000);
 
-  // 2. Pre-opened window path (works inside Lovable's sandboxed iframe)
+  // 2. Pre-opened window path (works inside Lovable's sandboxed iframe).
+  // Render a real HTML page with a visible download link AND an inline viewer,
+  // so the tab is never blank even if the browser refuses to render the blob.
   if (preOpenedWindow && !preOpenedWindow.closed) {
     try {
-      preOpenedWindow.location.replace(url);
+      const safeName = filename.replace(/[<>"&]/g, '');
+      preOpenedWindow.document.open();
+      preOpenedWindow.document.write(
+        `<!doctype html><html><head><meta charset="utf-8"><title>${safeName}</title></head>` +
+        `<body style="margin:0;font-family:system-ui,-apple-system,sans-serif;background:#0f172a;color:#e2e8f0">` +
+        `<div style="padding:12px 16px;display:flex;gap:12px;align-items:center;justify-content:space-between">` +
+        `<span style="font-size:14px">${safeName}</span>` +
+        `<a href="${url}" download="${safeName}" style="background:#2563eb;color:#fff;text-decoration:none;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:600">Download PDF</a>` +
+        `</div>` +
+        `<iframe src="${url}" style="border:0;width:100%;height:calc(100vh - 56px);background:#fff"></iframe>` +
+        `</body></html>`
+      );
+      preOpenedWindow.document.close();
       revoke();
       return;
     } catch (err) {
       console.warn('[downloadPDF] pre-opened window failed', err);
+      try { preOpenedWindow.close(); } catch { /* noop */ }
     }
   }
 

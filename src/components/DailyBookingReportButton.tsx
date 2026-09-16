@@ -80,6 +80,7 @@ export const DailyBookingReportButton = ({
     const dateJobs = getJobsForDate();
     
     if (dateJobs.length === 0) {
+      if (targetWindow && !targetWindow.closed) targetWindow.close();
       toast({
         title: "No Jobs Found",
         description: "There are no booked jobs for this date.",
