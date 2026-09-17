@@ -62,6 +62,10 @@ if (typeof window !== 'undefined') {
   } catch {}
 }
 
+interface SecureNotesFunctionError extends Error {
+  errorCode?: string;
+}
+
 async function callFn(action: string, code: string, payload: Record<string, unknown> = {}) {
   // Make sure we send a live token — an expired/absent session is the most
   // common cause of a silent "no access" on the padlock.
@@ -90,7 +94,11 @@ async function callFn(action: string, code: string, payload: Record<string, unkn
     throw new Error(serverMessage || error.message || 'Request failed');
   }
 
-  if (data?.error) throw new Error(data.error);
+  if (data?.error) {
+    const functionError = new Error(data.error) as SecureNotesFunctionError;
+    functionError.errorCode = data.errorCode;
+    throw functionError;
+  }
   return data;
 }
 
@@ -160,9 +168,13 @@ export function SecureJobNotes({ jobId, jobNumber, compact = false, context }: P
       // Do NOT cache the code — require re-entry every time for security.
       setUnlocked(true);
     } catch (e) {
+      const functionError = e as SecureNotesFunctionError;
+      if (functionError.errorCode === 'INVALID_ACCESS_CODE' || functionError.message === 'Invalid access code') {
+        setCode('');
+      }
       toast({
         title: 'Access denied',
-        description: (e as Error).message,
+        description: functionError.message,
         variant: 'destructive',
       });
     } finally {

@@ -103,7 +103,10 @@ Deno.serve(async (req) => {
 
     if (!codeOk) {
       console.log(`secure-job-notes: code rejected (entered length ${code.length})`);
-      return json({ error: "Invalid access code" }, 403);
+      // A wrong code is an expected validation result, not a function failure.
+      // Returning it as structured data prevents clients/runtime monitors from
+      // replacing the notes dialog with a fatal Edge Function error screen.
+      return json({ ok: false, error: "Invalid access code", errorCode: "INVALID_ACCESS_CODE" });
     }
 
     // Admins can rotate the code once they are inside.
