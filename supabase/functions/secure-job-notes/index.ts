@@ -40,11 +40,9 @@ Deno.serve(async (req) => {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
     const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    // Trim: stored secrets can pick up stray whitespace/newlines, which would
-    // make every comparison fail and lock admins out entirely.
+    // Env code is only a fallback now — the live code lives in the database so
+    // it can never drift, pick up whitespace, or be lost.
     const SECRET_CODE = (Deno.env.get("ADMIN_SECURE_NOTES_CODE") ?? "").trim();
-
-    if (!SECRET_CODE) return json({ error: "Server misconfigured" }, 500);
 
     // 1) Auth check
     const authHeader = req.headers.get("Authorization") ?? "";
@@ -65,28 +63,60 @@ Deno.serve(async (req) => {
     const admin = createClient(SUPABASE_URL, SERVICE_KEY, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
-    const { data: roleRow } = await admin
+    const { data: roleRow, error: roleErr } = await admin
       .from("user_roles")
       .select("role")
       .eq("user_id", userId)
       .eq("role", "admin")
       .maybeSingle();
+    if (roleErr) {
+      console.error("secure-job-notes: role lookup failed", roleErr.message);
+      return json({ error: `Could not check your access rights: ${roleErr.message}` }, 500);
+    }
     if (!roleRow) {
-      return json({ error: "This account does not have admin access to secure notes." }, 403);
+      return json(
+        { error: `This account (${userData.user.email ?? userId}) does not have admin access to secure notes.` },
+        403,
+      );
     }
 
     // 3) Parse body
     const body = await req.json().catch(() => ({}));
-    const { action, jobId, noteId, noteText } = body ?? {};
+    const { action, jobId, noteId, noteText, newCode } = body ?? {};
     const code = String(body?.code ?? req.headers.get("x-secure-code") ?? "").trim();
 
-    // 4) Verify secret code (constant-time)
-    if (!timingSafeEqual(code, SECRET_CODE)) {
-      console.log(
-        `secure-job-notes: code rejected (entered length ${code.length}, expected length ${SECRET_CODE.length})`,
-      );
+    // 4) Verify access code against the stored hash (env value is a fallback)
+    const { data: accessRow } = await admin
+      .from("admin_secure_access")
+      .select("code_hash")
+      .eq("id", true)
+      .maybeSingle();
+
+    let codeOk = false;
+    if (accessRow?.code_hash) {
+      codeOk = timingSafeEqual(await sha256Hex(code), String(accessRow.code_hash).trim());
+    } else if (SECRET_CODE) {
+      codeOk = timingSafeEqual(code, SECRET_CODE);
+    } else {
+      return json({ error: "Secure notes code is not configured. Ask an admin to set it." }, 500);
+    }
+
+    if (!codeOk) {
+      console.log(`secure-job-notes: code rejected (entered length ${code.length})`);
       return json({ error: "Invalid access code" }, 403);
     }
+
+    // Admins can rotate the code once they are inside.
+    if (action === "set_code") {
+      const next = String(newCode ?? "").trim();
+      if (!/^\d{5}$/.test(next)) return json({ error: "New code must be exactly 5 digits" }, 400);
+      const { error: upErr } = await admin
+        .from("admin_secure_access")
+        .upsert({ id: true, code_hash: await sha256Hex(next), updated_at: new Date().toISOString(), updated_by: userId });
+      if (upErr) return json({ error: upErr.message }, 500);
+      return json({ ok: true });
+    }
+
 
 
     // Author display name (best effort)
