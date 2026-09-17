@@ -58,6 +58,27 @@ export type Database = {
           },
         ]
       }
+      admin_secure_access: {
+        Row: {
+          code_hash: string
+          id: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          code_hash: string
+          id?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          code_hash?: string
+          id?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       audit_log: {
         Row: {
           action: string
