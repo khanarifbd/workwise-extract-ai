@@ -158,7 +158,7 @@ export function downloadPDF(doc: jsPDF, filename: string, options?: { targetWind
   }
   if (nativeSaveWorked) { revoke(); return; }
 
-  // 4. Manual anchor click
+  // 4. Manual anchor click (may be silently blocked inside sandboxed iframes)
   try {
     const link = document.createElement('a');
     link.href = url;
@@ -173,19 +173,9 @@ export function downloadPDF(doc: jsPDF, filename: string, options?: { targetWind
     console.warn('[downloadPDF] anchor download failed', err);
   }
 
-  // 5. Try popping a new tab
-  let popupOpened = false;
-  try {
-    const win = window.open(url, '_blank', 'noopener,noreferrer');
-    if (win) popupOpened = true;
-  } catch (err) {
-    console.warn('[downloadPDF] window.open failed', err);
-  }
-
-  // 6. Final visible fallback for sandboxed iframes / blocked popups
-  if (!popupOpened && isInIframe()) {
-    showManualDownloadOverlay(url, filename);
-  }
+  // 5. Always show the in-app viewer as a guaranteed visible result.
+  showManualDownloadOverlay(url, filename);
 
   revoke();
+
 }
