@@ -46,33 +46,46 @@ function showManualDownloadOverlay(url: string, filename: string) {
 
   const overlay = document.createElement('div');
   overlay.id = 'lov-pdf-manual-overlay';
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.55);z-index:2147483647;display:flex;align-items:center;justify-content:center;font-family:system-ui,-apple-system,sans-serif;';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.65);z-index:2147483647;display:flex;align-items:center;justify-content:center;padding:16px;font-family:system-ui,-apple-system,sans-serif;';
 
   const card = document.createElement('div');
-  card.style.cssText = 'background:#fff;border-radius:12px;padding:24px;max-width:420px;box-shadow:0 24px 64px rgba(0,0,0,.25);text-align:left;';
-  card.innerHTML = `
-    <div style="font-weight:600;font-size:16px;margin-bottom:8px;color:#0f172a">Your PDF is ready</div>
-    <div style="font-size:13px;color:#475569;margin-bottom:16px">Click the button below to download or open it. (Your browser blocked the automatic download.)</div>
-  `;
+  card.style.cssText = 'background:#fff;border-radius:12px;width:min(900px,100%);height:min(85vh,100%);display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 64px rgba(0,0,0,.35);';
+
+  const bar = document.createElement('div');
+  bar.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-bottom:1px solid #e2e8f0;';
+  const title = document.createElement('div');
+  title.textContent = filename;
+  title.style.cssText = 'font-size:14px;font-weight:600;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+
+  const actions = document.createElement('div');
+  actions.style.cssText = 'display:flex;gap:8px;flex:none';
+
   const link = document.createElement('a');
   link.href = url;
   link.download = filename;
-  link.target = '_blank';
-  link.rel = 'noopener noreferrer';
-  link.textContent = `⬇ Download ${filename}`;
-  link.style.cssText = 'display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;font-size:14px;font-weight:600;margin-right:8px';
+  link.textContent = 'Download';
+  link.style.cssText = 'background:#2563eb;color:#fff;text-decoration:none;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:600';
 
   const closeBtn = document.createElement('button');
   closeBtn.textContent = 'Close';
-  closeBtn.style.cssText = 'background:transparent;border:1px solid #cbd5e1;color:#334155;padding:10px 16px;border-radius:8px;font-size:14px;cursor:pointer';
+  closeBtn.style.cssText = 'background:transparent;border:1px solid #cbd5e1;color:#334155;padding:8px 14px;border-radius:8px;font-size:13px;cursor:pointer';
   closeBtn.onclick = () => overlay.remove();
 
-  card.appendChild(link);
-  card.appendChild(closeBtn);
+  const frame = document.createElement('iframe');
+  frame.src = url;
+  frame.style.cssText = 'border:0;flex:1;width:100%;background:#f1f5f9';
+
+  actions.appendChild(link);
+  actions.appendChild(closeBtn);
+  bar.appendChild(title);
+  bar.appendChild(actions);
+  card.appendChild(bar);
+  card.appendChild(frame);
   overlay.appendChild(card);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
   document.body.appendChild(overlay);
 }
+
 
 /**
  * Reliable PDF delivery across desktop, iOS, native apps, and sandboxed iframes.
