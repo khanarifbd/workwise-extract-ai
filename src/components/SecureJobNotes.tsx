@@ -7,6 +7,7 @@
  * so the admin isn't re-prompted per job for the same session.
  */
 import { useCallback, useEffect, useState } from 'react';
+import type * as React from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
