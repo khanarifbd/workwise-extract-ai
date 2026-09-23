@@ -7,6 +7,7 @@
  * so the admin isn't re-prompted per job for the same session.
  */
 import { useCallback, useEffect, useState } from 'react';
+import type * as React from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -284,13 +285,24 @@ export function SecureJobNotes({ jobId, jobNumber, compact = false, context }: P
             <div className="space-y-3 py-2">
               <label className="text-sm font-medium">Enter 5-digit access code</label>
               <Input
-                type="password"
+                // Plain text + CSS masking: stops browsers / password managers
+                // from auto-filling a saved login password into this box,
+                // which silently produced "Invalid access code".
+                type="text"
+                name="secure-notes-pin"
                 inputMode="numeric"
-                autoComplete="off"
+                pattern="[0-9]*"
+                autoComplete="one-time-code"
+                autoCorrect="off"
+                spellCheck={false}
+                data-lpignore="true"
+                data-1p-ignore="true"
+                data-form-type="other"
                 maxLength={5}
                 value={code}
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 5))}
                 placeholder="•••••"
+                style={{ WebkitTextSecurity: 'disc' } as React.CSSProperties}
                 className="text-center text-2xl tracking-[0.5em] font-mono"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') handleVerify();
