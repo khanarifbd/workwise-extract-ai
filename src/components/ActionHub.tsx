@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Workflow, Sparkles, Package, BookOpen, Rocket, MonitorPlay } from 'lucide-react';
-import { toast } from 'sonner';
+import { Workflow, Sparkles, Package, BookOpen, Rocket } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MaterialsReportModal } from './MaterialsReportModal';
 import { SORCodeBookManager } from './SORCodeBookManager';
@@ -18,10 +17,6 @@ import { SORCodeBookManager } from './SORCodeBookManager';
  *  - Inset hairline divider between groups keeps related actions together
  *    (analytics ⟂ knowledge ⟂ workflow) without extra chrome.
  */
-const LIVE_BOARD_URL = 'https://realtime-operations-hub.lovable.app';
-const LIVE_BOARD_EMAIL = 'team@allsaintsbuilders.com';
-const LIVE_BOARD_PASSWORD = 'AllSaints#Ops2026';
-
 export const ActionHub = () => {
   const [materialsOpen, setMaterialsOpen] = useState(false);
   const [sorBookOpen, setSorBookOpen] = useState(false);
@@ -74,31 +69,6 @@ export const ActionHub = () => {
           <span>SOR Book</span>
         </button>
 
-        <span className="w-px h-4 bg-border/70 mx-0.5" aria-hidden />
-
-        <button
-          type="button"
-          title="Open Live Board (new tab)"
-          onClick={async () => {
-            window.open(LIVE_BOARD_URL, '_blank', 'noopener,noreferrer');
-            try {
-              await navigator.clipboard.writeText(
-                `${LIVE_BOARD_EMAIL}\n${LIVE_BOARD_PASSWORD}`
-              );
-              toast.success('Live Board opened', {
-                description: `Login copied: ${LIVE_BOARD_EMAIL}`,
-              });
-            } catch {
-              toast.success('Live Board opened', {
-                description: `${LIVE_BOARD_EMAIL} / ${LIVE_BOARD_PASSWORD}`,
-              });
-            }
-          }}
-          className={itemBase}
-        >
-          <MonitorPlay className="w-3.5 h-3.5 text-rose-400" />
-          <span>Live Board</span>
-        </button>
 
         <span className="w-px h-4 bg-border/70 mx-0.5" aria-hidden />
 
