@@ -17,10 +17,6 @@ import { SORCodeBookManager } from './SORCodeBookManager';
  *  - Inset hairline divider between groups keeps related actions together
  *    (analytics ⟂ knowledge ⟂ workflow) without extra chrome.
  */
-const LIVE_BOARD_URL = 'https://realtime-operations-hub.lovable.app';
-const LIVE_BOARD_EMAIL = 'team@allsaintsbuilders.com';
-const LIVE_BOARD_PASSWORD = 'AllSaints#Ops2026';
-
 export const ActionHub = () => {
   const [materialsOpen, setMaterialsOpen] = useState(false);
   const [sorBookOpen, setSorBookOpen] = useState(false);
