@@ -8,6 +8,13 @@
       "when": 1790186695631,
       "tag": "0000_team_portal_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790187814251,
+      "tag": "0001_repair_linked_fan_jobs",
+      "breakpoints": true
     }
   ]
 }
