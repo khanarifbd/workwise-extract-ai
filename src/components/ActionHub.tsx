@@ -74,31 +74,6 @@ export const ActionHub = () => {
           <span>SOR Book</span>
         </button>
 
-        <span className="w-px h-4 bg-border/70 mx-0.5" aria-hidden />
-
-        <button
-          type="button"
-          title="Open Live Board (new tab)"
-          onClick={async () => {
-            window.open(LIVE_BOARD_URL, '_blank', 'noopener,noreferrer');
-            try {
-              await navigator.clipboard.writeText(
-                `${LIVE_BOARD_EMAIL}\n${LIVE_BOARD_PASSWORD}`
-              );
-              toast.success('Live Board opened', {
-                description: `Login copied: ${LIVE_BOARD_EMAIL}`,
-              });
-            } catch {
-              toast.success('Live Board opened', {
-                description: `${LIVE_BOARD_EMAIL} / ${LIVE_BOARD_PASSWORD}`,
-              });
-            }
-          }}
-          className={itemBase}
-        >
-          <MonitorPlay className="w-3.5 h-3.5 text-rose-400" />
-          <span>Live Board</span>
-        </button>
 
         <span className="w-px h-4 bg-border/70 mx-0.5" aria-hidden />
 
