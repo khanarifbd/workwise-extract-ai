@@ -199,6 +199,12 @@ export const useJobs = (categoryId?: string, options?: { enabled?: boolean }) =>
           if (newRecord) {
             const newJobId = newRecord.id as string;
 
+            // Soft-deleted or moved to another category: drop it from this list
+            if (newJobId && (newRecord.deleted_at || (categoryId && newCategoryId !== categoryId))) {
+              setJobs(prev => prev.filter(j => j.id !== newJobId));
+              return;
+            }
+
             // If this update was from our optimistic update, ignore it
             if (newJobId && pendingUpdatesRef.current.has(newJobId)) {
               console.log('Ignoring realtime update for pending optimistic job:', newJobId);
