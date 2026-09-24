@@ -1309,6 +1309,16 @@ export const createLinkedFanJob = async (
 };
 
 // Sync (create or update) a linked fan job based on manual fan edits
+const invalidateFanCaches = (...categoryIds: (string | null | undefined)[]) => {
+  for (const id of categoryIds) {
+    if (!id) continue;
+    invalidateJobsCache(id);
+    try { sessionStorage.removeItem(`genie_jobs_cache_${id}`); } catch {}
+  }
+  invalidateJobsCache(undefined);
+  try { sessionStorage.removeItem('genie_jobs_cache_all'); } catch {}
+};
+
 export const syncLinkedFanJob = async (
   sourceJob: Job,
   fanInfo: FanInfo[],
@@ -1319,71 +1329,59 @@ export const syncLinkedFanJob = async (
     `${fan.type} x${fan.quantity}${fan.location ? ` - ${fan.location}` : ''}`
   ).join('\n');
 
-  // Check if a linked fan job already exists
-  if (sourceJob.linkedFanJobId) {
-    // Update existing fan job - also update booked_date if provided
+  const buildUpdate = () => {
     const updateData: any = {
       fan_info: fanInfo as unknown as Json,
       description: fanDescription,
+      category_id: fanCategoryId,
+      deleted_at: null,
     };
-    
-    // Update booked_date and date_issued (for monthly folder) if explicitly provided
     if (bookedDate !== undefined) {
       updateData.booked_date = bookedDate ? formatDateOnly(bookedDate) : null;
       if (bookedDate) updateData.date_issued = formatDateOnly(bookedDate);
     }
+    return updateData;
+  };
 
+  const linkParent = async (fanId: string) => {
     const { error } = await supabase
       .from('jobs')
-      .update(updateData)
-      .eq('id', sourceJob.linkedFanJobId);
-
-    if (error) {
-      console.error('Error updating linked fan job:', error);
-      throw error;
-    }
-
-    // Also update the source job's fan_info
-    await supabase
-      .from('jobs')
-      .update({ fan_info: fanInfo as unknown as Json })
+      .update({ linked_fan_job_id: fanId, fan_info: fanInfo as unknown as Json })
       .eq('id', sourceJob.id);
+    if (error) throw error;
+    invalidateFanCaches(fanCategoryId, sourceJob.categoryId);
+  };
 
-    return { linkedFanJobId: sourceJob.linkedFanJobId, created: false };
+  // 1. Existing link — only trust it if the fan job is live (not deleted)
+  if (sourceJob.linkedFanJobId) {
+    const { data: linked } = await supabase
+      .from('jobs')
+      .select('id, deleted_at')
+      .eq('id', sourceJob.linkedFanJobId)
+      .maybeSingle();
+    if (linked && !linked.deleted_at) {
+      const { error } = await supabase.from('jobs').update(buildUpdate()).eq('id', linked.id);
+      if (error) { console.error('Error updating linked fan job:', error); throw error; }
+      await linkParent(linked.id);
+      return { linkedFanJobId: linked.id, created: false };
+    }
+    // Stale link (deleted/missing) — fall through to adopt or create
   }
 
-  // Adopt any orphaned existing fan job with the same job number before inserting.
-  // This prevents duplicate-key errors when a linked fan job exists but the parent
-  // lost its linked_fan_job_id reference.
+  // 2. Adopt a live fan job with the same number (e.g. parent lost its link)
   const fanJobNumber = `${sourceJob.jobNumber}-FAN`;
   const { data: existingFanJob } = await supabase
     .from('jobs')
     .select('id')
-    .eq('job_number', fanJobNumber)
-    .eq('category_id', fanCategoryId)
+    .ilike('job_number', fanJobNumber)
+    .is('deleted_at', null)
+    .limit(1)
     .maybeSingle();
 
   if (existingFanJob?.id) {
-    const updateData: any = {
-      fan_info: fanInfo as unknown as Json,
-      description: fanDescription,
-    };
-    if (bookedDate !== undefined) {
-      updateData.booked_date = bookedDate ? formatDateOnly(bookedDate) : null;
-      if (bookedDate) updateData.date_issued = formatDateOnly(bookedDate);
-    }
-    const { error: updErr } = await supabase
-      .from('jobs')
-      .update(updateData)
-      .eq('id', existingFanJob.id);
-    if (updErr) {
-      console.error('Error updating orphaned fan job:', updErr);
-      throw updErr;
-    }
-    await supabase
-      .from('jobs')
-      .update({ linked_fan_job_id: existingFanJob.id, fan_info: fanInfo as unknown as Json })
-      .eq('id', sourceJob.id);
+    const { error: updErr } = await supabase.from('jobs').update(buildUpdate()).eq('id', existingFanJob.id);
+    if (updErr) { console.error('Error updating orphaned fan job:', updErr); throw updErr; }
+    await linkParent(existingFanJob.id);
     return { linkedFanJobId: existingFanJob.id, created: false };
   }
 
@@ -1449,14 +1447,7 @@ export const syncLinkedFanJob = async (
     throw error;
   }
 
-  // Update the source job to link to the fan job and save fan_info
-  await supabase
-    .from('jobs')
-    .update({ 
-      linked_fan_job_id: data.id,
-      fan_info: fanInfo as unknown as Json 
-    })
-    .eq('id', sourceJob.id);
+  await linkParent(data.id);
 
   return { linkedFanJobId: data.id, created: true };
 };
