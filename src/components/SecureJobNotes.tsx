@@ -65,42 +65,80 @@ if (typeof window !== 'undefined') {
 
 interface SecureNotesFunctionError extends Error {
   errorCode?: string;
+  status?: number;
 }
 
+const FN_URL = `${String(import.meta.env.VITE_SUPABASE_URL).replace(/\/$/, '')}/functions/v1/secure-job-notes`;
+const ANON = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+
+/** Always return a token that is valid for at least another minute. */
+async function getFreshToken(forceRefresh = false): Promise<string> {
+  const { data } = await supabase.auth.getSession();
+  let session = data.session;
+  const expiresSoon = !session?.expires_at || session.expires_at * 1000 - Date.now() < 60_000;
+  if (session && (forceRefresh || expiresSoon)) {
+    const { data: refreshed } = await supabase.auth.refreshSession();
+    if (refreshed.session) session = refreshed.session;
+  }
+  if (!session?.access_token) {
+    const err = new Error('You are signed out. Please sign in again, then reopen the padlock.') as SecureNotesFunctionError;
+    err.errorCode = 'SIGNED_OUT';
+    throw err;
+  }
+  return session.access_token;
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Calls the secure notes service directly (not via functions.invoke) so we
+ * always see the real status + message. Handles the three things that used
+ * to cause random lock-outs:
+ *  - expired sign-in token (iPad/laptop asleep)  -> refresh and retry once
+ *  - cold start / brief network drop / 5xx        -> retry with backoff
+ *  - wrong code                                   -> clear INVALID_ACCESS_CODE
+ */
 async function callFn(action: string, code: string, payload: Record<string, unknown> = {}) {
-  // Make sure we send a live token — an expired/absent session is the most
-  // common cause of a silent "no access" on the padlock.
-  const { data: sessionData } = await supabase.auth.getSession();
-  if (!sessionData.session) {
-    throw new Error('You are signed out. Please sign in again, then reopen the padlock.');
-  }
+  let refreshed = false;
+  let lastErr: SecureNotesFunctionError | null = null;
 
-  const { data, error } = await supabase.functions.invoke('secure-job-notes', {
-    body: { action, code, ...payload },
-  });
-
-  if (error) {
-    // supabase-js hides the server message behind a generic non-2xx error.
-    // Pull the real reason out of the response body so the user can act on it.
-    let serverMessage = '';
+  for (let attempt = 0; attempt < 4; attempt++) {
+    let token: string;
+    token = await getFreshToken(refreshed);
+    let res: Response;
     try {
-      const res = (error as any)?.context;
-      if (res && typeof res.json === 'function') {
-        const parsed = await res.clone().json();
-        serverMessage = parsed?.error || '';
-      }
+      res = await fetch(FN_URL, {
+        method: 'POST',
+        headers: { apikey: ANON, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, code: code.trim(), ...payload }),
+      });
     } catch {
-      /* ignore parse issues */
+      lastErr = Object.assign(new Error('Connection problem — retrying failed. Check your internet and try again.'), { errorCode: 'NETWORK' });
+      await sleep(400 * (attempt + 1));
+      continue;
     }
-    throw new Error(serverMessage || error.message || 'Request failed');
-  }
 
-  if (data?.error) {
-    const functionError = new Error(data.error) as SecureNotesFunctionError;
-    functionError.errorCode = data.errorCode;
-    throw functionError;
+    let data: any = null;
+    try { data = await res.json(); } catch { /* empty body */ }
+
+    if (res.status === 401 && !refreshed) {
+      refreshed = true; // token rejected: refresh sign-in once and retry
+      continue;
+    }
+    if (res.status >= 500 || res.status === 429 || res.status === 408) {
+      lastErr = Object.assign(new Error(data?.error || 'The secure notes service is busy. Please try again.'), { errorCode: 'SERVER', status: res.status });
+      await sleep(500 * (attempt + 1));
+      continue;
+    }
+    if (!res.ok || data?.error) {
+      const err = new Error(data?.error || `Request failed (${res.status})`) as SecureNotesFunctionError;
+      err.status = res.status;
+      err.errorCode = data?.errorCode ?? (res.status === 401 ? 'SIGNED_OUT' : res.status === 403 ? 'NO_ADMIN' : undefined);
+      throw err;
+    }
+    return data;
   }
-  return data;
+  throw lastErr ?? new Error('Request failed');
 }
 
 

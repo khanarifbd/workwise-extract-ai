@@ -120,3 +120,6 @@ verify_jwt = true
 
 
 
+
+[functions.secure-job-notes]
+verify_jwt = false
