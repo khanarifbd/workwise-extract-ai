@@ -151,11 +151,6 @@ export const Header = ({ onExport, jobCount, onJobClick, onRefresh, overdueCount
             target="_blank"
             rel="noopener noreferrer"
             title="Open Live Board in a new tab"
-            onClick={() => {
-              navigator.clipboard
-                ?.writeText('team@allsaintsbuilders.com\nAllSaints#Ops2026')
-                .catch(() => {});
-            }}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all bg-gradient-to-r from-orange-500 to-amber-500 text-white hover:from-orange-600 hover:to-amber-600 shadow-sm"
           >
             <MonitorPlay className="w-3.5 h-3.5" />
