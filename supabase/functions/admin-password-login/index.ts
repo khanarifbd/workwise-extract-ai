@@ -79,12 +79,15 @@ Deno.serve(async (req) => {
     }
 
     const code = (lastError as { code?: string } | null)?.code;
+    // Wrong credentials are an expected outcome, not a server failure: return 200
+    // with ok:false so runtime monitors don't treat it as a fatal function error.
     return json({
+      ok: false,
       error: code === 'invalid_credentials'
-        ? 'Login details were rejected by the authentication service. Please reselect the saved login or reset the password.'
+        ? 'Incorrect email or password. Genie passwords were changed on 6 Oct 2026 — use the new password.'
         : lastError?.message ?? 'Login could not be completed.',
       code: code ?? null,
-    }, code === 'invalid_credentials' ? 401 : 400);
+    }, 200);
   } catch (err) {
     console.error('admin-password-login error', err);
     return json({ error: 'Unexpected login error.' }, 500);

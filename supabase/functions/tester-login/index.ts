@@ -37,15 +37,15 @@ Deno.serve(async (req) => {
       ?? serviceRole;
 
     if (!expected || !email || !password || !supabaseUrl || !serviceRole || !authKey) {
-      return new Response(JSON.stringify({ error: 'Tester login not configured.' }), {
-        status: 500,
+      return new Response(JSON.stringify({ ok: false, error: 'Access codes are switched off. Sign in with your email and password.' }), {
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     if (!submitted || submitted.length > 100 || !timingSafeEqual(submitted, expected)) {
-      return new Response(JSON.stringify({ error: 'Invalid access code.' }), {
-        status: 401,
+      return new Response(JSON.stringify({ ok: false, error: 'Invalid access code.' }), {
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
