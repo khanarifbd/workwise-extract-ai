@@ -334,28 +334,37 @@ export const TeamSelector = ({ job, currentCategoryId, onSelect, onClose, onDupl
                         key={team.teamId}
                         onClick={() => handleTeamToggle(selectedCategory, team)}
                         className={cn(
-                          'w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-left',
-                          isSelected && 'bg-primary/10 ring-1 ring-primary/30',
+                          'w-full flex items-start gap-3 px-3 py-2.5 rounded-lg border border-transparent transition-colors text-left',
+                          isSelected && 'bg-primary/10 border-primary/40',
                           isUnavailable && 'opacity-60 bg-red-50 dark:bg-red-950/20',
-                          !isUnavailable && 'hover:bg-muted'
+                          !isUnavailable && !isSelected && 'hover:bg-muted'
                         )}
                       >
-                        <Checkbox checked={isSelected} className="pointer-events-none" />
+                        <Checkbox checked={isSelected} className="pointer-events-none mt-0.5" />
                         <div
-                          className="w-3 h-3 rounded-full flex-shrink-0"
+                          className="w-3 h-3 rounded-full flex-shrink-0 mt-1"
                           style={{ backgroundColor: team.color || 'hsl(var(--muted-foreground))' }}
                         />
                         <div className="flex-1 min-w-0">
                           <span className={cn(
-                            "font-medium text-sm truncate block",
+                            "font-semibold text-sm truncate block",
                             isUnavailable && "text-red-600 dark:text-red-400"
                           )}>
                             {team.teamName}
                           </span>
-                          {skillsByTeam[team.teamId]?.length > 0 && (
-                            <span className="text-xs text-muted-foreground block whitespace-normal leading-snug">
-                              {skillsByTeam[team.teamId].join(' · ')}
-                            </span>
+                          {skillsByTeam[team.teamId]?.length > 0 ? (
+                            <div className="flex flex-wrap gap-1 mt-1.5">
+                              {skillsByTeam[team.teamId].map((skill) => (
+                                <span
+                                  key={skill}
+                                  className="text-[11px] leading-none px-2 py-1 rounded-full bg-muted text-muted-foreground border border-border"
+                                >
+                                  {skill}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-[11px] text-muted-foreground/60 italic block mt-0.5">No skills listed</span>
                           )}
                           {isUnavailable && (
                             <span className="text-xs text-red-500 flex items-center gap-1">
