@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useTeamSettings, TeamSetting } from '@/hooks/useTeamSettings';
 import { useCategories } from '@/hooks/useCategories';
 import { useTeamAvailability } from '@/hooks/useTeamAvailability';
-
+import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
@@ -40,6 +40,15 @@ export const TeamSelector = ({ job, currentCategoryId, onSelect, onClose, onDupl
   const { settings, isLoading, getTeamsForCategory, getGlobalTeams } = useTeamSettings();
   const { categories, isLoading: categoriesLoading } = useCategories();
   const { isTeamUnavailableByName, getUnavailableReasonByName } = useTeamAvailability();
+  const [skillsByTeam, setSkillsByTeam] = useState<Record<string, string[]>>({});
+
+  useEffect(() => {
+    supabase.from('team_skills').select('team_id, skills').then(({ data }) => {
+      const map: Record<string, string[]> = {};
+      (data || []).forEach((r: any) => { map[r.team_id] = r.skills || []; });
+      setSkillsByTeam(map);
+    });
+  }, []);
 
   // Get the booked date from the job for availability checking
   const bookedDateStr = job.bookedDate 
@@ -343,6 +352,11 @@ export const TeamSelector = ({ job, currentCategoryId, onSelect, onClose, onDupl
                           )}>
                             {team.teamName}
                           </span>
+                          {skillsByTeam[team.teamId]?.length > 0 && (
+                            <span className="text-xs text-muted-foreground block whitespace-normal leading-snug">
+                              {skillsByTeam[team.teamId].join(' · ')}
+                            </span>
+                          )}
                           {isUnavailable && (
                             <span className="text-xs text-red-500 flex items-center gap-1">
                               <AlertTriangle className="w-3 h-3" />
