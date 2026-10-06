@@ -266,6 +266,8 @@ export const useAdminAuth = () => {
 
       if (functionError) {
         error = new Error(data?.error || functionError.message);
+      } else if (data?.error && !data?.session) {
+        error = new Error(data.error);
       } else if (!data?.session?.access_token || !data?.session?.refresh_token) {
         error = new Error('Login service did not return a valid session. Please try again.');
       } else {
@@ -308,6 +310,11 @@ export const useAdminAuth = () => {
         const error = new Error(message);
         setState(prev => ({ ...prev, error: message }));
         return { error };
+      }
+
+      if (data?.error && !data?.session) {
+        setState(prev => ({ ...prev, error: data.error! }));
+        return { error: new Error(data.error) };
       }
 
       if (!data?.session?.access_token || !data?.session?.refresh_token) {
