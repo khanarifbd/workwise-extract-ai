@@ -1,6 +1,6 @@
 import { Job, Team } from '@/types/job';
 import { Category } from '@/types/category';
-import { MessageCircle, ExternalLink, UserX, Loader2, ChevronLeft, Check, Copy, AlertTriangle } from 'lucide-react';
+import { MessageCircle, ExternalLink, UserX, Loader2, ChevronLeft, Check, Copy, AlertTriangle, Pencil, X, Plus } from 'lucide-react';
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { format } from 'date-fns';
@@ -41,6 +41,20 @@ export const TeamSelector = ({ job, currentCategoryId, onSelect, onClose, onDupl
   const { categories, isLoading: categoriesLoading } = useCategories();
   const { isTeamUnavailableByName, getUnavailableReasonByName } = useTeamAvailability();
   const [skillsByTeam, setSkillsByTeam] = useState<Record<string, string[]>>({});
+  const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
+  const [newSkill, setNewSkill] = useState('');
+
+  const saveSkills = async (team: TeamSetting, next: string[]) => {
+    const prev = skillsByTeam[team.teamId] || [];
+    setSkillsByTeam(m => ({ ...m, [team.teamId]: next }));
+    const { error } = await supabase
+      .from('team_skills')
+      .upsert({ team_id: team.teamId, team_name: team.teamName, skills: next } as any, { onConflict: 'team_id' });
+    if (error) {
+      setSkillsByTeam(m => ({ ...m, [team.teamId]: prev }));
+      toast({ title: 'Could not save skills', description: error.message, variant: 'destructive' });
+    }
+  };
 
   useEffect(() => {
     supabase.from('team_skills').select('team_id, skills').then(({ data }) => {
@@ -329,12 +343,15 @@ export const TeamSelector = ({ job, currentCategoryId, onSelect, onClose, onDupl
                     const isUnavailable = bookedDateStr && isTeamUnavailableByName(team.teamName, bookedDateStr);
                     const unavailableReason = bookedDateStr ? getUnavailableReasonByName(team.teamName, bookedDateStr) : null;
 
+                    const skills = skillsByTeam[team.teamId] || [];
+                    const isEditing = editingTeamId === team.teamId;
+
                     return (
+                      <div key={team.teamId} className="relative">
                       <button
-                        key={team.teamId}
                         onClick={() => handleTeamToggle(selectedCategory, team)}
                         className={cn(
-                          'w-full flex items-start gap-3 px-3 py-2.5 rounded-lg border border-transparent transition-colors text-left',
+                          'w-full flex items-start gap-3 pl-3 pr-10 py-2.5 rounded-lg border border-transparent transition-colors text-left',
                           isSelected && 'bg-primary/10 border-primary/40',
                           isUnavailable && 'opacity-60 bg-red-50 dark:bg-red-950/20',
                           !isUnavailable && !isSelected && 'hover:bg-muted'
@@ -352,9 +369,9 @@ export const TeamSelector = ({ job, currentCategoryId, onSelect, onClose, onDupl
                           )}>
                             {team.teamName}
                           </span>
-                          {skillsByTeam[team.teamId]?.length > 0 ? (
+                          {!isEditing && (skills.length > 0 ? (
                             <div className="flex flex-wrap gap-1 mt-1.5">
-                              {skillsByTeam[team.teamId].map((skill) => (
+                              {skills.map((skill) => (
                                 <span
                                   key={skill}
                                   className="text-[11px] leading-none px-2 py-1 rounded-full bg-muted text-muted-foreground border border-border"
@@ -365,7 +382,7 @@ export const TeamSelector = ({ job, currentCategoryId, onSelect, onClose, onDupl
                             </div>
                           ) : (
                             <span className="text-[11px] text-muted-foreground/60 italic block mt-0.5">No skills listed</span>
-                          )}
+                          ))}
                           {isUnavailable && (
                             <span className="text-xs text-red-500 flex items-center gap-1">
                               <AlertTriangle className="w-3 h-3" />
@@ -381,6 +398,51 @@ export const TeamSelector = ({ job, currentCategoryId, onSelect, onClose, onDupl
                           </Badge>
                         )}
                       </button>
+                      <button
+                        type="button"
+                        title={isEditing ? 'Done editing skills' : 'Edit skills'}
+                        onClick={() => { setEditingTeamId(isEditing ? null : team.teamId); setNewSkill(''); }}
+                        className="absolute right-2 top-2 p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted"
+                      >
+                        {isEditing ? <Check className="w-4 h-4" /> : <Pencil className="w-4 h-4" />}
+                      </button>
+                      {isEditing && (
+                        <div className="ml-[3.25rem] mr-3 mb-2 space-y-2">
+                          <div className="flex flex-wrap gap-1">
+                            {skills.length === 0 && <span className="text-[11px] text-muted-foreground italic">No skills yet</span>}
+                            {skills.map((skill) => (
+                              <span key={skill} className="inline-flex items-center gap-1 text-[11px] leading-none pl-2 pr-1 py-1 rounded-full bg-muted text-foreground border border-border">
+                                {skill}
+                                <button type="button" title={`Remove ${skill}`} onClick={() => saveSkills(team, skills.filter(s => s !== skill))} className="hover:text-destructive">
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                          <form
+                            className="flex gap-1.5"
+                            onSubmit={(e) => {
+                              e.preventDefault();
+                              const s = newSkill.trim();
+                              if (!s || skills.some(x => x.toLowerCase() === s.toLowerCase())) return;
+                              saveSkills(team, [...skills, s]);
+                              setNewSkill('');
+                            }}
+                          >
+                            <input
+                              autoFocus
+                              value={newSkill}
+                              onChange={(e) => setNewSkill(e.target.value)}
+                              placeholder="Add a skill, e.g. Tiling"
+                              className="flex-1 h-8 px-2 text-xs rounded-md border border-input bg-background"
+                            />
+                            <Button type="submit" size="sm" className="h-8 px-2" disabled={!newSkill.trim()}>
+                              <Plus className="w-3.5 h-3.5" />
+                            </Button>
+                          </form>
+                        </div>
+                      )}
+                      </div>
                     );
                   })}
 
