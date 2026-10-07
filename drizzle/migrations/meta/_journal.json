@@ -15,6 +15,13 @@
       "when": 1790187814251,
       "tag": "0001_repair_linked_fan_jobs",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791410206368,
+      "tag": "0002_rls_initplan_role_checks",
+      "breakpoints": true
     }
   ]
 }
