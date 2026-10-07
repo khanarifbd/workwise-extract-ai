@@ -564,25 +564,25 @@ const _runFetchJobs = async (categoryId?: string): Promise<Job[]> => {
     throw lastErr ?? new Error('Failed to fetch jobs');
   };
 
-  const firstPage = await fetchRange(0, batchSize - 1, true);
-  if (firstPage.rows.length < batchSize || !firstPage.count || firstPage.count <= batchSize) {
-    return firstPage.rows.map(mapDatabaseJobToJob);
-  }
+  // No exact-count query (it doubled DB work on every load). Fetch the first
+  // page, then parallel waves of pages until a short page signals the end.
+  const firstPage = await fetchRange(0, batchSize - 1);
+  const pages: any[][] = [firstPage.rows];
+  if (firstPage.rows.length < batchSize) return firstPage.rows.map(mapDatabaseJobToJob);
 
-  const ranges: Array<[number, number]> = [];
-  for (let offset = batchSize; offset < firstPage.count; offset += batchSize) {
-    ranges.push([offset, Math.min(offset + batchSize - 1, firstPage.count - 1)]);
-  }
-
-  const remainingPages: any[][] = [];
   const concurrency = 4;
-  for (let i = 0; i < ranges.length; i += concurrency) {
-    const chunk = ranges.slice(i, i + concurrency);
-    const pages = await Promise.all(chunk.map(([from, to]) => fetchRange(from, to).then(result => result.rows)));
-    remainingPages.push(...pages);
+  let offset = batchSize;
+  let done = false;
+  while (!done && offset < 20000) {
+    const wave = Array.from({ length: concurrency }, (_, i) => offset + i * batchSize);
+    const results = await Promise.all(wave.map(from => fetchRange(from, from + batchSize - 1).then(r => r.rows)));
+    for (const rows of results) {
+      if (rows.length) pages.push(rows);
+      if (rows.length < batchSize) { done = true; break; }
+    }
+    offset += concurrency * batchSize;
   }
-
-  return [firstPage.rows, ...remainingPages].flat().map(mapDatabaseJobToJob);
+  return pages.flat().map(mapDatabaseJobToJob);
 };
 
 export const invalidateJobsCache = (categoryId?: string) => {
