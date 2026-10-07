@@ -76,7 +76,7 @@ type CompletedSortOrder = 'newest' | 'oldest';
 const Index = () => {
   const { canEdit } = useAdminAuth();
   useSessionPersistence('genie');
-  const { categories, isLoading: categoriesLoading, addCategory, updateCategory, deleteCategory } = useCategories();
+  const { categories: visibleCategories, allCategories: categories, isLoading: categoriesLoading, addCategory, updateCategory, deleteCategory } = useCategories();
   
   // URL-persisted state for navigation that survives tab switches
   const {
@@ -165,10 +165,10 @@ const Index = () => {
 
   // Set first category as active when loaded (only if no URL category)
   useEffect(() => {
-    if (categories.length > 0 && !activeCategory) {
-      setActiveCategory(categories[0].id);
+    if (visibleCategories.length > 0 && (!activeCategory || !visibleCategories.some(c => c.id === activeCategory))) {
+      setActiveCategory(visibleCategories[0].id);
     }
-  }, [categories, activeCategory, setActiveCategory]);
+  }, [visibleCategories, activeCategory, setActiveCategory]);
 
   const handleFileUpload = async (file: File, type: FileType) => {
     setIsProcessing(true);
@@ -1451,7 +1451,7 @@ const Index = () => {
 
         {/* Category Tabs - hide add/edit for viewers */}
         <CategoryTabs
-          categories={categories}
+          categories={visibleCategories}
           activeCategory={activeCategory}
           onCategoryChange={setActiveCategory}
           onAddCategory={canEdit ? addCategory : undefined}

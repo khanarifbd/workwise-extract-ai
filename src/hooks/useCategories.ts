@@ -3,6 +3,9 @@ import { Category } from '@/types/category';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
+// Streams hidden from tabs/pickers. Jobs and linked-trade scanning are kept intact.
+export const HIDDEN_CATEGORY_SLUGS = new Set(['insulation','roofing','bannisters','roof-cl','voids','flooring','firedoor']);
+
 export const useCategories = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -134,8 +137,11 @@ export const useCategories = () => {
     if (error) throw error;
   };
 
+  const visibleCategories = categories.filter(c => !HIDDEN_CATEGORY_SLUGS.has(c.slug));
+
   return {
-    categories,
+    categories: visibleCategories,
+    allCategories: categories,
     isLoading,
     addCategory,
     updateCategory,

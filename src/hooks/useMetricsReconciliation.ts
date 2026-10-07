@@ -31,7 +31,7 @@ export interface MetricsReconciliation {
 
 export function useMetricsReconciliation(): MetricsReconciliation {
   const cm = useCommandMetrics();
-  const { categories } = useCategories();
+  const { allCategories: categories } = useCategories();
 
   const result = useMemo(() => {
     const list = Array.isArray(cm.jobs) ? cm.jobs : [];

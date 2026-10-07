@@ -150,7 +150,7 @@ export interface CommandMetrics {
 
 export const useCommandMetrics = (): CommandMetrics => {
   const { jobs, isLoading, lastUpdated, refreshJobs } = useCommandJobSnapshot();
-  const { categories } = useCategories();
+  const { allCategories: categories } = useCategories();
 
   const today = new Date();
   const todayKey = format(today, 'yyyy-MM-dd');
