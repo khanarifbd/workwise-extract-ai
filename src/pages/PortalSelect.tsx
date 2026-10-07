@@ -154,9 +154,6 @@ export default function PortalSelect() {
           )}
         </div>
 
-        <p className="text-xs text-white/30 text-center mt-8">
-          Need progressor access? <button onClick={() => navigate('/progressor')} className="underline hover:text-white/60">Sign in here</button>
-        </p>
       </div>
     </div>
   );
