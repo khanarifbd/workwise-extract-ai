@@ -98,7 +98,7 @@ const adapt = (j: Job): TrackerRow => {
 
 export function useTrackerJobs(silo: 'dm' | 'aa') {
   const cm = useCommandMetrics();
-  const { categories } = useCategories();
+  const { allCategories: categories } = useCategories();
   return useMemo(() => {
     const nameById: Record<string, string> = {};
     for (const c of categories || []) nameById[c.id] = c.name;
