@@ -19,8 +19,6 @@ const normalizeHashRoute = () => {
     "/welcome",
     "/team",
     "/archive",
-    "/progressor",
-    "/progressor-login",
     "/auto-assign",
     "/roadmaps",
     "/reset-password",
@@ -56,10 +54,8 @@ import TeamArchive from "./pages/TeamArchive";
 import AdminAuth from "./pages/AdminAuth";
 import PortalSelect from "./pages/PortalSelect";
 import ResetPassword from "./pages/ResetPassword";
-import ProgressorAuth from "./pages/ProgressorAuth";
 import NotFound from "./pages/NotFound";
 import { AdminRoute } from "./components/AdminRoute";
-import { ProgressorRoute } from "./components/ProgressorRoute";
 import { LastRouteRestorer } from "./components/LastRouteRestorer";
 
 // Lazy load heavy pages. Never force-refresh the whole app: a reload loses the
@@ -79,7 +75,6 @@ const AAJobTracker = lazy(() => lazyRetry(() => import("./pages/AAJobTracker")))
 const LiveMonitoringLog = lazy(() => lazyRetry(() => import("./pages/LiveMonitoringLog")));
 const ReportsAnalytics = lazy(() => lazyRetry(() => import("./pages/ReportsAnalytics")));
 const OwnersDashboard = lazy(() => lazyRetry(() => import("./pages/OwnersDashboard")));
-const ProgressorWorkspace = lazy(() => lazyRetry(() => import("./pages/ProgressorWorkspace")));
 const AutoAssignPanel = lazy(() => lazyRetry(() => import("./pages/AutoAssignPanel")));
 
 const Roadmaps = lazy(() => lazyRetry(() => import("./pages/Roadmaps")));
@@ -171,14 +166,9 @@ const App = () => (
                   <PageErrorBoundary><Suspense fallback={<PageLoader />}><TeamArchive /></Suspense></PageErrorBoundary>
                 </AdminRoute>
               } />
-              <Route path="/progressor-login" element={<Navigate to="/progressor" replace />} />
-              <Route path="/progressor" element={
-                <AdminRoute>
-                  <PageErrorBoundary><Suspense fallback={<PageLoader />}><ProgressorWorkspace /></Suspense></PageErrorBoundary>
-                </AdminRoute>
-              } />
-              <Route path="/progressor-panel" element={<Navigate to="/progressor" replace />} />
-              <Route path="/team-progressor" element={<Navigate to="/progressor" replace />} />
+              {["/progressor","/progressor-login","/progressor-panel","/team-progressor"].map(p => (
+                <Route key={p} path={p} element={<Navigate to="/" replace />} />
+              ))}
               <Route path="/auto-assign" element={
                 <AdminRoute section="auto-assign">
                   <PageErrorBoundary><Suspense fallback={<PageLoader />}><AutoAssignPanel /></Suspense></PageErrorBoundary>

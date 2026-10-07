@@ -69,17 +69,6 @@ export const ActionHub = () => {
           <span>SOR Book</span>
         </button>
 
-
-        <span className="w-px h-4 bg-border/70 mx-0.5" aria-hidden />
-
-        <Link
-          to="/progressor"
-          title="Open Progressor Workspace"
-          className={cn(itemBase, 'text-progressor-foreground/90 hover:text-white')}
-        >
-          <Rocket className="w-3.5 h-3.5 text-sky-400" />
-          <span>Progressor</span>
-        </Link>
       </div>
 
       <MaterialsReportModal open={materialsOpen} onOpenChange={setMaterialsOpen} />
