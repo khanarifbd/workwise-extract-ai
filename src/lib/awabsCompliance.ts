@@ -29,8 +29,22 @@ export interface AwabsCompliance {
   daysSinceUpload: number;
 }
 
-const CONTACT_DEADLINE_HOURS = 24;
-const COMPLETION_DEADLINE_HOURS = 5 * 24; // 5 days
+export const CONTACT_DEADLINE_HOURS = 24;
+const toDate = (d: unknown): Date | null => {
+  if (d == null || d === '') return null;
+  const x = d instanceof Date ? d : new Date(d as string);
+  return isNaN(x.getTime()) ? null : x;
+};
+
+/** Earliest trustworthy moment the job existed on the system. */
+export const getJobLoadedAt = (job: Pick<Job, 'createdAt' | 'dateIssued'>): Date | null => {
+  const c = toDate(job.createdAt);
+  const i = toDate(job.dateIssued);
+  if (c && i) return i.getTime() < c.getTime() ? i : c;
+  return c || i;
+};
+
+export const COMPLETION_DEADLINE_HOURS = 5 * 24; // 5 days
 
 /**
  * Calculate AWABS LAW compliance for a single job
@@ -41,14 +55,15 @@ export const getAwabsCompliance = (
 ): AwabsCompliance => {
   const now = new Date();
   
-  // Use dateIssued as upload date, fallback to createdAt
-  const uploadDate = job.dateIssued instanceof Date && !isNaN(job.dateIssued.getTime())
-    ? job.dateIssued
-    : job.createdAt instanceof Date && !isNaN(job.createdAt.getTime())
-    ? job.createdAt
-    : now;
+  // Clock starts at the EARLIEST known load time. date_issued can be pushed
+  // forward (linked trade jobs sync it to the booked date), so never trust it
+  // alone; created_at is the real moment the job hit the system.
+  const uploadDate = getJobLoadedAt(job) ?? now;
+  // Clock stops at sign-off for completed jobs.
+  const done = job.isCompleted || job.status === 'complete';
+  const clockEnd = done && toDate(job.completionDate) ? toDate(job.completionDate)! : now;
 
-  const msSinceUpload = now.getTime() - uploadDate.getTime();
+  const msSinceUpload = Math.max(0, clockEnd.getTime() - uploadDate.getTime());
   const hoursSinceUpload = msSinceUpload / (1000 * 60 * 60);
   const daysSinceUpload = hoursSinceUpload / 24;
 
