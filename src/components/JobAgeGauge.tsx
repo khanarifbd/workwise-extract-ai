@@ -42,7 +42,8 @@ export const JobAgeGauge = memo(({ job, size = 'sm' }: Props) => {
   if (!loaded) return null;
 
   const signedOff = job.isCompleted || job.status === 'complete';
-  const end = signedOff && job.completionDate && !isNaN(job.completionDate.getTime()) ? job.completionDate.getTime() : nowMs;
+  const cd = job.completionDate ? new Date(job.completionDate as any).getTime() : NaN;
+  const end = signedOff && !isNaN(cd) ? cd : nowMs;
   const ageMs = Math.max(0, end - loaded.getTime());
   const ageHours = ageMs / HOUR;
   const day = Math.floor(ageHours / 24) + 1; // Day 1 = first 24h on system

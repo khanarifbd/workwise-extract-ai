@@ -30,12 +30,16 @@ export interface AwabsCompliance {
 }
 
 export const CONTACT_DEADLINE_HOURS = 24;
-const valid = (d: unknown): d is Date => d instanceof Date && !isNaN(d.getTime());
+const toDate = (d: unknown): Date | null => {
+  if (d == null || d === '') return null;
+  const x = d instanceof Date ? d : new Date(d as string);
+  return isNaN(x.getTime()) ? null : x;
+};
 
 /** Earliest trustworthy moment the job existed on the system. */
 export const getJobLoadedAt = (job: Pick<Job, 'createdAt' | 'dateIssued'>): Date | null => {
-  const c = valid(job.createdAt) ? job.createdAt : null;
-  const i = valid(job.dateIssued) ? job.dateIssued : null;
+  const c = toDate(job.createdAt);
+  const i = toDate(job.dateIssued);
   if (c && i) return i.getTime() < c.getTime() ? i : c;
   return c || i;
 };
@@ -57,8 +61,7 @@ export const getAwabsCompliance = (
   const uploadDate = getJobLoadedAt(job) ?? now;
   // Clock stops at sign-off for completed jobs.
   const done = job.isCompleted || job.status === 'complete';
-  const clockEnd = done && job.completionDate instanceof Date && !isNaN(job.completionDate.getTime())
-    ? job.completionDate : now;
+  const clockEnd = done && toDate(job.completionDate) ? toDate(job.completionDate)! : now;
 
   const msSinceUpload = Math.max(0, clockEnd.getTime() - uploadDate.getTime());
   const hoursSinceUpload = msSinceUpload / (1000 * 60 * 60);
