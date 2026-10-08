@@ -55,6 +55,7 @@ import { OpsManagerNotes } from './OpsManagerNotes';
 import { OpsAlertsPanel } from './OpsAlertsPanel';
 import { TeamOverdueAlert } from './TeamOverdueAlert';
 import { AwabsComplianceBadge } from '@/components/AwabsComplianceBadge';
+import { JobAgeGauge } from '@/components/JobAgeGauge';
 import { cn } from '@/lib/utils';
 
 // Helper to get contrasting text color
@@ -534,6 +535,7 @@ export const TeamJobList = ({
                 {job.team}
               </Badge>
             )}
+            <JobAgeGauge job={job} />
             <AwabsComplianceBadge job={job} hasContactHistory={false} compact />
             {/* Blocker alert from Danni */}
             {(job as any).blockerType && (

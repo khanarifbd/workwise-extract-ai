@@ -65,6 +65,7 @@ import { useAllContactHistory } from '@/hooks/useContactHistory';
 // useSignOffStatus passed as prop from parent to avoid duplicate calls
 import { shouldShowOngoingAlert } from '@/hooks/useJobAlerts';
 import { AwabsComplianceBadge } from './AwabsComplianceBadge';
+import { JobAgeGauge } from './JobAgeGauge';
 import { HighlightText } from './HighlightText';
 import { CONTACT_OUTCOMES, determineNextAction, NextAction } from '@/types/contactHistory';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -1101,6 +1102,7 @@ export const JobTable = forwardRef<HTMLDivElement, JobTableProps>(({ jobs, onUpd
                               {alertInfo.isAutoTriggered ? 'OVERDUE' : 'ONGOING'}
                             </Badge>
                           )}
+                          <JobAgeGauge job={job} />
                           <AwabsComplianceBadge 
                             job={job} 
                             hasContactHistory={!!(contactHistoryMap[job.id] && contactHistoryMap[job.id].length > 0)}
