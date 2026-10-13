@@ -1,0 +1,2 @@
+DROP TRIGGER IF EXISTS trigger_auto_refer_back ON public.contact_history;
+COMMENT ON FUNCTION public.auto_refer_back_on_contact() IS 'DEPRECATED: auto refer-back removed; jobs vanished from live lists after 3 call logs. UI shows REFER NPH badge instead.';
