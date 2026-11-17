@@ -1,11 +1,12 @@
 import { useCallback, useState, useRef, useEffect } from 'react';
-import { Upload, Image as ImageIcon, Video, FileText, X, Loader2 } from 'lucide-react';
+import { Upload, Image as ImageIcon, Video, FileText, X, Loader2, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Attachment } from '@/types/job';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { downloadAttachment, downloadAttachmentsZip } from '@/lib/attachmentDownload';
 import { createJobAttachmentSignedUrl, extractJobAttachmentPath, getJobAttachmentPublicUrl } from '@/lib/attachmentUrls';
 
 interface AttachmentUploadProps {
@@ -192,6 +193,39 @@ export const AttachmentUpload = ({ jobId, attachments, onAttachmentsChange }: At
     return <FileText className="w-4 h-4" />;
   };
 
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [zipProgress, setZipProgress] = useState<string | null>(null);
+
+  const handleDownloadOne = async (attachment: Attachment) => {
+    setDownloadingId(attachment.id);
+    try {
+      await downloadAttachment(attachment, { jobId });
+    } catch (e) {
+      toast({ title: 'Download failed', description: `${attachment.name} could not be downloaded.`, variant: 'destructive' });
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  const handleDownloadAll = async () => {
+    const list = categorizedAttachments[activeCategory];
+    if (!list.length) return;
+    setZipProgress(`0/${list.length}`);
+    try {
+      const { ok, failed } = await downloadAttachmentsZip(
+        list, `job-${jobId}-${activeCategory}.zip`, { jobId },
+        (d, t) => setZipProgress(`${d}/${t}`),
+      );
+      toast({
+        title: ok ? 'Download ready' : 'Download failed',
+        description: failed ? `${ok} saved, ${failed} could not be downloaded.` : `${ok} file(s) saved to your Downloads.`,
+        variant: ok ? undefined : 'destructive',
+      });
+    } finally {
+      setZipProgress(null);
+    }
+  };
+
   // Get display URL for an attachment
   const getDisplayUrl = (attachment: Attachment): string => {
     return displayUrls[attachment.id] || attachment.url;
@@ -245,6 +279,12 @@ export const AttachmentUpload = ({ jobId, attachments, onAttachmentsChange }: At
           )}
           Upload {activeCategory}
         </Button>
+        {categorizedAttachments[activeCategory].length > 0 && (
+          <Button size="sm" variant="outline" onClick={handleDownloadAll} disabled={!!zipProgress}>
+            {zipProgress ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Download className="w-3 h-3 mr-1" />}
+            {zipProgress ? `Preparing ${zipProgress}` : `Download all ${activeCategory} (${categorizedAttachments[activeCategory].length})`}
+          </Button>
+        )}
       </div>
 
       {/* Attachments Grid */}
@@ -287,6 +327,15 @@ export const AttachmentUpload = ({ jobId, attachments, onAttachmentsChange }: At
               <p className="text-[10px] text-muted-foreground">
                 {new Date(attachment.uploadedAt).toLocaleDateString()}
               </p>
+              <button
+                onClick={() => handleDownloadOne(attachment)}
+                disabled={downloadingId === attachment.id}
+                title="Download"
+                aria-label={`Download ${attachment.name}`}
+                className="absolute top-1 left-1 p-1.5 rounded-full bg-primary text-primary-foreground shadow"
+              >
+                {downloadingId === attachment.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+              </button>
               <button
                 onClick={() => removeAttachment(attachment)}
                 className="absolute top-1 right-1 p-1 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity"
