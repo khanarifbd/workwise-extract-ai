@@ -67,8 +67,17 @@ const isAuthorizedAuthUser = async (
   const token = authHeader.replace(/^Bearer\s+/i, '').trim();
   if (!token) return false;
 
-  const { data: userData } = await supabase.auth.getUser(token);
-  const userId = userData?.user?.id;
+  // Verify the JWT locally first (no network round trip), then fall back to getUser with one retry.
+  let userId: string | null = null;
+  try {
+    const { data: claimsData } = await supabase.auth.getClaims(token);
+    userId = (claimsData?.claims?.sub as string | undefined) ?? null;
+  } catch { /* fall back */ }
+  for (let attempt = 0; !userId && attempt < 2; attempt++) {
+    const { data: userData } = await supabase.auth.getUser(token);
+    userId = userData?.user?.id ?? null;
+    if (!userId && attempt === 0) await new Promise((r) => setTimeout(r, 250));
+  }
   if (!userId) return false;
 
   const { data: roleRows, error } = await supabase
@@ -164,7 +173,8 @@ Deno.serve(async (req) => {
       || await isAuthorizedTeam(supabase, path, teamId, jobId);
 
     if (!authorized) {
-      return json({ error: 'Not authorized to open this attachment.' }, 403);
+      // 200 with ok:false so the browser treats it as a soft refusal, not a crash.
+      return json({ ok: false, error: 'Not authorized to open this attachment.' });
     }
 
     const { data, error } = await supabase.storage
