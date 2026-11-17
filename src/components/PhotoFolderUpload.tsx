@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import { Attachment } from '@/types/job';
 import { compressImages, formatBytes, calculateSavings } from '@/lib/imageCompression';
 import { BulkMediaDownload } from './BulkMediaDownload';
+import { downloadAttachment, downloadAttachmentsZip } from '@/lib/attachmentDownload';
 import { createJobAttachmentSignedUrl, extractJobAttachmentPath, getJobAttachmentPublicUrl } from '@/lib/attachmentUrls';
 import {
   Collapsible,
@@ -73,6 +74,25 @@ export const PhotoFolderUpload = ({
   const [displayUrls, setDisplayUrls] = useState<Record<string, string>>({});
   const [draggedPhoto, setDraggedPhoto] = useState<Attachment | null>(null);
   const [downloadFolder, setDownloadFolder] = useState<{ id: string; name: string } | null>(null);
+  const [zipProgress, setZipProgress] = useState<string | null>(null);
+  const allPhotos = attachments.filter(a => a.type === 'image');
+  const downloadAllPhotos = async () => {
+    if (!allPhotos.length) return;
+    setZipProgress(`0/${allPhotos.length}`);
+    try {
+      const { ok, failed } = await downloadAttachmentsZip(
+        allPhotos, `job-${jobId}-photos.zip`, { jobId, teamId },
+        (d, t) => setZipProgress(`${d}/${t}`),
+      );
+      toast({
+        title: ok ? 'Download ready' : 'Download failed',
+        description: failed ? `${ok} saved, ${failed} could not be downloaded.` : `${ok} photo(s) saved to your Downloads.`,
+        variant: ok ? undefined : 'destructive',
+      });
+    } finally {
+      setZipProgress(null);
+    }
+  };
   const abortControllerRef = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const activeFolderRef = useRef<string | null>(null);
@@ -538,6 +558,13 @@ export const PhotoFolderUpload = ({
             Photo Folders
             {!readOnly && <span className="text-xs ml-2 opacity-60">(drag to reorganize)</span>}
           </h3>
+          <div className="flex items-center gap-2">
+          {allPhotos.length > 0 && (
+            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={downloadAllPhotos} disabled={!!zipProgress}>
+              {zipProgress ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Download className="w-3 h-3 mr-1" />}
+              {zipProgress ? `Preparing ${zipProgress}` : `Download all photos (${allPhotos.length})`}
+            </Button>
+          )}
           {!readOnly && (
             <Button
               variant="outline"
@@ -549,6 +576,7 @@ export const PhotoFolderUpload = ({
               New Folder
             </Button>
           )}
+          </div>
         </div>
 
         {/* New folder input */}
@@ -925,6 +953,15 @@ interface DraggablePhotoProps {
 }
 
 const DraggablePhoto = ({ photo, displayUrl, readOnly, onRemove }: DraggablePhotoProps) => {
+  const [busy, setBusy] = useState(false);
+  const { toast } = useToast();
+  const handleDownload = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setBusy(true);
+    try { await downloadAttachment(photo); }
+    catch { toast({ title: 'Download failed', description: `${photo.name} could not be downloaded.`, variant: 'destructive' }); }
+    finally { setBusy(false); }
+  };
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: photo.id,
   });
@@ -959,6 +996,17 @@ const DraggablePhoto = ({ photo, displayUrl, readOnly, onRemove }: DraggablePhot
         className="w-full h-full object-cover pointer-events-none"
         draggable={false}
       />
+      <button
+        type="button"
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={handleDownload}
+        disabled={busy}
+        title="Download"
+        aria-label={`Download ${photo.name}`}
+        className="absolute bottom-1 right-1 p-1.5 rounded-full bg-primary text-primary-foreground shadow z-10"
+      >
+        {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+      </button>
       {!readOnly && (
         <button
           onClick={onRemove}
