@@ -666,6 +666,8 @@ export const PhotoFolderUpload = ({
                   displayUrl={displayUrls[photo.id] || photo.url}
                   readOnly={readOnly}
                   onRemove={() => removePhoto(photo)}
+                  jobId={jobId}
+                  teamId={teamId}
                 />
               ))}
             </div>
@@ -950,15 +952,17 @@ interface DraggablePhotoProps {
   displayUrl: string;
   readOnly: boolean;
   onRemove: () => void;
+  jobId?: string;
+  teamId?: string;
 }
 
-const DraggablePhoto = ({ photo, displayUrl, readOnly, onRemove }: DraggablePhotoProps) => {
+const DraggablePhoto = ({ photo, displayUrl, readOnly, onRemove, jobId, teamId }: DraggablePhotoProps) => {
   const [busy, setBusy] = useState(false);
   const { toast } = useToast();
   const handleDownload = async (e: React.MouseEvent) => {
     e.stopPropagation();
     setBusy(true);
-    try { await downloadAttachment(photo); }
+    try { await downloadAttachment(photo, { jobId, teamId }); }
     catch { toast({ title: 'Download failed', description: `${photo.name} could not be downloaded.`, variant: 'destructive' }); }
     finally { setBusy(false); }
   };

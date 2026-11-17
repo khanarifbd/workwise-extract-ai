@@ -47,11 +47,22 @@ export const createJobAttachmentSignedUrl = async (
 
   if (!error && data?.signedUrl) return data.signedUrl;
 
-  const { data: functionData, error: functionError } = await supabase.functions.invoke('sign-job-attachment-url', {
-    body: { path, jobId: context.jobId, teamId: context.teamId },
-  });
+  // Only ask the signing service when it can actually authorise us:
+  // a team portal (teamId + jobId) or a signed-in user. Otherwise it just returns 403.
+  const canUseTeamPath = !!(context.teamId && context.jobId);
+  if (!canUseTeamPath) {
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData?.session) return fallbackUrl;
+  }
 
-  if (!functionError && functionData?.signedUrl) return functionData.signedUrl;
+  try {
+    const { data: functionData, error: functionError } = await supabase.functions.invoke('sign-job-attachment-url', {
+      body: { path, jobId: context.jobId, teamId: context.teamId },
+    });
+    if (!functionError && functionData?.signedUrl) return functionData.signedUrl;
+  } catch {
+    // fall through to the stored URL
+  }
 
   return fallbackUrl;
 };
