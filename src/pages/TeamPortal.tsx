@@ -272,13 +272,17 @@ const TeamPortal = () => {
     try {
       const pendingItems = await getPendingSyncItems();
       
+      let syncedCount = 0;
+      let failedCount = 0;
       for (const item of pendingItems) {
         try {
           if (item.actionType === 'progress_update' || item.actionType === 'status_update') {
-            await updateTeamJob(item.payload.id, {
-              status: item.payload.status,
-              progress: item.payload.progress,
-              notes: item.payload.progress_notes,
+            // Payloads come in two shapes: full save ({ jobId, ...updates })
+            // and dictation ({ id, progress_notes }). Forward everything.
+            const { id, jobId, progress_notes, ...rest } = item.payload || {};
+            await updateTeamJob(id || jobId, {
+              ...rest,
+              notes: rest.notes ?? progress_notes,
             });
             await markSynced(item.id);
           } else if (item.actionType === 'photo_upload') {
@@ -313,16 +317,23 @@ const TeamPortal = () => {
             await markSynced(item.id);
           } else {
             console.warn('[sync] Unknown queued actionType, skipping:', item.actionType);
+            continue;
           }
+          syncedCount++;
         } catch (err) {
+          failedCount++;
           console.error('Error syncing item:', err, 'actionType:', (item as any).actionType);
         }
       }
 
       if (pendingItems.length > 0) {
-        toast({
+        toast(failedCount > 0 ? {
+          title: 'Some updates not sent yet',
+          description: `${syncedCount} sent, ${failedCount} will retry automatically.`,
+          variant: 'destructive',
+        } : {
           title: 'Synced',
-          description: `${pendingItems.length} updates synced successfully.`,
+          description: `${syncedCount} updates synced successfully.`,
         });
         loadJobs();
       }
