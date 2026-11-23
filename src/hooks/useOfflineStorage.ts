@@ -113,11 +113,11 @@ export const useOfflineStorage = (teamId?: string) => {
       const database = await openDB();
       const tx = database.transaction(SYNC_QUEUE_STORE, 'readonly');
       const store = tx.objectStore(SYNC_QUEUE_STORE);
-      const index = store.index('synced');
-      const request = index.count(IDBKeyRange.only(false));
+      // Booleans are not valid IndexedDB keys, so filter in memory.
+      const request = store.getAll();
       
       request.onsuccess = () => {
-        setPendingSyncCount(request.result);
+        setPendingSyncCount((request.result || []).filter((i: SyncQueueItem) => !i.synced).length);
       };
     } catch (error) {
       console.error('Error counting pending syncs:', error);
@@ -259,11 +259,11 @@ export const useOfflineStorage = (teamId?: string) => {
       const database = await openDB();
       const tx = database.transaction(SYNC_QUEUE_STORE, 'readonly');
       const store = tx.objectStore(SYNC_QUEUE_STORE);
-      const index = store.index('synced');
-      const request = index.getAll(IDBKeyRange.only(false));
+      // Booleans are not valid IndexedDB keys, so filter in memory.
+      const request = store.getAll();
 
       return new Promise((resolve, reject) => {
-        request.onsuccess = () => resolve(request.result || []);
+        request.onsuccess = () => resolve((request.result || []).filter((i: SyncQueueItem) => !i.synced));
         request.onerror = () => reject(request.error);
       });
     } catch (error) {
