@@ -24,3 +24,25 @@ cd <repository-name>
 npm i
 npm run dev
 ```
+
+## Mobile development (Android and iOS)
+
+On macOS with Xcode installed, run:
+
+```sh
+npm install
+npm run build:mobile
+```
+
+`build:mobile` builds the production web assets, then syncs assets, Capacitor configuration, and native plugins to Android and iOS. Each step runs only if the previous step succeeds.
+
+By default, the app uses bundled web assets. If `CAP_SERVER_URL` is set, it uses that remote URL instead.
+
+To run or archive the native apps, open their projects:
+
+```sh
+npx cap open android
+npx cap open ios
+```
+
+Android Studio and Xcode handle device builds and signing; `build:mobile` does not generate an APK, AAB, or IPA.
