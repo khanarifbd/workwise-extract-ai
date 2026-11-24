@@ -46,3 +46,5 @@ npx cap open ios
 ```
 
 Android Studio and Xcode handle device builds and signing; `build:mobile` does not generate an APK, AAB, or IPA.
+
+The iOS app uses the UIScene lifecycle for Xcode 27 / iOS 27 builds with Capacitor 8.6.2. `SceneDelegate` creates the Capacitor window and forwards incoming links through `SceneDelegateProxy`; Firebase initialization and push registration remain in `AppDelegate`. Keep the scene manifest and SceneDelegate target membership when changing the native project. After native changes, verify launch, background/resume, incoming links, and notification taps on a simulator or device.
